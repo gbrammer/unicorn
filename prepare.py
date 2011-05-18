@@ -18,12 +18,12 @@ Grism images:
     4) Run multidrizzle to flag cosmic rays
     5) ...
     
-$ URL: https://subversion.assembla.com/svn/threedhst_internal/trunk/prepare.py $
-$ Author: gbrammer $
-$ Date: 2011-05-18 00:37:27 -0500 (Wed, 18 May 2011) $
+$URL$
+$Author$
+$Date$
 
 """
-__version__ = " $ Rev: 2 $"
+__version__ = " $Rev$"
 
 def COSMOS():
     from threedhst.prep_flt_files import process_3dhst_pair as pair

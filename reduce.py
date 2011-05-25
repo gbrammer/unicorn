@@ -51,7 +51,7 @@ def prep():
     
     ALIGN = '../NMBS/COSMOS-1.V4.K_nosky.fits'
     
-    threedhst.prep_flt_files.process_3dhst_pair('ibhm43030_asn.fits', 'ibhm43040_asn.fits', ALIGN_IMAGE = ALIGN, IMAGES=['G141_fixed_sky.fits'], GET_SHIFT=True, SKIP_DIRECT=True)
+    threedhst.prep_flt_files.process_3dhst_pair('ibhm46030_asn.fits', 'ibhm46040_asn.fits', ALIGN_IMAGE = ALIGN, IMAGES=['G141_fixed_sky.fits'], GET_SHIFT=True, SKIP_DIRECT=True)
     
     # threedhst.prep_flt_files.startMultidrizzle('COSMOS-1-F140W_asn.fits',
     #     use_shiftfile=True, skysub=False,
@@ -88,6 +88,48 @@ def combine(root='COSMOS-1-F140W'):
     dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
     dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
     
+    dxi = np.cast[int](np.ceil(dxs/2))
+    dyi = np.cast[int](np.ceil(dys/2))
+    
+    #### Find hot pixels, which are flagged as cosmic 
+    #### rays at the same location in each of the flt files.  Ignore others.
+    hot_pix = np.zeros((1014,1014),dtype='int')
+    for flt in run.flt:
+        im = pyfits.open(flt+'.fits')
+        hot_pix += (im[3].data & 4096) / 4096
+    
+    hot_pix = hot_pix > 2
+    
+    #### Background
+    bgsum = np.zeros((1014+pad/2,1014+pad/2))
+    bgN = bgsum*0.
+    pfl = pyfits.open('/research/HST/GRISM/IREF/uc721143i_pfl.fits')
+    
+    for i,flt in enumerate(run.flt):
+        print flt
+        flt = run.flt[i]
+        im = pyfits.open(flt+'.fits')
+        #im[1].data /= pfl[1].data[5:-5,5:-5]
+        use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
+        bgsum[yi[use]+dyi[i],xi[use]+dxi[i]] += im[1].data[use]
+        bgN[yi[use]+dyi[i],xi[use]+dxi[i]] += 1
+    
+    bgsum /= bgN
+    
+    i=0
+    diff = bgsum
+    flt = run.flt[i]
+    im = pyfits.open(flt+'.fits','update')
+    #im[1].data /= pfl[1].data[5:-5,5:-5]
+    use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
+    im[1].data[use] -= diff[yi[use]+dyi[i],xi[use]+dxi[i]]
+    im[1].data[~use] = -1
+    sub = np.abs(im[1].data) < 0.2
+    im[1].data -= threedhst.utils.biweight(im[1].data[sub], mean=True)
+    im.flush()
+    ds9.view(im[1].data)
+    ds9.scale(-0.1,1)
+    
     for i,flt in enumerate(run.flt):
         print flt
         flt = run.flt[i]
@@ -102,8 +144,9 @@ def combine(root='COSMOS-1-F140W'):
         dx = dxs[i]
         dy = dys[i]
         #
-        use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
+        #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
         #
+        use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
         inter[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
         N[yi[use]*2+dy,xi[use]*2+dx] += 1
         #
@@ -227,7 +270,7 @@ def scale_header_wcs(header, factor=2, pad=60):
     
     return header
 
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E']):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -276,12 +319,14 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
     NY *= grow_factor
     
     model = np.zeros((NY*2+1, NX), dtype=np.float)
+    wavelength = model*0
+    
     yi, xi = np.indices(model.shape)
     xi += xmi
     yi -= NY
     xarr, xpix, yarr = np.arange(xma-xmi)+xmi, np.arange(xma-xmi), np.arange(NY*2+1)-NY
     
-    for beam in ['A','B','C','D','E']:
+    for beam in BEAMS:
        
         xmi_beam, xma_beam = tuple(np.cast[int](conf['BEAM'+beam].split())) 
         xmi_beam *= grow_factor
@@ -298,6 +343,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
         dldp_0 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_0'])
         dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / grow_factor
         
+        #### Improve alignment of zeroth order
         if beam == 'B':
             dydx_1 = 0.1
             dydx_0 -= 2/grow_factor
@@ -309,7 +355,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
             dldp_0 += (1-f)*dldp_1*-213*2*(2-(1.02-0.02*np.abs(bigY-507)/507.))
             
         #print 'BEAM_%s: %5.2f %5.2f, %6.3f %5.3f, %9.2f %6.2f' %(beam, xoff_beam / grow_factor, yoff_beam / grow_factor, dydx_0, dydx_1*grow_factor, dldp_0, dldp_1*grow_factor)
-                
+
+        #### Wavelength
+        lam = dldp_0 + dldp_1*(xarr-xoff_beam)
+        
         #### Interpolate pixel at shifted ycenter along beam
         ycenter = dydx_0 + dydx_1*(xarr-xoff_beam)
         stripe = model*0
@@ -319,9 +368,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
         if xarr[keep].size > 1:
             stripe[y0[keep]+NY,xpix[keep]]  = 1-f0[keep]
             stripe[y0[keep]+NY+1,xpix[keep]] = f0[keep]
-        
+            wavelength[y0[keep]+NY+1,xpix[keep]] += lam[keep]
+            wavelength[y0[keep]+NY+1,xpix[keep]] += lam[keep]
+            
         #### Sensitivity
-        lam = dldp_0 + dldp_1*(xarr-xoff_beam)
         sens = pyfits.open('./CONF/'+conf['SENSITIVITY_'+beam])[1].data
         sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
         
@@ -342,7 +392,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None):
         
         model += stripe
         
-    return model, (xmi, xma)
+    return model, (xmi, xma, wavelength)
     
 def synthesize():
     import unicorn.reduce as red
@@ -476,7 +526,7 @@ def model_full_image():
     se.options['CHECKIMAGE_NAME'] = 'junk_seg.fits'
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-    se.options['WEIGHT_IMAGE']    = 'COSMOS-15-F140W_inter.fits[1]'
+    se.options['WEIGHT_IMAGE']    = 'COSMOS-18-F140W_inter.fits[1]'
     se.options['FILTER']    = 'Y'
 
     #### Detect thresholds (default = 1.5)
@@ -485,10 +535,10 @@ def model_full_image():
     se.options['MAG_ZEROPOINT'] = '26.46'
 
     #### Run SExtractor
-    status = se.sextractImage('COSMOS-15-F140W_inter.fits[0]')
+    status = se.sextractImage('COSMOS-18-F140W_inter.fits[0]')
     
-    im = pyfits.open('COSMOS-15-F140W_inter.fits')
-    gris = pyfits.open('COSMOS-15-G141_inter.fits')
+    im = pyfits.open('COSMOS-18-F140W_inter.fits')
+    gris = pyfits.open('COSMOS-18-G141_inter.fits')
     flux = im[1].data * 10**(-0.4*(26.46+48.6))*3.e18/1.392e4**2/1.e-17
     sh = im[1].data.shape
     
@@ -501,55 +551,26 @@ def model_full_image():
     lam_spec = None
     flux_spec = None
     
+    #### Try a default blue spectrum
+    # lam_spec = np.arange(1.e4,1.7e4)
+    # flux_spec = (lam_spec-1.4e4)*-0.0001 + 1
+    
     noNewLine = '\x1b[1A\x1b[1M'
 
     model = im[1].data*0.
     
-    for ii,id in enumerate(cat.id):
-        print noNewLine + 'ID: %d' %(id)
-        xc = np.float(cat.X_IMAGE[ii])
-        yc = np.float(cat.Y_IMAGE[ii])
-        #
-        orders, xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec)
-        yord, xord = np.indices(orders.shape)
-        non_zero = orders > 0
-        xord, yord, ford = xord[non_zero], yord[non_zero], orders[non_zero]
-        ys = orders.shape
-        xord += xi[0]
-        yord -= (ys[0]-1)/2
-        #
-        mask = seg == id
-        xpix = xf[mask]
-        ypix = yf[mask]
-        object = model*0.
-        #
-        for jj in range(xpix.size):
-            x, y = xpix[jj], ypix[jj]
-            xxi = x+xord
-            yyi = y+yord
-            use = (xxi >= 0) & (xxi < sh[1]) & (yyi >= 0) & (yyi < sh[0])
-            object[yyi[use], xxi[use]] += ford[use]*flux[y,x]*10
-        #
-        overlap = object > 0.1*object.max()
-        #norm = np.sum(object[overlap]*gris[1].data[overlap])/np.sum(object[overlap]**2)
-        model += object #*norm
-        
-    #### Second loop, subtract all other object and renormalize for a given object
-    t1 = time.time()
-    print '\n\nFirst pass: %.1fs.\n\nSecond pass...\n' %(t1-t0)
-    model0 = model*1.
-    model1 = model0*0.
-    norm_coeffs = cat.id*0.
+    BEAMS = ['A','B','C','D','E']
     
     for ii,id in enumerate(cat.id):
         print noNewLine + 'ID: %d' %(id)
         xc = np.float(cat.X_IMAGE[ii])
         yc = np.float(cat.Y_IMAGE[ii])
         #
-        orders, xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec)
+        orders, xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS)
         yord, xord = np.indices(orders.shape)
         non_zero = orders > 0
-        xord, yord, ford = xord[non_zero], yord[non_zero], orders[non_zero]
+        xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
+        
         ys = orders.shape
         xord += xi[0]
         yord -= (ys[0]-1)/2
@@ -566,17 +587,93 @@ def model_full_image():
             use = (xxi >= 0) & (xxi < sh[1]) & (yyi >= 0) & (yyi < sh[0])
             object[yyi[use], xxi[use]] += ford[use]*flux[y,x]*10
         #
-        overlap = (object > 0.05*object.max()) & (model0 < 5*object.max())
-        cleaned = gris[1].data - (model0 - object)
-        norm = np.sum(object[overlap]*gris[1].data[overlap])/np.sum(object[overlap]**2)
-        model1 += object*norm
+        model += object #*norm
+        
+    #### Second loop, subtract all other object and renormalize for a given object
+    t1 = time.time()
+    print '\nFirst pass: %.1fs.\n\nSecond pass...\n' %(t1-t0)
+    model0 = model*1.
+    model1 = model0*0.
+    norm_coeffs = cat.id*0.
+    
+    pyfits.writeto('junk_model0.fits', model0, header=gris[1].header, clobber=True)
+    
+    so = np.argsort(np.cast[float](cat.MAG_AUTO))
+    for count,ii in enumerate(so):
+        id = cat.id[ii]
+        print noNewLine + 'ID: %d, %3d' %(id, count*1./(len(so)-1)*100) + '%'
+        xc = np.float(cat.X_IMAGE[ii])
+        yc = np.float(cat.Y_IMAGE[ii])
+        #
+        orders, xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec)
+        yord, xord = np.indices(orders.shape)
+        non_zero = orders > 0
+        xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
+        ys = orders.shape
+        xord += xi[0]
+        yord -= (ys[0]-1)/2
+        #
+        mask = seg == id
+        xpix = xf[mask]
+        ypix = yf[mask]
+        object = model*0.
+        # wave = model*0
+        # wave_weight = model*0
+        # sens = model*0
+        #
+        for jj in range(xpix.size):
+            x, y = xpix[jj], ypix[jj]
+            xxi = x+xord
+            yyi = y+yord
+            use = (xxi >= 0) & (xxi < sh[1]) & (yyi >= 0) & (yyi < sh[0])
+            object[yyi[use], xxi[use]] += ford[use]*flux[y,x]*10
+            # wave[yyi[use], xxi[use]] += word[use]*flux[y,x]
+            # wave_weight[yyi[use], xxi[use]] += flux[y,x]
+            # sens[yyi[use], xxi[use]] += ford[use]
+        #
+        #### Get slope
+        # data = gris[1].data-(model0 - object)
+        # wok = (wave_weight > 0) & (np.isfinite(data))
+        # wave[wok] /= wave_weight[wok]
+        # data[wok == False] = 0
+        # wht = data*1.
+        # yd, xd = np.indices(data.shape)
+        # yd = np.unique(yd[wok])
+        # for jj in yd:
+        #     wline = wave[jj,:]
+        #     dline = data[jj,:]
+        #     sline = sens[jj,:]/np.max(sens[jj,:])
+        #     dok = (dline > 0.2*dline.max()) & (np.abs(wline-1.4e4) < 300)
+        #     dline /= sline
+        #     dline -= np.median(dline[dok])
+        #     data[jj,:] = dline  
+        # #
+        # wok = (wave_weight > 0) & (np.isfinite(data)) & (np.abs(wave-1.4e4) > 600) & (wht > 0.4*wht.max())
+        # data[wok == False] = 0
+        # wht[wok == False] = 0
+        # sens[wok == False] = 0
+        # a = (data)/((wave-1.4e4))
+        # aout = np.sum(a*wht)/np.sum(wht)
+        # lam_spec = np.arange(1.e4,1.7e4)
+        # flux_spec = (lam_spec-1.4e4)*aout*2 + 1
+        
+        overlap = (object > 0.1*object.max()) & (model0 < 2*object.max()) & (gris[1].data != 0)
+        if len(object[overlap]) > 1:
+            cleaned = gris[1].data - (model0 - object)
+            norm = np.sum(object[overlap]*cleaned[overlap])/np.sum(object[overlap]**2)
+        else:
+            norm = 1.
+        if (not np.isfinite(norm)) | (norm > 2.5):
+            norm = 1.
+        #
         norm_coeffs[ii] = norm
+        model1 += object*norm
         
     #
     t2 = time.time()
     print '\n\nSecond pass: %.1fs.\n' %(t2-t1)
     
-    pyfits.writeto('junk_model.fits', model1, header=gris[1].header, clobber=True)
+    pyfits.writeto('junk_model1.fits', model1, header=gris[1].header, clobber=True)
     #pyfits.writeto('junk_ratio.fits', gris[1].data/model, header=gris[1].header, clobber=True)
     
 def field_dependent(xi, yi, str_coeffs):

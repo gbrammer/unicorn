@@ -12,17 +12,6 @@ $Date$
 """
 __version__ = "$Rev$"
 
-import os
-import glob
-import shutil
-
-import numpy as np
-import matplotlib.pyplot as plt
-USE_PLOT_GUI = False
-
-import pyfits
-
-import threedhst
-
 import prepare
+import reduce
 

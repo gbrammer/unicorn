@@ -41,13 +41,14 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True)
-        
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True)
+            
     # # Check alignment
     # threedhst.gmap.makeImageMap(['COSMOS-27-F140W_drz.fits', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.01'], aper_list=[16])
     # 
     # threedhst.gmap.makeImageMap(['COSMOS-27-F140W_drz.fits','/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'], aper_list=[16])
-
+    threedhst.gmap.makeImageMap(['../COSMOS-3-F140W_drz.fits', '../../MOSAIC/COSMOS-F140w_11-05-20_sci.fits[0]'], aper_list=[17])
+    
     #### Direct mosaic
     direct_files = glob.glob('COSMOS-*-F140W_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='COSMOS-F140W',
@@ -63,13 +64,18 @@ def COSMOS(FORCE=False):
              updatewcs=False, clean=True, median=False,
              ra=150.12356, dec=2.3608425,
              final_outnx = NX, final_outny=NY)
-    #
-    #### Temporary release of the direct mosaic
-    # iraf.imcopy('COSMOS-F140W_drz.fits[1]','COSMOS-F140w_11-05-20_sci.fits')
-    # iraf.imcopy('COSMOS-F140W_drz.fits[2]','COSMOS-F140w_11-05-20_wht.fits')
-    # !tar czvf COSMOS-F140w_11-05-20.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
-    # !mv COSMOS-F140w_11-05-20* ../MOSAIC
     
-    threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.01','/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'], aper_list=[13,14,15,16,17], tileroot=['F140W','WIRDS-K','F814W'])
+    ### Temporary release of the direct mosaic
+    # iraf.imcopy('COSMOS-F140W_drz.fits[1]','COSMOS-F140w_11-05-23_sci.fits')
+    # iraf.imcopy('COSMOS-F140W_drz.fits[2]','COSMOS-F140w_11-05-23_wht.fits')
+    # !tar czvf COSMOS-F140w_11-05-23.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
+    # !mv COSMOS-F140w_11-05-23* ../MOSAIC
+        
+    threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-05-23_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=[13,14,15,16,17], tileroot=['F140W','F814W','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'])
+    
+    ### don't need high-res tiles of lo-res images sitting around
+    os.system('remove ~/Sites/FITS/tiles/MIPS*1[67].png')
+    os.system('remove ~/Sites/FITS/tiles/VLA*1[7].png')
+    os.system('remove ~/Sites/FITS/tiles/0.5*17.png')
     
     

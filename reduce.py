@@ -693,6 +693,8 @@ def model_stripe():
     """
     import unicorn.reduce as red
     yran = range(800,900)
+    yraf = range(1014)
+    
     model = np.zeros((1014,1014))
     lam_spec, flux_spec = None, None
     f125 = 0.68
@@ -718,7 +720,7 @@ def model_stripe():
         print noNewLine + 'x: %d' %(x)
         object = model*0.
         for y in yran:
-            orders, xi = red.grism_model(x, y, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+            orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
             yord, xord = np.indices(orders.shape)
             non_zero = orders > 0
             xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]

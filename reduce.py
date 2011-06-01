@@ -735,6 +735,5 @@ def model_stripe():
             object[yyi[use], xxi[use]] += ford[use]
         #
         model += object #*norm
-    
-    pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+        pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
     

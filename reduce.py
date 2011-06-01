@@ -716,10 +716,9 @@ def model_stripe():
     # xord += xi[0]
     # yord -= (ys[0]-1)/2
 
-    for x in range(-190,1014+87):
-        print noNewLine + 'x: %d' %(x)
-        object = model*0.
-        for y in yran:
+    for y in yran:
+        print noNewLine + 'x: %d' %(y)
+        for x in range(-190,1014+87):
             orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
             yord, xord = np.indices(orders.shape)
             non_zero = orders > 0
@@ -732,8 +731,8 @@ def model_stripe():
             xxi = x+xord
             yyi = y+yord
             use = (xxi >= 0) & (xxi < 1014) & (yyi >= 0) & (yyi < 1014)
-            object[yyi[use], xxi[use]] += ford[use]
+            model[yyi[use], xxi[use]] += ford[use]
         #
-        model += object #*norm
+        #model += object #*norm
         pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
     

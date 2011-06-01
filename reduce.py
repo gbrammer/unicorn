@@ -277,7 +277,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     import threedhst.dq
     #ds9 = threedhst.dq.myDS9()
 
-    os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
+    #os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
 
     conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf').params
     
@@ -702,7 +702,7 @@ def model_stripe():
     flux_spec = np.array([1.,1.,f160/f125,f160/f125])
     
     BEAMS = ['A','B']
-    BEAMS = ['A','B','C','D'] #,'E']
+    BEAMS = ['A','B','C','D','E']
     noNewLine = '\x1b[1A\x1b[1M'
 
     # orders, xi = red.grism_model(507, 850, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)

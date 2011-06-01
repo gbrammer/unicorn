@@ -270,7 +270,7 @@ def scale_header_wcs(header, factor=2, pad=60):
     
     return header
 
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E']):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D','E']):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -283,8 +283,6 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, BEAMS=
     
     ## A star in COSMOS-15-F140W
     ##### For interlaced images
-    grow_factor = 2
-    pad = 60
     
     # xc_full = 244.13
     # yc_full = 1244.323
@@ -687,3 +685,54 @@ def field_dependent(xi, yi, str_coeffs):
     xy = np.array([1,xi,yi,xi**2,xi*yi,yi**2, xi**3, xi**2*yi, xi*yi**2, yi**3])
     a = np.sum(coeffs*xy[0:len(coeffs)])
     return a
+    
+def model_stripe():
+    """
+    Model a horizontal stripe across the image assuming uniform illumination
+    to compare to the sky background images
+    """
+    import unicorn.reduce as red
+    yran = range(800,900)
+    model = np.zeros((1014,1014))
+    lam_spec, flux_spec = None, None
+    f125 = 0.68
+    f160 = 0.6
+    f160 *= 10**(-(25.96-26.25)/2.5)/(1.6/1.25)**2
+    lam_spec = np.array([0.9e4,1.25e4,1.6e4,1.9e4])
+    flux_spec = np.array([1.,1.,f160/f125,f160/f125])
+    
+    BEAMS = ['A','B']
+    BEAMS = ['A','B','C','D'] #,'E']
+    noNewLine = '\x1b[1A\x1b[1M'
+
+    # orders, xi = red.grism_model(507, 850, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+    # yord, xord = np.indices(orders.shape)
+    # non_zero = orders > 0
+    # xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
+    # 
+    # ys = orders.shape
+    # xord += xi[0]
+    # yord -= (ys[0]-1)/2
+
+    for x in range(-190,1014+87):
+        print noNewLine + 'x: %d' %(x)
+        object = model*0.
+        for y in yran:
+            orders, xi = red.grism_model(x, y, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+            yord, xord = np.indices(orders.shape)
+            non_zero = orders > 0
+            xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
+
+            ys = orders.shape
+            xord += xi[0]
+            yord -= (ys[0]-1)/2
+        
+            xxi = x+xord
+            yyi = y+yord
+            use = (xxi >= 0) & (xxi < 1014) & (yyi >= 0) & (yyi < 1014)
+            object[yyi[use], xxi[use]] += ford[use]
+        #
+        model += object #*norm
+    
+    pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+    

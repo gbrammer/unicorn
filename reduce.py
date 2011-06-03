@@ -70,7 +70,7 @@ def combine(root='COSMOS-1-F140W'):
     import threedhst.dq
     ds9 = threedhst.dq.myDS9()
 
-    os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
+    #os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
 
     run = threedhst.prep_flt_files.MultidrizzleRun(root)
     #run.blot_back(ii=0, copy_new=True)
@@ -100,35 +100,35 @@ def combine(root='COSMOS-1-F140W'):
     
     hot_pix = hot_pix > 2
     
-    #### Background
-    bgsum = np.zeros((1014+pad/2,1014+pad/2))
-    bgN = bgsum*0.
-    pfl = pyfits.open('/research/HST/GRISM/IREF/uc721143i_pfl.fits')
-    
-    for i,flt in enumerate(run.flt):
-        print flt
-        flt = run.flt[i]
-        im = pyfits.open(flt+'.fits')
-        #im[1].data /= pfl[1].data[5:-5,5:-5]
-        use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
-        bgsum[yi[use]+dyi[i],xi[use]+dxi[i]] += im[1].data[use]
-        bgN[yi[use]+dyi[i],xi[use]+dxi[i]] += 1
-    
-    bgsum /= bgN
-    
-    i=0
-    diff = bgsum
-    flt = run.flt[i]
-    im = pyfits.open(flt+'.fits','update')
-    #im[1].data /= pfl[1].data[5:-5,5:-5]
-    use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
-    im[1].data[use] -= diff[yi[use]+dyi[i],xi[use]+dxi[i]]
-    im[1].data[~use] = -1
-    sub = np.abs(im[1].data) < 0.2
-    im[1].data -= threedhst.utils.biweight(im[1].data[sub], mean=True)
-    im.flush()
-    ds9.view(im[1].data)
-    ds9.scale(-0.1,1)
+    # #### Background
+    # bgsum = np.zeros((1014+pad/2,1014+pad/2))
+    # bgN = bgsum*0.
+    # pfl = pyfits.open('/research/HST/GRISM/IREF/uc721143i_pfl.fits')
+    # 
+    # for i,flt in enumerate(run.flt):
+    #     print flt
+    #     flt = run.flt[i]
+    #     im = pyfits.open(flt+'.fits')
+    #     #im[1].data /= pfl[1].data[5:-5,5:-5]
+    #     use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
+    #     bgsum[yi[use]+dyi[i],xi[use]+dxi[i]] += im[1].data[use]
+    #     bgN[yi[use]+dyi[i],xi[use]+dxi[i]] += 1
+    # 
+    # bgsum /= bgN
+    # 
+    # i=0
+    # diff = bgsum
+    # flt = run.flt[i]
+    # im = pyfits.open(flt+'.fits','update')
+    # #im[1].data /= pfl[1].data[5:-5,5:-5]
+    # use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
+    # im[1].data[use] -= diff[yi[use]+dyi[i],xi[use]+dxi[i]]
+    # im[1].data[~use] = -1
+    # sub = np.abs(im[1].data) < 0.2
+    # im[1].data -= threedhst.utils.biweight(im[1].data[sub], mean=True)
+    # im.flush()
+    # ds9.view(im[1].data)
+    # ds9.scale(-0.1,1)
     
     for i,flt in enumerate(run.flt):
         print flt
@@ -178,20 +178,6 @@ def combine(root='COSMOS-1-F140W'):
      yrefpix = 1150,
      orient = 0.0, dr2gpar = "", expkey = 'exptime', in_un = 'cps', \
      out_un = 'cps', fillval = '0', mode = 'al')
-    #
-    # status = iraf.wdrizzle(data = 'ibhm29wlq_flt.fits[1]', outdata = 'scix.fits', \
-    #  outweig = "", outcont = "", in_mask = "", 
-    #  wt_scl = 'exptime', \
-    #  outnx = 2300, outny = 2300, geomode = 'wcs', kernel = 'square', \
-    #  pixfrac = 1.0, coeffs = "ibhm29wlq_flt_coeffs1.dat", lamb = 1392., xgeoim = "", ygeoim = "", \
-    #  align = 'center', scale = 1.0, xsh = 0.0, ysh = 0.0, rot = 0.0, \
-    #  shft_un = 'input', shft_fr = 'input', outscl = 0.07, \
-    #  raref = header['CRVAL1'], decref = header['CRVAL2'], xrefpix = 1150, 
-    #  yrefpix = 1150,
-    #  orient = run.rot[0], dr2gpar = "", expkey = 'exptime', in_un = 'cps', \
-    #  out_un = 'cps', fillval = '0', mode = 'al')
-    
-    # wdrizzle_fail = not status[-1].startswith('-Writing output')
 
 def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat',output='scale_coeffs.dat', factor=2, pad=60):
     lines = open(input).readlines()
@@ -270,7 +256,7 @@ def scale_header_wcs(header, factor=2, pad=60):
     
     return header
 
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D','E']):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D','E'], dydx=True):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -279,7 +265,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
     #os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
 
-    conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf').params
+    conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path='../CONF/').params
     
     ## A star in COSMOS-15-F140W
     ##### For interlaced images
@@ -318,6 +304,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     
     model = np.zeros((NY*2+1, NX), dtype=np.float)
     wavelength = model*0
+    full_sens = model*0
     
     yi, xi = np.indices(model.shape)
     xi += xmi
@@ -342,10 +329,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / grow_factor
         
         #### Improve alignment of zeroth order
-        if beam == 'B':
+        if beam == 'BXr':
+            #dydx_1 = 0.0
             dydx_1 = 0.1
             dydx_0 -= 2/grow_factor
-            dydx_0 += dydx_1 * 192 * 2
+            dydx_0 += dydx_1 * 192 * grow_factor
             
             dldp_x = dldp_1*1.
             f = 0.9*(1+np.abs(bigY-507)/507.*0.2)
@@ -356,8 +344,14 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         #### Wavelength
         lam = dldp_0 + dldp_1*(xarr-xoff_beam)
-        
+                
         #### Interpolate pixel at shifted ycenter along beam
+        if not dydx:
+            dydx_0 = 0.
+            dydx_1 = 0.
+        
+        #print 'DYDX: ', dydx, dydx_0, dydx_1
+        
         ycenter = dydx_0 + dydx_1*(xarr-xoff_beam)
         stripe = model*0
         y0 = np.cast[int](np.floor(ycenter))
@@ -366,12 +360,16 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         if xarr[keep].size > 1:
             stripe[y0[keep]+NY,xpix[keep]]  = 1-f0[keep]
             stripe[y0[keep]+NY+1,xpix[keep]] = f0[keep]
-            wavelength[y0[keep]+NY+1,xpix[keep]] += lam[keep]
+            wavelength[y0[keep]+NY,xpix[keep]] += lam[keep]
             wavelength[y0[keep]+NY+1,xpix[keep]] += lam[keep]
             
         #### Sensitivity
-        sens = pyfits.open('./CONF/'+conf['SENSITIVITY_'+beam])[1].data
+        sens = pyfits.open('../CONF/'+conf['SENSITIVITY_'+beam])[1].data
         sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        
+        if xarr[keep].size > 1:
+            full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
+            full_sens[y0[keep]+NY+1,xpix[keep]] += sens_interp[keep]
         
         if (lam_spec is not None) & (flux_spec is not None):
             spec_interp = np.interp(lam, lam_spec, flux_spec, left=0., right=0.)
@@ -385,12 +383,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         if beam in ['C','D','E']:
             sens_interp *= 0.25
-        
+                
         stripe *= np.dot(np.ones((NY*2+1,1)), sens_interp.reshape(1,NX)) * grow_factor**2
         
         model += stripe
         
-    return model, (xmi, xma, wavelength)
+    return model, (xmi, xma, wavelength, full_sens)
     
 def synthesize():
     import unicorn.reduce as red
@@ -503,8 +501,74 @@ def synthesize():
     #ds9.xpa.set('pan to 1397.2 852.2') # star1
     ds9.xpa.set('zoom to 0.833333')
     ds9.xpa.set('match frames image')
+
+class GrismModel():
+    def __init__(self, root='GOODS-S-24'):
+        im = pyfits.open(root+'-F140W_inter.fits')
+        gris = pyfits.open(root+'-G141_inter.fits')
+        flux = im[1].data * 10**(-0.4*(26.46+48.6))*3.e18/1.392e4**2/1.e-17
+        sh = im[1].data.shape
+
+        cat = threedhst.sex.mySexCat(root+'_inter.cat')
+        seg = pyfits.open(root+'_seg.fits')
+        full_model = pyfits.open(root+'_model0.fits')
+        
+          
+def twod_spectrum(root='GOODS-S-24', id=328):
+    import unicorn.reduce as red
     
-def model_full_image():
+    im = pyfits.open(root+'-F140W_inter.fits')
+    gris = pyfits.open(root+'-G141_inter.fits')
+    flux = im[1].data * 10**(-0.4*(26.46+48.6))*3.e18/1.392e4**2/1.e-17
+    sh = im[1].data.shape
+    
+    cat = threedhst.sex.mySexCat(root+'_inter.cat')
+    seg = pyfits.open(root+'_seg.fits')
+    full_model = pyfits.open(root+'_model0.fits')
+    
+    ii = np.where(np.cast[int](cat.NUMBER) == id)[0][0]
+    
+    xc = np.float(cat.X_IMAGE[ii])
+    yc = np.float(cat.Y_IMAGE[ii])
+    
+    #### Generate the model for a given object
+    orders, xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'])
+    
+    yord, xord = np.indices(orders.shape)
+    # non_zero = orders > 0
+    xord, yord, ford, word = xord, yord, orders, xi[2]
+    
+    ys = orders.shape
+    xord += xi[0]
+    yord -= (ys[0]-1)/2
+    
+    mask = seg[0].data == id
+    xpix = xf[mask]
+    ypix = yf[mask]
+    object = model*0.
+    
+    for jj in range(xpix.size):
+        x, y = xpix[jj], ypix[jj]
+        xxi = x+xord
+        yyi = y+yord
+        use = (xxi >= 0) & (xxi < sh[1]) & (yyi >= 0) & (yyi < sh[0])
+        object[yyi[use], xxi[use]] += ford[use]*flux[y,x]*10
+    
+    wave_2d = xi[2]
+    sha = wave_2d.shape
+    wave = np.zeros(sha[1])
+    for i in range(sha[1]):
+        wave[i] = wave_2d[:,i].max()
+    
+    xxi = np.round(xc)+xord
+    
+    dlam = (wave[wave > 0][1:]-wave[wave > 0][0:-1]).mean()
+    ypix, xpix = np.indices(seg[0].data.shape)
+    NY = ypix[seg[0].data == id].max()-ypix[seg[0].data == id].min()
+    NX = xpix[seg[0].data == id].max()-xpix[seg[0].data == id].min()
+    
+    
+def model_full_image(root='COSMOS-18'):
     import unicorn.reduce as red
     import time
     
@@ -520,30 +584,42 @@ def model_full_image():
     se.copyConvFile()
 
     se.overwrite = True
-    se.options['CATALOG_NAME']    = 'junk_drz.cat'
-    se.options['CHECKIMAGE_NAME'] = 'junk_seg.fits'
+    se.options['CATALOG_NAME']    = root+'_inter.cat'
+    se.options['CHECKIMAGE_NAME'] = root+'_seg.fits'
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-    se.options['WEIGHT_IMAGE']    = 'COSMOS-18-F140W_inter.fits[1]'
+    se.options['WEIGHT_IMAGE']    = root+'-F140W_inter.fits[1]'
     se.options['FILTER']    = 'Y'
 
     #### Detect thresholds (default = 1.5)
-    se.options['DETECT_THRESH']    = '2' 
-    se.options['ANALYSIS_THRESH']  = '2'
+    se.options['DETECT_THRESH']    = '1' 
+    se.options['ANALYSIS_THRESH']  = '1'
     se.options['MAG_ZEROPOINT'] = '26.46'
 
     #### Run SExtractor
-    status = se.sextractImage('COSMOS-18-F140W_inter.fits[0]')
-    
-    im = pyfits.open('COSMOS-18-F140W_inter.fits')
-    gris = pyfits.open('COSMOS-18-G141_inter.fits')
+    status = se.sextractImage(root+'-F140W_inter.fits[0]')
+        
+    im = pyfits.open(root+'-F140W_inter.fits')
+    gris = pyfits.open(root+'-G141_inter.fits')
     flux = im[1].data * 10**(-0.4*(26.46+48.6))*3.e18/1.392e4**2/1.e-17
     sh = im[1].data.shape
     
     t0 = time.time()
     
-    seg = pyfits.open('junk_seg.fits')[0].data
-    cat = threedhst.sex.mySexCat('junk_drz.cat')
+    seg = pyfits.open(root+'_seg.fits')[0].data
+        
+    cat = threedhst.sex.mySexCat(root+'_inter.cat')
+    #### Trim faint sources
+    mag = np.cast[float](cat.MAG_AUTO)
+    q = np.where(mag > 23.5)[0]
+    if len(q) > 0:
+        threedhst.showMessage('Trimming objects with direct M < %6.2f.' %(24))
+        numbers = np.cast[int](cat.NUMBER)[q]
+        cat.popItem(numbers)
+    
+    cat.write()
+    print len(seg[seg > 0])
+    
     yf, xf = np.indices(im[1].data.shape)
     
     lam_spec = None
@@ -594,7 +670,7 @@ def model_full_image():
     model1 = model0*0.
     norm_coeffs = cat.id*0.
     
-    pyfits.writeto('junk_model0.fits', model0, header=gris[1].header, clobber=True)
+    pyfits.writeto(root+'_model0.fits', model0, header=gris[1].header, clobber=True)
     
     so = np.argsort(np.cast[float](cat.MAG_AUTO))
     for count,ii in enumerate(so):
@@ -671,7 +747,7 @@ def model_full_image():
     t2 = time.time()
     print '\n\nSecond pass: %.1fs.\n' %(t2-t1)
     
-    pyfits.writeto('junk_model1.fits', model1, header=gris[1].header, clobber=True)
+    pyfits.writeto(root+'_model1.fits', model1, header=gris[1].header, clobber=True)
     #pyfits.writeto('junk_ratio.fits', gris[1].data/model, header=gris[1].header, clobber=True)
     
 def field_dependent(xi, yi, str_coeffs):
@@ -704,7 +780,7 @@ def model_stripe():
     flux_spec = np.array([1.,1.,f160/f125,f160/f125])
     
     BEAMS = ['A','B']
-    BEAMS = ['A','B','C','D','E']
+    BEAMS = ['A','B','C','D'] #,'E']
     noNewLine = '\x1b[1A\x1b[1M'
 
     # orders, xi = red.grism_model(507, 850, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
@@ -716,7 +792,7 @@ def model_stripe():
     # xord += xi[0]
     # yord -= (ys[0]-1)/2
     
-    orders, xi = red.grism_model(-190, 1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+    orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
     yord, xord = np.indices(orders.shape)
     non_zero = orders > 0
     xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
@@ -725,17 +801,19 @@ def model_stripe():
     xord += xi[0]
     yord -= (ys[0]-1)/2
     
-    skip = 20
+    skip = 5
     
-    for y in range(1014):
-        print noNewLine + 'x: %d' %(y)
-        for x in range(-190,1014+87):
+    for y in range(460, 540):
+        print noNewLine + 'Y: %d' %(y)
+        if (y % 20) == 0:
+            pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+        
+        for x in range(-190,1014+85):
             if ((x % skip) + (y % skip)) == 0:
-                orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+                orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0, dydx=False)
                 yord, xord = np.indices(orders.shape)
                 non_zero = orders > 0
                 xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
-
                 ys = orders.shape
                 xord += xi[0]
                 yord -= (ys[0]-1)/2
@@ -746,5 +824,6 @@ def model_stripe():
             model[yyi[use], xxi[use]] += ford[use]
         #
         #model += object #*norm
-        pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+    #
+    pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
     

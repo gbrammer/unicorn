@@ -24,30 +24,57 @@ def egs():
     
     unicorn.candels.make_asn_files()
     
-    ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
-    ALIGN_IMAGE = '../WIRDS/WIRDS_Ks_141927+524056_T0002.SUB2.fits'
+    #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
+    ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
+    #ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits'
     
-    files=glob.glob('EGS-V[567EF]*asn.fits')
+    files=glob.glob('EGS-V*asn.fits')
     for file in files:
         if not os.path.exists(file.replace('asn','drz')):
             unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+            
+    
+    files=glob.glob('EGS-V*asn.fits')
+    for file in files:
+        root = file.split('_asn')[0]
+        try:
+            threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
+              ALIGN_IMAGE='/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits',
+              fitgeometry='shift', clean=True,
+              ALIGN_EXTENSION=0)
+        except:
+            continue
+        #
+        threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+        #
+        threedhst.gmap.makeImageMap([root+'_drz.fits', root+'_align.fits[0]'], aper_list=[16], tileroot=[root,'F814W'])
     #
     
     for filt in ['F125W', 'F160W']:
-        files=glob.glob('EGS-V[567EF]*-'+filt+'_asn.fits')
-        threedhst.utils.combine_asn_shifts(files, out_root='EGS-epoch1-'+filt,
+        files=glob.glob('EGS-V*-'+filt+'_asn.fits')
+        threedhst.utils.combine_asn_shifts(files, out_root='EGS-epoch2-'+filt,
                        path_to_FLT='./', run_multidrizzle=False)
         #
         SCALE = 0.06
-        threedhst.prep_flt_files.startMultidrizzle( 'EGS-epoch1-'+filt+'_asn.fits',
+        threedhst.prep_flt_files.startMultidrizzle( 'EGS-epoch2-'+filt+'_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=214.92061, dec=52.878457, final_outnx=7547, 
              final_outny=31900, final_rot=42)
-
+    #
+    threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]'], aper_list=[14], tileroot=['WIRDS-K','F814W'])
+    
+    threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
+    
+    threedhst.gmap.makeImageMap(['PREP_FLT/EGS-epoch2-F125W_drz.fits',  '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]'], aper_list=[14], tileroot=['F125W','F814W'])
+    
+    
 def uds():
     import unicorn.candels
     
@@ -380,7 +407,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     ALIGN_EXT=ALIGN_EXTENSION,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[],
-                    align_geometry='rxyscale,shift', clean=True,
+                    align_geometry='shift', clean=True,
                     initial_order=0, save_fit=False)
     
     if DIRECT_HIGHER_ORDER > 0:

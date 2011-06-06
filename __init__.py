@@ -14,4 +14,5 @@ __version__ = "$Rev$"
 
 import prepare
 import reduce
+import candels
 

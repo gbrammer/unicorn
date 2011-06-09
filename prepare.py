@@ -37,7 +37,7 @@ def fix_GOODSN_asn():
     
     list = catIO.Readfile('files.info')
     
-    bad = ['ib3702u8q_flt.fits','ib3702uoq_flt.fits','ib3703uzq_flt.fits','ib3703vfq_flt.fits','ib3703vmq_flt.fits','ib3704x8q_flt.fits','ib3705y1q_flt.fits','ib3705ylq_flt.fits','ib3706b2q_flt.fits','ib3707cqq_flt.fits','ib3708i5q_flt.fits','ib3708ipq_flt.fits','ib3709j3q_flt.fits']
+    bad = ['ib3701s4q_flt.fits','ib3701skq_flt.fits','ib3702u8q_flt.fits','ib3702uoq_flt.fits','ib3703uzq_flt.fits','ib3703vfq_flt.fits','ib3703vmq_flt.fits','ib3704wpq_flt.fits','ib3704x8q_flt.fits','ib3705xzq_flt.fits','ib3705y1q_flt.fits','ib3705ylq_flt.fits','ib3706b2q_flt.fits','ib3706biq_flt.fits','ib3706bpq_flt.fits','ib3707c8q_flt.fits','ib3707cqq_flt.fits','ib3708i5q_flt.fits','ib3708ipq_flt.fits','ib3709j3q_flt.fits','ib3709joq_flt.fits','ib3728d9q_flt.fits']
     
     asn = threedhst.utils.ASNFile(threedhst.utils.find_fits_gz('../RAW/ib3701050_asn.fits'))
     
@@ -56,8 +56,13 @@ def fix_GOODSN_asn():
             if not (file.replace('.gz','') in bad):
                 grism.append(file.split('_flt')[0])
         #
-        print root, len(direct), len(grism)
+        if root == 'GOODS-N-23':
+            ### Use only the new grism images because at different angle
+            while grism[0].startswith('ib3707'):
+                grism.pop(0)
         
+        print root, len(direct), len(grism)
+                    
         asn.exposures = direct
         asn.product = root+'-F140W'
         asn.write(root+'-F140W_asn.fits')
@@ -83,9 +88,32 @@ def GOODSN(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=True)
     
-    threedhst.gmap.makeImageMap(['GOODS-N-12-F140W_drz.fits', 'GOODS-N-12-G141_drz.fits', 'GOODS-N-12-F140W_align.fits[0]*4'], aper_list=[16], polyregions=["GOODS-N-12-F140W_asn.pointing.reg"])
+    threedhst.gmap.makeImageMap(['GOODS-N-42-F140W_drz.fits', 'GOODS-N-42-G141_drz.fits*3', 'GOODS-N-42-F140W_align.fits[0]*4'], aper_list=[15], polyregions=["GOODS-N-42-F140W_asn.pointing.reg"])
+    
+    direct_files = glob.glob('GOODS-N-*-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-N-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    #### Direct mosaic
+    direct_files = glob.glob('GOODS-N-*-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-N-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    SCALE = 0.128254
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False) #,
+    
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-G141_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+    #
+    threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*3'], aper_list=[13], polyregions=glob.glob('*F140W_asn.pointing.reg'))
+    
     
 def COSMOS(FORCE=False):
     from threedhst.prep_flt_files import process_3dhst_pair as pair

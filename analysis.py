@@ -16,7 +16,8 @@ from iraf import iraf
 import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
-
+import unicorn
+ 
 def get_grism_path(root):
     """ 
     Given a rootname for a grism pointing, get the path to the 
@@ -24,19 +25,19 @@ def get_grism_path(root):
     """
     PATH = './'
     if root.startswith('COSMOS'):
-        PATH = '/research/HST/GRISM/3DHST/COSMOS/'
+        PATH = unicorn.GRISM_HOME+'COSMOS/'
     if root.startswith('AEGIS'):
-        PATH = '/research/HST/GRISM/3DHST/AEGIS/'
+        PATH = unicorn.GRISM_HOME+'AEGIS/'
     if root.startswith('GOODS-N'):
-        PATH = '/research/HST/GRISM/3DHST/GOODS-N/'
+        PATH = unicorn.GRISM_HOME+'GOODS-N/'
     if root.startswith('GOODS-S'):
-        PATH = '/research/HST/GRISM/3DHST/GOODS-S/'
+        PATH = unicorn.GRISM_HOME+'GOODS-S/'
     if root.startswith('MARSHALL'):
-        PATH = '/research/HST/GRISM/3DHST/SN-MARSHALL/'
+        PATH = unicorn.GRISM_HOME+'SN-MARSHALL/'
     if root.startswith('PRIMO'):
-        PATH = '/research/HST/GRISM/3DHST/SN-PRIMO/'
+        PATH = unicorn.GRISM_HOME+'SN-PRIMO/'
     if root.startswith('GEORGE'):
-        PATH = '/research/HST/GRISM/3DHST/SN-GEORGE/'
+        PATH = unicorn.GRISM_HOME+'SN-GEORGE/'
     
     return PATH
     
@@ -47,9 +48,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     
     Usage: cat, zout, fout = read_catalogs(cosmos=True)
     
-    """
-    from socket import gethostname as hostname
-        
+    """        
     import threedhst.catIO as catIO
     import numpy as np
     
@@ -83,14 +82,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     
     #### Define paths
     if cosmos:
-        GRISM_PATH='/research/HST/GRISM/3DHST/COSMOS/'
+        GRISM_PATH=unicorn.GRISM_HOME+'COSMOS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'        
         CAT_FILE = CAT_PATH + '../cosmos-1.v4.6.cat'
         ZOUT_FILE = CAT_PATH + 'cosmos-1.v4.6.zout'
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/COSMOS/'
             CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/cosmos-1.deblend.redshifts/cosmos-1.deblend.v5.1.zout'
@@ -98,14 +96,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             KTOT_COL = 'K'
             
     if aegis:
-        GRISM_PATH='/research/HST/GRISM/3DHST/AEGIS/'
+        GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
         CAT_FILE = CAT_PATH + '../aegis-n2.v4.6.cat'
         ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
         FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/AEGIS/'
             CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
@@ -113,10 +110,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             KTOT_COL = 'K'
     
     if aegis_wirds:
-        GRISM_PATH='/research/HST/GRISM/3DHST/AEGIS/'
+        GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/WIRDS/FAST/'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/AEGIS/'
             CAT_PATH = '/3DHST/Ancillary/AEGIS/WIRDS/Photometry/FAST/'
         #
         ZOUT_FILE = CAT_PATH + '../EAZY/OUTPUT/egs_candels.zout'
@@ -128,10 +124,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         MAGS = True
     
     if goodsn:
-        GRISM_PATH='/research/HST/GRISM/3DHST/GOODS-N/'
+        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/GOODS-N/'
             CAT_PATH = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/'
         #
         CAT_FILE = CAT_PATH+'mods.cat'
@@ -140,10 +135,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'ks_ap'
         
     if cdfs:
-        GRISM_PATH='/research/HST/GRISM/3DHST/GOODS-S/'
+        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
         CAT_PATH = GRISM_PATH+'FIREWORKS/'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/GOODS-S/'
             CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
         #
         CAT_FILE = CAT_PATH+'fireworks.cat'
@@ -152,10 +146,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'Ks_totf'
         
     if uds:
-        GRISM_PATH='/research/HST/GRISM/3DHST/SN-MARSHALL/'
+        GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'
         if hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Spectra/Work/SN-MARSHALL/'
             CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
         #
         CAT_FILE = CAT_PATH+'uds.cat'
@@ -717,7 +710,7 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
         
 def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
     use_kmag=False, contam=0.5):        
-    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS')
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
     
     matches = []
 
@@ -924,7 +917,7 @@ def chapman_smgs():
     import glob
     import threedhst
     
-    os.chdir('/research/HST/GRISM/3DHST/GOODS-N/SCUBA/')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/SCUBA/')
     lines = open('Chapman_table2.dat').readlines()
     N = len(lines)
     ra = np.arange(N)*1.; dec = ra*0.; zsmg=ra*0.; idsmg = []
@@ -935,7 +928,7 @@ def chapman_smgs():
         zsmg[i] = float(lines[i][61:66])
         idsmg.append(rad)
     #
-    os.chdir('/research/HST/GRISM/3DHST/GOODS-N/SCUBA/')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/SCUBA/')
     lines = open('Chapman10_tables1.dat').readlines()
     N = len(lines)
     ra = np.arange(N)*1.; dec = ra*0.; zsmg=ra*0.; idsmg = []
@@ -988,7 +981,7 @@ def galfit_massive_galaxies():
     
     unicorn.analysis.show_massive_galaxies(contam=0.1, masslim=10.0, maglim=24, zrange=(0.4,5))
     
-    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/GALFIT/')
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/GALFIT/')
     shutil.copy('../massive.dat','.')
     
     cat = catIO.Readfile('massive.dat')
@@ -1224,7 +1217,7 @@ def testMatch():
     
 def matchObject(ra_in, dec_in):
     
-    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS')
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
     
     catalogs = glob.glob('../GOODS-N/HTML_v1.0/*.cat')
     catalogs.extend(glob.glob('../COSMOS/HTML_v1.0/*.cat'))
@@ -1272,16 +1265,16 @@ def check_masses():
     
     #### GOODS-N
     MAIN_OUTPUT_FILE = 'photz'
-    OUTPUT_DIRECTORY = '/research/HST/GRISM/3DHST/GOODS-N/MODS/EAZY/OUTPUT/'
+    OUTPUT_DIRECTORY = unicorn.GRISM_HOME+'GOODS-N/MODS/EAZY/OUTPUT/'
     
-    MODS = '/research/HST/GRISM/3DHST/GOODS-N/MODS/'
+    MODS = unicorn.GRISM_HOME+'GOODS-N/MODS/'
     cat_goodsn = catIO.Readfile(MODS+'/FAST/mods.cat')
     cat_goodsn.addColumn('kmag',25-2.5*np.log10(cat_goodsn.ks_ap))
     zout_goodsn = catIO.Readfile(MODS+'/EAZY/OUTPUT/mods.zout')
     fout_goodsn = catIO.ReadASCIICat(MODS+'/FAST/mods.bc03.fout')
     
     #### GOODS-S
-    FIREWORKS = '/research/HST/GRISM/3DHST/GOODS-S-SN/FIREWORKS/'
+    FIREWORKS = unicorn.GRISM_HOME+'GOODS-S-SN/FIREWORKS/'
     cat_fw = unicorn.analysis.catIO.ReadASCIICat(FIREWORKS+'/FIREWORKS_phot.cat')        
     cat_fw.kmag = 23.86-2.5*np.log10(cat_fw.field('Ks_totf'))
     zout_fw = unicorn.analysis.catIO.ReadASCIICat(FIREWORKS+'/fireworks.zout')

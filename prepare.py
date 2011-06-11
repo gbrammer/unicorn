@@ -26,6 +26,8 @@ $Date$
 __version__ = " $Rev$"
 
 import threedhst
+import unicorn
+
 import numpy as np
 import os
 
@@ -79,7 +81,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     import glob
     import os
     
-    os.chdir('/3DHST/Spectra/Work/GOODS-N/PREP_FLT')
+    os.chdir(unicorn.GRISM_HOME+'PREP_FLT')
     
     #### Use ACS alignment images
     ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'
@@ -126,7 +128,7 @@ def COSMOS(FORCE=False):
     import glob
     import os
     
-    os.chdir('/3DHST/Spectra/Work/COSMOS/NEW_PREP')
+    os.chdir(unicorn.GRISM_HOME+'COSMOS/NEW_PREP')
     ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
     #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
     #ALIGN = '/3DHST/Ancillary/COSMOS/NMBS/COSMOS-1_K_sci.fits'

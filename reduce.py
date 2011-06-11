@@ -42,28 +42,6 @@ from pyraf import iraf
 
 import threedhst
 
-def prep():
-    import threedhst.prep_flt_files
-    import unicorn.reduce as red
-    import threedhst.dq
-    
-    os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
-    
-    ALIGN = '../NMBS/COSMOS-1.V4.K_nosky.fits'
-    
-    threedhst.prep_flt_files.process_3dhst_pair('ibhm46030_asn.fits', 'ibhm46040_asn.fits', ALIGN_IMAGE = ALIGN, IMAGES=['G141_fixed_sky.fits'], GET_SHIFT=True, SKIP_DIRECT=True)
-    
-    # threedhst.prep_flt_files.startMultidrizzle('COSMOS-1-F140W_asn.fits',
-    #     use_shiftfile=True, skysub=False,
-    #     final_scale=0.128254, pixfrac=1.0, driz_cr=True,
-    #     updatewcs=True, clean=True, median=True)
-    
-    # threedhst.prep_flt_files.startMultidrizzle('COSMOS-15-F140W_asn.fits',
-    #     use_shiftfile=True, skysub=False,
-    #     final_scale=0.06, pixfrac=0.8, driz_cr=False,
-    #     updatewcs=False, clean=True, median=False)
-
-#
 def interlace_combine(root='COSMOS-1-F140W', view=True):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -71,8 +49,6 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
     
     if view:
         ds9 = threedhst.dq.myDS9()
-
-    #os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
 
     run = threedhst.prep_flt_files.MultidrizzleRun(root)
     #run.blot_back(ii=0, copy_new=True)
@@ -231,8 +207,6 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     import unicorn.reduce as red
     import threedhst.dq
     #ds9 = threedhst.dq.myDS9()
-
-    #os.chdir("/research/HST/GRISM/3DHST/COSMOS/OWN_REDUCTION")
 
     conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path='../CONF/').params
     

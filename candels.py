@@ -18,6 +18,7 @@ yes = iraf.yes
 import threedhst
 import threedhst.prep_flt_files
 import threedhst.catIO as catIO
+import unicorn
 
 def egs():
     import unicorn.candels

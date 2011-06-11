@@ -12,7 +12,7 @@ def redo_all_SED_plots():
     import threedhst
 
     for dir in ['COSMOS','GOODS-N','AEGIS','SN-PRIMO','SN-GEORGE'][1:]:
-        os.chdir('/research/HST/GRISM/3DHST/'+dir+'/DATA/')
+        os.chdir(unicorn.GRISM_HOME+dir+'/DATA/')
         files=glob.glob('*G141_asn.fits')
         os.chdir('../')
         for file in files:
@@ -25,7 +25,7 @@ def goods_s():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/GOODS-S')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -70,7 +70,7 @@ def aegis():
     proc.reduction_script(asn_grism_file='AEGIS-11-G141_asn.fits')
     ########################
     
-    os.chdir('/research/HST/GRISM/3DHST/AEGIS')
+    os.chdir(unicorn.GRISM_HOME+'AEGIS')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -116,7 +116,7 @@ def cosmos():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/COSMOS')
+    os.chdir(unicorn.GRISM_HOME+'COSMOS')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -158,7 +158,7 @@ def goodsn():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/GOODS-N')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -186,7 +186,7 @@ def sn_primo():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/SN-PRIMO')
+    os.chdir(unicorn.GRISM_HOME+'SN-PRIMO')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -223,7 +223,7 @@ def sn_george():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/SN-GEORGE')
+    os.chdir(unicorn.GRISM_HOME+'SN-GEORGE')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
@@ -256,7 +256,7 @@ def stanford():
     import threedhst.process_grism as proc
     import unicorn.analysis
     
-    os.chdir('/research/HST/GRISM/3DHST/STANFORD')
+    os.chdir(unicorn.GRISM_HOME+'STANFORD')
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')

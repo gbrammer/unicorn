@@ -16,3 +16,10 @@ import prepare
 import reduce
 import candels
 
+from socket import gethostname as hostname
+
+if hostname().startswith('uni'):
+    GRISM_HOME = '/3DHST/Spectra/Work/'
+else:
+    GRISM_HOME = '/research/HST/GRISM/3DHST/'
+

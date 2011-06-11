@@ -15,6 +15,8 @@ __version__ = "$Rev$"
 import prepare
 import reduce
 import candels
+import analysis
+import go_3dhst
 
 from socket import gethostname as hostname
 

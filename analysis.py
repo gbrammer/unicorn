@@ -48,6 +48,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     Usage: cat, zout, fout = read_catalogs(cosmos=True)
     
     """
+    from socket import gethostname as hostname
+        
     import threedhst.catIO as catIO
     import numpy as np
     
@@ -82,12 +84,19 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #### Define paths
     if cosmos:
         GRISM_PATH='/research/HST/GRISM/3DHST/COSMOS/'
-        CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
+        CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'        
         CAT_FILE = CAT_PATH + '../cosmos-1.v4.6.cat'
         ZOUT_FILE = CAT_PATH + 'cosmos-1.v4.6.zout'
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
-        
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/COSMOS/'
+            CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
+            CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
+            ZOUT_FILE = CAT_PATH + '/cosmos-1.deblend.redshifts/cosmos-1.deblend.v5.1.zout'
+            FOUT_FILE = CAT_PATH+'cosmos-1.deblend.sps/cosmos-1.bc03.del.deblend.v5.1.fout'
+            KTOT_COL = 'K'
+            
     if aegis:
         GRISM_PATH='/research/HST/GRISM/3DHST/AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
@@ -95,10 +104,21 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
         FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
-    #
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/AEGIS/'
+            CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
+            CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
+            ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
+            FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
+            KTOT_COL = 'K'
+    
     if aegis_wirds:
         GRISM_PATH='/research/HST/GRISM/3DHST/AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/WIRDS/FAST/'
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/AEGIS/'
+            CAT_PATH = '/3DHST/Ancillary/AEGIS/WIRDS/Photometry/FAST/'
+        #
         ZOUT_FILE = CAT_PATH + '../EAZY/OUTPUT/egs_candels.zout'
         FOUT_FILE = CAT_PATH+'egs_candels.fout'
         CAT_FILE = CAT_PATH + 'egs_candels.cat'
@@ -106,10 +126,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         CAT_FILE = CAT_PATH + '../WIRDS_D3-95_Ks_ugrizJHKs_141927+524056_T0002.cat.candels'
         KTOT_COL = 'kstot'
         MAGS = True
-        
+    
     if goodsn:
         GRISM_PATH='/research/HST/GRISM/3DHST/GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/GOODS-N/'
+            CAT_PATH = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/'
+        #
         CAT_FILE = CAT_PATH+'mods.cat'
         ZOUT_FILE = CAT_PATH+'../EAZY/OUTPUT/photz.zout'
         FOUT_FILE = CAT_PATH+'mods.bc03.fout'
@@ -118,6 +142,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if cdfs:
         GRISM_PATH='/research/HST/GRISM/3DHST/GOODS-S/'
         CAT_PATH = GRISM_PATH+'FIREWORKS/'
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/GOODS-S/'
+            CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
+        #
         CAT_FILE = CAT_PATH+'fireworks.cat'
         ZOUT_FILE = CAT_PATH+'fireworks.zout'
         FOUT_FILE = CAT_PATH + 'fireworks.fout'
@@ -126,6 +154,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if uds:
         GRISM_PATH='/research/HST/GRISM/3DHST/SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'
+        if hostname().startswith('uni'):
+            GRISM_PATH='/3DHST/Spectra/Work/SN-MARSHALL/'
+            CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
+        #
         CAT_FILE = CAT_PATH+'uds.cat'
         ZOUT_FILE = CAT_PATH+'uds.zout'
         FOUT_FILE = CAT_PATH + 'uds.fout'

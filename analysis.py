@@ -200,31 +200,31 @@ def read_grism_files(root='COSMOS-3-G141', BASE_PATH='', GRISM_NAME='G141'):
     return grismCat, SPC
     
 def make_SED_plots(grism_root='COSMOS-3-G141'):
-    import threedhst.analysis
+    import unicorn.analysis
     
-    PATH = threedhst.analysis.get_grism_path(grism_root)
+    PATH = unicorn.analysis.get_grism_path(grism_root)
     print PATH
     os.chdir(PATH)
     
     ## read photometric, redshift, SPS catalogs
-    cat, zout, fout = threedhst.analysis.read_catalogs(root=grism_root)
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=grism_root)
     
     ## path where other eazy outputs live
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)
     MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
     
     ## read grism outputs
-    grismCat, SPC = threedhst.analysis.read_grism_files(root=grism_root)
+    grismCat, SPC = unicorn.analysis.read_grism_files(root=grism_root)
         
     print 'Matched catalog'
-    threedhst.analysis.match_grism_to_phot(grism_root=grism_root, 
+    unicorn.analysis.match_grism_to_phot(grism_root=grism_root, 
                   SPC = SPC, cat = cat,
                   grismCat = grismCat, zout = zout, fout = fout, 
                   OUTPUT = './HTML/SED/'+grism_root+'_match.cat')
     
     ## make figures
     for id in grismCat.id:
-        threedhst.analysis.specphot(id=id, grism_root=grism_root, SPC = SPC, 
+        unicorn.analysis.specphot(id=id, grism_root=grism_root, SPC = SPC, 
             cat = cat,
             grismCat = grismCat, zout = zout, fout = fout, 
             OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
@@ -400,7 +400,7 @@ specphot(id)
                           CACHE_FILE = CACHE_FILE)
          
     try:
-        lambdaz, temp_sed_sm = threedhst.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC)
+        lambdaz, temp_sed_sm = unicorn.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC)
     except:
         temp_sed_sm = temp_sed*1.
         
@@ -531,7 +531,7 @@ def match_grism_to_phot(grism_root='ibhm45',
         zout = None, fout = None, OUTPUT='/tmp/match.cat'):
 
     
-    import threedhst.analysis
+    import unicorn.analysis
     # 
     # MAIN_OUTPUT_FILE = 'cosmos-1.v4.6'
     # OUTPUT_DIRECTORY = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
@@ -581,10 +581,10 @@ def match_grism_to_phot(grism_root='ibhm45',
     fp.close()
 
 def make_multiple_fluximage(grism_root='COSMOS-3-G141'):
-    import threedhst.analysis
+    import unicorn.analysis
     waves = [1.1e4,1.25e4,1.6e4]
     for wave in waves:
-        threedhst.analysis.make_fluximage(grism_root=grism_root, wavelength=wave)
+        unicorn.analysis.make_fluximage(grism_root=grism_root, wavelength=wave)
 
 def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=None, match_toler=1, verbose=True):
     """
@@ -601,18 +601,18 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
     out_image = 'DATA/'+grism_root.replace('G141','f%03d' %(wavelength/100))+'.fits'
     
     ##### Get the path and read the catalogs
-    PATH = threedhst.analysis.get_grism_path(grism_root)
+    PATH = unicorn.analysis.get_grism_path(grism_root)
     PWD=os.getcwd()
     print PATH
     os.chdir(PATH)
     
     ## read photometric, redshift, SPS catalogs
-    cat, zout, fout = threedhst.analysis.read_catalogs(root=grism_root)
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=grism_root)
     ## path where other eazy outputs live
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)
     MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
     ## read grism outputs
-    grismCat, SPC = threedhst.analysis.read_grism_files(root=grism_root)
+    grismCat, SPC = unicorn.analysis.read_grism_files(root=grism_root)
     
     detect_wlen = np.float(grismCat.DETECT_FILTER.strip('MAG_FW'))*10
     
@@ -658,10 +658,10 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
                         
             #### Smooth to grism resolution
             try:
-                lambdaz, temp_sed = threedhst.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC)
+                lambdaz, temp_sed = unicorn.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC)
             except:
                 pass
-                # lambdaz2, temp_sed2 = threedhst.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=False)
+                # lambdaz2, temp_sed2 = unicorn.analysis.convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=False)
             
             yint = np.interp(xint, lambdaz, temp_sed)
             scale = yint[0]/yint[1]    
@@ -834,7 +834,7 @@ def dn4000():
     cat.dn = cat.z*0.-1
     
     for i in idx:
-        PATH = threedhst.analysis.get_grism_path(root=cat.id[i].split('G141')[0]) 
+        PATH = unicorn.analysis.get_grism_path(root=cat.id[i].split('G141')[0]) 
         spec_path = PATH+'/HTML/ascii/%s.dat' %(cat.id[i])
         if os.path.exists(spec_path):
             #print spec_path
@@ -876,7 +876,7 @@ def open_spec(use):
     idx = np.arange(cat.N)[use]
     list = []
     for i in idx:
-        PATH = threedhst.analysis.get_grism_path(root=cat.id[i].split('G141')[0]) 
+        PATH = unicorn.analysis.get_grism_path(root=cat.id[i].split('G141')[0]) 
         spec_path = PATH+'/HTML/SED/%s_SED.png' %(cat.id[i])
         galfit_file = cat.id[i]+'_galfit.png'
         if os.path.exists(spec_path) & os.path.exists(galfit_file):
@@ -952,9 +952,9 @@ def galfit_massive_galaxies():
     import matplotlib.pyplot as plt
     import numpy as np
     import shutil
-    import threedhst.analysis
+    import unicorn.analysis
     
-    threedhst.analysis.show_massive_galaxies(contam=0.1, masslim=10.0, maglim=24, zrange=(0.4,5))
+    unicorn.analysis.show_massive_galaxies(contam=0.1, masslim=10.0, maglim=24, zrange=(0.4,5))
     
     os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/GALFIT/')
     shutil.copy('../massive.dat','.')
@@ -1040,16 +1040,16 @@ def galfit_massive_galaxies():
 
     small = use & (cat.z > 1.5) & (cat.z < 2.4) & (rkpc < 2)
     plt.plot(cat.z[small], rkpc[small], color='blue', alpha=0.5, marker='.', linestyle='none', markersize=15)
-    threedhst.analysis.open_spec(small)
+    unicorn.analysis.open_spec(small)
 
     big = use & (cat.z > 1.5) & (cat.z < 2.4) & (rkpc > 4) & (rkpc < 20)
     plt.plot(cat.z[big], rkpc[big], color='blue', alpha=0.5, marker='.', linestyle='none', markersize=15)
-    threedhst.analysis.open_spec(big)
+    unicorn.analysis.open_spec(big)
     
     keep = (cat.z > 1.4) & (cat.z < 2.5) & (cat.lmass > 10.99)
     disk = (cat.z < 1.6) & (cat.z > 1.0) & (cat.lmass > 10.6) & (gf.n > 3)
     
-    threedhst.analysis.open_spec(disk)
+    unicorn.analysis.open_spec(disk)
         
     ### z vs n
     fig = plt.figure(figsize=[7,3],dpi=100)
@@ -1103,7 +1103,7 @@ def testMatch():
     Match the z=2.2 GOODS-N H-a emitters from Tadaki et al. 
     http://arxiv.org/abs/1012.4860v1
     """
-    import threedhst.analysis
+    import unicorn.analysis
     
     ra_haem = [189.0141,188.9930,189.0906,189.2159,189.2582,189.2364,189.2204,189.2235,189.2152,189.2709,189.3259,189.3564]
     dec_haem = [62.1760,62.1988,62.2480,62.2513,62.2639,62.2788,62.2907,62.2901,62.3071,62.2908,62.2815,62.3194]
@@ -1114,7 +1114,7 @@ def testMatch():
     
     matches = []
     for i in range(len(ra_haem)):
-        matches.extend(threedhst.analysis.matchObject(ra_haem[i], dec_haem[i]))
+        matches.extend(unicorn.analysis.matchObject(ra_haem[i], dec_haem[i]))
         print i, len(matches)
     
     fp = open('ha_emitters.html','w')
@@ -1250,10 +1250,10 @@ def check_masses():
     
     #### GOODS-S
     FIREWORKS = '/research/HST/GRISM/3DHST/GOODS-S-SN/FIREWORKS/'
-    cat_fw = threedhst.analysis.catIO.ReadASCIICat(FIREWORKS+'/FIREWORKS_phot.cat')        
+    cat_fw = unicorn.analysis.catIO.ReadASCIICat(FIREWORKS+'/FIREWORKS_phot.cat')        
     cat_fw.kmag = 23.86-2.5*np.log10(cat_fw.field('Ks_totf'))
-    zout_fw = threedhst.analysis.catIO.ReadASCIICat(FIREWORKS+'/fireworks.zout')
-    fout_fw = threedhst.analysis.catIO.ReadASCIICat(FIREWORKS+'/fireworks.fout')
+    zout_fw = unicorn.analysis.catIO.ReadASCIICat(FIREWORKS+'/fireworks.zout')
+    fout_fw = unicorn.analysis.catIO.ReadASCIICat(FIREWORKS+'/fireworks.fout')
     
     #### Some K limit
     K_limit = 22.8
@@ -1272,7 +1272,7 @@ def check_masses():
     plt.xlim(0,4)
 
 def go_field_area():
-    import threedhst.analysis
+    import unicorn.analysis
     import threedhst.catIO as catIO
     
     #### COSMOS
@@ -1282,7 +1282,7 @@ def go_field_area():
     cat_cosmos = catIO.ReadASCIICat(OUTPUT_DIRECTORY+'../'+MAIN_OUTPUT_FILE+'.cat')
     
     q = cat_cosmos.wmin > 0.3
-    area = threedhst.analysis.field_area(cat_cosmos.ra[q], cat_cosmos.dec[q])
+    area = unicorn.analysis.field_area(cat_cosmos.ra[q], cat_cosmos.dec[q])
     print area
     
 def field_area(ra_in, dec_in):

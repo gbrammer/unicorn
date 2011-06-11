@@ -1,4 +1,5 @@
 import threedhst
+import unicorn
 import glob
 import os
 import shutil
@@ -16,13 +17,13 @@ def redo_all_SED_plots():
         os.chdir('../')
         for file in files:
             print file.split('_asn')[0]
-            threedhst.analysis.make_SED_plots(grism_root=file.split('_asn')[0])
+            unicorn.analysis.make_SED_plots(grism_root=file.split('_asn')[0])
             
 
 def goods_s():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/GOODS-S')
     
@@ -42,24 +43,24 @@ def goods_s():
     #### Main loop for reduction
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-6-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='GOODS-S-6-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='GOODS-S-6-G141')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-6-G141')
     go.clean_up()
 
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-27-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='GOODS-S-27-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='GOODS-S-27-G141')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-27-G141')
     go.clean_up()
 
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-24-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='GOODS-S-24-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='GOODS-S-24-G141')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-24-G141')
     go.clean_up()
 
 def aegis():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
     
-    import threedhst.analysis
+    import unicorn.analysis
     
     ######################## Test!
     go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=21)
@@ -87,33 +88,33 @@ def aegis():
     #### Main loop for reduction
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-4-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-4-G141_asn.fits')
-    threedhst.analysis.aegis_SED_plots(grism_root='AEGIS-4-G141')
+    unicorn.analysis.aegis_SED_plots(grism_root='AEGIS-4-G141')
     go.clean_up()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-5-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-5-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='AEGIS-5-G141')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-5-G141')
     go.clean_up()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-11-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-11-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='AEGIS-11-G141')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-11-G141')
     go.clean_up()
 
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-2-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-2-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='AEGIS-2-G141')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-2-G141')
     go.clean_up()
 
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-1-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-1-G141_asn.fits')
-    threedhst.analysis.make_SED_plots(grism_root='AEGIS-1-G141')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-1-G141')
     go.clean_up()
     
 def cosmos():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/COSMOS')
     
@@ -145,17 +146,17 @@ def cosmos():
         root=asn.replace('_asn.fits','')
         threedhst.options['OTHER_BANDS'] = []
         # for wave in [1.1e4,1.25e4,1.6e4]:
-        #     out = threedhst.analysis.make_fluximage(grism_root=root,
+        #     out = unicorn.analysis.make_fluximage(grism_root=root,
         #                wavelength=wave)
         #     threedhst.options['OTHER_BANDS'].append([os.path.basename(out), 'F%03dW' %(wave/100), wave/10., 26.46])
         proc.reduction_script(asn_grism_file=asn)
-        threedhst.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
 
 def goodsn():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/GOODS-N')
     
@@ -176,14 +177,14 @@ def goodsn():
     for i, asn in enumerate(grism_asn):
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         proc.reduction_script(asn_grism_file=asn)
-        threedhst.analysis.goods_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        unicorn.analysis.goods_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
    
 #
 def sn_primo():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/SN-PRIMO')
     
@@ -211,7 +212,7 @@ def sn_primo():
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/PRIMO_F160W_drz.fits'
         threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
         proc.reduction_script(asn_grism_file=asn)
-        threedhst.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
 
 def sn_george():
@@ -220,7 +221,7 @@ def sn_george():
     """
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/SN-GEORGE')
     
@@ -247,13 +248,13 @@ def sn_george():
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GEORGE_F160W_drz.fits'
         threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
         proc.reduction_script(asn_grism_file=asn)
-        threedhst.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
 #
 def stanford():
     import threedhst.go_3dhst as go
     import threedhst.process_grism as proc
-    import threedhst.analysis
+    import unicorn.analysis
     
     os.chdir('/research/HST/GRISM/3DHST/STANFORD')
     

@@ -345,8 +345,8 @@ specphot(id)
     
     Get photometry/SED fit and compare G141 spectrum
     """
-    import scipy.interpolate as interpol
-        
+    #import scipy.interpolate as interpol
+       
     ### 69, 54!
     
     xxx = """
@@ -435,7 +435,7 @@ specphot(id)
         print 'Normalize spectrum'
         
     #### Normalize G141 spectrum
-    interp = interpol.interp1d(lambdaz, temp_sed_sm, kind='linear')
+    #interp = interpol.interp1d(lambdaz, temp_sed_sm, kind='linear')
 
     q = np.where((lam > 1.08e4) & (lam < 1.68e4) & (flux > 0))[0]
     #### G102
@@ -449,7 +449,7 @@ specphot(id)
     if len(q) == 0:
         return False
 
-    yint = interp(lam[q])
+    yint = np.interp(lam[q], lambdaz, temp_sed_sm)
         
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
     

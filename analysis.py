@@ -245,7 +245,9 @@ def make_SED_plots(grism_root='COSMOS-3-G141'):
     unicorn.analysis.match_grism_to_phot(grism_root=grism_root, 
                   SPC = SPC, cat = cat,
                   grismCat = grismCat, zout = zout, fout = fout, 
-                  OUTPUT = './HTML/SED/'+grism_root+'_match.cat')
+                  OUTPUT = './HTML/SED/'+grism_root+'_match.cat',
+                  OUTPUT_DIRECTORY=OUTPUT_DIRECTORY,
+                  MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE)
     
     ## make figures
     for id in grismCat.id:
@@ -569,13 +571,13 @@ def match_grism_to_phot(grism_root='ibhm45',
     if fout is None:
         fout = catIO.ReadASCIICat(OUTPUT_DIRECTORY+'/../cosmos-1.m05.v4.6.fout')
     
-    rfUV = catIO.ReadASCIICat(OUTPUT_DIRECTORY+'/'+MAIN_OUTPUT_FILE+'.153-155.rf')
+    #rfUV = catIO.ReadASCIICat(OUTPUT_DIRECTORY+'/'+MAIN_OUTPUT_FILE+'.153-155.rf')
     
     z_peak = zout.field('z_peak')
     # kmag = 25-2.5*np.log10(cat.field('ktot'))
     kmag = cat.kmag
     
-    uv = -2.5*np.log10(rfUV.field('L153')/rfUV.field('L155'))
+    #uv = -2.5*np.log10(rfUV.field('L153')/rfUV.field('L155'))
     
     if grismCat is None:
         grismCat = threedhst.sex.mySexCat('DATA/'+grism_root+'_drz.cat')
@@ -593,13 +595,13 @@ def match_grism_to_phot(grism_root='ibhm45',
         ids[i] = mat
     
     fp = open(OUTPUT,'w')
-    fp.write("# id_f140w  mag_f140w  id_phot  mag_Ktot  Rmatch  z_peak  UmV  logM star_flag fcontam\n# Rmatch = match distance in arcsec (should be < 1)\n# %s\n" %(MAIN_OUTPUT_FILE))
+    fp.write("# id_f140w  mag_f140w  id_phot  mag_Ktot  Rmatch  z_peak  logM star_flag fcontam\n# Rmatch = match distance in arcsec (should be < 1)\n# %s\n" %(MAIN_OUTPUT_FILE))
     for i in range(len(drs)):
         j = ids[i]
-        line = "%5d %6.2f %8d %6.2f %5.1f %6.2f %6.2f %5.1f %d %5s\n" %(grismCat.id[i],
+        line = "%5d %6.2f %8d %6.2f %6.2f %6.2f %6.2f %d %5s\n" %(grismCat.id[i],
                   np.float(grismCat.MAG[i]), np.int(cat.id[j]),
                   kmag[j], drs[i], 
-                  z_peak[j], uv[j], fout.field('lmass')[j], 
+                  z_peak[j], fout.field('lmass')[j], 
                   np.int(cat.star_flag[j]), grismCat['FCONTAM'][i])
         if grismCat.id[i] in SPC._ext_map:
             fp.write(line)
@@ -713,17 +715,18 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
     
     matches = []
-
     
-    matches.extend(glob.glob('../AEGIS/HTML/SED/AEGIS**match.cat'))
+    # matches.extend(glob.glob('../AEGIS/HTML/SED/AEGIS**match.cat'))
     matches.extend(glob.glob('../COSMOS/HTML/SED/COSMOS*match.cat'))
-    matches.extend(glob.glob('../GOODS-N/HTML/SED/GOODS-N*match.cat'))
-    matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
-    matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
-    matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
+    # matches.extend(glob.glob('../GOODS-N/HTML/SED/GOODS-N*match.cat'))
+    # matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
+    # matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
+    # matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
     # matches.extend(glob.glob('../ERS/HTML_v1.1/SED/*match.cat'))
     # matches.extend(glob.glob('../SN-MARSHALL/HTML_v1.0/SED/*match.cat'))
-        
+    
+    print matches
+    
     fplist = open('massive.dat','w')
     fplist.write('# ID   ra   dec  z lmass\n')
     fplist.write('# mag > %.1f, mass > %.1f, z=(%.1f,%.1f), contam=%.2f\n' %(maglim, masslim, zrange[0], zrange[1], contam))

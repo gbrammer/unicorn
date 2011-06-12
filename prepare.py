@@ -72,9 +72,7 @@ def fix_GOODSN_asn():
         asn.exposures = grism
         asn.product = root+'-G141'
         asn.write(root+'-G141_asn.fits')
-                
-        
-        
+
 def GOODSN(FORCE=False, GET_SHIFT=True):
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
@@ -121,7 +119,16 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     
     threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-F850LP.fits[0]*6','GOODS-N-G141_drz.fits*2'], aper_list=[13,14,15], polyregions=glob.glob('*F140W_asn.pointing.reg'), zmin=-0.1, zmax=3)
     
+    #### Make direct image for each pointing that also include 
+    #### neighboring pointings
+    files = glob.glob('GOODS-N-[0-9]*-F140W_asn.fits')
+    for file in files:
+        pointing = file.split('_asn.fits')[0]
+        threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='GOODS-N-*[0-9]-F140W',
+                                    pointing=pointing,
+                                    run_multidrizzle=True, grow=400)
     
+  
 def COSMOS(FORCE=False):
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
@@ -140,7 +147,17 @@ def COSMOS(FORCE=False):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=False, SKIP_DIRECT=False)
-        threedhst.gmap.makeImageMap(['COSMOS-6-F140W_drz.fits','/tmp/junk.fits','COSMOS-6-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14], polyregions=["COSMOS-6-F140W_asn.pointing.reg"])
+            
+    threedhst.gmap.makeImageMap(['COSMOS-28-F140W_drz.fits','/tmp/junk.fits', 'COSMOS-28-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
+    
+    #### Make direct image for each pointing that also include 
+    #### neighboring pointings
+    files = glob.glob('COSMOS-[0-9]*-F140W_asn.fits')
+    for file in files:
+        pointing = file.split('_asn.fits')[0]
+        threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='COSMOS-*[0-9]-F140W',
+                                    pointing=pointing,
+                                    run_multidrizzle=True, grow=400)
     
     #### Direct mosaic
     direct_files = glob.glob('COSMOS-*-F140W_asn.fits')
@@ -185,5 +202,110 @@ def COSMOS(FORCE=False):
     os.system('remove ~/Sites/FITS/tiles/MIPS*1[67].png')
     os.system('remove ~/Sites/FITS/tiles/VLA*1[7].png')
     os.system('remove ~/Sites/FITS/tiles/0.5*17.png')
+
+def GOODSS(FORCE=False):
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.prep_flt_files
+    import glob
+    import os
+
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/PREP_FLT')
     
+    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+    
+    #### Main preparation loop
+    direct=glob.glob('*30_asn.fits')
+    grism = glob.glob('*40_asn.fits')
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        ALIGN = ALIGN_FILES[0]
+        if pointing.startswith('GOODS-S-28'):
+            ALIGN = ALIGN_FILES[1]
+        #
+        if pointing.startswith('GOODS-S-1'):
+            ALIGN = ALIGN_FILES[2]
+        #
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+    
+    #### Direct mosaic
+    direct_files = glob.glob('GOODS-S-*-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    #### Direct mosaic
+    direct_files = glob.glob('GOODS-S-*-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    SCALE = 0.128254
+    #SCALE = 0.5
+    PIXFRAC=0.6
+    NX, NY = int(16210*0.06/SCALE), int(18100*0.06/SCALE)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-S-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=53.154223, dec=-27.807325,
+             final_outnx = NX, final_outny=NY)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-S-G141_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=53.154223, dec=-27.807325,
+             final_outnx = NX, final_outny=NY)
+    
+    threedhst.gmap.makeImageMap(['GOODS-S-F140W_drz.fits', 'GOODS-S-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+    
+def AEGIS(FORCE=False):
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.prep_flt_files
+    import glob
+    import os
+
+    os.chdir(unicorn.GRISM_HOME+'AEGIS/PREP_FLT')
+    ALIGN = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1*drz.fits'
+
+    #### Direct images only
+    direct=glob.glob('*30_asn.fits')
+    grism = glob.glob('*40_asn.fits')
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+    
+    # threedhst.gmap.makeImageMap(['AEGIS-5-F140W_drz.fits', 'AEGIS-5-F140W_align.fits[0]*3', 'AEGIS-5-G141_drz.fits','/tmp/junk.fits'][0:], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    
+    #### Direct mosaic
+    direct_files = glob.glob('AEGIS-*-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='AEGIS-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    #### Direct mosaic
+    direct_files = glob.glob('AEGIS-*-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='AEGIS-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    SCALE = 0.128254
+    #SCALE = 0.5
+    PIXFRAC=0.6
+    NX, NY = int(18000*0.06/SCALE), int(19000*0.06/SCALE)
+    
+    threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=214.88705, dec=52.85442,
+             final_outnx = NX, final_outny=NY)
+    
+    threedhst.prep_flt_files.startMultidrizzle('AEGIS-G141_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=214.88705, dec=52.85442,
+             final_outnx = NX, final_outny=NY)
+    #
+    threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
     

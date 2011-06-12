@@ -21,7 +21,7 @@ def redo_all_SED_plots():
             
 
 def goods_s():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     
@@ -57,7 +57,7 @@ def goods_s():
     go.clean_up()
 
 def aegis():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     
     import unicorn.analysis
@@ -112,7 +112,7 @@ def aegis():
     go.clean_up()
     
 def cosmos():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     
@@ -154,7 +154,7 @@ def cosmos():
         go.clean_up()
 
 def goodsn():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     
@@ -171,18 +171,18 @@ def goodsn():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=19)
             
     #### Main loop for reduction
     for i, asn in enumerate(grism_asn):
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         proc.reduction_script(asn_grism_file=asn)
-        unicorn.analysis.goods_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
    
 #
 def sn_primo():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     
@@ -219,7 +219,7 @@ def sn_george():
     """
 
     """
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     
@@ -252,7 +252,7 @@ def sn_george():
         go.clean_up()
 #
 def stanford():
-    import threedhst.go_3dhst as go
+    import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
     

@@ -257,7 +257,46 @@ def sn_george():
         proc.reduction_script(asn_grism_file=asn)
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
-#
+
+def sn_marshall():
+    """
+
+    """
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+
+    os.chdir(unicorn.GRISM_HOME+'SN-MARSHALL')
+
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
+    grism_asn  = glob.glob('MARSHALL-2??-G141_asn.fits')
+    files=glob.glob('MARSHALL-2*-G141_shifts.txt')
+    files.extend(grism_asn)
+    for file in files:
+        shutil.copy(file,'../DATA/')
+
+    try:
+        iraf.imcopy('MARSHALL-F125W_drz.fits[1]', '../DATA/f125w_sci.fits')
+    except:
+        os.remove('../DATA/f125w_sci.fits')
+        iraf.imcopy('MARSHALL-F125W_drz.fits[1]', '../DATA/f125w_sci.fits')
+    
+    os.chdir('../')
+
+    #### Initialize parameters
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=25)
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/MARSHALL-F160W_drz.fits'
+    threedhst.options['OTHER_BANDS'] = [['f125w_sci.fits', 'F125W' , 1248.6, 26.25]]
+
+    #### Main loop for reduction
+    for i in range(len(grism_asn)):
+        asn = grism_asn[i]
+        proc.reduction_script(asn_grism_file=asn)
+        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        go.clean_up()
+    
+
 def stanford():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc

@@ -344,12 +344,43 @@ def SN_MARSHALL():
         dir_i=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         gris_i=threedhst.prep_flt_files.make_targname_asn(grism[i], newfile=True)
         pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+    
+    ## Other direct images
+    direct = glob.glob('../RAW/*[43]0_asn.fits')
+    olds = glob.glob('MARSHALL-[BC]-F*shifts.txt')
+    for old in olds:
+        os.remove(old)
+    
+    for i in range(1,len(direct)):
+        dir_i=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        if os.path.exists(dir_i.replace('_asn.fits','_shifts.txt')):
+            shutil.move(dir_i.replace('_asn.fits','_shifts.txt'),'old_shifts.txt')
+            shutil.move(dir_i, 'old_asn.fits')
+            combine=True
+        else:
+            combine=False
+        #    
+        dir_i=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
+        pair(dir_i, None, ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False)
+        #
+        if combine:
+            threedhst.utils.combine_asn_shifts([dir_i, 'old_asn.fits'],
+                        out_root=dir_i.split('_asn')[0], path_to_FLT='./',
+                        run_multidrizzle=False)
         
-    #### Direct image
+    #### Direct images
     asn_list = glob.glob('MARSHALL-?-F160W_asn.fits')
     threedhst.utils.combine_asn_shifts(asn_list, out_root='MARSHALL-F160W',
                     path_to_FLT='./', run_multidrizzle=False)
     threedhst.prep_flt_files.startMultidrizzle('MARSHALL-F160W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    asn_list = glob.glob('MARSHALL-?-F125W_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_list, out_root='MARSHALL-F125W',
+                    path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('MARSHALL-F125W_asn.fits',
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
@@ -374,6 +405,6 @@ def SN_MARSHALL():
     
     #### Check
     # threedhst.gmap.makeImageMap(['MARSHALL-1-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-1-G141_drz.fits'], aper_list=[13,14,15])
-    threedhst.gmap.makeImageMap(['MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], aper_list=[13,14,15,16])
+    threedhst.gmap.makeImageMap(['MARSHALL-F125W_drz.fits', 'MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[13,14,15,16])
     
     

@@ -56,19 +56,25 @@ def goods_s():
     unicorn.analysis.make_SED_plots(grism_root='GOODS-S-24-G141')
     go.clean_up()
 
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-28-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='GOODS-S-28-G141_asn.fits')
+    #### HUDF09, doesn't overlap with FIREWORKS
+    # unicorn.analysis.make_SED_plots(grism_root='GOODS-S-27-G141')
+    go.clean_up()
+
 def aegis():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     
     import unicorn.analysis
     
-    ######################## Test!
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=21)
-    
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-11-F140W_drz.fits'
-    # threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/AEGIS-11-G141_drz.fits'
-    proc.reduction_script(asn_grism_file='AEGIS-11-G141_asn.fits')
-    ########################
+    # ######################## Test!
+    # go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=21)
+    # 
+    # threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-11-F140W_drz.fits'
+    # # threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/AEGIS-11-G141_drz.fits'
+    # proc.reduction_script(asn_grism_file='AEGIS-11-G141_asn.fits')
+    # ########################
     
     os.chdir(unicorn.GRISM_HOME+'AEGIS')
     
@@ -100,7 +106,7 @@ def aegis():
     proc.reduction_script(asn_grism_file='AEGIS-11-G141_asn.fits')
     unicorn.analysis.make_SED_plots(grism_root='AEGIS-11-G141')
     go.clean_up()
-
+ 
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-2-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-2-G141_asn.fits')
     unicorn.analysis.make_SED_plots(grism_root='AEGIS-2-G141')
@@ -136,7 +142,7 @@ def cosmos():
     grism_asn = grism_asn
     
     #### Main loop for reduction
-    for i in range(len(grism_asn)):
+    for i in range(len(grism_asn))[16:]:
         asn = grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         # threedhst.options['PIXFRAC'] = 0.8
@@ -171,10 +177,11 @@ def goodsn():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=19)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24)
             
     #### Main loop for reduction
-    for i, asn in enumerate(grism_asn):
+    for i in range(len(grism_asn))[11:]:
+        asn=grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         proc.reduction_script(asn_grism_file=asn)
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])

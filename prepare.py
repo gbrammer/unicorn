@@ -126,7 +126,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
         pointing = file.split('_asn.fits')[0]
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='GOODS-N-*[0-9]-F140W',
                                     pointing=pointing,
-                                    run_multidrizzle=True, grow=400)
+                                    run_multidrizzle=True, grow=200)
     
   
 def COSMOS(FORCE=False):
@@ -135,10 +135,10 @@ def COSMOS(FORCE=False):
     import glob
     import os
     
-    os.chdir(unicorn.GRISM_HOME+'COSMOS/NEW_PREP')
+    os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
     #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
-    #ALIGN = '/3DHST/Ancillary/COSMOS/NMBS/COSMOS-1_K_sci.fits'
+    #ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -146,7 +146,7 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=False, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False)
             
     threedhst.gmap.makeImageMap(['COSMOS-28-F140W_drz.fits','/tmp/junk.fits', 'COSMOS-28-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
     
@@ -157,7 +157,21 @@ def COSMOS(FORCE=False):
         pointing = file.split('_asn.fits')[0]
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='COSMOS-*[0-9]-F140W',
                                     pointing=pointing,
-                                    run_multidrizzle=True, grow=400)
+                                    run_multidrizzle=True, grow=200)
+    
+    #### Test, combine three pointings with the same orientation, but use the single pointing as the detection image
+    threedhst.utils.combine_asn_shifts(['COSMOS-14-G141_asn.fits', 'COSMOS-2-G141_asn.fits', 'COSMOS-6-G141_asn.fits'], out_root='COSMOS-14o',
+                       path_to_FLT='./', run_multidrizzle=True)
+                       
+    os.system('cp COSMOS-14o* ../DATA')
+    os.chdir('../')
+    
+    unicorn.go_3dhst.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24)
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/COSMOS-14-F140W_drz.fits'
+    threedhst.options['OTHER_BANDS'] = []
+    threedhst.process_grism.reduction_script(asn_grism_file='COSMOS-14o_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='COSMOS-14o')
+    unicorn.go_3dhst.clean_up()
     
     #### Direct mosaic
     direct_files = glob.glob('COSMOS-*-F140W_asn.fits')
@@ -308,4 +322,58 @@ def AEGIS(FORCE=False):
              final_outnx = NX, final_outny=NY)
     #
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+
+def SN_MARSHALL():
+    ####********************************************####
+    ####              SN-MARSHALL (UDS)
+    ####********************************************####
+    
+    import os
+    import threedhst
+    import unicorn
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+
+    os.chdir(unicorn.GRISM_HOME+'SN-MARSHALL/PREP_FLT')
+    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits'
+    
+    direct = glob.glob('../RAW/ib*80_asn.fits')
+    grism = glob.glob('../RAW/ib*70_asn.fits')
+    
+    for i in range(1,6):        
+        dir_i=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
+        gris_i=threedhst.prep_flt_files.make_targname_asn(grism[i], newfile=True)
+        pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+        
+    #### Direct image
+    asn_list = glob.glob('MARSHALL-?-F160W_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_list, out_root='MARSHALL-F160W',
+                    path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('MARSHALL-F160W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    #### First orientation
+    asn_list = glob.glob('MARSHALL-[135]-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_list, out_root='MARSHALL-225-G141',
+                    path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('MARSHALL-225-G141_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    #### Second orientation
+    asn_list = glob.glob('MARSHALL-[246]-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_list, out_root='MARSHALL-245-G141',
+                    path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('MARSHALL-245-G141_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    #### Check
+    # threedhst.gmap.makeImageMap(['MARSHALL-1-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-1-G141_drz.fits'], aper_list=[13,14,15])
+    threedhst.gmap.makeImageMap(['MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], aper_list=[13,14,15,16])
+    
     

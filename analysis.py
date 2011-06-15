@@ -1418,4 +1418,151 @@ def LAE_morphologies():
             
             plt.savefig('LAE_N20-%d.png' %lae.n20[i])
             plt.close()
+
+def fit_all_brown_dwarfs():
+    import glob
+    import unicorn
+    
+    bd = unicorn.analysis.BD_fit()
+    
+    files = glob.glob('~/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
+    
+class BD_template():
+    def __init__(self, txt):
+        self.filename = txt
+        self.read_template(txt)
+    
+    def read_template(self, txt):
+        import numpy as np
+        lines = open(txt).readlines()
+        wave = []
+        flux = []
+        err = []
+        for line in lines:
+            if 'type:' in line:
+                self.type = line.split('type:')[1].strip()
+            if not line.startswith('#'):
+                spl = line.split()
+                wave.append(spl[0])
+                flux.append(spl[1])
+                err.append(spl[2])
+        
+        self.wave = np.cast[float](wave)*1.e4
+        self.flux = np.cast[float](flux)
+        self.err = np.cast[float](err)
+    
+class BD_fit():
+    def __init__(self,template_path='./STANDARDS'):
+        self.template_path=template_path
+        self.read_bd_templates()
+        
+    def read_bd_templates(self):
+        import glob
+        temps = glob.glob(self.template_path+'/spex*txt')
+        list = []
+        for temp in temps:
+            list.append(BD_template(temp))
+        
+        self.templates = list
+        self.NTEMP = len(self.templates)
+        
+    def fit(self, ascii_file='AEGIS-3-G141_00177.dat'):
+        import threedhst.catIO as catIO
+        import numpy as np
+        
+        spec = catIO.Readfile(ascii_file)
+        self.spec = spec
+        
+        chi2 = np.zeros(self.NTEMP)
+        types = []
+        anorm = chi2*0.
+
+        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.2) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        
+        for i in range(self.NTEMP):
+            temp = self.templates[i]
+            types.append(temp.type.strip())
+            yint = np.interp(spec.lam[use], temp.wave, temp.flux)
+            #
+            anorm[i] = np.sum(yint*spec.flux[use]*spec.error[use]**2) / np.sum(yint**2*spec.error[use]**2)
+            #
+            chi2[i] = np.sum((anorm[i]*yint-spec.flux[use])**2/spec.error[use]**2)
+        
+        types = np.cast[str](types)
+        DOF = len(yint)-1
+        chi2 /= DOF
+        
+        noNewLine = '\x1b[1A\x1b[1M'
+        
+        if chi2.min() < 1:
+            print noNewLine + ascii_file+' * '
+            self.spec = spec
+            self.types = types
+            self.chi2 = chi2
+            self.anorm = anorm
+            self.ascii_file = ascii_file
+            self.make_plot()
+        else:
+            print noNewLine + ascii_file
             
+    def make_plot(self):
+        import matplotlib.pyplot as plt
+        spec = self.spec
+        types = self.types
+        chi2 = self.chi2
+        anorm = self.anorm
+        
+        so = np.argsort(types)
+        
+        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.2) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        
+        plt.rcParams['font.size'] = 10
+        #fig = plt.figure(figsize=[6.5,3],dpi=100)
+        fig = Figure(figsize=[6.5, 3], dpi=100)        
+        fig.subplots_adjust(wspace=0.25,hspace=0.02,left=0.09,
+                            bottom=0.13,right=0.98,top=0.98)
+        
+        #### Plot the spectrum
+        ax = fig.add_subplot(121)
+        ymax = spec.flux[use].max()
+        ax.plot(spec.lam, spec.flux/ymax, color='black', linewidth=2)
+        
+        soc = np.argsort(chi2)
+        colors=['blue','green']
+        for i in range(2):
+            j = soc[i]
+            ax.plot(self.templates[j].wave, self.templates[j].flux*anorm[j]/ymax, color=colors[i], linewidth=1)
+            ax.text(1.6e4,1.1-0.1*i,types[j], color=colors[i])
+        
+        ax.text(1.1e4, 1.07, self.ascii_file.split('.dat')[0])
+        
+        ax.set_xticks(np.arange(1.1,1.8,0.2)*1.e4)
+        ax.set_xticklabels(np.arange(1.1,1.8,0.2))
+        
+        ax.set_ylim(-0.1,1.2)
+        ax.set_xlim(1.05e4,1.72e4)
+        ax.set_ylabel(r'$f_\lambda$')
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        
+        #### Plot chi2 as a function of type
+        ax = fig.add_subplot(122)
+        ax.plot(np.arange(self.NTEMP), chi2[so], color=(0.9, 0.3, 0.3))
+        for i in range(self.NTEMP):
+            j = so[i]
+            tt = ax.text(i, chi2[j], types[j], fontsize=8)
+        
+        ax.set_xticklabels([])
+        ax.set_xlim(-1,self.NTEMP+1)    
+        ax.set_xlabel('Type')
+        ax.set_ylabel(r'$\chi^2_\nu$')
+        
+        outfile = os.path.basename(self.ascii_file.replace('.dat','_BD.png'))
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_figure(outfile, dpi=100, transparent=False)
+        
+def find_brown_dwarfs():
+    import glob
+    import threedhst.catIO as catIO
+    
+    obj = catIO.Readfile('AEGIS-3-G141_00177.dat')
+    

@@ -1499,7 +1499,7 @@ class BD_fit():
         
         noNewLine = '\x1b[1A\x1b[1M'
         
-        min = np.where(chi2 == chi2.min())
+        min = np.where(chi2 == chi2.min())[0][0]
         if (chi2.min() < 1) & (types[min].startswith('T')):
             print noNewLine + ascii_file+' * '
             self.spec = spec

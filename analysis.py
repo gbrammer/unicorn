@@ -1425,8 +1425,10 @@ def fit_all_brown_dwarfs():
     
     bd = unicorn.analysis.BD_fit()
     
-    files = glob.glob('~/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
-    
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
+    for file in files:
+        bd.fit(file)
+        
 class BD_template():
     def __init__(self, txt):
         self.filename = txt
@@ -1479,6 +1481,9 @@ class BD_fit():
 
         use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.2) & (np.isfinite(spec.flux)) & (spec.flux > 0)
         
+        if len(spec.lam[use]) < 50:
+            return False
+            
         for i in range(self.NTEMP):
             temp = self.templates[i]
             types.append(temp.type.strip())

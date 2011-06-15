@@ -116,6 +116,11 @@ def aegis():
     proc.reduction_script(asn_grism_file='AEGIS-1-G141_asn.fits')
     unicorn.analysis.make_SED_plots(grism_root='AEGIS-1-G141')
     go.clean_up()
+
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-3-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='AEGIS-3-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-3-G141')
+    go.clean_up()
     
 def cosmos():
     import unicorn.go_3dhst as go

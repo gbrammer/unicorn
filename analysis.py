@@ -1425,7 +1425,7 @@ def fit_all_brown_dwarfs():
     
     bd = unicorn.analysis.BD_fit()
     
-    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/*-G141*.dat')
     for file in files:
         bd.fit(file)
         

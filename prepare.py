@@ -290,7 +290,7 @@ def AEGIS(FORCE=False):
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
     
-    # threedhst.gmap.makeImageMap(['AEGIS-5-F140W_drz.fits', 'AEGIS-5-F140W_align.fits[0]*3', 'AEGIS-5-G141_drz.fits','/tmp/junk.fits'][0:], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['AEGIS-3-F140W_drz.fits', 'AEGIS-3-F140W_align.fits[0]*3', 'AEGIS-3-G141_drz.fits'][0:], aper_list=[16,17], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
     
     #### Direct mosaic
     direct_files = glob.glob('AEGIS-*-F140W_asn.fits')

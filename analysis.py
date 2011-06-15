@@ -1499,7 +1499,8 @@ class BD_fit():
         
         noNewLine = '\x1b[1A\x1b[1M'
         
-        if chi2.min() < 1:
+        min = np.where(chi2 == chi2.min())
+        if (chi2.min() < 1) & (types[min].startswith('T')):
             print noNewLine + ascii_file+' * '
             self.spec = spec
             self.types = types
@@ -1539,7 +1540,7 @@ class BD_fit():
             ax.plot(self.templates[j].wave, self.templates[j].flux*anorm[j]/ymax, color=colors[i], linewidth=1)
             ax.text(1.6e4,1.1-0.1*i,types[j], color=colors[i])
         
-        ax.text(1.1e4, 1.07, self.ascii_file.split('.dat')[0])
+        ax.text(1.1e4, 1.07, os.path.basename(self.ascii_file.split('.dat')[0]))
         
         ax.set_xticks(np.arange(1.1,1.8,0.2)*1.e4)
         ax.set_xticklabels(np.arange(1.1,1.8,0.2))

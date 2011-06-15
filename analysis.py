@@ -1425,7 +1425,7 @@ def fit_all_brown_dwarfs():
     
     bd = unicorn.analysis.BD_fit()
     
-    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/COSMOS-3-G141*.dat')
     for file in files:
         bd.fit(file)
         
@@ -1473,13 +1473,16 @@ class BD_fit():
         import numpy as np
         
         spec = catIO.Readfile(ascii_file)
+        spec.error /= 2.5
+        
         self.spec = spec
         
         chi2 = np.zeros(self.NTEMP)
         types = []
         anorm = chi2*0.
 
-        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.2) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.05) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        self.use = use
         
         if len(spec.lam[use]) < 50:
             return False
@@ -1500,7 +1503,7 @@ class BD_fit():
         noNewLine = '\x1b[1A\x1b[1M'
         
         min = np.where(chi2 == chi2.min())[0][0]
-        if (chi2.min() < 1) & (types[min].startswith('T')):
+        if (chi2.min() < 1.5): # & (~types[min].startswith('M')):
             print noNewLine + ascii_file+' * '
             self.spec = spec
             self.types = types
@@ -1509,7 +1512,7 @@ class BD_fit():
             self.ascii_file = ascii_file
             self.make_plot()
         else:
-            print noNewLine + ascii_file
+            print noNewLine + ascii_file + ' %0.2f' %(chi2.min())
             
     def make_plot(self):
         import matplotlib.pyplot as plt
@@ -1517,11 +1520,10 @@ class BD_fit():
         types = self.types
         chi2 = self.chi2
         anorm = self.anorm
+        use = self.use
         
         so = np.argsort(types)
-        
-        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.2) & (np.isfinite(spec.flux)) & (spec.flux > 0)
-        
+                
         plt.rcParams['font.size'] = 10
         #fig = plt.figure(figsize=[6.5,3],dpi=100)
         fig = Figure(figsize=[6.5, 3], dpi=100)        
@@ -1531,10 +1533,16 @@ class BD_fit():
         #### Plot the spectrum
         ax = fig.add_subplot(121)
         ymax = spec.flux[use].max()
-        ax.plot(spec.lam, spec.flux/ymax, color='black', linewidth=2)
+        ax.plot(spec.lam, spec.flux/ymax, color='black', linewidth=2, alpha=0.1)
+        ax.plot(spec.lam[use], spec.flux[use]/ymax, color='black', linewidth=2)
+        ax.plot(spec.lam, spec.contam/ymax, color='yellow', linewidth=1)
         
         soc = np.argsort(chi2)
         colors=['blue','green']
+        for i in range(self.NTEMP):
+            j = soc[i]
+            ax.plot(self.templates[j].wave, self.templates[j].flux*anorm[j]/ymax, alpha=0.1)
+            
         for i in range(2):
             j = soc[i]
             ax.plot(self.templates[j].wave, self.templates[j].flux*anorm[j]/ymax, color=colors[i], linewidth=1)
@@ -1559,6 +1567,7 @@ class BD_fit():
         
         ax.set_xticklabels([])
         ax.set_xlim(-1,self.NTEMP+1)    
+        ax.set_ylim(chi2.min()-1,chi2.min()+9)
         ax.set_xlabel('Type')
         ax.set_ylabel(r'$\chi^2_\nu$')
         

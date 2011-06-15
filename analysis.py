@@ -1425,7 +1425,7 @@ def fit_all_brown_dwarfs():
     
     bd = unicorn.analysis.BD_fit()
     
-    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/COSMOS-3-G141*.dat')
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/AEGIS-3-G141*.dat')
     for file in files:
         bd.fit(file)
         
@@ -1503,7 +1503,7 @@ class BD_fit():
         noNewLine = '\x1b[1A\x1b[1M'
         
         min = np.where(chi2 == chi2.min())[0][0]
-        if (chi2.min() < 1.5): # & (~types[min].startswith('M')):
+        if (chi2.min() < 1.5) & (~types[min].startswith('M')):
             print noNewLine + ascii_file+' * '
             self.spec = spec
             self.types = types

@@ -210,8 +210,8 @@ def COSMOS(FORCE=False):
     ### Temporary release of the direct mosaic
     iraf.imcopy('COSMOS-F140W_drz.fits[1]','COSMOS-F140w_11-06-17_sci.fits')
     iraf.imcopy('COSMOS-F140W_drz.fits[2]','COSMOS-F140w_11-06-17_wht.fits')
-    !tar czvf COSMOS-F140w_11-06-17.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
-    !mv COSMOS-F140w_11-06-17* ../MOSAIC
+    #!tar czvf COSMOS-F140w_11-06-17.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
+    #!mv COSMOS-F140w_11-06-17* ../MOSAIC
         
     threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-06-17_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=[13,14,15,16,17], tileroot=['F140W','F814W','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'])
     

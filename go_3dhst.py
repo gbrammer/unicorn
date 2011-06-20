@@ -62,6 +62,11 @@ def goods_s():
     # unicorn.analysis.make_SED_plots(grism_root='GOODS-S-27-G141')
     go.clean_up()
 
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-23-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='GOODS-S-23-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-23-G141')
+    go.clean_up()
+
 def aegis():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -301,6 +306,39 @@ def sn_marshall():
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
     
+#
+def daddi():
+    """
+
+    """
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+
+    os.chdir(unicorn.GRISM_HOME+'DADDI')
+
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
+    grism_asn  = glob.glob('HIGHZ-CLUSTER-?-G141_asn.fits')
+    files=glob.glob('HIGHZ-CLUSTER-?-G141_shifts.txt')
+    files.extend(grism_asn)
+    files.extend(glob.glob('*tweak.fits'))
+    for file in files:
+        shutil.copy(file,'../DATA/')
+
+    os.chdir('../')
+
+    #### Initialize parameters
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
+    threedhst.options['OTHER_BANDS'] = []
+
+    #### Main loop for reduction
+    for i in range(len(grism_asn)):
+        asn = grism_asn[i]
+        threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+asn.replace('asn','drz').replace('G141', 'F140W')
+        proc.reduction_script(asn_grism_file=asn)
+        #unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        go.clean_up()
 
 def stanford():
     import unicorn.go_3dhst as go

@@ -307,6 +307,8 @@ def AEGIS(FORCE=False):
     threedhst.utils.combine_asn_shifts(direct_files, out_root='AEGIS-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
+    ## some changes
+    
     SCALE = 0.128254
     #SCALE = 0.5
     PIXFRAC=0.6

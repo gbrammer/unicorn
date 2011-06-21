@@ -34,7 +34,8 @@ def goods_s():
     files.extend(grism_asn)
     files.extend(glob.glob('GOODS-S-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        shutil.copy(file, '../DATA')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     os.chdir('../')
     
     #### Initialize parameters
@@ -90,7 +91,8 @@ def aegis():
     files.extend(grism_asn)
     files.extend(glob.glob('AEGIS-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        shutil.copy(file, '../DATA')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     os.chdir('../')
     
     #### Initialize parameters
@@ -146,7 +148,9 @@ def cosmos():
     files.extend(grism_asn)
     files.extend(glob.glob('COSMOS-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        shutil.copy(file, '../DATA')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    
     os.chdir('../')
     
     #### Initialize parameters
@@ -188,7 +192,8 @@ def goodsn():
     files.extend(grism_asn)
     files.extend(glob.glob('GOODS-N-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        shutil.copy(file, '../DATA')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     os.chdir('../')
     
     #### Initialize parameters
@@ -216,7 +221,8 @@ def sn_primo():
     files=glob.glob('PRIMO-1???-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        shutil.copy(file,'../DATA/')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     
     try:
         iraf.imcopy('PRIMO_F125W_drz.fits[1]', '../DATA/f125w.fits')
@@ -253,7 +259,8 @@ def sn_george():
     files=glob.glob('GEORGE-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        shutil.copy(file,'../DATA/')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     
     try:
         iraf.imcopy('GEORGE_F125W_drz.fits[1]', '../DATA/f125w.fits')
@@ -289,7 +296,8 @@ def sn_marshall():
     files=glob.glob('MARSHALL-2*-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        shutil.copy(file,'../DATA/')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
 
     try:
         iraf.imcopy('MARSHALL-F125W_drz.fits[1]', '../DATA/f125w_sci.fits')
@@ -329,7 +337,8 @@ def daddi():
     files.extend(grism_asn)
     files.extend(glob.glob('*tweak.fits'))
     for file in files:
-        shutil.copy(file,'../DATA/')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
 
     os.chdir('../')
 
@@ -359,7 +368,8 @@ def stanford():
     files.extend(grism_asn)
     files.extend(glob.glob('ISCS*F160W_tweak.fits'))
     for file in files:
-        shutil.copy(file, '../DATA')
+        os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
     os.chdir('../')
     
     #### Initialize parameters

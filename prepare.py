@@ -286,7 +286,8 @@ def AEGIS(FORCE=False):
 
     os.chdir(unicorn.GRISM_HOME+'AEGIS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1*drz.fits'
-
+    ALIGN = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
+    
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
@@ -295,7 +296,7 @@ def AEGIS(FORCE=False):
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
     
-    threedhst.gmap.makeImageMap(['AEGIS-3-F140W_drz.fits', 'AEGIS-3-F140W_align.fits[0]*3', 'AEGIS-3-G141_drz.fits'][0:], aper_list=[16,17], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['AEGIS-9-F140W_drz.fits', 'AEGIS-9-F140W_align.fits[0]*0.04', 'AEGIS-9-G141_drz.fits'][0:], aper_list=[14,15,16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
     
     #### Direct mosaic
     direct_files = glob.glob('AEGIS-*-F140W_asn.fits')

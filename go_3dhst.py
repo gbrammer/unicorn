@@ -34,7 +34,7 @@ def goods_s():
     files.extend(grism_asn)
     files.extend(glob.glob('GOODS-S-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     os.chdir('../')
     
@@ -68,6 +68,19 @@ def goods_s():
     unicorn.analysis.make_SED_plots(grism_root='GOODS-S-23-G141')
     go.clean_up()
 
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=20.5)
+    
+    threedhst.options['AXE_EDGES'] = "0,0,0,0"
+    
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-6-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='GOODS-S-6-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-6-G141')
+    go.clean_up()
+    
+    os.chdir('./DATA')
+    threedhst.gmap.makeImageMap(['GOODS-S-6-G141_drz.fits', 'GOODS-S-6-G141CONT_drz.fits'][0:], aper_list=[14,15,16], polyregions=glob.glob("GOODS-S-*-F140W_asn.pointing.reg"))
+    os.chdir('../')
+    
 def aegis():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -91,7 +104,7 @@ def aegis():
     files.extend(grism_asn)
     files.extend(glob.glob('AEGIS-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     os.chdir('../')
     
@@ -139,6 +152,16 @@ def aegis():
     unicorn.analysis.make_SED_plots(grism_root='AEGIS-12-G141')
     go.clean_up()
     
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-15-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='AEGIS-15-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-15-G141')
+    go.clean_up()
+    
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-25-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='AEGIS-25-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-25-G141')
+    go.clean_up()
+    
 def cosmos():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -153,7 +176,7 @@ def cosmos():
     files.extend(grism_asn)
     files.extend(glob.glob('COSMOS-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     
     os.chdir('../')
@@ -197,7 +220,7 @@ def goodsn():
     files.extend(grism_asn)
     files.extend(glob.glob('GOODS-N-[0-9]*-F140W_tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     os.chdir('../')
     
@@ -226,7 +249,7 @@ def sn_primo():
     files=glob.glob('PRIMO-1???-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     
     try:
@@ -264,7 +287,7 @@ def sn_george():
     files=glob.glob('GEORGE-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     
     try:
@@ -301,7 +324,7 @@ def sn_marshall():
     files=glob.glob('MARSHALL-2*-G141_shifts.txt')
     files.extend(grism_asn)
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
 
     try:
@@ -342,7 +365,7 @@ def daddi():
     files.extend(grism_asn)
     files.extend(glob.glob('*tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
 
     os.chdir('../')
@@ -373,7 +396,7 @@ def stanford():
     files.extend(grism_asn)
     files.extend(glob.glob('ISCS*F160W_tweak.fits'))
     for file in files:
-        os.system('cp '+file+' ../DATA')
+        status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     os.chdir('../')
     

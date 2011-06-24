@@ -712,18 +712,19 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
         
 def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
     use_kmag=False, contam=0.5):        
+    
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
     
     matches = []
     
-    # matches.extend(glob.glob('../AEGIS/HTML/SED/AEGIS**match.cat'))
+    matches.extend(glob.glob('../AEGIS/HTML/SED/AEGIS**match.cat'))
     matches.extend(glob.glob('../COSMOS/HTML/SED/COSMOS*match.cat'))
-    # matches.extend(glob.glob('../GOODS-N/HTML/SED/GOODS-N*match.cat'))
-    # matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
-    # matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
-    # matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
-    # matches.extend(glob.glob('../ERS/HTML_v1.1/SED/*match.cat'))
-    # matches.extend(glob.glob('../SN-MARSHALL/HTML_v1.0/SED/*match.cat'))
+    matches.extend(glob.glob('../GOODS-N/HTML/SED/GOODS-N*match.cat'))
+    matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
+    matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
+    matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
+    matches.extend(glob.glob('../ERS/HTML_v1.1/SED/*match.cat'))
+    matches.extend(glob.glob('../SN-MARSHALL/HTML_v1.0/SED/*match.cat'))
     
     print matches
     

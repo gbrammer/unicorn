@@ -421,7 +421,7 @@ class GrismModel():
         cut = np.zeros(self.sh[1])
         cut[xxi[use]] = word[use] 
         self.object_wave = np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
-
+        
         cut[xxi[use]] = sord[use] 
         self.object_sens = np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
         

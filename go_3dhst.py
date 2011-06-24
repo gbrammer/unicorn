@@ -230,7 +230,7 @@ def goodsn():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
             
     #### Main loop for reduction
     for i in range(len(grism_asn))[11:]:
@@ -266,7 +266,7 @@ def sn_primo():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.3)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
     
     #### Main loop for reduction
     for i, asn in enumerate(grism_asn):
@@ -303,7 +303,7 @@ def sn_george():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.3)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
     
     #### Main loop for reduction
     for i, asn in enumerate(grism_asn):
@@ -341,7 +341,7 @@ def sn_marshall():
     os.chdir('../')
 
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=25)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/MARSHALL-F160W_drz.fits'
     threedhst.options['OTHER_BANDS'] = [['f125w_sci.fits', 'F125W' , 1248.6, 26.25]]
 
@@ -376,7 +376,7 @@ def daddi():
     os.chdir('../')
 
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
     threedhst.options['OTHER_BANDS'] = []
 
     #### Main loop for reduction

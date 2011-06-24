@@ -713,18 +713,24 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
 def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
     use_kmag=False, contam=0.5):        
     
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
+    if unicorn.hostname().startswith('unicorn'):
+        os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+        scripts="../scripts"
+        matches = glob.glob('../SED/*match.cat')
     
-    matches = []
-    
-    matches.extend(glob.glob('../AEGIS/HTML/SED/AEGIS**match.cat'))
-    matches.extend(glob.glob('../COSMOS/HTML/SED/COSMOS*match.cat'))
-    matches.extend(glob.glob('../GOODS-N/HTML/SED/GOODS-N*match.cat'))
-    matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
-    matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
-    matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
-    matches.extend(glob.glob('../ERS/HTML_v1.1/SED/*match.cat'))
-    matches.extend(glob.glob('../SN-MARSHALL/HTML_v1.0/SED/*match.cat'))
+    else:
+        os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
+        scripts="http://localhost/~gbrammer/COSMOS/scripts"
+
+        matches = []
+        matches.extend(glob.glob('../AEGIS/HTML/SED/*match.cat'))
+        matches.extend(glob.glob('../COSMOS/HTML/SED/*match.cat'))
+        matches.extend(glob.glob('../GOODS-S/HTML/SED/*match.cat'))
+        matches.extend(glob.glob('../GOODS-N/HTML/SED/*match.cat'))
+        # matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
+        # matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
+        # matches.extend(glob.glob('../SN-MARSHALL/HTML/SED/*match.cat'))
+        # matches.extend(glob.glob('../ERS/HTML/SED/*match.cat'))
     
     print matches
     
@@ -739,11 +745,11 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     fp.write("""
     <html>
     <head>
-    <link rel="stylesheet" href="http://localhost/~gbrammer/COSMOS/scripts/style.css" type="text/css" id="" media="print, projection, screen" /> 
+    <link rel="stylesheet" href="%s/style.css" type="text/css" id="" media="print, projection, screen" /> 
     
-    <script type="text/javascript" src="http://localhost/~gbrammer/COSMOS/scripts/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="%s/jquery-1.4.2.min.js"></script>
     
-    <script type="text/javascript" src="http://localhost/~gbrammer/COSMOS/scripts/jquery.tablesorter.min.js"></script> 
+    <script type="text/javascript" src="%s/jquery.tablesorter.min.js"></script> 
     
     <script type="text/javascript" id="js">
     
@@ -785,7 +791,7 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         <th> SED </th>
     </thead>
     <tbody>
-    """)
+    """ %(scripts, scripts, scripts))
     
     NUSE = 0
     for match in matches:
@@ -801,9 +807,10 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         if use_kmag:
             #print c.keys()
             select_mag = c.mag_ktot
-            
-        if ('ERS' in root_path) | ('GOODS-S' in root_path):
-            c.logm -= 0*-0.4*(23.86-25)
+        
+        #### Had used wrong zeropoint in FAST    
+        # if ('ERS' in root_path) | ('GOODS-S' in root_path):
+        #     c.logm -= 0*-0.4*(23.86-25)
             
         use = (c.star_flag < 1) & (c.logm > masslim) & (c.rmatch < 1) & (select_mag < maglim) & (c.z_peak > zrange[0]) & (c.z_peak < zrange[1])
         

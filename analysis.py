@@ -829,6 +829,8 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
             
             file="%s_%05d" %(root, ID)
             
+            print "%4d %4d %s" %(ID, len(xml), file)
+            
             fplist.write("%15s %14.6f %14.6f %8.3f %5.2f\n" %(file, xml[ID].ra, xml[ID].dec, c.z_peak[i], c.logm[i]))
             
             fpreg.write('circle(%14.6f,%14.6f,1") # text={%s} color=magenta  \n' %(xml[ID].ra, xml[ID].dec, file))

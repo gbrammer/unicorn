@@ -194,7 +194,7 @@ def cosmos():
     grism_asn = grism_asn
     
     #### Main loop for reduction
-    for i in range(len(grism_asn)):
+    for i in range(len(grism_asn))[14:]:
         asn = grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         # threedhst.options['PIXFRAC'] = 0.8
@@ -296,22 +296,22 @@ def sn_george():
         #shutil.copy(file, '../DATA')
     
     try:
-        iraf.imcopy('GEORGE_F125W_drz.fits[1]', '../DATA/f125w.fits')
+        iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
     except:
         os.remove('f125w.fits')
-        iraf.imcopy('GEORGE_F125W_drz.fits[1]', '../DATA/f125w.fits')
+        iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
     os.chdir('../')
     
     #### Initialize parameters
     go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
     
-    #### Main loop for reduction
-    for i, asn in enumerate(grism_asn):
-        threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GEORGE_F160W_drz.fits'
-        threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
-        proc.reduction_script(asn_grism_file=asn)
-        unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
-        go.clean_up()
+    #### Run aXe
+    asn = 'GEORGE-G141_asn.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GEORGE-F160W_drz.fits'
+    threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
+    proc.reduction_script(asn_grism_file=asn)
+    unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+    go.clean_up()
 
 def sn_marshall():
     """
@@ -489,3 +489,17 @@ def clean_up():
     for file in files:
         os.remove(file)
        
+#
+def go_update_all_catalogs():
+    import glob
+    import threedhst
+    import unicorn
+    
+    for dir in ['COSMOS','GOODS-N','AEGIS','GOODS-S','SN-MARSHALL','SN-GEORGE']:
+        os.chdir(unicorn.GRISM_HOME+'/'+dir+'/DATA/')
+        files=glob.glob('*G141_asn.fits')
+        os.chdir('../')
+        for file in files:
+            print file.split('_asn')[0]
+            threedhst.process_grism.update_catalogs(root=file.split('_asn')[0], 
+                  CONT_LAM=1.4e4)

@@ -303,7 +303,7 @@ def AEGIS(FORCE=False):
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
     
-    threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*0.04', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[14,15,16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-2-F140W_drz.fits', 'AEGIS-11-F140W_drz.fits'][0:], aper_list=[13, 14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings
@@ -333,7 +333,7 @@ def AEGIS_mosaic():
     
     SCALE = 0.06
     #SCALE = 0.5
-    PIXFRAC=0.6
+    PIXFRAC=0.8
     NX, NY = int(18000*0.06/SCALE), int(19000*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
@@ -434,10 +434,26 @@ def SN_GEORGE():
     status = os.system('mv GEORGE-1-F160W_tweak.fits GEORGE-5-F160W_tweak.fits')
     status = os.system('mv GEORGE-1-F160W_asn.fits GEORGE-5-F160W_asn.fits')
     status = os.system('mv GEORGE-1-F160W_shifts.txt GEORGE-5-F160W_shifts.txt')
+       
+    ###### Combine everything
+    asn_files = glob.glob('GEORGE-?-F125W_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_files, out_root='GEORGE-F125W',
+                    path_to_FLT='./', run_multidrizzle=False)
     
-    #
-    threedhst.gmap.makeImageMap(['GEORGE-1-F160W_drz.fits', 'GEORGE-1-F160W_align.fits[0]*4', 'GEORGE-1-G141_drz.fits*2'], aper_list=[16], polyregions=glob.glob('GEORGE-*__asn.pointing.reg'))
-
+    threedhst.prep_flt_files.startMultidrizzle('GEORGE-F125W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    asn_files = glob.glob('GEORGE-?-F160W_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_files, out_root='GEORGE-F160W',
+                    path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GEORGE-F160W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
     asn_files = glob.glob('GEORGE-?-G141_asn.fits')
     threedhst.utils.combine_asn_shifts(asn_files, out_root='GEORGE-G141',
                     path_to_FLT='./', run_multidrizzle=False)
@@ -446,6 +462,19 @@ def SN_GEORGE():
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
+    
+    #### Original F125W not quite aligned to F160W, which looks closer to ACS
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='GEORGE-F125W', 
+              ALIGN_IMAGE='GEORGE-F160W_drz.fits', ALIGN_EXTENSION=1,  
+              fitgeometry='shift', clean=True)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GEORGE-F125W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    threedhst.gmap.makeImageMap(['GEORGE-F125W_drz.fits', 'GEORGE-F160W_drz.fits', 'GEORGE-1-F160W_align.fits[0]*4', 'GEORGE-G141_drz.fits*2'], aper_list=[15, 16], polyregions=glob.glob('GEORGE-*_asn.pointing.reg'))
+    
     
 def SN_MARSHALL():
     ####********************************************####

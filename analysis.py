@@ -711,7 +711,7 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
         
         
 def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
-    use_kmag=False, contam=0.5):        
+    use_kmag=False, contam=0.5, coverage=0.9):        
     
     if unicorn.hostname().startswith('unicorn'):
         os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
@@ -803,6 +803,17 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         xml = catIO.readMarkerXML(xml_file)
         #print c.keys()
         
+        #### SExtractor + contamination catalog
+        sex = threedhst.sex.mySexCat(root_path+root+'_drz.cat')
+        mat = c.id_f140w*0
+        for i in range(len(c.id_f140w)):
+            mat[i] = np.where(np.cast[int](sex.NUMBER) == c.id_f140w[i])[0][0]
+        
+        try:
+            fcover = np.cast[float](sex.FCOVER)
+        else:
+            fcover = c.id_f140w*0+1
+            
         select_mag = c.mag_f140w
         if use_kmag:
             #print c.keys()
@@ -812,7 +823,7 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         # if ('ERS' in root_path) | ('GOODS-S' in root_path):
         #     c.logm -= 0*-0.4*(23.86-25)
             
-        use = (c.star_flag < 1) & (c.logm > masslim) & (c.rmatch < 1) & (select_mag < maglim) & (c.z_peak > zrange[0]) & (c.z_peak < zrange[1])
+        use = (c.star_flag < 1) & (c.logm > masslim) & (c.rmatch < 1) & (select_mag < maglim) & (c.z_peak > zrange[0]) & (c.z_peak < zrange[1]) & (fcover > coverage)
         
         if 'fcontam' in c.keys():
             if contam < 0:

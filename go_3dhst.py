@@ -39,7 +39,7 @@ def goods_s():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
     
     #### Main loop for reduction
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-6-F140W_drz.fits'
@@ -68,18 +68,23 @@ def goods_s():
     unicorn.analysis.make_SED_plots(grism_root='GOODS-S-23-G141')
     go.clean_up()
 
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=20.5)
-    
-    threedhst.options['AXE_EDGES'] = "0,0,0,0"
-    
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-6-F140W_drz.fits'
-    proc.reduction_script(asn_grism_file='GOODS-S-6-G141_asn.fits')
-    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-6-G141')
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-26-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='GOODS-S-26-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-26-G141')
     go.clean_up()
-    
-    os.chdir('./DATA')
-    threedhst.gmap.makeImageMap(['GOODS-S-6-G141_drz.fits', 'GOODS-S-6-G141CONT_drz.fits'][0:], aper_list=[14,15,16], polyregions=glob.glob("GOODS-S-*-F140W_asn.pointing.reg"))
-    os.chdir('../')
+
+    # go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=20.5)
+    # 
+    # threedhst.options['AXE_EDGES'] = "0,0,0,0"
+    # 
+    # threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-6-F140W_drz.fits'
+    # proc.reduction_script(asn_grism_file='GOODS-S-6-G141_asn.fits')
+    # unicorn.analysis.make_SED_plots(grism_root='GOODS-S-6-G141')
+    # go.clean_up()
+    # 
+    # os.chdir('./DATA')
+    # threedhst.gmap.makeImageMap(['GOODS-S-6-G141_drz.fits', 'GOODS-S-6-G141CONT_drz.fits'][0:], aper_list=[14,15,16], polyregions=glob.glob("GOODS-S-*-F140W_asn.pointing.reg"))
+    # os.chdir('../')
     
 def aegis():
     import unicorn.go_3dhst as go
@@ -189,7 +194,7 @@ def cosmos():
     grism_asn = grism_asn
     
     #### Main loop for reduction
-    for i in range(len(grism_asn))[16:]:
+    for i in range(len(grism_asn)):
         asn = grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         # threedhst.options['PIXFRAC'] = 0.8

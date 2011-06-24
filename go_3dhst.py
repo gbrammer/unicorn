@@ -501,5 +501,8 @@ def go_update_all_catalogs():
         os.chdir('../')
         for file in files:
             print file.split('_asn')[0]
-            threedhst.process_grism.update_catalogs(root=file.split('_asn')[0], 
-                  CONT_LAM=1.4e4)
+            try:
+                threedhst.process_grism.update_catalogs(root=file.split('_asn')[0], 
+                    CONT_LAM=1.4e4)
+            except:
+                pass

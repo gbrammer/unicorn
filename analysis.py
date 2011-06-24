@@ -810,9 +810,9 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
             mat[i] = np.where(np.cast[int](sex.NUMBER) == c.id_f140w[i])[0][0]
         
         try:
-            fcover = np.cast[float](sex.FCOVER)
+            fcover = np.cast[float](sex.FCOVER)[mat]
         except:
-            fcover = c.id_f140w*0+1
+            fcover = c.id_f140w*0.+1
             
         select_mag = c.mag_f140w
         if use_kmag:

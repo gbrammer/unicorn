@@ -119,7 +119,7 @@ def aegis():
     #### Main loop for reduction
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-4-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='AEGIS-4-G141_asn.fits')
-    unicorn.analysis.aegis_SED_plots(grism_root='AEGIS-4-G141')
+    unicorn.analysis.make_SED_plots(grism_root='AEGIS-4-G141')
     go.clean_up()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-5-F140W_drz.fits'

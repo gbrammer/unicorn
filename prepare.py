@@ -352,6 +352,101 @@ def AEGIS_mosaic():
     #
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
 
+def SN_GEORGE():
+    ####********************************************####
+    ####              SN-GEORGE (GOODS-S)
+    ####********************************************####
+    
+    import os
+    import threedhst
+    import unicorn
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+
+    os.chdir(unicorn.GRISM_HOME+'SN-GEORGE/PREP_FLT')
+    
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    ##### Direct + grism
+    pair('ibfug1030_asn.fits','ibfug1040_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
+    status = os.system('mv GEORGE-1-F160W_drz.fits GEORGE-2-F160W_drz.fits')
+    status = os.system('mv GEORGE-1-F160W_tweak.fits GEORGE-2-F160W_tweak.fits')
+    status = os.system('mv GEORGE-1-F160W_asn.fits GEORGE-2-F160W_asn.fits')
+    status = os.system('mv GEORGE-1-F160W_shifts.txt GEORGE-2-F160W_shifts.txt')
+
+    pair('ibfug2030_asn.fits','ibfug2040_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False, GET_SHIFT=True)
+    status = os.system('mv GEORGE-1-F125W_drz.fits GEORGE-2-F125W_drz.fits')
+    status = os.system('mv GEORGE-1-F125W_tweak.fits GEORGE-2-F125W_tweak.fits')
+    status = os.system('mv GEORGE-1-F125W_asn.fits GEORGE-2-F125W_asn.fits')
+    status = os.system('mv GEORGE-1-F125W_shifts.txt GEORGE-2-F125W_shifts.txt')
+    
+    
+    ##### Direct only
+    pair('ibfug3020_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F125W_drz.fits GEORGE-3-F125W_drz.fits')
+    status = os.system('mv GEORGE-1-F125W_tweak.fits GEORGE-3-F125W_tweak.fits')
+    status = os.system('mv GEORGE-1-F125W_asn.fits GEORGE-3-F125W_asn.fits')
+    status = os.system('mv GEORGE-1-F125W_shifts.txt GEORGE-3-F125W_shifts.txt')
+
+    pair('ibfug4020_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F125W_drz.fits GEORGE-4-F125W_drz.fits')
+    status = os.system('mv GEORGE-1-F125W_tweak.fits GEORGE-4-F125W_tweak.fits')
+    status = os.system('mv GEORGE-1-F125W_asn.fits GEORGE-4-F125W_asn.fits')
+    status = os.system('mv GEORGE-1-F125W_shifts.txt GEORGE-4-F125W_shifts.txt')
+    
+    pair('ibfug5020_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F125W_drz.fits GEORGE-5-F125W_drz.fits')
+    status = os.system('mv GEORGE-1-F125W_tweak.fits GEORGE-5-F125W_tweak.fits')
+    status = os.system('mv GEORGE-1-F125W_asn.fits GEORGE-5-F125W_asn.fits')
+    status = os.system('mv GEORGE-1-F125W_shifts.txt GEORGE-5-F125W_shifts.txt')
+    
+    #### later F160W don't have ASN files
+    asn = threedhst.utils.ASNFile('ibfug5020_asn.fits')
+
+    asn.exposures = ['ibfug3hes','ibfug3hns']
+    asn.product = 'ibfug3010'.upper()
+    asn.write('ibfug3010_asn.fits')
+    
+    pair('ibfug3010_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F160W_drz.fits GEORGE-3-F160W_drz.fits')
+    status = os.system('mv GEORGE-1-F160W_tweak.fits GEORGE-3-F160W_tweak.fits')
+    status = os.system('mv GEORGE-1-F160W_asn.fits GEORGE-3-F160W_asn.fits')
+    status = os.system('mv GEORGE-1-F160W_shifts.txt GEORGE-3-F160W_shifts.txt')
+    
+    
+    asn.exposures = ['ibfug4g0q','ibfug4g9q']
+    asn.product = 'ibfug4010'.upper()
+    asn.write('ibfug4010_asn.fits')
+
+    pair('ibfug4010_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F160W_drz.fits GEORGE-4-F160W_drz.fits')
+    status = os.system('mv GEORGE-1-F160W_tweak.fits GEORGE-4-F160W_tweak.fits')
+    status = os.system('mv GEORGE-1-F160W_asn.fits GEORGE-4-F160W_asn.fits')
+    status = os.system('mv GEORGE-1-F160W_shifts.txt GEORGE-4-F160W_shifts.txt')
+
+    
+    asn.exposures = ['ibfug5jrq','ibfug5k0q']
+    asn.product = 'ibfug5010'.upper()
+    asn.write('ibfug5010_asn.fits')
+
+    pair('ibfug5010_asn.fits', None, ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    status = os.system('mv GEORGE-1-F160W_drz.fits GEORGE-5-F160W_drz.fits')
+    status = os.system('mv GEORGE-1-F160W_tweak.fits GEORGE-5-F160W_tweak.fits')
+    status = os.system('mv GEORGE-1-F160W_asn.fits GEORGE-5-F160W_asn.fits')
+    status = os.system('mv GEORGE-1-F160W_shifts.txt GEORGE-5-F160W_shifts.txt')
+    
+    #
+    threedhst.gmap.makeImageMap(['GEORGE-1-F160W_drz.fits', 'GEORGE-1-F160W_align.fits[0]*4', 'GEORGE-1-G141_drz.fits*2'], aper_list=[16], polyregions=glob.glob('GEORGE-*__asn.pointing.reg'))
+
+    asn_files = glob.glob('GEORGE-?-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(asn_files, out_root='GEORGE-G141',
+                    path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GEORGE-G141_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
 def SN_MARSHALL():
     ####********************************************####
     ####              SN-MARSHALL (UDS)

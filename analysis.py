@@ -169,6 +169,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     else:
         cat.kmag = 25.-2.5*np.log10(cat.field(KTOT_COL))
     
+    cat.MAGS_UNIT = MAGS
+    
     if 'star_flag' in cat.names:
         cat.star_flag = cat.field('star_flag')
     else:
@@ -259,7 +261,7 @@ def make_SED_plots(grism_root='COSMOS-3-G141'):
             OUTPUT_DIRECTORY = OUTPUT_DIRECTORY,
             CACHE_FILE = 'Same')
     
-def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None):
+def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=False):
     """ 
     
     Convolve the best-fit eazy spectrum with the object shape
@@ -284,6 +286,9 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None):
     if oned:
         profile = np.sum(thumb[0].data*model2D,axis=0)
         profile /= profile.sum()
+        if verbose: 
+            xprof = np.arange(len(profile))
+            print 'Profile center:', np.trapz(xprof, xprof*profile)/np.trapz(xprof, profile), np.mean(xprof)
     else:
         profile = thumb[0].data*model2D
         #for i in range(size[0]):
@@ -305,6 +310,9 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None):
     # for i in range(len(lambdaz)):
     #     temp_sed_sm[i] = np.trapz(1./np.sqrt(2*np.pi*50**2)*np.exp(-0.5*(lambdaz-lambdaz[i])**2/50**2)*temp_sed, lambdaz)
     
+    if verbose:
+        print 'DLAM: ', DLAM
+        
     #
     if xint is None:
         xint = np.arange(xmin-LSM*DLAM,xmax+LSM*DLAM,DLAM)
@@ -339,7 +347,7 @@ def specphot(id=69, grism_root='ibhm45030',
     CACHE_FILE = 'Same', Verbose=False,
     SPC = None, cat=None, grismCat = None,
     zout = None, fout = None, OUT_PATH='/tmp/', OUT_FILE_FORMAT=True,
-    OUT_FILE='junk.png'):
+    OUT_FILE='junk.png', GET_SPEC_ONLY=False):
     """
 specphot(id)
     
@@ -453,6 +461,9 @@ specphot(id)
         
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
     
+    if GET_SPEC_ONLY:
+        return lam, ffix*anorm, np.sqrt(ferr**2+spec.field('CONTAM')**2)*anorm, lci, fobs, efobs, photom_idx
+         
     if Verbose:
         print 'Start plot'
         
@@ -1595,7 +1606,308 @@ class BD_fit():
         outfile = os.path.basename(self.ascii_file.replace('.dat','_BD.png'))
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(outfile, dpi=100, transparent=False)
+
+#
+
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1.):
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    ORIG_PATH = os.getcwd()
+    
+    PATH = unicorn.analysis.get_grism_path(root)
+    #print PATH
+    os.chdir(PATH)
+    
+    ## read photometric, redshift, SPS catalogs
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
         
+    ## path where other eazy outputs live
+    OUTPUT_DIRECTORY = os.path.dirname(zout.filename)
+    MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
+    
+    grismCat, SPC = unicorn.analysis.read_grism_files(root=root)
+    
+    match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
+    
+    lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=id,
+        grism_root=root, SPC = SPC, 
+        cat = cat,
+        grismCat = grismCat, zout = zout, fout = fout, 
+        OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
+        MAIN_OUTPUT_FILE = MAIN_OUTPUT_FILE,
+        OUTPUT_DIRECTORY = OUTPUT_DIRECTORY,
+        CACHE_FILE = 'Same',
+        GET_SPEC_ONLY = True)
+        
+    use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
+    
+    #### allow additional normalization term
+    spflux *= spec_norm
+    sperr *= spec_norm
+    
+    ## check
+    if check:
+        plt.semilogx([1],[1])
+        plt.errorbar(lci, fobs, yerr=efobs, marker='o', linestyle='None', color='blue', ecolor='blue')
+        ma = fobs.max()
+        plt.plot(lam[use], spflux[use], color='red')
+        plt.ylim(-0.1*ma, 1.5*ma)
+        plt.xlim(3000, 9.e4)
+    ##
+    
+    #### Rebin if bin_spec is specified
+    bin_spec = int(bin_spec)
+    if bin_spec > 1:
+        NUSE = len(lam[use])
+        lbin = np.zeros(NUSE/bin_spec)
+        fbin = np.zeros(NUSE/bin_spec)
+        ebin = np.zeros(NUSE/bin_spec)
+        for i in range(0,NUSE,bin_spec):
+            try:
+                lbin[i/bin_spec] = np.mean(lam[use][i:i+bin_spec])
+                ebin[i/bin_spec] = 1./np.sum(1./sperr[use][i:i+bin_spec]**2)
+                fbin[i/bin_spec] = np.sum(spflux[use][i:i+bin_spec]/sperr[use][i:i+bin_spec]**2)*ebin[i/bin_spec]
+            except:
+                pass
+
+        use = lbin > 0
+        lam = lbin; spflux = fbin; sperr = ebin
+    
+    #### Take a wavelength bin and convolve it with the thumbnail
+    dlam = (lam[use][1]-lam[use][0])*bin_spec
+    NBIN = 100
+    DX = 100
+    xarr = (np.arange(NBIN*2)-NBIN)*1./NBIN*3*dlam
+    yarr = xarr*0
+    yarr[np.abs(xarr) < dlam/2.] = 1
+    
+    os.chdir(PATH)
+    lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0], yarr, SPC, verbose=False)
+    #### Recenter the convolved response
+    xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
+    lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0]+xoff, yarr, SPC, verbose=False)
+    keep = ysm > (1.e-4*np.max(ysm))
+
+    ###################################
+    #### Make a RES file for the convolved resolution and make a catalog file with
+    #### photometry and spectroscopy
+    
+    os.chdir(ORIG_PATH)
+    
+    res_lines = open(OLD_RES).readlines()
+    nfilt=0
+    res_name = []
+    res_lc = []
+    for line in res_lines:
+        if line.find('lambda_c') > 0:
+            res_lc.append(line.split('lambda_c=')[1].split()[0])
+            res_name.append(line.split()[1])
+            nfilt += 1
+    #
+    res_lc = np.cast[float](res_lc)
+    
+    #### Read the parameter file associated with the zout file to get the right
+    #### filters, which should be in the same order as the vectors read from the 
+    #### binary files
+    eazy_param = threedhst.eazyPy.EazyParam(zout.filename.replace('zout','param'))
+    
+    cat_head = '# phot_id id ra dec z_spec'
+    cat_line = ' %d %s_%05d %f %f %8.3f' %(cat.id[photom_idx], root, id, cat.ra[photom_idx], cat.dec[photom_idx], zout.z_spec[photom_idx])
+    no_spec = cat_line+''
+    no_phot = cat_line+''
+    for i in range(len(lci)):
+        fnumber = eazy_param.filters[i].fnumber
+        #print res_lc[fnumber-1], lci[i]
+        cat_head += ' F%0d E%0d' %(fnumber, fnumber)
+        fnui = (lci[i]/5500.)**2
+        cat_line += ' %9.3e %9.3e' %(fobs[i]*fnui, efobs[i]*fnui)
+        no_spec += ' %9.3e %9.3e' %(fobs[i]*fnui, efobs[i]*fnui)
+        no_phot += ' -99 -99' 
+    
+    NKEEP = len(lsm[keep])    
+    fnu_spec = spflux * (lam/5500.)**2
+    efnu_spec = sperr * (lam/5500.)**2
+    
+    for i, l0 in enumerate(lam[use]):
+        ### CAT
+        cat_head += ' F%0d E%0d' %(nfilt+i+1, nfilt+i+1)
+        cat_line += ' %9.3e %9.3e' %(fnu_spec[use][i], efnu_spec[use][i]/3)
+        no_spec += ' -99  -99'
+        no_phot += ' %9.3e %9.3e' %(fnu_spec[use][i], efnu_spec[use][i]/3)
+        #
+        ### RES
+        lsm0 = lsm[keep]-lam[use][0]+l0
+        ysmk = ysm[keep]
+        res_lines.append('%d spec lambda_c=%f\n' %(NKEEP, l0))
+        for j in range(NKEEP):
+            res_lines.append(' %5i %13.5e %13.5e\n' %(j+1, lsm0[j], ysmk[j]))
+    
+    fp = open(OUT_RES,'w')
+    fp.writelines(res_lines)
+    fp.close()
+    
+    fp = open('threedhst.cat','w')
+    fp.write(cat_head+'\n')
+    fp.write(cat_line+'\n')
+    fp.write(no_spec+'\n')
+    fp.write(no_phot+'\n')
+    fp.close()
+    
+    #### Set some EAZY parameters
+    eazy_param.params['READ_ZBIN'] = 'n'
+    eazy_param.params['TEMPLATES_FILE'] = 'templates/eazy_v1.1_lines.spectra.param'
+    eazy_param.params['FILTERS_RES'] = 'THREEDHST.RES'
+    eazy_param.params['OUTPUT_DIRECTORY'] = 'OUTPUT'
+    eazy_param.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
+    eazy_param.params['CATALOG_FILE'] = 'threedhst.cat'
+    eazy_param.params['MAIN_OUTPUT_FILE'] = 'threedhst'
+    eazy_param.params['CACHE_FILE'] = 'threedhst.tempfilt'
+    eazy_param.params['GET_ZP_OFFSETS'] = 0
+    eazy_param.params['Z_STEP'] /= 4
+    eazy_param.params['Z_MIN'] = zout.l99[photom_idx]*0.8
+    eazy_param.params['Z_MAX'] = zout.u99[photom_idx]/0.8
+    eazy_param.write(file='threedhst.eazy.param')
+    
+    
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'):
+    
+    import matplotlib.pyplot as plt
+    import threedhst.eazyPy as eazy
+    
+    if run:
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm)
+        os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+    
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+        eazy.getEazySED(0, MAIN_OUTPUT_FILE='threedhst', \
+                          OUTPUT_DIRECTORY='OUTPUT', \
+                          CACHE_FILE = 'Same')
+    
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    
+    ################
+    ### Make plot
+    ################
+    
+    ### setup
+    plt.rcParams['font.size'] = 10
+    if USE_PLOT_GUI:
+        fig = plt.figure(figsize=[7,3],dpi=100)
+    else:
+        fig = Figure(figsize=[7,3],dpi=100)
+        
+    fig.subplots_adjust(wspace=0.04,hspace=0.12,left=0.05,
+                        bottom=0.15,right=0.98,top=0.98)
+    
+    #################################### Broad-band + spectrum
+    ax = fig.add_subplot(131)
+    
+    ax.semilogx([1],[1])
+    ymax = max(fobs)
+    ymax = max(fobs[is_spec])
+    
+    ## photometry
+    ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.9, color='orange', markersize=6)
+    ax.plot(lci[~is_spec], obs_sed[~is_spec], marker='o', color='red', linestyle='None', markersize=6, alpha=0.2)
+    
+    ## best-fit SED
+    ax.plot(lambdaz, temp_sed, color='red', alpha=0.6)
+    
+    ## Spectrum + convolved fit
+    ax.plot(lci[is_spec], obs_sed[is_spec], color='red', markersize=6, alpha=0.7, linewidth=1)
+    ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color='blue', linewidth=1)
+    
+    ## check normalization
+    spec_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+    print spec_norm
+    
+    ax.set_yticklabels([])
+    ax.set_ylabel(r'$f_\lambda$')
+    ax.set_xlabel(r'$\lambda$')
+    xtick = ax.set_xticks(np.array([0.5, 1., 2, 4])*1.e4)
+    ax.set_xticklabels(np.array([0.5, 1., 2, 4]))
+    
+    ax.set_xlim(3000,9.e4)
+    ax.set_ylim(-0.1*ymax, 1.2*ymax)
+    
+    ymax = max(fobs[is_spec])
+    ymin = min(fobs[is_spec])
+    
+    ################################## Spectrum only
+    ax = fig.add_subplot(132)
+    ## photometry
+    ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.9, color='orange', markersize=10)
+    ax.plot(lci[~is_spec], obs_sed[~is_spec], marker='o', color='red', linestyle='None', markersize=10, alpha=0.2)
+    
+    ## best-fit template
+    ax.plot(lambdaz, temp_sed, color='red', alpha=0.2)
+    
+    ## spectrum
+    ax.plot(lci[is_spec], obs_sed[is_spec], color='red', markersize=6, alpha=0.7, linewidth=2)
+    ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.6, color='blue', linewidth=2)
+    
+    ax.set_yticklabels([])
+    xtick = ax.set_xticks(np.array([1.,1.2, 1.4, 1.6])*1.e4)
+    ax.set_xticklabels(np.array([1.,1.2, 1.4, 1.6]))
+    ax.set_xlabel(r'$\lambda$')
+    
+    ax.set_xlim(0.95e4,1.78e4)
+    ax.set_ylim(0.8*ymin, ymax*1.1)
+    
+    #################################### p(z) for combined, photometry, and spec 
+    ax = fig.add_subplot(133)
+    
+    colors = ['purple','orange','blue']
+    alpha = [0.5, 0.5, 0.2]
+    zo = threedhst.catIO.Readfile('OUTPUT/threedhst.zout')
+    zmin = 4
+    zmax = 0
+    ymax = 0
+    for i in range(3):
+        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE='threedhst', 
+                          OUTPUT_DIRECTORY='./OUTPUT', 
+                          CACHE_FILE='Same')
+        ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])
+        ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])
+        #
+        if pz.max() > ymax:
+            ymax = pz.max()
+        #
+        if zgrid[pz > 1.e-6].min() < zmin:
+            zmin = zgrid[pz > 1.e-6].min()
+        #
+        if zgrid[pz > 1.e-6].max() > zmax:
+            zmax = zgrid[pz > 1.e-6].max()
+    
+    ax.plot(zo.z_spec[0]*np.array([1,1]),[0,1.e4], color='green', linewidth=1)
+    
+    
+    ax.set_yticklabels([])
+    ax.set_xlabel(r'$z$')
+    
+    ### Plot labels
+    ax.text(0.5, 0.9, root+'_%05d' %(id), transform = ax.transAxes, horizontalalignment='center')
+    ax.text(0.95, 0.8, r'$z_\mathrm{phot}=$'+'%5.3f' %(zo.z_peak[1]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+    ax.text(0.95, 0.7, r'$z_\mathrm{gris}=$'+'%5.3f' %(zo.z_peak[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+    if zo.z_spec[0] > 0:
+        ax.text(0.95, 0.6, r'$z_\mathrm{spec}=$'+'%5.3f' %(zo.z_spec[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+        
+    ax.set_xlim(zmin-0.2, zmax+0.2)
+    ax.set_xlim(zgrid.min(), zgrid.max())
+    ax.set_ylim(0,1.1*ymax)
+    
+    #### Save an image
+    outfile = '%s_%05d_eazy.png' %(root, id)
+    if USE_PLOT_GUI:
+        plt.savefig(outfile)
+    else:
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_figure(outfile, dpi=100, transparent=False)
+    
+    print outfile
+    
 def find_brown_dwarfs():
     import glob
     import threedhst.catIO as catIO

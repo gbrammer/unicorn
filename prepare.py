@@ -303,10 +303,11 @@ def AEGIS(FORCE=False):
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
     
-    threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-2-F140W_drz.fits', 'AEGIS-11-F140W_drz.fits'][0:], aper_list=[13, 14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['AEGIS-28-F140W_drz.fits', 'AEGIS-28-F140W_align.fits[0]*0.04', 'AEGIS-28-G141_drz.fits', 'AEGIS-9-G141_drz.fits'][0:], aper_list=[13, 14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
     
     #### Make direct image for each pointing that also include 
-    #### neighboring pointings
+    #### neighboring pointings, not coded yet but need to regenerate the original 
+    #### single drz pointings to avoid growing them each time.
     files = glob.glob('AEGIS-*-F140W_asn.fits')
     for file in files:
         pointing = file.split('_asn.fits')[0]

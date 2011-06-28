@@ -1609,6 +1609,15 @@ class BD_fit():
 
 #
 
+def eazy_unicorn():
+    import unicorn
+    unicorn.analysis.run_eazy_fit(root='COSMOS-3-G141', id=874, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='AEGIS-3-G141', id=683, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='GOODS-N-25-G141', id=597, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+    
+    
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1.):
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
@@ -1767,6 +1776,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['Z_STEP'] /= 4
     eazy_param.params['Z_MIN'] = zout.l99[photom_idx]*0.8
     eazy_param.params['Z_MAX'] = zout.u99[photom_idx]/0.8
+    eazy_param.params['MAGNITUDES'] = 0.0
     eazy_param.write(file='threedhst.eazy.param')
     
     

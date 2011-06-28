@@ -1609,6 +1609,27 @@ class BD_fit():
 
 #
 
+def process_eazy_redshifts(html='massive.html'):
+    
+    lines = open(html).readlines()
+    os.system('head -1 OUTPUT/threedhst.zout > '+html.replace('html','zout'))
+    
+    for i,line in enumerate(lines):
+        if 'G141' in line and 'png' not in line:
+            object = line.split('<br>')[0].split('<td>')[1].strip()
+            root=object.split('G141_')[0]+'G141'
+            id = int(object.split('G141_')[1])
+            unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+            os.system('grep -v "#" OUTPUT/threedhst.zout >> '+html.replace('html','zout'))
+            
+        if '/SED/' in line:
+            lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')
+        
+    fp = open(html.replace('.html','_eazy.html'),'w')
+    fp.writelines(lines)
+    fp.close()
+    
+            
 def eazy_unicorn():
     import unicorn
     unicorn.analysis.run_eazy_fit(root='COSMOS-3-G141', id=874, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
@@ -1644,6 +1665,8 @@ def eazy_unicorn():
     unicorn.analysis.run_eazy_fit(root='GOODS-N-21-G141', id=497, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
 
     unicorn.analysis.run_eazy_fit(root='GOODS-N-28-G141', id=1234, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='GOODS-N-35-G141', id=698, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
 
     unicorn.analysis.run_eazy_fit(root='COSMOS-18-G141', id=611, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
 

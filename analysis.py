@@ -1797,8 +1797,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['CACHE_FILE'] = 'threedhst.tempfilt'
     eazy_param.params['GET_ZP_OFFSETS'] = 0
     eazy_param.params['Z_STEP'] /= 4
-    # eazy_param.params['Z_MIN'] = zout.l99[photom_idx]*0.8
-    # eazy_param.params['Z_MAX'] = zout.u99[photom_idx]/0.8
+    eazy_param.params['Z_MIN'] = zout.l99[photom_idx]*0.8
+    eazy_param.params['Z_MAX'] = zout.u99[photom_idx]/0.8
     eazy_param.params['MAGNITUDES'] = 0.0
     eazy_param.write(file='threedhst.eazy.param')
     

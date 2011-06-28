@@ -1631,6 +1631,14 @@ def eazy_unicorn():
 
     unicorn.analysis.run_eazy_fit(root='GOODS-N-14-G141', id=848, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
 
+    unicorn.analysis.run_eazy_fit(root='GOODS-N-31-G141', id=1102, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='GOODS-N-22-G141', id=1243, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='GOODS-N-32-G141', id=1396, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
+    unicorn.analysis.run_eazy_fit(root='COSMOS-18-G141', id=611, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+
     unicorn.analysis.run_eazy_fit(root='MARSHALL-225-G141', id=661, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
     
     unicorn.analysis.run_eazy_fit(root='GOODS-S-24-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
@@ -1641,7 +1649,7 @@ def eazy_unicorn():
     
     
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1.):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None):
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
@@ -1797,19 +1805,25 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['CACHE_FILE'] = 'threedhst.tempfilt'
     eazy_param.params['GET_ZP_OFFSETS'] = 0
     eazy_param.params['Z_STEP'] /= 4
-    eazy_param.params['Z_MIN'] = zout.l99[photom_idx]*0.8
-    eazy_param.params['Z_MAX'] = zout.u99[photom_idx]/0.8
+    
+    if zmin is None:
+        zmin = zout.l99[photom_idx]*0.8
+    if zmax is None:
+        zmax = zout.u99[photom_idx]/0.8
+        
+    eazy_param.params['Z_MIN'] = zmin
+    eazy_param.params['Z_MAX'] = zmax 
     eazy_param.params['MAGNITUDES'] = 0.0
     eazy_param.write(file='threedhst.eazy.param')
     
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', zmin=None, zmax=None):
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
     if run:
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm)
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax)
         os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
     
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \

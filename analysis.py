@@ -1703,8 +1703,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     os.chdir(PATH)
     lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0], yarr, SPC, verbose=False)
     #### Recenter the convolved response
-    #xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
-    #lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0]+xoff, yarr, SPC, verbose=False)
+    xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
+    lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0]+xoff, yarr, SPC, verbose=False)
     keep = ysm > (1.e-4*np.max(ysm))
 
     ###################################

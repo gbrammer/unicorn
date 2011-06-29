@@ -1621,7 +1621,7 @@ class BD_fit():
 
 def make_full_selection(zmin=None, zmax=None):
     import unicorn
-    unicorn.analysis.show_massive_galaxies(masslim=9, maglim=21., zrange=(0.7,2), 
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=21., zrange=(0.7,2), 
         use_kmag=False, contam=0.05, coverage=0.9)
     
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/massive.html', unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
@@ -1631,7 +1631,7 @@ def make_full_selection(zmin=None, zmax=None):
     
     os.system('rsync -avz *.png massive* ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
     
-def process_eazy_redshifts(html='massive.html'):
+def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
     import unicorn
     
     lines = open(html).readlines()
@@ -1642,7 +1642,7 @@ def process_eazy_redshifts(html='massive.html'):
             object = line.split('<br>')[0].split('<td>')[1].strip()
             root=object.split('G141_')[0]+'G141'
             id = int(object.split('G141_')[1])
-            unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
+            unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax)
             os.system('grep -v "#" OUTPUT/threedhst.zout >> '+html.replace('html','zout'))
             
         if '/SED/' in line:

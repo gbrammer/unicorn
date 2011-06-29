@@ -63,6 +63,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         aegis=True
     if root.startswith('GOODS-N'):
         goodsn=True
+    if root.startswith('GN20'):
+        goodsn=True
     if root.startswith('GOODS-S'):
         cdfs=True
     if root.startswith('MARSHALL'):

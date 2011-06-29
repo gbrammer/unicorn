@@ -73,6 +73,7 @@ def fix_GOODSN_asn():
         asn.product = root+'-G141'
         asn.write(root+'-G141_asn.fits')
 
+    
 def GOODSN(FORCE=False, GET_SHIFT=True):
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files

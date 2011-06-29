@@ -31,6 +31,8 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'AEGIS/'
     if root.startswith('GOODS-N'):
         PATH = unicorn.GRISM_HOME+'GOODS-N/'
+    if root.startswith('GN20'):
+        PATH = unicorn.GRISM_HOME+'GOODS-N/'
     if root.startswith('GOODS-S'):
         PATH = unicorn.GRISM_HOME+'GOODS-S/'
     if root.startswith('MARSHALL'):
@@ -1621,9 +1623,29 @@ class BD_fit():
 
 def make_full_selection(zmin=None, zmax=None):
     import unicorn
-    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
     
-    out='massive.html'
+    ########## Full selection to get everything
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='full_selection.html'
+    
+    ########## Bright galaxies
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=21., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='full_z_F140W_lt_21.html'
+    
+    ########## Massive galaxies
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=22., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='mass_11_F140W_22.html'
+
+    ########## Massive z>1 galaxies
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='mass_11_z_1_1.5.html'
+
+    unicorn.analysis.show_massive_galaxies(masslim=10.49, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='mass_10.5_z_1_1.5.html'
+
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1.5, 2.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='mass_11_z_1.5_2.5.html'
+    
     if out is not 'massive.html':
         shutil.move('massive.html', out)
         
@@ -1631,8 +1653,9 @@ def make_full_selection(zmin=None, zmax=None):
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0, zmax=3.5)
+    unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
-    os.system('rsync -avz *.png massive* ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
+    os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
     
 def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
     import unicorn

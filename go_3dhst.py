@@ -447,6 +447,55 @@ def stanford():
     proc.reduction_script(asn_grism_file='ISCSJ1434.5+3427-G141_asn.fits')
     go.clean_up()
     
+#
+def GN20():
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.prep_flt_files
+    import glob
+    import os
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT')
+    
+    #### Make detection image  
+    direct_files = glob.glob('GOODS-N-18-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GN20-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+
+    #
+    direct_files = glob.glob('GOODS-N-18-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='GN20-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    SCALE = 0.06
+    threedhst.prep_flt_files.startMultidrizzle('GN20-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=189.30047, dec=62.368959, final_outnx = 960, final_outny = 800) #,
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    grism_asn  = glob.glob('GN20-G141_asn.fits')
+    files=glob.glob('GN20-G141_shifts.txt')
+    files.extend(grism_asn)
+    files.extend(glob.glob('GN20-F140W_tweak.fits'))
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    os.chdir('../')
+    
+    #### Initialize parameters
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=27.5)
+            
+    #### Main loop for reduction
+    asn='GN20-G141_asn.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GN20-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file=asn)
+    unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+    go.clean_up()
+    
     
 def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     

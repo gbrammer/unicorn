@@ -1657,7 +1657,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
             if not failed:
                 os.system('grep -v "#" OUTPUT/%s.zout >> ' %(object) + html.replace('html','zout'))
         
-        if ()'/SED/' in line) & (not failed):
+        if ('/SED/' in line) & (not failed):
             lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')
         
         if "<table id=" in line:

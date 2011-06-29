@@ -1623,10 +1623,12 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23., zrange=(0.8,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
     
+    # unicorn.analysis.show_massive_galaxies(masslim=11., maglim=21., zrange=(1.5,5),  use_kmag=False, contam=0.05, coverage=0.9)
+    
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/massive.html', unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
-    unicorn.analysis.process_eazy_redshifts(html='massive.html', zmin=0, zmax=4)
+    unicorn.analysis.process_eazy_redshifts(html='massive.html', zmin=0, zmax=5)
     
     os.system('rsync -avz *.png massive* ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
     
@@ -1641,9 +1643,12 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
             object = line.split('<br>')[0].split('<td>')[1].strip()
             root=object.split('G141_')[0]+'G141'
             id = int(object.split('G141_')[1])
-            unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax)
-            os.system('grep -v "#" OUTPUT/threedhst.zout >> '+html.replace('html','zout'))
-            os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
+            
+            if not os.path.exists('OUTPUT/%s.zout' %(object)):
+                unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax)
+                os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
+            
+            os.system('grep -v "#" OUTPUT/%s.zout >> ' %(object) + html.replace('html','zout'))
         
         if '/SED/' in line:
             lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')

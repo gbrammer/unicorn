@@ -1666,7 +1666,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
             insert_line = i
     
     #### photz-specz plot
-    unicorn.analysis.show_triple_zphot_zspec(zout=html.replace('html','zout'))
+    unicorn.analysis.show_triple_zphot_zspec(zout=html.replace('html','zout'), zmin=0, zmax=2.5)
     lines.insert(insert_line, '<a href=%s_zz.pdf><img src=%s_zz.png></a>\n' %(html.replace('.html',''), html.replace('.html','')))
     
     fp = open(html.replace('.html','_eazy.html'),'w')

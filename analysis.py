@@ -1671,7 +1671,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
     fp.writelines(lines)
     fp.close()
     
-def show_triple_zphot_zspec(zout='massive.zout'):
+def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
     import threedhst.catIO as catIO
     zo = catIO.Readfile(zout)
     dz = (zo.z_peak-zo.z_spec)/(1+zo.z_spec)
@@ -1701,8 +1701,8 @@ def show_triple_zphot_zspec(zout='massive.zout'):
     ax.text(0.5, 0.9, r'$N=$'+'%0d' %(len(dz[1::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.set_xlabel(r'$z_\mathrm{spec}$')
     ax.set_ylabel(r'$z_\mathrm{phot}$')
-    ax.set_xlim(0,2)
-    ax.set_ylim(0,2)
+    ax.set_xlim(zmin, zmax)
+    ax.set_ylim(zmin, zmax)
 
     ax = fig.add_subplot(132)
     
@@ -1711,8 +1711,8 @@ def show_triple_zphot_zspec(zout='massive.zout'):
     ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[0::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.set_xlabel(r'$z_\mathrm{spec}$')
     ax.set_ylabel(r'$z_\mathrm{phot+grism}$')
-    ax.set_xlim(0,2)
-    ax.set_ylim(0,2)
+    ax.set_xlim(zmin, zmax)
+    ax.set_ylim(zmin, zmax)
     
     ax = fig.add_subplot(133)
     
@@ -1721,8 +1721,8 @@ def show_triple_zphot_zspec(zout='massive.zout'):
     ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[2::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.set_xlabel(r'$z_\mathrm{spec}$')
     ax.set_ylabel(r'$z_\mathrm{grism\ only}$')
-    ax.set_xlim(0,2)
-    ax.set_ylim(0,2)
+    ax.set_xlim(zmin, zmax)
+    ax.set_ylim(zmin, zmax)
     
     #
     outfile = zout.replace('.zout','_zz')

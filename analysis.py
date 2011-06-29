@@ -2,6 +2,7 @@ import os
 import pyfits
 import numpy as np
 import glob
+import shutil
 
 import matplotlib.pyplot as plt
 
@@ -1618,11 +1619,18 @@ class BD_fit():
 
 #
 
-def make_full_selection():
+def make_full_selection(zmin=None, zmax=None):
     import unicorn
-    unicorn.analysis.show_massive_galaxies(masslim=9, maglim=22., zrange=(0.7,2), 
+    unicorn.analysis.show_massive_galaxies(masslim=9, maglim=21., zrange=(0.7,2), 
         use_kmag=False, contam=0.05, coverage=0.9)
-        
+    
+    shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/massive.html', unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    
+    unicorn.analysis.process_eazy_redshifts(html='massive.html', zmin=zmin, zmax=zmax)
+    
+    os.system('rsync -avz *.png massive* ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
+    
 def process_eazy_redshifts(html='massive.html'):
     import unicorn
     

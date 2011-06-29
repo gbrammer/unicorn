@@ -790,6 +790,14 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     
     </head>
     <body>
+    <p>
+        mag_F140W < %.2f
+        <br>log M/Msun > %.2f
+        <br>%.2f < z < %.2f
+        <br> contam(1.4mum) < %.2f
+        <br> coverage > %.2f
+    </p>
+    
     <table id="myTable" cellspacing="1" class="tablesorter"> 
     <thead>
         <th> Grism id </th>
@@ -802,7 +810,8 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         <th> SED </th>
     </thead>
     <tbody>
-    """ %(scripts, scripts, scripts))
+    """ %(scripts, scripts, scripts,
+          maglim, masslim, zrange[0], zrange[1], contam, coverage))
     
     NUSE = 0
     for match in matches:
@@ -1609,7 +1618,13 @@ class BD_fit():
 
 #
 
+def make_full_selection():
+    import unicorn
+    unicorn.analysis.show_massive_galaxies(masslim=9, maglim=22., zrange=(0.7,2), 
+        use_kmag=False, contam=0.05, coverage=0.9)
+        
 def process_eazy_redshifts(html='massive.html'):
+    import unicorn
     
     lines = open(html).readlines()
     os.system('head -1 OUTPUT/threedhst.zout > '+html.replace('html','zout'))
@@ -1625,11 +1640,81 @@ def process_eazy_redshifts(html='massive.html'):
         if '/SED/' in line:
             lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')
         
+        if "<table id=" in line:
+            insert_line = i
+    
+    #### photz-specz plot
+    unicorn.analysis.show_triple_zphot_zspec(zout=html.replace('html','zout'))
+    lines.insert(insert_line, '<a href=%s_zz.pdf><img src=%s_zz.png></a>\n' %(html.replace('.html',''), html.replace('.html','')))
+    
     fp = open(html.replace('.html','_eazy.html'),'w')
     fp.writelines(lines)
     fp.close()
     
-            
+def show_triple_zphot_zspec(zout='massive.zout'):
+    import threedhst.catIO as catIO
+    zo = catIO.Readfile(zout)
+    dz = (zo.z_peak-zo.z_spec)/(1+zo.z_spec)
+    dz = dz[zo.z_spec > 0]
+    
+    threedhst.utils.biweight(dz[0::3])
+    
+    ### setup
+    plt.rcParams['font.size'] = 10
+    if USE_PLOT_GUI:
+        fig = plt.figure(figsize=[7,2.6],dpi=100)
+    else:
+        fig = Figure(figsize=[7,2.6],dpi=100)
+    
+    #
+    #fig = plt.figure(figsize=[8, 2.6],dpi=100)
+    
+    fig.subplots_adjust(wspace=0.27,hspace=0.12,left=0.07,
+                        bottom=0.15,right=0.98,top=0.98)
+    
+    #################################### Broad-band + spectrum
+    ax = fig.add_subplot(131)
+    
+    ax.plot(zo.z_spec[1::3], zo.z_peak[1::3], marker='o', linestyle='None', alpha=0.5, color='orange')
+    ax.plot([0,4],[0,4], color='black', alpha=0.1)
+    ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[1::3])), transform = ax.transAxes, horizontalalignment='center')
+    ax.text(0.5, 0.9, r'$N=$'+'%0d' %(len(dz[1::3])), transform = ax.transAxes, horizontalalignment='center')
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
+    ax.set_ylabel(r'$z_\mathrm{phot}$')
+    ax.set_xlim(0,2)
+    ax.set_ylim(0,2)
+
+    ax = fig.add_subplot(132)
+    
+    ax.plot(zo.z_spec[0::3], zo.z_peak[0::3], marker='o', linestyle='None', alpha=0.5, color='purple')
+    ax.plot([0,4],[0,4], color='black', alpha=0.1)
+    ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[0::3])), transform = ax.transAxes, horizontalalignment='center')
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
+    ax.set_ylabel(r'$z_\mathrm{phot+grism}$')
+    ax.set_xlim(0,2)
+    ax.set_ylim(0,2)
+    
+    ax = fig.add_subplot(133)
+    
+    ax.plot(zo.z_spec[2::3], zo.z_peak[2::3], marker='o', linestyle='None', alpha=0.5, color='blue')
+    ax.plot([0,4],[0,4], color='black', alpha=0.1)
+    ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[2::3])), transform = ax.transAxes, horizontalalignment='center')
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
+    ax.set_ylabel(r'$z_\mathrm{grism\ only}$')
+    ax.set_xlim(0,2)
+    ax.set_ylim(0,2)
+    
+    #
+    outfile = zout.replace('.zout','_zz')
+    if USE_PLOT_GUI:
+        plt.savefig(outfile+'.png')
+        plt.savefig(outfile+'.pdf')
+    else:
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_figure(outfile+'.png', dpi=100, transparent=False)
+        canvas.print_figure(outfile+'.pdf', dpi=100, transparent=False)
+    
+    
 def eazy_unicorn():
     import unicorn
     unicorn.analysis.run_eazy_fit(root='COSMOS-3-G141', id=874, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')

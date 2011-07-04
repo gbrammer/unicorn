@@ -1627,7 +1627,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selection to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23.3, zrange=(0.5,3.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='full_selection.html'
     
     ########## Bright galaxies
@@ -1660,12 +1660,12 @@ def make_full_selection(zmin=None, zmax=None):
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
-    unicorn.analysis.process_eazy_redshifts(html=out, zmin=0, zmax=3.5)
+    unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8)
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
     os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
     
-def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
+def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1.0):
     import unicorn
     
     lines = open(html).readlines()
@@ -1681,7 +1681,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
             
             if not os.path.exists('OUTPUT/%s.zout' %(object)):
                 try:
-                    unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax)
+                    unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress)
                     #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:
                     failed = True

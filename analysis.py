@@ -1825,6 +1825,9 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
+    if ('MARSHALL' in root) | ('UDS' in root):
+        OLD_RES='FILTER_UDS.RES'
+        
     ORIG_PATH = os.getcwd()
     
     PATH = unicorn.analysis.get_grism_path(root)
@@ -1918,11 +1921,11 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     res_lc = []
     for line in res_lines:
         if line.find('lambda_c') > 0:
-            res_lc.append(line.split('lambda_c=')[1].split()[0])
+            #res_lc.append(line.split('lambda_c=')[1].split()[0])
             res_name.append(line.split()[1])
             nfilt += 1
     #
-    res_lc = np.cast[float](res_lc)
+    # = np.cast[float](res_lc)
     
     #### Read the parameter file associated with the zout file to get the right
     #### filters, which should be in the same order as the vectors read from the 
@@ -2002,6 +2005,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     import threedhst.eazyPy as eazy
     
     MAXIT = 5.
+    
+    if ('MARSHALL' in root) | ('UDS' in root):
+        OLD_RES='FILTER_UDS.RES'
     
     if run:
         renorm = spec_norm

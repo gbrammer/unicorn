@@ -1999,7 +1999,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['Z_MIN'] = zmin
     eazy_param.params['Z_MAX'] = zmax 
     eazy_param.params['MAGNITUDES'] = 0.0
-    eazy_param.params['REST_FILTERS'] = '-,-'
+    eazy_param.params['REST_FILTERS'] = '153,155'
     eazy_param.write(file='threedhst.eazy.param')
     
     

@@ -1627,7 +1627,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selection to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.2, coverage=0.6)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=24, zrange=(0.5,3.5),  use_kmag=False, contam=0.1, coverage=0.5)
     out='full_selection.html'
     
     ########## Bright galaxies
@@ -2008,7 +2008,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
-    MAXIT = 5.
+    MAXIT = 3.
     
     if ('MARSHALL' in root) | ('UDS' in root):
         OLD_RES='FILTER_UDS.RES'

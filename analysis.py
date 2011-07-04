@@ -1633,6 +1633,9 @@ def make_full_selection(zmin=None, zmax=None):
     ########## Bright galaxies
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=21., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
     out='full_z_F140W_lt_21.html'
+
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='full_z_F140W_lt_22.html'
     
     ########## Massive galaxies
     unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=22., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
@@ -1647,6 +1650,9 @@ def make_full_selection(zmin=None, zmax=None):
 
     unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1.5, 2.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_11_z_1.5_2.5.html'
+    
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    out='mass_10_mag_22_z_1.0_1.5.html'
     
     if out is not 'massive.html':
         shutil.move('massive.html', out)
@@ -1676,13 +1682,13 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None):
             if not os.path.exists('OUTPUT/%s.zout' %(object)):
                 try:
                     unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax)
-                    os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
+                    #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:
                     failed = True
                     pass
             
             if not failed:
-                os.system('grep -v "#" OUTPUT/%s.zout >> ' %(object) + html.replace('html','zout'))
+                os.system('grep -v "#" OUTPUT/%s.zout >> %s' %(object, html.replace('html','zout')))
         
         if ('/SED/' in line) & (not failed):
             lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')
@@ -1814,7 +1820,7 @@ def eazy_unicorn():
     
     
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, compress=1.0):
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
@@ -1893,7 +1899,12 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
     lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0]+xoff, yarr, SPC, verbose=False)
     keep = ysm > (1.e-4*np.max(ysm))
-
+    
+    #### Make lines slightly narrower than the direct image
+    lsm -= lam[use][0]
+    lsm *= compress
+    lsm += lam[use][0]
+    
     ###################################
     #### Make a RES file for the convolved resolution and make a catalog file with
     #### photometry and spectroscopy
@@ -1961,13 +1972,14 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     #### Set some EAZY parameters
     eazy_param.params['READ_ZBIN'] = 'n'
-    eazy_param.params['TEMPLATES_FILE'] = 'templates/eazy_v1.1_lines.spectra.param'
+    # eazy_param.params['TEMPLATES_FILE'] = 'templates/eazy_v1.1_lines.spectra.param'
+    eazy_param.params['TEMPLATES_FILE'] = 'templates/fit_lines.spectra.param'
     eazy_param.params['FILTERS_RES'] = 'THREEDHST.RES'
     eazy_param.params['OUTPUT_DIRECTORY'] = 'OUTPUT'
     eazy_param.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
     eazy_param.params['CATALOG_FILE'] = 'threedhst.cat'
-    eazy_param.params['MAIN_OUTPUT_FILE'] = 'threedhst'
-    eazy_param.params['CACHE_FILE'] = 'threedhst.tempfilt'
+    eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d' %(root, id)
+    eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)
     eazy_param.params['GET_ZP_OFFSETS'] = 0
     eazy_param.params['Z_STEP'] /= 4
     
@@ -1983,23 +1995,60 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.write(file='threedhst.eazy.param')
     
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', zmin=None, zmax=None):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', zmin=None, zmax=None, compress=1.0, GET_NORM=False):
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
-    if run:
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax)
-        os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+    MAXIT = 5.
     
+    if run:
+        renorm = spec_norm
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, compress=compress)
+        os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+        #
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+            eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
+                              OUTPUT_DIRECTORY='OUTPUT', \
+                              CACHE_FILE = 'Same')
+        #
+        dlam_spec = lci[-1]-lci[-2]
+        is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        #### check normalization
+        new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+        
+        counter = 1
+        while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
+            print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
+            renorm /= new_norm
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=renorm, zmin=zmin, zmax=zmax, compress=compress)
+            os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+            #
+            lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+                eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
+                                  OUTPUT_DIRECTORY='OUTPUT', \
+                                  CACHE_FILE = 'Same')
+            #
+            dlam_spec = lci[-1]-lci[-2]
+            is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+            #### check normalization
+            new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+        
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
-        eazy.getEazySED(0, MAIN_OUTPUT_FILE='threedhst', \
+        eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')
     
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     
+    #### check normalization
+    spec_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+
+    print spec_norm    
+    if GET_NORM:
+        return spec_norm
+        
     ################
     ### Make plot
     ################
@@ -2031,11 +2080,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     ## Spectrum + convolved fit
     ax.plot(lci[is_spec], obs_sed[is_spec], color='red', markersize=6, alpha=0.7, linewidth=1)
     ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color='blue', linewidth=1)
-    
-    ## check normalization
-    spec_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
-    print spec_norm
-    
+        
     ax.set_yticklabels([])
     ax.set_ylabel(r'$f_\lambda$')
     ax.set_xlabel(r'$\lambda$')
@@ -2074,12 +2119,12 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     colors = ['purple','orange','blue']
     alpha = [0.5, 0.5, 0.2]
-    zo = threedhst.catIO.Readfile('OUTPUT/threedhst.zout')
+    zo = threedhst.catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
     zmin = 4
     zmax = 0
     ymax = 0
     for i in range(3):
-        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE='threedhst', 
+        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), 
                           OUTPUT_DIRECTORY='./OUTPUT', 
                           CACHE_FILE='Same')
         ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])
@@ -2120,6 +2165,44 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         canvas.print_figure(outfile, dpi=100, transparent=False)
     
     print outfile
+    
+def make_line_templates():
+    line_wavelengths = [[6562.800], [5006.843, 4958.911], [4861.325], [3727.0]]
+    line_ratios = [[1], [2.98, 1], [1], [1]]
+    line_names = ['Ha', 'OIII', 'Hb', 'OII']
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    NLINE = len(line_names)
+    xspec = np.cast[float](open('templates/EAZY_v1.1_lines/lambda_v1.1.def').readlines())
+    
+    NDEF = len(xspec)
+    vel_width = 300 # km/s
+    
+    spec_list = open('templates/eazy_v1.0_nolines.spectra.param').readlines()
+    
+    last = np.int(spec_list[-1][0])
+    for i in range(NLINE):
+        lw = line_wavelengths[i][0]
+        yspec = xspec*0.
+        ratio = np.array(line_ratios[i])*1./np.sum(line_ratios[i])
+        for j in range(len(line_wavelengths[i])):
+            lj = line_wavelengths[i][j]
+            sigma = vel_width/3.e5*lj
+            yspec += ratio[j]*1./np.sqrt(2*np.pi*sigma**2)*np.exp(-1.*(xspec-lj)**2/2/sigma**2)
+        
+        #
+        fp=open('templates/single_lines/'+line_names[i]+'_%0d.dat' %(lw), 'w')
+        for j in range(NDEF):
+            fp.write(' %.5e %.5e\n' %(xspec[j], yspec[j]+1.e-12))
+        #
+        fp.close()
+        #
+        spec_list.append('%d   templates/single_lines/%s_%0d.dat 1.0 0 1.0\n' %(last+i+1, line_names[i], lw))
+    
+    fp = open('templates/fit_lines.spectra.param','w')
+    fp.writelines(spec_list)
+    fp.close()
     
 def find_brown_dwarfs():
     import glob

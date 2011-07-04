@@ -1627,8 +1627,11 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selection to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=24, zrange=(0.5,3.5),  use_kmag=False, contam=0.1, coverage=0.5)
-    out='full_selection.html'
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
+    out='full_faint.html'
+
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21., zrange=(0.5,3.5),  use_kmag=False, contam=0.5, coverage=0.8)
+    out='full_bright.html'
     
     ########## Bright galaxies
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=21., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
@@ -1999,7 +2002,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['Z_MIN'] = zmin
     eazy_param.params['Z_MAX'] = zmax 
     eazy_param.params['MAGNITUDES'] = 0.0
-    eazy_param.params['REST_FILTERS'] = '153,155'
+    eazy_param.params['REST_FILTERS'] = '-,-'
     eazy_param.write(file='threedhst.eazy.param')
     
     

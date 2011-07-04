@@ -1627,7 +1627,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selection to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23.3, zrange=(0.5,3.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    unicorn.analysis.show_massive_galaxies(masslim=10., maglim=23.3, zrange=(0.5,3.5),  use_kmag=False, contam=0.05, coverage=0.8)
     out='full_selection.html'
     
     ########## Bright galaxies
@@ -1660,7 +1660,7 @@ def make_full_selection(zmin=None, zmax=None):
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
-    unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8)
+    unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
     os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
@@ -2026,6 +2026,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         
         counter = 1
         while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
+            counter += 1
             print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
             renorm /= new_norm
             unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=renorm, zmin=zmin, zmax=zmax, compress=compress)

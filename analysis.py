@@ -2144,10 +2144,12 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
-    if unicorn.hostname().startswith('uni') & (eazy_binary is None):
-        eazy_binary = '/usr/local/bin/eazy_latest'
-    else:
-        eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'
+    if (eazy_binary is None):
+        if unicorn.hostname().startswith('uni'):
+            eazy_binary = '/usr/local/bin/eazy_latest'
+        else:
+            eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'
+    
     MAXIT = 3.
     
     if ('MARSHALL' in root) | ('UDS' in root):

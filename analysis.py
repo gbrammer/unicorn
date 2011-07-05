@@ -2189,7 +2189,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             
         #### Show the results
         try:
-            os.system('head -2 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
+            os.system('head -3 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
         except:
             pass
                 

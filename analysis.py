@@ -2044,6 +2044,8 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     import unicorn
     import threedhst.eazyPy as eazy
     
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
     if ('MARSHALL' in root) | ('UDS' in root):
         OLD_RES='FILTER_UDS.RES'
     #
@@ -2137,11 +2139,15 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0):
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
+    if unicorn.hostname().startswith('uni') & (eazy_binary is None):
+        eazy_binary = '/usr/local/bin/eazy_latest'
+    else:
+        eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'
     MAXIT = 3.
     
     if ('MARSHALL' in root) | ('UDS' in root):

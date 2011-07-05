@@ -1950,7 +1950,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fp.write('%.5e 1.e-8\n2.e6 1.e-8\n' %(lam[-1]+dlam))
     fp.close()
     
-    fpres = open(OLD_RES).
+    fpres = open(OLD_RES)
     res_lines = fpres.readlines()
     fpres.close()
     

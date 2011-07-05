@@ -2110,8 +2110,8 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     afit[ORDER] *= 1./(coeffs['tnorm'][0]/coeffs['coeffs'][0,2])
     
     #### Reduce the effect slightly
-    # if ORDER == 1:
-    #     afit[0] *= 0.7
+    if ORDER == 1:
+        afit[0] *= 0.8
         
     if check_results:
         print xfit[jhfilt], yfit[jhfilt]

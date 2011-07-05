@@ -1657,7 +1657,7 @@ def make_full_selection(zmin=None, zmax=None):
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_10_mag_22_z_1.0_1.5.html'
 
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=22., zrange=(1.0,3.5),  use_kmag=False, contam=0.05, coverage=0.8)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21., zrange=(0.8,1.4),  use_kmag=False, contam=0.5, coverage=0.95)
     out='test.html'
     
     if out is not 'massive.html':
@@ -2066,7 +2066,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
                                                     OUTPUT_DIRECTORY='OUTPUT', 
                                                     CACHE_FILE = 'Same')
     
-    lambdaz, temp_sed, lci, obs_sed, fobs_new, efobs_new = \
+    lambdaz, temp_sed, lci_new, obs_sed, fobs_new, efobs_new = \
         eazy.getEazySED(2, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')

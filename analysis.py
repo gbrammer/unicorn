@@ -732,8 +732,14 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     if unicorn.hostname().startswith('unicorn'):
         os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
         scripts="../scripts"
-        matches = glob.glob('../SED/*match.cat')
-    
+        files = glob.glob('../SED/*match.cat')
+        matches = []
+        for file in files:
+            if skip_goodsn:
+                if not 'GOODS-N' in file:
+                    maches.append(file)
+            else:
+                matches.append(file)
     else:
         os.chdir(unicorn.GRISM_HOME+'ANALYSIS')
         scripts="http://localhost/~gbrammer/COSMOS/scripts"

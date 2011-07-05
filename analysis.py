@@ -1629,9 +1629,11 @@ def make_full_selection(zmin=None, zmax=None):
     ########## Full selection to get everything
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
     out='full_faint.html'
-
+    unicorn.analysis.run_eazy_products_on_html(out)
+    
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.3, coverage=0.8)
     out='full_bright.html'
+    unicorn.analysis.run_eazy_products_on_html(out)
     
     ########## Bright galaxies
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=21., zrange=(0.7,2.8),  use_kmag=False, contam=0.05, coverage=0.9)
@@ -1740,7 +1742,9 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
     #################################### Broad-band + spectrum
     ax = fig.add_subplot(131)
     
-    ax.plot(zo.z_spec[1::3], zo.z_peak[1::3], marker='o', linestyle='None', alpha=0.5, color='orange')
+    point_size = 4
+    
+    ax.plot(zo.z_spec[1::3], zo.z_peak[1::3], marker='o', linestyle='None', alpha=0.5, color='orange', markersize=point_size)
     ax.plot([0,4],[0,4], color='black', alpha=0.1)
     ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[1::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.text(0.5, 0.9, r'$N=$'+'%0d' %(len(dz[1::3])), transform = ax.transAxes, horizontalalignment='center')
@@ -1751,7 +1755,7 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
 
     ax = fig.add_subplot(132)
     
-    ax.plot(zo.z_spec[0::3], zo.z_peak[0::3], marker='o', linestyle='None', alpha=0.5, color='purple')
+    ax.plot(zo.z_spec[0::3], zo.z_peak[0::3], marker='o', linestyle='None', alpha=0.5, color='purple', markersize=point_size)
     ax.plot([0,4],[0,4], color='black', alpha=0.1)
     ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[0::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.set_xlabel(r'$z_\mathrm{spec}$')
@@ -1761,7 +1765,7 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
     
     ax = fig.add_subplot(133)
     
-    ax.plot(zo.z_spec[2::3], zo.z_peak[2::3], marker='o', linestyle='None', alpha=0.5, color='blue')
+    ax.plot(zo.z_spec[2::3], zo.z_peak[2::3], marker='o', linestyle='None', alpha=0.5, color='blue', markersize=point_size)
     ax.plot([0,4],[0,4], color='black', alpha=0.1)
     ax.text(0.5, 0.05, r'$\sigma=$'+'%5.3f' %(threedhst.utils.biweight(dz[2::3])), transform = ax.transAxes, horizontalalignment='center')
     ax.set_xlabel(r'$z_\mathrm{spec}$')
@@ -2336,6 +2340,46 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         canvas.print_figure(outfile, dpi=100, transparent=False)
     
     print outfile
+    
+def equivalent_width(root='GOODS-S-24-G141', id=29):
+    """ 
+    Measure the line equivalent widths from the template fit.
+    
+    Would also be nice to add line fluxes themselves.  This should come instantly from
+    the coefficients of the line templates, since the templates are normalized to 
+    area unity.  Therefore the flux in "mag 25" Jy is just 'coeff/tnorm' or something
+    like that.  And then f_lambda fluxes is just a unit game and is probably already
+    in 'eazyPy'. 
+    """
+    import threedhst.eazyPy as eazy
+    import threedhst.catIO as catIO
+    
+    zout = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+    
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+    
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'OUTPUT/line_eqw.tempfilt')
+    
+    coeffs['coeffs'] *= 1./(1+zout.z_peak[0])**2
+    
+    continuum = np.dot(temp_seds['temp_seds'][:,0:6], coeffs['coeffs'][0:6,0])                             
+    plt.plot(temp_seds['templam'], continuum, color='black')
+    plt.plot(temp_seds['templam'], temp_sed, color='red', alpha=0.6)
+    
+    halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
+    halpha[halpha < 1.e-8*halpha.max()] = 0
+    halpha_eqw = np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
+    
+    oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
+    oiii[oiii < 1.e-8*oiii.max()] = 0
+    oiii_eqw = np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
+
+    hbeta =  temp_seds['temp_seds'][:,8]*coeffs['coeffs'][8,0]
+    hbeta[hbeta < 1.e-8*hbeta.max()] = 0
+    hbeta_eqw = np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
+    
+    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, oiii_eqw, hbeta_eqw
+    
     
 def make_line_templates():
     line_wavelengths = [[6562.800], [5006.843, 4958.911], [4861.325], [3727.0], [1216.]]

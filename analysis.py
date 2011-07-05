@@ -1661,8 +1661,9 @@ def make_full_selection(zmin=None, zmax=None):
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_10_mag_22_z_1.0_1.5.html'
 
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21., zrange=(0.8,1.4),  use_kmag=False, contam=0.5, coverage=0.95)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.8,1.4),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=True)
     out='test.html'
+    unicorn.analysis.run_eazy_products_on_html(out)
     
 def run_eazy_products_on_html(out):
     import unicorn
@@ -1683,7 +1684,10 @@ def run_eazy_products_on_html(out):
 def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1.0):
     import unicorn
     
-    lines = open(html).readlines()
+    fp = open(html)
+    lines = fp.readlines()
+    fp.close()
+    
     os.system('head -1 OUTPUT/threedhst.zout > '+html.replace('html','zout'))
     
     for i,line in enumerate(lines):
@@ -1946,7 +1950,10 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fp.write('%.5e 1.e-8\n2.e6 1.e-8\n' %(lam[-1]+dlam))
     fp.close()
     
-    res_lines = open(OLD_RES).readlines()
+    fpres = open(OLD_RES).
+    res_lines = fpres.readlines()
+    fpres.close()
+    
     nfilt=0
     res_name = []
     res_lc = []
@@ -2391,12 +2398,15 @@ def make_line_templates():
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
     NLINE = len(line_names)
-    xspec = np.cast[float](open('templates/EAZY_v1.1_lines/lambda_v1.1.def').readlines())
+    fp = open('templates/EAZY_v1.1_lines/lambda_v1.1.def')
+    xspec = np.cast[float](fp.readlines())
+    fp.close()
     
     NDEF = len(xspec)
     vel_width = 300 # km/s
     
-    spec_list = open('templates/eazy_v1.0_nolines.spectra.param').readlines()
+    fp = open('templates/eazy_v1.0_nolines.spectra.param')
+    spec_list = fp.readlines()
     
     last = np.int(spec_list[-1][0])
     for i in range(NLINE):

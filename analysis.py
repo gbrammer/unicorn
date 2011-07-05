@@ -2102,7 +2102,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     
     #### If spectrum doesn't cover both J/H, stop and return no correction
-    if (lci[is_spec].min() > 1.15e4) | (lci[is_spec].max() < 1.65e4):
+    if (lci[is_spec].min() > 1.15e4) | (lci[is_spec].max() < 1.58e4):
         print "Spectrum doesn't have full coverage: [%f, %f]" %(lci[is_spec].min(), lci[is_spec].max())
         return [0, 1]
     

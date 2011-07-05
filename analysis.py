@@ -1630,7 +1630,7 @@ def make_full_selection(zmin=None, zmax=None):
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
     out='full_faint.html'
 
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.5, coverage=0.8)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.3, coverage=0.8)
     out='full_bright.html'
     
     ########## Bright galaxies
@@ -1659,6 +1659,11 @@ def make_full_selection(zmin=None, zmax=None):
 
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21., zrange=(0.8,1.4),  use_kmag=False, contam=0.5, coverage=0.95)
     out='test.html'
+    
+def run_eazy_products_on_html(out):
+    import unicorn
+    import os
+    import shutil
     
     if out is not 'massive.html':
         shutil.move('massive.html', out)

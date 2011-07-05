@@ -2113,6 +2113,9 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         afit[0] *= 0.7
         
     if check_results:
+        
+        ax.plot(lambdaz, polyval(afit, lambdaz-1.4e4), color='orange', alpha=0.4)
+        
         ax = fig.add_subplot(212)
         ax.plot(lambdaz, polyval(afit, lambdaz-1.4e4)*temp_sed)
         ax.plot(lci, polyval(afit, lci-1.4e4)*fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')

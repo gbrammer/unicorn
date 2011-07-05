@@ -1667,7 +1667,7 @@ def make_full_selection(zmin=None, zmax=None):
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_10_mag_22_z_1.0_1.5.html'
 
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.8,1.4),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=True)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.8,1.4),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=False)
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
@@ -1854,7 +1854,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
-    if ('MARSHALL' in root) | ('UDS' in root):
+    if (('MARSHALL' in root) | ('UDS' in root)) & ('UDS' not in OLD_RES):
         OLD_RES='FILTER_UDS.RES'
         
     ORIG_PATH = os.getcwd()

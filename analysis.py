@@ -2079,7 +2079,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     
-    jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.68e4)
+    jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.65e4)
     
     ### test
     if check_results:

@@ -2083,13 +2083,23 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     ### test
     if check_results:
-        plt.plot(lambdaz, temp_sed)
-        plt.plot(lci, fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')
-        plt.plot(lci[jhfilt], fobs[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='red')
-        plt.plot(lci[jhfilt], obs_sed[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='blue')
-        plt.plot(lci, obs_sed, marker='o', markersize=5, alpha=0.5, linestyle='None', color='green')
-        plt.ylim(0,0.2)
-        plt.xlim(9.e3, 1.8e4)
+        if USE_PLOT_GUI:
+            fig = plt.figure(figsize=[5,5],dpi=100)
+        else:
+            fig = Figure(figsize=[5,5],dpi=100)
+
+        fig.subplots_adjust(wspace=0.04,hspace=0.12,left=0.05,
+                            bottom=0.15,right=0.98,top=0.98)
+        
+        ax = fig.add_subplot(211)
+        ax.plot(lambdaz, temp_sed)
+        ax.plot(lci, fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')
+        ax.plot(lci[jhfilt], fobs[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='red')
+        ax.plot(lci[jhfilt], obs_sed[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='blue')
+        ax.plot(lci, obs_sed, marker='o', markersize=5, alpha=0.5, linestyle='None', color='green')
+        ax.set_ylim(0, 1.1*temp_sed.max())
+        ax.set_xlim(9.e3, 1.8e4)
+        
         
     xfit = lci-1.4e4
     yfit = fobs/obs_sed
@@ -2103,13 +2113,20 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         afit[0] *= 0.7
         
     if check_results:
-        plt.plot(lambdaz, polyval(afit, lambdaz-1.4e4)*temp_sed)
-        plt.plot(lci, polyval(afit, lci-1.4e4)*fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')
-        plt.plot(lci[jhfilt], fobs[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='red')
-        plt.plot(lci[jhfilt], polyval(afit, lci[jhfilt]-1.4e4)*obs_sed[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='blue')
-        plt.plot(lci, polyval(afit, lci-1.4e4)*obs_sed, marker='o', markersize=5, alpha=0.5, linestyle='None', color='green')
-        plt.ylim(0,10.5)
-        plt.xlim(9.e3, 1.8e4)
+        ax = fig.add_subplot(211)
+        ax.plot(lambdaz, polyval(afit, lambdaz-1.4e4)*temp_sed)
+        ax.plot(lci, polyval(afit, lci-1.4e4)*fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')
+        ax.plot(lci[jhfilt], fobs[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='red')
+        ax.plot(lci[jhfilt], polyval(afit, lci[jhfilt]-1.4e4)*obs_sed[jhfilt], marker='o', markersize=10, alpha=0.5, linestyle='None', color='blue')
+        ax.plot(lci, polyval(afit, lci-1.4e4)*obs_sed, marker='o', markersize=5, alpha=0.5, linestyle='None', color='green')
+        ax.set_ylim(0, 1.1*temp_sed.max())
+        ax.set_xlim(9.e3, 1.8e4)
+        outfile='scale_to_photometry.png'
+        if USE_PLOT_GUI:
+            plt.savefig(outfile)
+        else:
+            canvas = FigureCanvasAgg(fig)
+            canvas.print_figure(outfile, dpi=100, transparent=False)
     
     #print afit
     

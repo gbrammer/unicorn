@@ -2043,6 +2043,7 @@ def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim'
 def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1):
     import unicorn
     import threedhst.eazyPy as eazy
+    from scipy import polyfit, polyval
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
@@ -2072,18 +2073,17 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         eazy.getEazySED(2, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')
-    #
-    # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
-    #     eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
-    #                       OUTPUT_DIRECTORY='OUTPUT', \
-    #                       CACHE_FILE = 'Same')
 
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     
+    #### If spectrum doesn't cover both J/H, stop and return no correction
+    if (lci[is_spec].min() > 1.15e4) | (lci[is_spec].max() < 1.65e4):
+        return [0, 1]
+    
     jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.65e4) & (fobs > 0)
     
-    ### test
+    #### Diagnostic plot
     if check_results:
         if USE_PLOT_GUI:
             fig = plt.figure(figsize=[5,5],dpi=100)
@@ -2102,17 +2102,16 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         ax.set_ylim(0, 1.1*obs_sed.max())
         ax.set_xlim(9.e3, 1.8e4)
         
-        
+    #### Here's the simple linear fit    
     xfit = lci-1.4e4
     yfit = fobs/obs_sed
-    from scipy import polyfit, polyval
     
-    #ORDER=0
     afit = polyfit(xfit[jhfilt], yfit[jhfilt], ORDER)
     afit[ORDER] *= 1./(coeffs['tnorm'][0]/coeffs['coeffs'][0,2])
     
-    if ORDER == 1:
-        afit[0] *= 0.7
+    #### Reduce the effect slightly
+    # if ORDER == 1:
+    #     afit[0] *= 0.7
         
     if check_results:
         print xfit[jhfilt], yfit[jhfilt]

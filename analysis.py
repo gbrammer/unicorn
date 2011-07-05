@@ -1709,7 +1709,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
                     unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress, COMPUTE_TILT=True, TILT_ORDER=1)
                     #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:
-                    os.system('touch OUTPUT/%s.zout' %(object))
+                    os.system('echo "" > OUTPUT/%s.zout' %(object))
                     failed = True
                     pass
             
@@ -2103,6 +2103,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     #### If spectrum doesn't cover both J/H, stop and return no correction
     if (lci[is_spec].min() > 1.15e4) | (lci[is_spec].max() < 1.65e4):
+        print "Spectrum doesn't have full coverage: [%f, %f]" %(lci[is_spec].min(), lci[is_spec].max())
         return [0, 1]
     
     jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.65e4) & (fobs > 0)

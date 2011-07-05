@@ -2113,7 +2113,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         afit[0] *= 0.7
         
     if check_results:
-        print xfit[jhfilt], yfit[hjfilt]
+        print xfit[jhfilt], yfit[jhfilt]
         print afit
         
         ax.plot(lambdaz, polyval(afit, lambdaz-1.4e4), color='orange', alpha=0.4)

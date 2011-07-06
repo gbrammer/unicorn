@@ -1685,7 +1685,7 @@ def run_eazy_products_on_html(out):
         shutil.move('massive.html', out)
         
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
-    out='full_faint.html'
+    #out='full_faint.html'
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
@@ -2395,7 +2395,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     zout = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
     
-    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+    # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
     
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'OUTPUT/line_eqw.tempfilt')
     

@@ -1685,7 +1685,7 @@ def run_eazy_products_on_html(out):
         shutil.move('massive.html', out)
         
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
-    #out='full_faint.html'
+    out='full_faint.html'
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
@@ -2088,7 +2088,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
     os.system(eazy_binary + ' -p threedhst.eazy.param > log')
     
-    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+    lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = \
         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')
@@ -2104,7 +2104,15 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         eazy.getEazySED(2, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')
-
+    
+    if np.sum(obs_sed) == 0:
+        obs_sed = obs_sed_0
+        temp_sed = temp_sed_0
+    
+    if np.sum(obs_sed) == 0:
+        print "Problem with the eazy fit to get normalization..."
+        return [0, 1]
+        
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     
@@ -2117,14 +2125,14 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     #### Diagnostic plot
     if check_results:
-        if USE_PLOT_GUI:
+        if unicorn.analysis.USE_PLOT_GUI:
             fig = plt.figure(figsize=[5,5],dpi=100)
         else:
             fig = Figure(figsize=[5,5],dpi=100)
 
         fig.subplots_adjust(wspace=0.04,hspace=0.12,left=0.05,
                             bottom=0.15,right=0.98,top=0.98)
-        
+        #
         ax = fig.add_subplot(211)
         ax.plot(lambdaz, temp_sed)
         ax.plot(lci, fobs, marker='o', markersize=5, alpha=0.5, linestyle='None', color='yellow')

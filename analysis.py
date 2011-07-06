@@ -1634,13 +1634,17 @@ class BD_fit():
 def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
-    ########## Full selection to get everything
+    ########## Full selections to get everything
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
     out='full_faint.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.3, coverage=0.8)
     out='full_bright.html'
+    unicorn.analysis.run_eazy_products_on_html(out)
+
+    unicorn.analysis.show_massive_galaxies(masslim=10.89, maglim=24.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
+    out='full_massive.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
     ########## Bright galaxies
@@ -1668,6 +1672,7 @@ def make_full_selection(zmin=None, zmax=None):
     out='mass_10_mag_22_z_1.0_1.5.html'
 
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.8,1.4),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=False)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(1.0,3.4),  use_kmag=False, contam=0.05, coverage=0.8, skip_goodsn=False)
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
@@ -1680,6 +1685,7 @@ def run_eazy_products_on_html(out):
         shutil.move('massive.html', out)
         
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    #out='full_faint.html'
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
@@ -1706,6 +1712,7 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
             
             if not os.path.exists('OUTPUT/%s.zout' %(object)):
                 try:
+                    print object
                     unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress, COMPUTE_TILT=True, TILT_ORDER=1)
                     #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:

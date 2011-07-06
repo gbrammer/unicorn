@@ -1,3 +1,24 @@
+"""
+Run the full reduction scripts.
+
+> Make the tarfiles for the web outputs:
+
+dirs="SN-MARSHALL SN-GEORGE GOODS-S AEGIS COSMOS GOODS-N" 
+for dir in ${dirs}; do 
+    cd ${THREEDHST}
+    cd ${dir}
+    echo ${PWD}
+    make_3dhst_tarfiles.sh
+done
+
+dirs="SN-MARSHALL SN-GEORGE GOODS-S AEGIS COSMOS GOODS-N" 
+for dir in ${dirs}; do 
+    cd ${THREEDHST}/${dir}
+    echo ${dir}
+    rsync -az HTML/ ~/Sites_GLOBAL/P/GRISM_v1.5/
+done
+
+"""
 import threedhst
 import unicorn
 import glob

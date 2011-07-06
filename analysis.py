@@ -1672,7 +1672,7 @@ def make_full_selection(zmin=None, zmax=None):
     out='mass_10_mag_22_z_1.0_1.5.html'
 
     unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.8,1.4),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=False)
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(1.0,3.4),  use_kmag=False, contam=0.05, coverage=0.8, skip_goodsn=False)
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=22.0, zrange=(0.8,1.5),  use_kmag=False, contam=0.05, coverage=0.95, skip_goodsn=False)
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     

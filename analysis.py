@@ -1685,7 +1685,7 @@ def run_eazy_products_on_html(out):
         shutil.move('massive.html', out)
         
     shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
-    # out='full_faint.html'
+    out='full_faint.html'
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
@@ -2121,7 +2121,26 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         print "Spectrum doesn't have full coverage: [%f, %f]" %(lci[is_spec].min(), lci[is_spec].max())
         return [0, 1]
     
+    #### Find filters near J/H
     jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.65e4) & (fobs > 0)
+    
+    #### Here's the simple linear fit    
+    xfit = lci-1.4e4
+    yfit = fobs/obs_sed
+    
+    if len(xfit[jhfilt]) == 0:
+        print "No valid J/H filters found."
+        return [0, 1]
+        
+    if len(xfit[jhfilt]) == 1:
+        ORDER=0
+        
+    afit = polyfit(xfit[jhfilt], yfit[jhfilt], ORDER)
+    afit[ORDER] *= 1./(coeffs['tnorm'][0]/coeffs['coeffs'][0,2])
+    
+    #### Reduce the effect slightly
+    if ORDER == 1:
+        afit[0] *= 0.8
     
     #### Diagnostic plot
     if check_results:
@@ -2141,18 +2160,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         ax.plot(lci, obs_sed, marker='o', markersize=5, alpha=0.5, linestyle='None', color='green')
         ax.set_ylim(0, 1.1*obs_sed.max())
         ax.set_xlim(9.e3, 1.8e4)
-        
-    #### Here's the simple linear fit    
-    xfit = lci-1.4e4
-    yfit = fobs/obs_sed
-    
-    afit = polyfit(xfit[jhfilt], yfit[jhfilt], ORDER)
-    afit[ORDER] *= 1./(coeffs['tnorm'][0]/coeffs['coeffs'][0,2])
-    
-    #### Reduce the effect slightly
-    if ORDER == 1:
-        afit[0] *= 0.8
-        
+                
     if check_results:
         print xfit[jhfilt], yfit[jhfilt]
         print afit

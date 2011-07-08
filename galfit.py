@@ -437,7 +437,8 @@ def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
       
 def fits_for_samples():
     """
-    Run galfit on every object in that has the EAZY redshift fit completed.
+    Run galfit on every object in that has the EAZY redshift fit completed.  The 
+    outputs of the redshift fits are in /Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/.
     """
     import glob
     import unicorn.galfit
@@ -445,6 +446,7 @@ def fits_for_samples():
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
     
     files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/AEGIS-11*eazy.png')
+    
     for file in files:
         object = os.path.basename(file.split('_eazy')[0])
         if not os.path.exists(object+'_galfit.png'):

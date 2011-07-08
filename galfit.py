@@ -440,13 +440,15 @@ def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
         if result:
             log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
             chi_s = log.chi2
-            r_e = log.components[0].re.value
+            r_e_fit = log.list[0].re.value
+            n_fit = log.list[0].n.value
         else:
             chi_s = 1.e5
-            r_e = 0.
+            r_e_fit = 0.
+            n_fit = 100
             
         # #### Fit is high-n, high-re, try adding a disk
-        # if (log.list[0].re.value*0.06 > 4) & (log.list[0].n.value > 5):
+        # if (r_e_fit*0.06 > 4) & (n_fit > 5):
         #     result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, add_disk=True)
         #     if result:
         #         log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
@@ -455,7 +457,7 @@ def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
         #         chi_s = 1.e5
                 
         #### If died or high chi2, fit PSF + sky
-        if (result is False) | (chi_s > 50) | (r_e == 0.01):
+        if (result is False) | (chi_s > 50) | (r_e_fit == 0.01):
             result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky)
             
             #### If died again, try turning off sky fit

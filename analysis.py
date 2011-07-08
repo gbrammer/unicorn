@@ -1579,7 +1579,7 @@ class BD_fit():
             self.ascii_file = ascii_file
             self.make_plot()
         else:
-            print noNewLine + ascii_file + ' %0.2f' %(chi2.min())
+            print noNewLine + ascii_file + ' %s %0.2f' %(types[min], chi2.min())
             
     def make_plot(self):
         import matplotlib.pyplot as plt

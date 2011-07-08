@@ -767,7 +767,6 @@ def make_plot(root):
             ax.text(1,y0, label, horizontalalignment='right',
                 verticalalignment='center',transform = ax.transAxes)
         
-    plt.savefig(root+'.png')
     if USE_PLOT_GUI:
         fig.savefig(root+'.png',dpi=100,transparent=False)
         plt.close()

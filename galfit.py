@@ -425,7 +425,8 @@ def sync():
     import os
     os.system('rsync -avz /3DHST/Spectra/Work/ANALYSIS/GALFIT/*galfit.png /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
     
-def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
+def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False, PSF_IMAGE='star_PSF.fits'):
+    
     import unicorn.analysis
     import unicorn.galfit
     import os
@@ -436,7 +437,7 @@ def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
     
     if os.path.exists(thumb_path):
         #### First try, fit sersic + sky
-        result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky)
+        result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky, PSF_IMAGE = PSF_IMAGE)
         if result:
             log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
             chi_s = log.chi2
@@ -458,11 +459,11 @@ def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
                 
         #### If died or high chi2, fit PSF + sky
         if (result is False) | (chi_s > 50) | (r_e_fit == 0.01):
-            result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky)
+            result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky, PSF_IMAGE=PSF_IMAGE)
             
             #### If died again, try turning off sky fit
             if not result:
-                result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=False)
+                result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=False, PSF_IMAGE=PSF_IMAGE)
             
             if result:
                 log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')

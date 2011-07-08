@@ -1490,7 +1490,7 @@ def fit_candidates():
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM/BROWN_DWARF')
     
     bd.fit('../ascii/AEGIS-3-G141_00196.dat')
-    bd.fit('../ascii/GOODS-N-33-G141_00941.dat')
+    bd.fit('../ascii/GOODS-N-33-G141_00941.dat', chi2_limit=40, trim_mtype=False)
     
 class BD_template():
     def __init__(self, txt):
@@ -1566,10 +1566,11 @@ class BD_fit():
         noNewLine = '\x1b[1A\x1b[1M'
         
         min = np.where(chi2 == chi2.min())[0][0]
+        
         if trim_mtype:
-            trim_mtype = ~types[min].startswith('M')
+            trim_mtype = types[min].startswith('M')
             
-        if (chi2.min() < chi2_limit) & (trim_mtype):
+        if (chi2.min() < chi2_limit) & (~trim_mtype):
             print noNewLine + ascii_file+' * '
             self.spec = spec
             self.types = types

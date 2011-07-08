@@ -517,8 +517,8 @@ def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
     unicorn.galfit.make_plot(root+extension)
     #os.system('ls galfit.[0-9]*')
     
-    if open:
-        os.system('open '+root+extension+'.png')
+    # if open:
+    #     os.system('open '+root+extension+'.png')
         
     return True
     

@@ -1490,7 +1490,9 @@ def fit_candidates():
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM/BROWN_DWARF')
     
     bd.fit('../ascii/AEGIS-3-G141_00196.dat')
-    bd.fit('../ascii/GOODS-N-33-G141_00941.dat', chi2_limit=40, trim_mtype=False)
+    bd.fit('../ascii/GOODS-N-33-G141_00923.dat')
+    bd.fit('../ascii/AEGIS-11-G141_00311.dat', chi2_limit=4, trim_mtype=False)
+    bd.fit('../ascii/GEORGE-G141_00825.dat', chi2_limit=4, trim_mtype=False)
     
 class BD_template():
     def __init__(self, txt):
@@ -1531,7 +1533,7 @@ class BD_fit():
         self.templates = list
         self.NTEMP = len(self.templates)
         
-    def fit(self, ascii_file='AEGIS-3-G141_00177.dat', chi2_limit=1.5, trim_mtype=True):
+    def fit(self, ascii_file='AEGIS-3-G141_00177.dat', chi2_limit=1.5, trim_mtype=True, max_contam=0.05):
         import threedhst.catIO as catIO
         import numpy as np
         
@@ -1544,7 +1546,7 @@ class BD_fit():
         types = []
         anorm = chi2*0.
 
-        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < 0.05) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < max_contam) & (np.isfinite(spec.flux)) & (spec.flux > 0)
         self.use = use
         
         if len(spec.lam[use]) < 50:

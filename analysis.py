@@ -1653,7 +1653,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selections to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.1, coverage=0.95)
     out='full_faint.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
@@ -2420,8 +2420,8 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     coeffs['coeffs'] *= 1./(1+zout.z_peak[0])**2
     
     continuum = np.dot(temp_seds['temp_seds'][:,0:6], coeffs['coeffs'][0:6,0])                             
-    plt.plot(temp_seds['templam'], continuum, color='black')
-    plt.plot(temp_seds['templam'], temp_sed, color='red', alpha=0.6)
+    # plt.plot(temp_seds['templam'], continuum, color='black')
+    # plt.plot(temp_seds['templam'], temp_sed, color='red', alpha=0.6)
     
     halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0

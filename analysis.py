@@ -1484,10 +1484,10 @@ def fit_all_brown_dwarfs():
         bd.fit(file)
 
 def fit_candidates():
-    import glob
     import unicorn
     
     bd = unicorn.analysis.BD_fit()
+    os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM/BROWN_DWARF')
     
 class BD_template():
     def __init__(self, txt):
@@ -1515,7 +1515,7 @@ class BD_template():
     
 class BD_fit():    
     def __init__(self):
-        self.template_path=unicorn.GRISM_HOME+'ANALYSIS/STANDARDS'
+        self.template_path=unicorn.GRISM_HOME+'ANALYSIS/BROWN_DWARF/STANDARDS'
         self.read_bd_templates()
         
     def read_bd_templates(self):

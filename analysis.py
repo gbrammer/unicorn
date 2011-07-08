@@ -1571,7 +1571,7 @@ class BD_fit():
             trim_mtype = types[min].startswith('M')
             
         if (chi2.min() < chi2_limit) & (~trim_mtype):
-            print noNewLine + ascii_file+' * '
+            print noNewLine + ascii_file+' * '+' %s %0.2f' %(types[min], chi2.min())
             self.spec = spec
             self.types = types
             self.chi2 = chi2

@@ -1491,8 +1491,11 @@ def fit_candidates():
     
     bd.fit('../ascii/AEGIS-3-G141_00196.dat')
     bd.fit('../ascii/GOODS-N-33-G141_00923.dat')
+    bd.fit('../ascii/GOODS-N-11-G141_00668.dat')
     bd.fit('../ascii/AEGIS-11-G141_00311.dat', chi2_limit=4, trim_mtype=False)
-    bd.fit('../ascii/GEORGE-G141_00825.dat', chi2_limit=4, trim_mtype=False)
+    bd.fit('../ascii/GEORGE-G141_00825.dat', chi2_limit=100, trim_mtype=False, max_contam=0.5)
+    bd.fit('../ascii/GEORGE-G141_00326.dat', chi2_limit=100, trim_mtype=False, max_contam=0.8)
+    bd.fit('../ascii/COSMOS-3-G141_00799.dat', chi2_limit=100, trim_mtype=False, max_contam=0.1)
     
 class BD_template():
     def __init__(self, txt):
@@ -1654,11 +1657,11 @@ def make_full_selection(zmin=None, zmax=None):
     out='full_faint.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=21.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.3, coverage=0.8)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=22, zrange=(0.5,3.5),  use_kmag=False, contam=0.5, coverage=0.8)
     out='full_bright.html'
     unicorn.analysis.run_eazy_products_on_html(out)
 
-    unicorn.analysis.show_massive_galaxies(masslim=10.89, maglim=24.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.03, coverage=0.95)
+    unicorn.analysis.show_massive_galaxies(masslim=10.49, maglim=24, zrange=(0.5,3.5),  use_kmag=False, contam=0.5, coverage=0.8)
     out='full_massive.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     

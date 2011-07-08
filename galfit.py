@@ -424,6 +424,37 @@ def get_thumb(id=None, root='orient1',
 def sync():
     import os
     os.system('rsync -avz /3DHST/Spectra/Work/ANALYSIS/GALFIT/*galfit.png /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
+
+def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
+    """
+    Find the right PSF for each pointing/field
+    """
+    pointing = object.split('-G141')[0]
+    if os.path.exists('/3DHST/Spectra/Work/ANALYSIS/GALFIT/'+pointing+'_PSF.fits'):
+        return pointing+'_PSF.fits'
+    else:
+        return 'star_PSF.fits'
+      
+def fits_for_samples():
+    """
+    Run galfit on every object in that has the EAZY redshift fit completed.
+    """
+    import glob
+    import unicorn.galfit
+    
+    os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
+    
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/AEGIS-11*eazy.png')
+    for file in files:
+        object = os.path.basename(file.split('_eazy')[0])
+        if not os.path.exists(object+'_galfit.png'):
+            PSF = unicorn.galfit.get_galfit_psf_image(object=object)
+            try:
+                unicorn.galfit.fit_3dhst_object(object=object, fit_sky=True, open=False, PSF_IMAGE=PSF)
+            except:
+                pass
+            
+    unicorn.galfit.sync()
     
 def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False, PSF_IMAGE='star_PSF.fits'):
     

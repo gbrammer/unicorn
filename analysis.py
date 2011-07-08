@@ -1489,6 +1489,9 @@ def fit_candidates():
     bd = unicorn.analysis.BD_fit()
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM/BROWN_DWARF')
     
+    bd.fit('../ascii/AEGIS-3-G141_00196.dat')
+    bd.fit('../ascii/GOODS-N-33-G141_00941.dat')
+    
 class BD_template():
     def __init__(self, txt):
         self.filename = txt
@@ -1528,7 +1531,7 @@ class BD_fit():
         self.templates = list
         self.NTEMP = len(self.templates)
         
-    def fit(self, ascii_file='AEGIS-3-G141_00177.dat'):
+    def fit(self, ascii_file='AEGIS-3-G141_00177.dat', chi2_limit=1.5, trim_mtype=True):
         import threedhst.catIO as catIO
         import numpy as np
         
@@ -1563,7 +1566,10 @@ class BD_fit():
         noNewLine = '\x1b[1A\x1b[1M'
         
         min = np.where(chi2 == chi2.min())[0][0]
-        if (chi2.min() < 1.5) & (~types[min].startswith('M')):
+        if trim_mtype:
+            trim_mtype = ~types[min].startswith('M')
+            
+        if (chi2.min() < chi2_limit) & (trim_mtype):
             print noNewLine + ascii_file+' * '
             self.spec = spec
             self.types = types

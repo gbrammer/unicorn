@@ -445,7 +445,7 @@ def fits_for_samples():
     
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
     
-    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/AEGIS-11*eazy.png')
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/*eazy.png')
     
     for file in files:
         object = os.path.basename(file.split('_eazy')[0])

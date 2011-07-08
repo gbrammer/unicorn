@@ -1508,7 +1508,7 @@ class BD_template():
         self.err = np.cast[float](err)
     
 class BD_fit():
-    def __init__(self,template_path='./STANDARDS'):
+    def __init__(self,template_path=unicorn.GRISM_HOME+'ANALYSIS/STANDARDS'):
         self.template_path=template_path
         self.read_bd_templates()
         

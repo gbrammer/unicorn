@@ -420,6 +420,11 @@ def get_thumb(id=None, root='orient1',
     return thumb_file
     
     #os.system('gunzip %s.gz' %(thumb_file))
+
+def sync():
+    import os
+    os.system('rsync -avz /3DHST/Spectra/Work/ANALYSIS/GALFIT/*galfit.png /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
+    
 def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
     import unicorn.analysis
     import unicorn.galfit
@@ -598,12 +603,12 @@ E) 1                   # PSF fine sampling factor relative to data
 F) %s                # Bad pixel mask (FITS image or ASCII coord list)
 G) none                # File with parameter constraints (ASCII file) 
 H) 1    %d   1    %d   # Image region to fit (xmin xmax ymin ymax)
-I) 30    30          # Size of the convolution box (x y)
+I) %d    %d          # Size of the convolution box (x y)
 J) 26.46              # Magnitude photometric zeropoint 
 K) 0.06  0.06        # Plate scale (dx dy)    [arcsec per pixel]
 O) regular             # Display type (regular, curses, both)
 P) 0                   # Choose: 0=optimize, 1=model, 2=imgblock, 3=subcomps
-""" %(mask_file, NX, NY)
+""" %(mask_file, NX, NY, int(NX/2), int(NY/2))
     
     #### Sky
     sky_model = """

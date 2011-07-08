@@ -491,7 +491,7 @@ def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False, PS
         #         chi_s = 1.e5
                 
         #### If died or high chi2, fit PSF + sky
-        if (result is False) | (chi_s > 50) | (r_e_fit == 0.01):
+        if (result is False) | (chi_s > 50): # | (r_e_fit == 0.01):
             result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky, PSF_IMAGE=PSF_IMAGE)
             
             #### If died again, try turning off sky fit

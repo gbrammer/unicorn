@@ -29,7 +29,7 @@ import pyfits
 import threedhst.catIO as catIO
 
 def fit_cosmos():
-    import threedhst.galfit
+    import unicorn.galfit
     import threedhst
     
     sexCat = threedhst.sex.mySexCat('orient1_drz.cat')
@@ -51,17 +51,17 @@ def fit_cosmos():
     for id in sexCat.id[use]:
         try:
             #
-            status = threedhst.galfit.go_fit(id=id, fix_n=False, fit_sky=False,
+            status = unicorn.galfit.go_fit(id=id, fix_n=False, fit_sky=False,
                     tar_root=root,
                     PSF_IMAGE='star_'+root+'_thumb.fits')
-            # status = threedhst.galfit.go_fit(id=id, fix_n=False,
+            # status = unicorn.galfit.go_fit(id=id, fix_n=False,
             #       tar_root='orient2',
             #       PSF_IMAGE='star_orient2_01732_thumb.fits')
         except:
             pass
     
 def fit_goodsn():
-    import threedhst.galfit
+    import unicorn.galfit
     import threedhst
     
     tar_path = '/research/HST/GRISM/3DHST/GOODS-N/HTML_TAR/'
@@ -85,12 +85,12 @@ def fit_goodsn():
         
         root=os.path.basename(catalog).split('_drz')[0]
         for id in cat.id[use]:
-            status = threedhst.galfit.go_fit(id=id, fix_n=False, tar_root=root,
+            status = unicorn.galfit.go_fit(id=id, fix_n=False, tar_root=root,
                             tar_path = tar_path,
                             PSF_IMAGE=psfs[i])
 
 def fit_uds_marshall():
-    import threedhst.galfit
+    import unicorn.galfit
     import threedhst
     
     tar_path = '/research/HST/GRISM/3DHST/SN-MARSHALL/HTML/images/'
@@ -115,13 +115,13 @@ def fit_uds_marshall():
         
         for id in cat.id[use]:
             if not os.path.exists('%s_%05d_galfit.png' %(root,id)):
-                status = threedhst.galfit.go_fit(id=id, fix_n=False,
+                status = unicorn.galfit.go_fit(id=id, fix_n=False,
                     tar_root=root, fit_sky=False,
                     tar_path = tar_path, PSF_IMAGE=PSF_IMAGE)
     
 
 def make_cat(symbol_color='red', masslim=(11,13), CIRCULARIZE=True):
-    import threedhst.galfit
+    import unicorn.galfit
     import threedhst
     import numpy as np
     
@@ -135,7 +135,7 @@ def make_cat(symbol_color='red', masslim=(11,13), CIRCULARIZE=True):
         #print id
         try:
             root='orient1_%05d_galfit' %(id)
-            params = threedhst.galfit.read_log(root+'.log')
+            params = unicorn.galfit.read_log(root+'.log')
             x0, y0, mag, re, n, bovera, chi2 = params
             sexCat.re[i] = np.float(re)
             sexCat.n[i] = np.float(n)
@@ -147,7 +147,7 @@ def make_cat(symbol_color='red', masslim=(11,13), CIRCULARIZE=True):
         #
         try:
             root='orient2_%05d_galfit' %(id)
-            params = threedhst.galfit.read_log(root+'.log')
+            params = unicorn.galfit.read_log(root+'.log')
             x0, y0, mag, re, n, bovera, chi2 = params
             sexCat.re[i] = np.float(re)
             sexCat.n[i] = np.float(n)
@@ -219,7 +219,7 @@ def make_cat(symbol_color='red', masslim=(11,13), CIRCULARIZE=True):
     #         #print id
     #         try:
     #             rooti=root+'_%05d_galfit' %(id)
-    #             params = threedhst.galfit.read_log(rooti+'.log')
+    #             params = unicorn.galfit.read_log(rooti+'.log')
     #             x0, y0, mag, re, n, bovera, chi2 = params
     #             cat.re[i] = np.float(re)
     #             cat.n[i] = np.float(n)
@@ -265,7 +265,7 @@ def make_cat(symbol_color='red', masslim=(11,13), CIRCULARIZE=True):
             #print id
             try:
                 rooti=root+'_%05d_galfit' %(id)
-                params = threedhst.galfit.read_log(rooti+'.log')
+                params = unicorn.galfit.read_log(rooti+'.log')
                 x0, y0, mag, re, n, bovera, chi2 = params
                 cat.re[i] = np.float(re)
                 cat.n[i] = np.float(n)
@@ -421,49 +421,49 @@ def get_thumb(id=None, root='orient1',
     
     #os.system('gunzip %s.gz' %(thumb_file))
 def fit_3dhst_object(object='COSMOS-15-G141_00388', fit_sky=True, open=False):
-    import threedhst.analysis
-    import threedhst.galfit
+    import unicorn.analysis
+    import unicorn.galfit
     import os
     
-    PATH = threedhst.analysis.get_grism_path(root=object.split('G141')[0]) 
+    PATH = unicorn.analysis.get_grism_path(root=object.split('G141')[0]) 
     thumb_path = PATH+'/HTML/images/%s_thumb.fits.gz' %(object)
     print thumb_path
     
     if os.path.exists(thumb_path):
         #### First try, fit sersic + sky
-        result = threedhst.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky)
+        result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky)
         if result:
-            log = threedhst.galfit.GalfitLogfile(object+'_galfit.log')
+            log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
             chi_s = log.chi2
         else:
             chi_s = 1.e5
             
         # #### Fit is high-n, high-re, try adding a disk
         # if (log.list[0].re.value*0.06 > 4) & (log.list[0].n.value > 5):
-        #     result = threedhst.galfit.go_fit(thumb_file=thumb_path, fix_n=False, add_disk=True)
+        #     result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, add_disk=True)
         #     if result:
-        #         log = threedhst.galfit.GalfitLogfile(object+'_galfit.log')
+        #         log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
         #         chi_s = log.chi2
         #     else:
         #         chi_s = 1.e5
                 
         #### If died or high chi2, fit PSF + sky
         if (result is False) | (chi_s > 50):
-            result = threedhst.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky)
+            result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=fit_sky)
             
             #### If died again, try turning off sky fit
             if not result:
-                result = threedhst.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=False)
+                result = unicorn.galfit.go_fit(thumb_file=thumb_path, psf_only=True, fit_sky=False)
             
             if result:
-                log = threedhst.galfit.GalfitLogfile(object+'_galfit.log')
+                log = unicorn.galfit.GalfitLogfile(object+'_galfit.log')
                 chi_p = log.chi2
             else:
                 chi_p = chi_s*10
                 
             if chi_p > chi_s:
                 ### Revert to sersic fit
-                result = threedhst.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky)
+                result = unicorn.galfit.go_fit(thumb_file=thumb_path, fix_n=False, fit_sky=fit_sky)
             
 def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
            PSF_IMAGE='star_PSF.fits',
@@ -471,7 +471,7 @@ def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
            psf_only=False,
            extension='_galfit'):
     
-    import threedhst.galfit
+    import unicorn.galfit
     
     try:
         os.remove('galfit.01')
@@ -490,7 +490,7 @@ def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
     imgal.writeto('gal.fits', clobber=True)
     
     if mask:
-        threedhst.galfit.make_segmap_mask(root)
+        unicorn.galfit.make_segmap_mask(root)
     
     #### Star PSF
     star = pyfits.open(PSF_IMAGE)
@@ -498,7 +498,7 @@ def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
     star[0].data *= TEXP
     star.writeto('psf.fits', clobber=True)
     
-    threedhst.galfit.make_galfit_param(imgal, mask=mask, add_disk=add_disk, fix_n=fix_n, psf_only=psf_only, fit_sky=fit_sky)
+    unicorn.galfit.make_galfit_param(imgal, mask=mask, add_disk=add_disk, fix_n=fix_n, psf_only=psf_only, fit_sky=fit_sky)
     
     os.system('galfit galfit.feedme')
         
@@ -514,7 +514,7 @@ def go_fit(thumb_file=None, mask=True, add_disk=False, fix_n=4,
     #print logs[-1]
     shutil.move('galfit.01', root+extension+'.param')
     #os.system('mv galfit.01 '+root+'.param')
-    threedhst.galfit.make_plot(root+extension)
+    unicorn.galfit.make_plot(root+extension)
     #os.system('ls galfit.[0-9]*')
     
     if open:
@@ -691,7 +691,7 @@ def axis_ticks(im, ax):
     
 def make_plot(root):
     import matplotlib.pyplot as plt
-    import threedhst.galfit
+    import unicorn.galfit
     
     plt.rcParams['image.cmap'] = 'gray'
     im = pyfits.open(root+'.fits')
@@ -738,12 +738,12 @@ def make_plot(root):
     id = root.split('_')[1]
     id = root.replace('-G141','').replace('_galfit','')
     
-    x0, y0, mag, re, n, bovera, chi2 = threedhst.galfit.read_log(root+'.log')
+    x0, y0, mag, re, n, bovera, chi2 = unicorn.galfit.read_log(root+'.log')
     re = '%5.2f' %(np.float(re.replace('*',''))*0.06)
     label = '#'+id+r'  $r_e$='+re+r'$^{\prime\prime}$  $n$='+n+r'  $b/a$='+bovera+r'  $\chi^2_\nu$='+chi2
     
     #### Smarter label
-    log = threedhst.galfit.GalfitLogfile(root+'.log')
+    log = unicorn.galfit.GalfitLogfile(root+'.log')
     label = id +r'  $\log\ \chi^2_\nu $=%.2f' %(np.log10(log.chi2))
     NCOMP = 0
 

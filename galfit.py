@@ -608,7 +608,7 @@ J) 26.46              # Magnitude photometric zeropoint
 K) 0.06  0.06        # Plate scale (dx dy)    [arcsec per pixel]
 O) regular             # Display type (regular, curses, both)
 P) 0                   # Choose: 0=optimize, 1=model, 2=imgblock, 3=subcomps
-""" %(mask_file, NX, NY, int(NX/2), int(NY/2))
+""" %(mask_file, NX, NY, int(NX*3./4), int(NY*3/4))
     
     #### Sky
     sky_model = """

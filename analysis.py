@@ -1482,7 +1482,13 @@ def fit_all_brown_dwarfs():
     files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/*-G141*.dat')
     for file in files:
         bd.fit(file)
-        
+
+def fit_candidates():
+    import glob
+    import unicorn
+    
+    bd = unicorn.analysis.BD_fit()
+    
 class BD_template():
     def __init__(self, txt):
         self.filename = txt
@@ -1507,9 +1513,9 @@ class BD_template():
         self.flux = np.cast[float](flux)
         self.err = np.cast[float](err)
     
-class BD_fit():
-    def __init__(self,template_path=unicorn.GRISM_HOME+'ANALYSIS/STANDARDS'):
-        self.template_path=template_path
+class BD_fit():    
+    def __init__(self):
+        self.template_path=unicorn.GRISM_HOME+'ANALYSIS/STANDARDS'
         self.read_bd_templates()
         
     def read_bd_templates(self):

@@ -423,7 +423,7 @@ def get_thumb(id=None, root='orient1',
 
 def sync():
     import os
-    os.system('rsync -avz /3DHST/Spectra/Work/ANALYSIS/GALFIT/*galfit.png /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
+    os.system('rsync -az --progress /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
 
 def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
     """

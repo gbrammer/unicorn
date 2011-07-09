@@ -423,8 +423,12 @@ def get_thumb(id=None, root='orient1',
 
 def sync():
     import os
-    os.system('rsync -az --progress /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
-
+    print 'Syncing GALFIT files...'
+    os.system('rsync -az /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
+    noNewLine = '\x1b[1A\x1b[1M'
+    print noNewLine+'Syncing GALFIT files...Done.'
+    
+    
 def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
     """
     Find the right PSF for each pointing/field

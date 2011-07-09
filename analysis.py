@@ -1653,7 +1653,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selections to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.5,3.5),  use_kmag=False, contam=0.1, coverage=0.95)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.2,3.5),  use_kmag=False, contam=0.1, coverage=0.95)
     out='full_faint.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     

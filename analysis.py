@@ -2464,7 +2464,8 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
-    ha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    halpha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+
     cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
     ha_lum = ha_flux*cc['DL_cm']**2*4*np.pi
     ha_sfr = 7.9e-42*ha_lum
@@ -2472,12 +2473,14 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0
     oiii_eqw = np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
+    oiii_flux = coeffs['coeffs'][7,0]/coeffs['tnorm'][7]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(5007.*(1+zout.z_peak[0]))**2*(5007.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
 
     hbeta =  temp_seds['temp_seds'][:,8]*coeffs['coeffs'][8,0]
     hbeta[hbeta < 1.e-8*hbeta.max()] = 0
     hbeta_eqw = np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
+    hbeta_flux = coeffs['coeffs'][8,0]/coeffs['tnorm'][8]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(4861.*(1+zout.z_peak[0]))**2*(4861.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     
-    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, ha_flux, ha_sfr, oiii_eqw, hbeta_eqw
+    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux
     
     
 def make_line_templates():

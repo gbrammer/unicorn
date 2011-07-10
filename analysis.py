@@ -18,6 +18,8 @@ import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
+
+noNewLine = '\x1b[1A\x1b[1M'
  
 def get_grism_path(root):
     """ 
@@ -559,7 +561,6 @@ specphot(id)
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(OUT_PATH+'/'+out_file, dpi=100, transparent=False)
     
-    noNewLine = '\x1b[1A\x1b[1M'
     print noNewLine+OUT_PATH+'/'+out_file
     
     if Verbose:
@@ -680,7 +681,6 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
     else:
         ids = grismCat.id
         
-    noNewLine = '\x1b[1A\x1b[1M'
     for j, id in enumerate(ids):
         progress = '%2d' %(np.int(j*100./len(ids))) + '%'
         print noNewLine+out_image+':  '+progress
@@ -1571,7 +1571,6 @@ class BD_fit():
         DOF = len(yint)-1
         chi2 /= DOF
         
-        noNewLine = '\x1b[1A\x1b[1M'
         
         min = np.where(chi2 == chi2.min())[0][0]
         
@@ -1717,6 +1716,58 @@ def run_eazy_products_on_html(out):
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
     os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
+    
+def make_full_redshift_catalog():
+    """
+    Cat all individual zout files into a single file
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    files = glob.glob('OUTPUT/*G141*zout')
+    fp = open(files[0])
+    lines = fp.readlines()
+    fp.close()
+    for file in files[1:]:
+        print noNewLine+file
+        fp = open(file)
+        lines.extend(fp.readlines()[2:])
+        fp.close()
+        
+    fp = open('full_redshift.zout','w')
+    fp.writelines(lines)
+    fp.close()
+    
+    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/full_redshift.zout')
+    
+def combine_matched_catalogs():
+    """
+    Combine all of the match catalogs in the HTML/SED directories, adding
+    the correct object id with the full pointing name.
+    """
+    
+    os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+    files = glob.glob('../SED/*match.cat')
+    fp = open(files[0])
+    full_lines = fp.readlines()[0:2]
+    fp.close()
+    for file in files:
+        pointing = os.path.basename(file).split('_match')[0]
+        print noNewLine+pointing
+        fp = open(file)
+        lines = fp.readlines()[3:]
+        fp.close()
+        for line in lines:
+            spl = line.split()
+            id = int(spl[0])
+            object = "%s_%05d  " %(pointing, id)
+            full_lines.append(object+'  '.join(spl[1:])+'\n')
+    
+    fp = open('full_match.cat','w')
+    fp.writelines(full_lines)
+    fp.close()
+    
+    status = os.system('gzip full_match.cat')
+    
     
 def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1.0):
     import unicorn
@@ -2405,6 +2456,31 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     print outfile
     
+def eqw_catalog():
+    """ 
+    Make a full catalog of the line fluxes / eq. widths
+    """
+    import unicorn.analysis
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    files=glob.glob('OUTPUT/*.coeff')
+    lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
+    for file in files:
+        object=os.path.basename(file).split('.coeff')[0]
+        print noNewLine+object
+        root=object.split('G141')[0]+'G141'
+        id = int(object.split('G141_')[1])
+        #
+        try:
+            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
+        except:
+            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = -1,-1,-1,-1,-1,-1,-1
+        #
+        lines.append('%s %8.3f %8.2f %5.2e %8.2f %5.2e %8.2f %5.2e\n' %(object, z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux))
+    
+    fp = open('full_emission_lines.cat','w')
+    fp.writelines(lines)
+    fp.close()
+     
 def equivalent_width(root='GOODS-S-24-G141', id=29):
     """ 
     Measure the line equivalent widths from the template fit.
@@ -2417,6 +2493,10 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     Another idea is to subtract the continuum from the spectrum and integrate the 
     line directly. 
+    
+    USAGE:
+    z_grism, halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux = equivalent_width(root='x', id=1)
+    
     """
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO

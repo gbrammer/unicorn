@@ -728,6 +728,9 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
         
 def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
     use_kmag=False, contam=0.5, coverage=0.9, skip_goodsn=False):        
+    """
+    Make a webpage showing objects selected on mass, redshift, contamination, mag...
+    """
     
     if unicorn.hostname().startswith('unicorn'):
         os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
@@ -2410,22 +2413,61 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     """
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO
+    import cosmocalc
     
     zout = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
-    
-    # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+    eazy_param = eazy.EazyParam('OUTPUT/%s_%05d.param' %(root, id))
     
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'OUTPUT/line_eqw.tempfilt')
     
     coeffs['coeffs'] *= 1./(1+zout.z_peak[0])**2
     
     continuum = np.dot(temp_seds['temp_seds'][:,0:6], coeffs['coeffs'][0:6,0])                             
-    # plt.plot(temp_seds['templam'], continuum, color='black')
-    # plt.plot(temp_seds['templam'], temp_sed, color='red', alpha=0.6)
+    
+    plot = """
+        tempfiltx, coeffsx, temp_sedsx, pzx = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+        
+        
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+        dlam_spec = lci[-1]-lci[-2]
+        is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        
+        plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), continuum, color='black')
+        plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), temp_sed, color='red', alpha=0.6)
+        plt.plot(lci[is_spec], fobs[is_spec], color='blue', alpha=0.4)
+        plt.errorbar(lci[is_spec], fobs[is_spec], efobs[is_spec], color='blue', alpha=0.4)
+        plt.plot(lci[is_spec], obs_sed[is_spec], color='red', linewidth=3, alpha=0.4)
+        plt.semilogx()
+        plt.xlim(3000,4.e4)
+        
+        #### Test getting fluxes in f_lambda
+        #np.trapz(temp_seds['temp_seds'][:,6], temp_seds['templam']*coeffs['tnorm'][6])
+        ha_flux_coeffs = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+        
+        ha_flux_convolved = temp_seds['temp_seds'][:,6].max()*coeffs['coeffs'][6,0]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2
+        
+        
+        ha_flux_integrated = np.trapz(halpha, temp_seds['templam']*(1+zout.z_peak[0]))
+        ha_flux_integrated *= (6563.*(1+zout.z_peak[0])/5500.)**2
+        ha_flux_integrated *= 10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2
+        
+        import cosmocalc
+        cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
+        lum_ha = ha_flux_integrated*cc['DL_cm']**2*4*np.pi
+        sfr_ha = 7.9e-42*lum_ha
+        
+        plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), halpha)
+        plt.xlim(6300*(1+zout.z_peak[0]),6900*(1+zout.z_peak[0]))
+        
+    """
     
     halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
+    ha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
+    ha_lum = ha_flux*cc['DL_cm']**2*4*np.pi
+    ha_sfr = 7.9e-42*ha_lum
     
     oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0
@@ -2435,7 +2477,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     hbeta[hbeta < 1.e-8*hbeta.max()] = 0
     hbeta_eqw = np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
     
-    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, oiii_eqw, hbeta_eqw
+    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, ha_flux, ha_sfr, oiii_eqw, hbeta_eqw
     
     
 def make_line_templates():

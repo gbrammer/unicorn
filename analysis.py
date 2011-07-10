@@ -2466,9 +2466,9 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha_eqw = np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
     halpha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
 
-    cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
-    ha_lum = ha_flux*cc['DL_cm']**2*4*np.pi
-    ha_sfr = 7.9e-42*ha_lum
+    # cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
+    # halpha_lum = halpha_flux*cc['DL_cm']**2*4*np.pi
+    # halpha_sfr = 7.9e-42*halpha_lum
     
     oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0

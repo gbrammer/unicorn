@@ -1697,6 +1697,10 @@ def make_full_selection(zmin=None, zmax=None):
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
+    unicorn.analysis.show_massive_galaxies(masslim=10, maglim=21, zrange=(0.2,0.3),  use_kmag=False, contam=0.1, coverage=0.8)
+    out='test.html'
+    unicorn.analysis.run_eazy_products_on_html(out)
+    
 def run_eazy_products_on_html(out):
     import unicorn
     import os
@@ -2409,7 +2413,10 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     the coefficients of the line templates, since the templates are normalized to 
     area unity.  Therefore the flux in "mag 25" Jy is just 'coeff/tnorm' or something
     like that.  And then f_lambda fluxes is just a unit game and is probably already
-    in 'eazyPy'. 
+    in 'eazyPy'.
+    
+    Another idea is to subtract the continuum from the spectrum and integrate the 
+    line directly. 
     """
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO
@@ -2424,6 +2431,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     continuum = np.dot(temp_seds['temp_seds'][:,0:6], coeffs['coeffs'][0:6,0])                             
     
+    #### for testing
     plot = """
         tempfiltx, coeffsx, temp_sedsx, pzx = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
         
@@ -2484,9 +2492,9 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     
 def make_line_templates():
-    line_wavelengths = [[6562.800], [5006.843, 4958.911], [4861.325], [3727.0], [1216.]]
-    line_ratios = [[1], [2.98, 1], [1], [1], [1]]
-    line_names = ['Ha', 'OIII', 'Hb', 'OII', 'Lya']
+    line_wavelengths = [[6562.800], [5006.843, 4958.911], [4861.325], [3727.0], [1216.], [9068.6, 9530.6]]
+    line_ratios = [[1], [2.98, 1], [1], [1], [1], [1, 2.44]]
+    line_names = ['Ha', 'OIII', 'Hb', 'OII', 'Lya', 'SIII']
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
@@ -2510,6 +2518,8 @@ def make_line_templates():
             lj = line_wavelengths[i][j]
             sigma = vel_width/3.e5*lj
             yspec += ratio[j]*1./np.sqrt(2*np.pi*sigma**2)*np.exp(-1.*(xspec-lj)**2/2/sigma**2)
+            
+        yspec /= np.trapz(yspec, xspec)
         
         #
         fp=open('templates/single_lines/'+line_names[i]+'_%0d.dat' %(lw), 'w')

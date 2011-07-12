@@ -71,8 +71,8 @@ def test_plots():
     ######################################
     
     lines = catIO.Readfile('full_emission_lines.cat')
-    lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
     found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
+    #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
     
     ##################################### 
     #### Galfit
@@ -107,6 +107,10 @@ def test_plots():
     zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
     zrange = (zout.z_peak[0::3] > 1.0) & (zout.z_peak[0::3] < 1.5)
     keep = dr & zrange & (zout.q_z[0::3] < 0.1) &  (mcat.fcontam[idx] < 0.2)
+    
+    ### copy to macbook
+    copy = keep & (mcat.logm[idx] > 10.3)
+    unicorn.catalogs.make_object_tarfiles(zout.id[copy])
     
     ##### Q_z vs dz
     plt.semilogx(zout.q_z[0::3][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='red', alpha=0.4)
@@ -335,7 +339,7 @@ def plot_init():
                         bottom=0.10,right=0.99,top=0.97)
     return fig
     
-def make_wget_script(objects):
+def make_object_tarfiles(objects):
     """
     Make a script to get spectra and thumbnails from unicorn.
     """
@@ -347,11 +351,17 @@ def make_wget_script(objects):
         line += ' %s_thumb.fits.gz' %(object)
     
     os.system(line)
-    os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/')
+    os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
+    
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/OUTPUT/')
     line = 'tar czvf spec.tar.gz'
     for object in objects:
         line += ' %s.tempfilt' %(object)
+    
+    os.system(line)
+    os.system('mv spec.tar.gz ../../FIRST_PAPER')
+    
+    print 'scp $UNICORN:'
     
     
     

@@ -21,8 +21,14 @@ import unicorn
 
 noNewLine = '\x1b[1A\x1b[1M'
 
+zout = None
+mcat = None
+gfit = None
+lines = None
+
 def match_string_arrays(target=['b','a','d'], source=['a','b','c']):
     """
+    
     Given a list of strings in `target`, return the integer indices of
     `source` where the strings match.  Fill with -1 if no match so that 
     the output array has the same size as `target`.
@@ -109,19 +115,18 @@ def test_plots():
     zrange = (zout.z_peak[0::3] > 0.2)
     
     keep = dr & zrange & (mcat.logm[idx] > 10.98) & (mcat.fcontam[idx] < 0.5)
-    
     keep = dr & zrange & (mcat.mag_f140w[idx] < 24) & (mcat.fcontam[idx] < 0.5)
     
     #### refine
-    zrange = (zout.z_peak[0::3] > 2) & (zout.z_peak[0::3] < 3)
-    zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
-    zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
+    # zrange = (zout.z_peak[0::3] > 2) & (zout.z_peak[0::3] < 3)
+    # zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
+    # zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
     zrange = (zout.z_peak[0::3] > 1.0) & (zout.z_peak[0::3] < 1.5)
     keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
     
     ### copy to macbook
-    copy = keep & (mcat.logm[idx] > 10.49)
-    unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
+    #copy = keep & (mcat.logm[idx] > 10.49)
+    #unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
     
     ##### Q_z vs dz
     plt.semilogx(zout.q_z[0::3][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='red', alpha=0.4)
@@ -187,7 +192,7 @@ def test_plots():
     plt.ylabel(r'$\Delta z$')
 
     ##### Redshift distribution
-    plot_init()
+    unicorn.catalogs.plot_init()
     
     hist = np.histogram(zout.z_peak[0::3][keep], bins=100, range=(1,1.5))
     plt.plot((hist[1][:-1]+hist[1][1:])/2., hist[0], linestyle='steps', color='black', alpha=0.5)
@@ -214,10 +219,10 @@ def test_plots():
     plt.ylabel(r'$\Delta z$')
     
     ##### plot mass vs equivalent width
-    plot_init()
+    unicorn.catalogs.plot_init()
     
-    plt.semilogy(mcat.logm[idx][~zsp & keep], -lines.halpha_eqw[idx_lines][~zsp & keep], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
-    plt.semilogy(mcat.logm[idx][zsp & keep], -lines.halpha_eqw[idx_lines][zsp & keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.semilogy(mcat.logm[idx][~zsp & keep], -lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    plt.semilogy(mcat.logm[idx][zsp & keep], -lines.halpha_eqw[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     
     # oiii = keep & (zout.z_peak[0::3] > 1.2) & (-lines.oiii_eqw[idx_lines] > 25)
     # plt.semilogy(mcat.logm[idx][oiii], -lines.halpha_eqw[idx_lines][oiii], marker='s', linestyle='None', color='red', alpha=0.2, markersize=8)
@@ -226,16 +231,22 @@ def test_plots():
     red_limit = 15
     red_sequence = -lines.halpha_eqw[idx_lines] < red_limit
     plt.plot([0,100],[red_limit,red_limit], linestyle='--', alpha=0.5, color='green', linewidth=4)
+
+    plt.text(9.5,1,r'has $z_\mathrm{spec}$', color='blue', fontsize=18)
     
     ### For SDSS, read in catalogs and get selection from unicorn.paper1
-    # plot_init()
+    # sel, NOBJ = p1.sdss_selection(zmax=0.2)
+    # hist, xedge, yedge = np.histogram2d(p1.sdss_logm.AVG[sel], np.log10(-p1.sdss_line.H_ALPHA_EQW[sel]/(1+p1.sdss_info.Z[sel])), bins=100, range=[[9,11.6], [-1, 2.7]])
+    # Vbins = [2, 4, 8, 16, 32, 64, 128, 256, 512, 4096]
+    # values =   1.-np.arange(len(Vbins))*1./len(Vbins)
+    # Vcolors = []
+    # for i in range(len(Vbins)):
+    #     Vcolors.append('%f' %(values[i]))
     # 
-    # hist, xedge, yedge = np.histogram2d(p1.sdss_logm.AVG[sel], np.log10(-p1.sdss_line.H_ALPHA_EQW[sel]), bins=100, range=[[9,11.6], [-1, 2.7]])
+    # unicorn.catalogs.plot_init()
     # plt.contourf(xedge[1:], 10**yedge[1:], hist.transpose(), Vbins, colors=Vcolors, alpha=1.0, linethick=2)
-    # 
-    # plt.semilogy(mcat.logm[idx][keep], -lines.halpha_eqw[idx_lines][keep], marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
+    # plt.semilogy(mcat.logm[idx][keep], -lines.halpha_eqw[idx_lines][keep]/(1+zout.z_peak[0::3][keep]), marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
     
-    plt.text(9.5,1,r'has $z_\mathrm{spec}$', color='blue', fontsize=18)
     plt.ylim(0.1, 500)
     plt.xlim(9, 11.6)
     plt.xlabel(r'$\log\ M/M_\odot$')
@@ -265,14 +276,13 @@ def test_plots():
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$\mathrm{OIII}\ \mathrm{eqw}$')
     
-    
     #### Mass - size
     # plt.semilogy(mcat.logm[idx][keep], gfit.r_e_kpc[idx_gfit][keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.r_e_kpc[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.3, markersize=8)
     plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.r_e_kpc[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.3, markersize=8)
     
     # circularized
-    plot_init()
+    unicorn.catalogs.plot_init()
     
     plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.r_e_kpc_circ[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
     plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.r_e_kpc_circ[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.1, markersize=8)
@@ -298,7 +308,7 @@ def test_plots():
     plt.savefig('mass_size.png')
     
     #### Mass - n
-    plot_init()
+    unicorn.catalogs.plot_init()
     
     plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.n[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
     plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.n[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.1, markersize=8)
@@ -323,7 +333,7 @@ def test_plots():
     plt.savefig('mass_n.png')
     
     #### Mass - b/a
-    plot_init()
+    unicorn.catalogs.plot_init()
     
     plt.plot(mcat.logm[idx][keep & ~red_sequence], gfit.ba[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     plt.plot(mcat.logm[idx][keep & red_sequence], gfit.ba[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.2, markersize=8)
@@ -340,7 +350,44 @@ def test_plots():
     
     plt.savefig('mass_ba.pdf')
     plt.savefig('mass_ba.png')
-
+    
+    
+    ######### Composite spectra
+    high_eqw = keep & (-lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) > red_limit) & (mcat.logm[idx] > 10.6)
+    low_eqw = keep & (-lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) <= red_limit) & (mcat.logm[idx] > 10.6)
+    
+    unicorn.catalogs.plot_init()
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][high_eqw], color='red', alpha=0.05, lnorm=6.e3, markersize=1)
+    
+def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, markersize=4):
+    
+    zout = catIO.Readfile('full_redshift.zout')
+    
+    objects = ['GOODS-S-24-G141_00459','GOODS-N-27-G141_00447']
+    for object in objects:
+        print noNewLine+object
+        zi = zout.z_peak[0::3][zout.id[0::3] == object][0]
+        #
+        try:
+            data = np.loadtxt('DATA/'+object+'_scaled.dat')
+        except:
+            continue
+        #           
+        lc = data[:,0]
+        fnu = data[:,1]
+        efnu = data[:,2]
+        #
+        dlam_spec = lc[-1]-lc[-2]
+        is_spec = np.append(np.abs(1-np.abs(lc[1:]-lc[0:-1])/dlam_spec) < 0.05,True)
+        #
+        flam = fnu/(lc/5500.)**2    
+        s = np.argsort(lc)
+        fint = np.interp(lnorm, lc[s]/(1+zi), flam[s])
+        flam /= fint
+        eflam = efnu/(lc/5500.)**2/fint
+        #
+        plt.plot(lc[is_spec]/(1+zi), flam[is_spec], color=color, alpha=alpha)
+        
 def plot_init():
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = ['Times']
@@ -371,7 +418,7 @@ def make_object_tarfiles(objects):
     for object in objects:
         print noNewLine+object
         #
-        tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../REDSHIFT_FITS/OUTPUT', CACHE_FILE = '../REDSHIFT_FITS/OUTPUT/line_eqw.tempfilt')
+        tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
         fp = open(object+'_scaled.dat','w')
         fp.write('# lc fnu efnu\n')
         for i in range(tempfilt['NFILT']):

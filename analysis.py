@@ -2462,7 +2462,7 @@ def eqw_catalog():
     """
     import unicorn.analysis
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
-    files=glob.glob('OUTPUT/*.coeff')
+    files=glob.glob('OUTPUT/*G141*.coeff')
     lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
     for file in files:
         object=os.path.basename(file).split('.coeff')[0]
@@ -2471,7 +2471,7 @@ def eqw_catalog():
         id = int(object.split('G141_')[1])
         #
         try:
-            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
+            obj,z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
         except:
             z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = -1,-1,-1,-1,-1,-1,-1
         #
@@ -2481,6 +2481,9 @@ def eqw_catalog():
     fp.writelines(lines)
     fp.close()
      
+    status = os.system('cp full_emission_lines.cat /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/full_emission_lines.cat')
+    
 def equivalent_width(root='GOODS-S-24-G141', id=29):
     """ 
     Measure the line equivalent widths from the template fit.
@@ -2495,7 +2498,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     line directly. 
     
     USAGE:
-    z_grism, halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux = equivalent_width(root='x', id=1)
+    object, z_grism, halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux = equivalent_width(root='x', id=1)
     
     """
     import threedhst.eazyPy as eazy

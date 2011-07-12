@@ -28,6 +28,8 @@ import pyfits
 
 import threedhst.catIO as catIO
 
+noNewLine = '\x1b[1A\x1b[1M'
+
 def fit_cosmos():
     import unicorn.galfit
     import threedhst
@@ -425,8 +427,53 @@ def sync():
     import os
     print 'Syncing GALFIT files...'
     os.system('rsync -az /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
-    noNewLine = '\x1b[1A\x1b[1M'
     print noNewLine+'Syncing GALFIT files...Done.'
+    
+def make_full_catalog(output='full_galfit.cat'):
+    """ 
+    Find all of the log files in the GALFIT directory and make a single 
+    catalog with the galfit parameters.
+    """
+    import glob
+    import unicorn.galfit 
+    
+    os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
+    
+    files=glob.glob('*G141*log')
+    
+    lines = ['# id   PSF_FIT   r_e  r_e_err   n  n_err  ba  ba_err   chi2\n']
+    for file in files:
+        object = file.split('_galfit')[0]
+        print noNewLine+object
+        try:
+            log = unicorn.galfit.GalfitLogfile(file)
+            chi2 = log.chi2
+            #
+            if 'psf' in log.components:
+                is_psf = 1
+                re = (-1,-1)
+                n = (-1,-1)
+                ba = (-1, -1)
+            else:
+                is_psf = 0
+                re = log.list[0]['re']
+                n = log.list[0]['n']
+                ba = log.list[0]['ba']
+        except:
+            is_psf = -1
+            re = (-1,-1)
+            n = (-1,-1)
+            ba = (-1, -1)
+            chi2 = -1
+        #
+        lines.append("%s   %d   %7.2f %7.2f  %5.1f  %5.1f   %5.2f  %5.2f  %6.2e\n" %(object, is_psf, re[0], re[1], n[0], n[1], ba[0], ba[1], chi2))
+    
+    fp = open(output,'w')
+    fp.writelines(lines)
+    fp.close()
+    
+    status = os.system('cp '+output+' /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+output)
     
     
 def get_galfit_psf_image(object='COSMOS-15-G141_00388'):

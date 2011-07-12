@@ -47,9 +47,12 @@ def match_string_arrays(target=['b','a','d'], source=['a','b','c']):
     return found_in_source, indices
     
 def test_plots():
+    import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays
     import cosmocalc
-        
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/')
+    
     ######################################
     #### Redshifts and masses
     ######################################
@@ -77,7 +80,7 @@ def test_plots():
     gfit = catIO.Readfile('full_galfit.cat')
     found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.object, zout.id[0::3])
     found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.object)
-
+    
     #### Make a grid of redshifts to compute the plate scale and then interpolate it.
     zgrid = np.arange(100)/100.*4+1./100
     scale = zgrid*0.
@@ -341,14 +344,14 @@ def make_wget_script(objects):
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
     line = 'tar czvf thumbs.tar.gz'
     for object in objects:
-        line += ' %s_thumb.fits.gz' %(object))
+        line += ' %s_thumb.fits.gz' %(object)
     
     os.system(line)
     os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/')
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/OUTPUT/')
     line = 'tar czvf spec.tar.gz'
     for object in objects:
-        line += ' %s.tempfilt' %(object))
+        line += ' %s.tempfilt' %(object)
     
     
     

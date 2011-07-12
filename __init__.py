@@ -18,6 +18,7 @@ import candels
 import analysis
 import go_3dhst
 import galfit
+import catalogs
 
 from socket import gethostname as hostname
 

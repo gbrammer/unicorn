@@ -50,6 +50,7 @@ def test_plots():
     import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays
     import cosmocalc
+    import re
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/')
     
@@ -58,6 +59,16 @@ def test_plots():
     ######################################
     
     zout = catIO.Readfile('full_redshift.zout')
+    pointing = []
+    field = []
+    for obj in zout.id[0::3]:
+        point = obj.split('-G141')[0]
+        pointing.append(point)
+        field.append(re.split('-[1-9]',point)[0])
+    
+    pointing = np.array(pointing)
+    field = np.array(field)
+    
     mcat = catIO.Readfile('full_match.cat')
         
     zsp = zout.z_spec[0::3] > 0
@@ -106,11 +117,11 @@ def test_plots():
     zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
     zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
     zrange = (zout.z_peak[0::3] > 1.0) & (zout.z_peak[0::3] < 1.5)
-    keep = dr & zrange & (zout.q_z[0::3] < 0.1) &  (mcat.fcontam[idx] < 0.2)
+    keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
     
     ### copy to macbook
-    copy = keep & (mcat.logm[idx] > 10.3)
-    unicorn.catalogs.make_object_tarfiles(zout.id[copy])
+    copy = keep & (mcat.logm[idx] > 10.49)
+    unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
     
     ##### Q_z vs dz
     plt.semilogx(zout.q_z[0::3][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='red', alpha=0.4)
@@ -343,7 +354,6 @@ def make_object_tarfiles(objects):
     """
     Make a script to get spectra and thumbnails from unicorn.
     """
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER')
     
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
     line = 'tar czvf thumbs.tar.gz'
@@ -353,15 +363,27 @@ def make_object_tarfiles(objects):
     os.system(line)
     os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
     
-    os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/OUTPUT/')
-    line = 'tar czvf spec.tar.gz'
+    
+    #### Get photometry + scaled spectra from the tempfilt files
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER')
+    
+    tarline = 'tar czvf spec.tar.gz'
     for object in objects:
-        line += ' %s.tempfilt' %(object)
+        print noNewLine+object
+        #
+        tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../REDSHIFT_FITS/OUTPUT', CACHE_FILE = '../REDSHIFT_FITS/OUTPUT/line_eqw.tempfilt')
+        fp = open(object+'_scaled.dat','w')
+        fp.write('# lc fnu efnu\n')
+        for i in range(tempfilt['NFILT']):
+            fp.write(' %8.4e %8.4e %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0]))
+        #
+        fp.close()
+        #
+        tarline += ' %s_scaled.dat' %(object)
     
-    os.system(line)
-    os.system('mv spec.tar.gz ../../FIRST_PAPER')
+    os.system(tarline)
     
-    print 'scp $UNICORN:'
+    print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/[st]*tar.gz .'
     
     
     

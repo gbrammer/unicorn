@@ -264,7 +264,7 @@ def goodsn():
     go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
             
     #### Main loop for reduction
-    for i in range(len(grism_asn))[0:]:
+    for i in range(len(grism_asn)):
         asn=grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         proc.reduction_script(asn_grism_file=asn)

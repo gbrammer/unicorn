@@ -261,7 +261,7 @@ def goodsn():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
             
     #### Main loop for reduction
     for i in range(len(grism_asn))[11:]:

@@ -3,6 +3,7 @@ import pyfits
 import numpy as np
 import glob
 import shutil
+import re
 
 import matplotlib.pyplot as plt
 
@@ -56,9 +57,61 @@ def test_plots():
     import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays
     import cosmocalc
-    import re
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/')
+    
+    ######################################
+    #### Full photometry
+    ######################################
+    
+    phot = catIO.Readfile('full_sextractor.cat')
+    phot_goods = catIO.Readfile('goodsn_sextractor.cat')
+    
+    # Marijn's test of size vs mag
+    ok = (phot.field == 'AEGIS') | (phot.field == 'COSMOS') | (phot.field == 'GOODS-S')
+    
+    xsep = np.array([14.6, 20.1, 21.7, 23.7, 24.6])
+    ysep = np.array([9.6, 4.90, 3.11, 2.34, 2.14])
+    yint = np.interp(phot.mag_f1392w, xsep, ysep)
+    yint_goods = np.interp(phot_goods.mag_f1392w, xsep, ysep)
+    
+    is_star = phot.a_image < yint
+    is_star_goods = phot_goods.a_image < yint_goods
+    
+    radius = np.sqrt(phot.a_image**2+phot.b_image**2)
+    
+    
+    ## A_image
+    plt.plot(xsep, ysep, color='red', linewidth=3, alpha=0.3)
+    plt.plot(phot.mag_f1392w[ok & ~is_star], phot.a_image[ok & ~is_star], marker='.', alpha=0.08, linestyle='None', color='black', markersize=3)
+    plt.plot(phot.mag_f1392w[ok & is_star], phot.a_image[ok & is_star], marker='.', alpha=0.2, linestyle='None', color='red', markersize=3)
+
+    plt.plot(phot_goods.mag_f1392w[~is_star_goods], phot_goods.a_image[~is_star_goods], marker='.', alpha=0.08, linestyle='None', color='black', markersize=3)
+    plt.plot(phot_goods.mag_f1392w[is_star_goods], phot_goods.a_image[is_star_goods], marker='.', alpha=0.2, linestyle='None', color='red', markersize=3)
+
+    plt.xlim(14,24.8)
+    plt.ylim(0,20)
+    plt.xlabel(r'$m_\mathrm{140}$')
+    plt.ylabel('A_IMAGE')
+    
+    plt.savefig('mag_vs_SEx_size.pdf')
+    plt.savefig('mag_vs_SEx_size.png')
+    
+    ## Kron radius
+    plt.plot(phot.mag_f1392w[ok & is_star], phot.kron_radius[ok & is_star], marker='o', alpha=0.05, linestyle='None', color='red', markersize=3)
+    plt.plot(phot.mag_f1392w[ok & ~is_star], phot.kron_radius[ok & ~is_star], marker='o', alpha=0.05, linestyle='None', color='black', markersize=3)
+    plt.xlim(14,24.8)
+    plt.ylim(0,20)
+    plt.xlabel(r'$m_\mathrm{140}$')
+    plt.ylabel('KRON_RADIUS')
+    
+    ## a**2+b**2
+    plt.plot(phot.mag_f1392w[ok & ~is_star], radius[ok & ~is_star], marker='o', alpha=0.05, linestyle='None', color='black', markersize=3)
+    plt.plot(phot.mag_f1392w[ok & is_star], radius[ok & is_star], marker='o', alpha=0.05, linestyle='None', color='red', markersize=3)
+    plt.xlim(14,24.8)
+    plt.ylim(0,20)
+    plt.xlabel(r'$m_\mathrm{140}$')
+    plt.ylabel(r'$\mathrm{A\_IMAGE}^2+\ \mathrm{B\_IMAGE}^2$')
     
     ######################################
     #### Redshifts and masses
@@ -125,8 +178,8 @@ def test_plots():
     keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
     
     ### copy to macbook
-    #copy = keep & (mcat.logm[idx] > 10.49)
-    #unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
+    # copy = keep & (mcat.logm[idx] > 8.)
+    # unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
     
     ##### Q_z vs dz
     plt.semilogx(zout.q_z[0::3][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='red', alpha=0.4)
@@ -229,7 +282,7 @@ def test_plots():
     
     ## red sequence
     red_limit = 15
-    red_sequence = -lines.halpha_eqw[idx_lines] < red_limit
+    red_sequence = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
     plt.plot([0,100],[red_limit,red_limit], linestyle='--', alpha=0.5, color='green', linewidth=4)
 
     plt.text(9.5,1,r'has $z_\mathrm{spec}$', color='blue', fontsize=18)
@@ -282,7 +335,7 @@ def test_plots():
     plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.r_e_kpc[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.3, markersize=8)
     
     # circularized
-    unicorn.catalogs.plot_init()
+    unicorn.catalogs.plot_init(square=True)
     
     plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.r_e_kpc_circ[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
     plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.r_e_kpc_circ[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.1, markersize=8)
@@ -350,21 +403,160 @@ def test_plots():
     
     plt.savefig('mass_ba.pdf')
     plt.savefig('mass_ba.png')
-    
-    
+        
     ######### Composite spectra
-    high_eqw = keep & (-lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) > red_limit) & (mcat.logm[idx] > 10.6)
-    low_eqw = keep & (-lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) <= red_limit) & (mcat.logm[idx] > 10.6)
+    eqw = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     
-    unicorn.catalogs.plot_init()
-    unicorn.catalogs.composite_spectra(lines.id[idx_lines][high_eqw], color='red', alpha=0.05, lnorm=6.e3, markersize=1)
+    mass = keep & (mcat.logm[idx] > 10.6)
     
-def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, markersize=4):
+    eqws = eqw[mass]
+    eqws.sort()
+    quartiles = eqws[np.cast[int](np.round(np.array([0.25,0.5,0.75])*len(eqws)))]
+    thirds = eqws[np.cast[int](np.round(np.array([1./3, 2./3])*len(eqws)))]
+    
+    high_eqw = (eqw > 23.7) & mass
+    med_eqw = (eqw > 9.8) & (eqw <= 23.7) & mass
+    low_eqw = (eqw <= 9.8) & mass
+    
+    unicorn.catalogs.plot_init(square=True, xs=7)
+    
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][high_eqw], color='blue', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=True)
+    plt.text(7700,1.8,r'$N_\mathrm{EW>24}=%d$' %(len(lines.id[idx_lines][high_eqw])), color='blue', horizontalalignment='right')
+    plt.ylim(0.7,2)
+    plt.xlim(4300, 7900)
+
+    #unicorn.catalogs.plot_init()
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][med_eqw], color='green', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=False)
+    plt.text(7700,1.7,r'$N_\mathrm{10<EW<24}=%d$' %(len(lines.id[idx_lines][med_eqw])), color='green', horizontalalignment='right')
+    plt.ylim(0.7,2)
+    plt.xlim(4300, 7900)
+
+    #unicorn.catalogs.plot_init()
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][low_eqw], color='red', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=False)
+    plt.text(7700,1.6,r'$N_\mathrm{EW<10}=%d$' %(len(lines.id[idx_lines][low_eqw])), color='red', horizontalalignment='right')
+    plt.ylim(0.7,2)
+    plt.xlim(4300, 7900)
+    
+    plt.xlabel(r'$\lambda_\mathrm{rest}$')
+    plt.ylabel(r'$f_\lambda$')
+    
+    plt.savefig('composite_spectra.pdf')
+    plt.savefig('composite_spectra.png')
+    
+    ################################################
+    #### Eq-W vs size
+    eqw = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
+    eqw[eqw < 0.2] = 0.2
+    mass_limit = 10.6
+    massive = mcat.logm[idx] > mass_limit
+    
+    unicorn.catalogs.plot_init(square=True, xs=7)
+    
+    plt.plot(mcat.logm[idx][keep & ~red_sequence & massive], np.log10(eqw[keep & ~red_sequence & massive]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.plot(mcat.logm[idx][keep & red_sequence & massive], np.log10(eqw[keep & red_sequence & massive]), marker='o', linestyle='None', color='red', alpha=0.2, markersize=8)
+    
+    plt.plot([-10,-10],[-10,-10])
+    plt.xlabel(r'$\log\ M/M_\odot$')
+    plt.ylabel(r'$\log\ \mathrm{EQW\ H}\alpha$')
+    plt.xlim(9, 11.6)
+    x = mcat.logm[idx][keep & massive]
+    plt.ylim(-1, np.log10(200))
+    y = np.log10(eqw[keep & massive])
+    
+    plt.savefig('eqw_mass9_morph_A.pdf')
+    
+    unicorn.catalogs.plot_init(square=True, xs=7)
+    
+    plt.plot(np.log10(eqw[keep & ~red_sequence & massive]), np.log10(gfit.r_e_kpc_circ[idx_gfit][keep & ~red_sequence & massive]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.plot(np.log10(eqw[keep & red_sequence & massive]), np.log10(gfit.r_e_kpc_circ[idx_gfit][keep & red_sequence & massive]), marker='o', linestyle='None', color='red', alpha=0.2, markersize=8)
+
+    plt.xlim(-1, np.log10(200))
+    plt.ylim(-0.2, 1.5)
+    plt.xlabel(r'$\log\ \mathrm{EQW\ H}\alpha$')
+    plt.ylabel(r'$\log\ r_\mathrm{e}\ (\mathrm{kpc})$')
+    y = np.log10(gfit.r_e_kpc_circ[idx_gfit][keep & massive])
+    x = np.log10(eqw[keep & massive])
+    
+    plt.savefig('eqw_size_morph_A.pdf')
+        
+    objects = mcat.id_f140w[idx][keep & massive]
+    xrange = plt.xlim()
+    yrange = plt.ylim()
+    scale = 1./10**(-0.4*(mcat.mag_f140w[idx][keep & massive]-22))
+    
+    #scale = scale*0+1
+    
+    im = unicorn.catalogs.fill_image(objects, x, y, scale=scale, xrange=xrange, yrange=yrange, NX=1024*1., NY=1024*1.)
+    
+    unicorn.catalogs.plot_init(square=True, xs=7)
+    plt.imshow(0-im, extent=(xrange[0], xrange[1], yrange[0], yrange[1]), aspect='auto', interpolation='nearest', vmin=-0.5, vmax=0.05)
+
+    plt.xlabel(r'$\log\ \mathrm{EQW\ H}\alpha$')
+    plt.ylabel(r'$\log\ r_\mathrm{e}\ (\mathrm{kpc})$')
+    plt.savefig('eqw_size_morph_B.pdf')
+
+    plt.xlabel(r'$\log\ M/M_\odot$')
+    plt.ylabel(r'$\log\ \mathrm{EQW\ H}\alpha$')    
+    plt.savefig('eqw_mass9_morph_B.pdf')
+    
+def fill_image(objects, x, y, scale=None, xrange=(0,1), yrange=(0,1), NX=1024, NY=1024):
+    
+    im = np.zeros((NY, NX))
+    NOBJ = len(objects)
+    dx = xrange[1]-xrange[0]
+    dy = yrange[1]-yrange[0]
+    
+    if scale is None:
+        scale = np.ones(NOBJ)
+        
+    for i in range(NOBJ):
+        print noNewLine+objects[i]
+        thu = pyfits.open('DATA/'+objects[i]+'_thumb.fits.gz')
+        shp = thu[0].data.shape
+        
+        xi = np.round((x[i]-xrange[0])/dx*NX)-shp[1]/2
+        yi = np.round((y[i]-yrange[0])/dy*NY)-shp[0]/2
+        
+        x0, x1 = 0, shp[1]
+        y0, y1 = 0, shp[0]
+        
+        if (xi+x1/2 < 0) | (xi > NX) | (yi+y1/2 < 0) | (yi > NY):
+            print '\n', x[i], y[i], shp, '\n'
+            continue
+            
+        if xi < 0:
+            x0 = -xi
+            xi = 0
+        if (xi+shp[1]) > NX:
+            x1 = NX-xi
+            
+        if yi < 0:
+            y0 = -yi
+            yi = 0
+        if (yi+shp[0]) > NY:
+            y1 = NY-yi
+        
+        print x0,x1,y0,y1,shp, xi, yi, scale[i]
+        
+        thu = thu[0].data[y0:y1, x0:x1]*scale[i] #/thu[0].data.sum()
+        shp = thu.shape
+        im[yi:yi+shp[0], xi:xi+shp[1]] += thu 
+    
+    return im
+    
+def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show_lines=False):
     
     zout = catIO.Readfile('full_redshift.zout')
     
-    objects = ['GOODS-S-24-G141_00459','GOODS-N-27-G141_00447']
-    for object in objects:
+    #objects = ['GOODS-S-24-G141_00459','GOODS-N-27-G141_00447']
+    xm = np.array([3000,8000])
+    ym = np.array([1,1])
+    
+    ### Iterate on normalizing to the average spectrum.
+    for iter in range(1,NITER+1):
+      avgx = []
+      avgy = []
+      for object in objects:
         print noNewLine+object
         zi = zout.z_peak[0::3][zout.id[0::3] == object][0]
         #
@@ -383,18 +575,51 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, markersize=4)
         flam = fnu/(lc/5500.)**2    
         s = np.argsort(lc)
         fint = np.interp(lnorm, lc[s]/(1+zi), flam[s])
-        flam /= fint
-        eflam = efnu/(lc/5500.)**2/fint
-        #
-        plt.plot(lc[is_spec]/(1+zi), flam[is_spec], color=color, alpha=alpha)
         
-def plot_init():
+        mask = is_spec & (np.abs(lc/(1+zi)-6563.) > 200)
+        ymint = np.interp(lc[mask]/(1+zi), xm, ym)
+        fnorm = np.sum(flam[mask]*ymint*efnu[mask]**2)/np.sum(ymint**2*efnu[mask]**2)
+        flam /= fnorm
+        eflam = efnu/(lc/5500.)**2/fnorm
+        #
+        if iter == NITER:
+            plt.plot(lc[is_spec]/(1+zi), flam[is_spec], color=color, alpha=alpha)
+            #plt.plot(lc[~is_spec]/(1+zi), flam[~is_spec], color=color, alpha=alpha, marker='o', markersize=5, linestyle='None')
+        #
+        avgx.extend(lc[is_spec]/(1+zi))
+        avgy.extend(flam[is_spec])
+    
+      avgx = np.array(avgx)
+      avgy = np.array(avgy)
+      xm, ym, ys, N = threedhst.utils.runmed(avgx, avgy, NBIN=100)
+      if iter == NITER:
+          plt.plot(xm, ym, color='white', alpha=0.5, linewidth=6)
+          plt.plot(xm, ym, color=color, alpha=8, linewidth=3)
+    
+    if show_lines:
+        for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
+            plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.3)
+            
+def plot_init(square=True, xs=6):
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = ['Times']
-    
-    fig = plt.figure(figsize=(7,5), dpi=100)
-    fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.10,
-                        bottom=0.10,right=0.99,top=0.97)
+    plt.rcParams['patch.edgecolor'] = 'None'
+    plt.rcParams['font.size'] = 10
+
+    if square:
+        #xs=5
+        lrbt = np.array([0.13,0.02,0.1,0.02])*5./xs     
+        ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs
+        fig = plt.figure(figsize=(xs,ys), dpi=100)
+        #fig.subplots_adjust(left=0.13,bottom=0.10,right=0.98,top=0.98)
+        fig.subplots_adjust(left=lrbt[0],bottom=lrbt[2],right=1-lrbt[1],top=1-lrbt[3])
+        # plt.plot([0,2])
+        # plt.xlabel('x')
+        # plt.ylabel('y')        
+    else:
+        fig = plt.figure(figsize=(7,5), dpi=100)
+        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.10,
+                        bottom=0.10,right=0.99,top=0.97)        
     return fig
     
 def make_object_tarfiles(objects):
@@ -432,6 +657,93 @@ def make_object_tarfiles(objects):
     
     print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/[st]*tar.gz .'
     
+def combine_sextractor_catalogs():
+    os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM')
+
+    files=glob.glob('*drz.cat')
+    
+    fp = open(files[0])
+    lines = fp.readlines()
+    fp.close()
+    
+    line = lines[0]
+    columns = []
+    i=0
+    while line.startswith('#'):
+        columns.append(line.split()[2])
+        i+=1
+        line = lines[i]
+    
+    header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
+    out_lines = []
+    for file in files:
+        print noNewLine+file
+        if file.startswith('GN20'):
+            continue
+        ### GOODS-N catalogs don't have the MAG_APER columns
+        if file.startswith('GOODS-N'):
+            continue
+        #
+        fp = open(file)
+        lines = fp.readlines()
+        fp.close()
+        pointing = file.split('-G141')[0]
+        field = re.split('-[1-9]',pointing)[0]
+        if field.startswith('GEORGE'):
+            pointing_number = '1'
+        else:
+            pointing_number = pointing.split(field+'-')[1]
+        #
+        for line in lines:
+            if not line.startswith('#'):
+                number = int(line.split()[0])
+                out_lines.append('%s-G141_%05d %s %3s ' %(pointing, number, field, pointing_number)+line)
+    
+    fp = open('ANALYSIS/full_sextractor.cat','w')
+    fp.write(header)
+    fp.writelines(out_lines)
+    fp.close()
+    
+    ########## GOODS-N separate for now because doesn't have same columns
+    files=glob.glob('GOODS-N*drz.cat')
+    
+    fp = open(files[0])
+    lines = fp.readlines()
+    fp.close()
+    
+    line = lines[0]
+    columns = []
+    i=0
+    while line.startswith('#'):
+        columns.append(line.split()[2])
+        i+=1
+        line = lines[i]
+    
+    header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
+    out_lines = []
+    for file in files:
+        print noNewLine+file
+        if file.startswith('GN20'):
+            continue
+        fp = open(file)
+        lines = fp.readlines()
+        fp.close()
+        pointing = file.split('-G141')[0]
+        field = re.split('-[1-9]',pointing)[0]
+        if field.startswith('GEORGE'):
+            pointing_number = '1'
+        else:
+            pointing_number = pointing.split(field+'-')[1]
+        #
+        for line in lines:
+            if not line.startswith('#'):
+                number = int(line.split()[0])
+                out_lines.append('%s-G141_%05d %s %3s ' %(pointing, number, field, pointing_number)+line)
+    
+    fp = open('ANALYSIS/goodsn_sextractor.cat','w')
+    fp.write(header)
+    fp.writelines(out_lines)
+    fp.close()
     
     
     

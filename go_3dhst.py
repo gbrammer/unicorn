@@ -517,6 +517,83 @@ def GN20():
     unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
     go.clean_up()
     
+
+def GOODS_SMG():
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.prep_flt_files
+    import glob
+    import os
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT')
+    
+    #### Make detection image  
+    direct_files = glob.glob('GOODS-N-34-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='G850.1-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+
+    #
+    direct_files = glob.glob('GOODS-N-34-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='G850.1-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    SCALE = 0.06
+    threedhst.prep_flt_files.startMultidrizzle('G850.1-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=189.21663, dec=62.207175, final_outnx = 1960, final_outny = 1800) #,
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    grism_asn  = glob.glob('G850.1-G141_asn.fits')
+    files=glob.glob('G850.1-G141_shifts.txt')
+    files.extend(grism_asn)
+    files.extend(glob.glob('G850.1-F140W_tweak.fits'))
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    os.chdir('../')
+    
+    #### Initialize parameters
+    import unicorn.go_3dhst as go
+    import unicorn
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N')
+    import threedhst.process_grism as proc
+    import threedhst
+    import unicorn.analysis
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
+    threedhst.options['AXE_EDGES'] = "250,0,0,0"
+    threedhst.options['USE_TAXE'] = True
+    
+    threedhst.plotting.USE_PLOT_GUI = False
+    #### Main loop for reduction
+    asn='G850.1-G141_asn.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/G850.1-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file=asn)
+    unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+    go.clean_up()
+
+def clean_3dhst_files(root='G850.1-G141'):
+    """
+    Remove files from DATA, DRIZZLE_G141, and HTML
+    """
+    files=[]
+    files.extend(glob.glob('./DATA/'+root+'*'))
+    files.extend(glob.glob('DRIZZLE_G141/'+root+'*'))
+    files.extend(glob.glob('HTML/'+root+'*'))
+    files.extend(glob.glob('HTML/images/'+root+'*'))
+    files.extend(glob.glob('HTML/ascii/'+root+'*'))
+    files.extend(glob.glob('HTML/tiles/'+root+'*'))
+    files.extend(glob.glob('HTML/SED/'+root+'*'))
+    
+    fp = open('/tmp/clean_3dhst_files.list','w')
+    for file in files:
+        fp.write('rm %s\n' %(file))
+    fp.close()
+    
+    print '!sh /tmp/clean_3dhst_files.list'
     
 def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     

@@ -80,7 +80,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     import glob
     import os
     
-    os.chdir(unicorn.GRISM_HOME+'PREP_FLT')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT')
     
     #### Use ACS alignment images
     ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'
@@ -100,6 +100,11 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     files = glob.glob('GOODS-N-[0-9]*-F140W_asn.fits')
     for file in files:
         pointing = file.split('_asn.fits')[0]
+        threedhst.prep_flt_files.startMultidrizzle(file, 
+                use_shiftfile=True, skysub=False,
+                final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                updatewcs=False, median=False, clean=True)
+        #
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='GOODS-N-*[0-9]-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)

@@ -665,7 +665,7 @@ def make_object_tarfiles(objects, thumbs=True):
         #### template fit
         zi = tempfilt['zgrid'][coeffs['izbest'][0]]
         lambdaz = temp_seds['templam']*(1+zi)
-        temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,idx])
+        temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,0])
         temp_sed *= (lambdaz/5500.)**2/(1+zi)**2
         
         fp = open(object+'_temp_sed.dat')

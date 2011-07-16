@@ -673,7 +673,7 @@ def make_object_tarfiles(objects, thumbs=True):
         for i in range(temp_seds['NTEMPL']):
             fp.write(' %8.4e %8.4e\n' %(lambdaz[i], temp_sed[i]))
         fp.close()
-        tarline += '%s_temp_sed.dat' %(object)
+        tarline += ' %s_temp_sed.dat' %(object)
         
         #
     os.system(tarline)

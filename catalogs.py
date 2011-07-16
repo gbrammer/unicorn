@@ -622,19 +622,21 @@ def plot_init(square=True, xs=6):
                         bottom=0.10,right=0.99,top=0.97)        
     return fig
     
-def make_object_tarfiles(objects):
+def make_object_tarfiles(objects, thumbs=True):
     """
     Make a script to get spectra and thumbnails from unicorn.
     """
     
     ###### Thumbnails
-    # os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
-    # line = 'tar czvf thumbs.tar.gz'
-    # for object in objects:
-    #     line += ' %s_thumb.fits.gz' %(object)
-    # 
-    # os.system(line)
-    # os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
+    if thumbs:
+        os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
+        line = 'tar czvf thumbs.tar.gz'
+        for object in objects:
+            line += ' %s_thumb.fits.gz' %(object)
+        
+            os.system(line)
+        
+        os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
     
     
     #### Get photometry + scaled spectra from the tempfilt files

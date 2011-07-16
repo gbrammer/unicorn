@@ -668,7 +668,7 @@ def make_object_tarfiles(objects, thumbs=True):
         temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,0])
         temp_sed *= (lambdaz/5500.)**2/(1+zi)**2
         
-        fp = open(object+'_temp_sed.dat')
+        fp = open(object+'_temp_sed.dat','w')
         fp.write('# lam fnu_temp\n')
         for i in range(temp_seds['NTEMPL']):
             fp.write(' %8.4e %8.4e\n' %(lambdaz[i], temp_sed[i]))

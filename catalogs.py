@@ -627,13 +627,14 @@ def make_object_tarfiles(objects):
     Make a script to get spectra and thumbnails from unicorn.
     """
     
-    os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
-    line = 'tar czvf thumbs.tar.gz'
-    for object in objects:
-        line += ' %s_thumb.fits.gz' %(object)
-    
-    os.system(line)
-    os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
+    ###### Thumbnails
+    # os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
+    # line = 'tar czvf thumbs.tar.gz'
+    # for object in objects:
+    #     line += ' %s_thumb.fits.gz' %(object)
+    # 
+    # os.system(line)
+    # os.system('mv thumbs.tar.gz /3DHST/Spectra/Work/ANALYSIS/FIRST_PAPER/')
     
     
     #### Get photometry + scaled spectra from the tempfilt files
@@ -644,15 +645,35 @@ def make_object_tarfiles(objects):
         print noNewLine+object
         #
         tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
-        fp = open(object+'_scaled.dat','w')
-        fp.write('# lc fnu efnu\n')
+        
+        #### Photometry + spectrum
+        fp = open(object+'_obs_sed.dat','w')
+        fp.write('# lc fnu efnu obs_sed \n')
+
+        obs_sed = np.dot(tempfilt['tempfilt'][:,:,coeffs['izbest'][0]],\
+                         coeffs['coeffs'][:,0])# /(lci/5500.)**2
+        
         for i in range(tempfilt['NFILT']):
-            fp.write(' %8.4e %8.4e %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0]))
-        #
+            fp.write(' %8.4e %8.4e %8.4e  %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i]))
+        
         fp.close()
+        
+        tarline += ' %s_obs_sed.dat' %(object)
+        
+        #### template fit
+        zi = tempfilt['zgrid'][coeffs['izbest'][0]]
+        lambdaz = temp_seds['templam']*(1+zi)
+        temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,idx])
+        temp_sed *= (lambdaz/5500.)**2/(1+zi)**2
+        
+        fp = open(object+'_temp_sed.dat')
+        fp.write('# lam fnu_temp\n')
+        for i in range(temp_seds['NTEMPL']):
+            fp.write(' %8.4e %8.4e\n' %(lambdaz[i], temp_sed[i]))
+        fp.close()
+        tarline += '%s_temp_sed.dat'
+        
         #
-        tarline += ' %s_scaled.dat' %(object)
-    
     os.system(tarline)
     
     print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/[st]*tar.gz .'

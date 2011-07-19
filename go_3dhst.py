@@ -633,6 +633,14 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
         threedhst.options['MAG_ZEROPOINT'] = 25.96
         threedhst.options['FILTWAVE'] = 1537.
     
+    #### Use F814W as detection image
+    if direct == 'F814W':
+        threedhst.options['MAG_ZEROPOINT'] = 25.95928
+        threedhst.options['FILTWAVE'] = 806.0
+        threedhst.options['DRZRESOLA'] = '40.0'
+        threedhst.options['PIX_FRAC'] = '1.0'
+        threedhst.options['DRZSCALE'] = '0.05'
+        
 def clean_up():
     files=glob.glob('OUTPUT_G141/*')
     files.extend(glob.glob('DATA/*FLX*'))

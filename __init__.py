@@ -19,6 +19,8 @@ import analysis
 import go_3dhst
 import galfit
 import catalogs
+import survey_paper
+import go_acs
 
 from socket import gethostname as hostname
 

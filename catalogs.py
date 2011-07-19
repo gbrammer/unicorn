@@ -299,6 +299,7 @@ def test_plots():
     # unicorn.catalogs.plot_init()
     # plt.contourf(xedge[1:], 10**yedge[1:], hist.transpose(), Vbins, colors=Vcolors, alpha=1.0, linethick=2)
     # plt.semilogy(mcat.logm[idx][keep], -lines.halpha_eqw[idx_lines][keep]/(1+zout.z_peak[0::3][keep]), marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
+    f_init
     
     plt.ylim(0.1, 500)
     plt.xlim(9, 11.6)
@@ -600,16 +601,17 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.3)
             
-def plot_init(square=True, xs=6):
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['font.serif'] = ['Times']
+def plot_init(square=True, xs=6, aspect=1):
+    # plt.rcParams['font.family'] = 'serif'
+    # plt.rcParams['font.serif'] = ['Times']
     plt.rcParams['patch.edgecolor'] = 'None'
     plt.rcParams['font.size'] = 10
 
     if square:
         #xs=5
-        lrbt = np.array([0.13,0.02,0.1,0.02])*5./xs     
-        ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs
+        lrbt = np.array([0.22,0.02,0.11,0.02])*5./xs     
+        ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect
+        lrbt[[2,3]] /= aspect
         fig = plt.figure(figsize=(xs,ys), dpi=100)
         #fig.subplots_adjust(left=0.13,bottom=0.10,right=0.98,top=0.98)
         fig.subplots_adjust(left=lrbt[0],bottom=lrbt[2],right=1-lrbt[1],top=1-lrbt[3])

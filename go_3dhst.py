@@ -613,7 +613,7 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     threedhst.options['ALIGN_IMAGE'] = None
 
     threedhst.options['DRZRESOLA'] = '22.0'
-    threedhst.options['PIX_FRAC'] = '0.8'
+    threedhst.options['PIXFRAC'] = '0.8'
     threedhst.options['DRZSCALE'] = '0.06'
 
     threedhst.options['AXE_EDGES'] = "250,0,0,0"
@@ -635,11 +635,12 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     
     #### Use F814W as detection image
     if direct == 'F814W':
-        threedhst.options['MAG_ZEROPOINT'] = 25.95928
-        threedhst.options['FILTWAVE'] = 806.0
+        threedhst.options['MAG_ZEROPOINT'] = 25.943333
+        threedhst.options['FILTWAVE'] = 805.6948
         threedhst.options['DRZRESOLA'] = '40.0'
-        threedhst.options['PIX_FRAC'] = '1.0'
+        threedhst.options['PIXFRAC'] = '1.0'
         threedhst.options['DRZSCALE'] = '0.05'
+        threedhst.options['AXE_EDGES'] = "0,0,0,0"
         
 def clean_up():
     files=glob.glob('OUTPUT_G141/*')

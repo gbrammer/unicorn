@@ -2185,7 +2185,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     #
     if not os.path.exists(OLD_RES+'.trim'):
         unicorn.analysis.trim_jh_filters(input=OLD_RES, output=OLD_RES+'.trim')
-
+        
     #  Get the f_lambda fluxes with the original filters
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
     os.system(eazy_binary + ' -p threedhst.eazy.param > log')
@@ -2226,6 +2226,10 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     #### Find filters near J/H
     jhfilt = ~is_spec & (lci > 1.15e4) & (lci < 1.65e4) & (fobs > 0)
     
+    #### No photometry:
+    if fobs[~is_spec].max() <= 0:
+        return [0, 1]
+        
     #### Here's the simple linear fit    
     xfit = lci-1.4e4
     yfit = fobs/obs_sed

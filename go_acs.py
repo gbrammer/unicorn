@@ -26,7 +26,7 @@ def test(root='jbhm51'):
     """
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS/PREP_FLT')
     
-    root='jbhm51'
+    #root='jbhm51'
     files=glob.glob('../RAW/%s*fits*' %(root))
     for file in files:
         os.system('cp %s .' %(file))

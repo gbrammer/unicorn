@@ -167,6 +167,11 @@ def COSMOS(FORCE=False):
     files = glob.glob('COSMOS-*-F140W_asn.fits')
     for file in files:
         pointing = file.split('_asn.fits')[0]
+        threedhst.prep_flt_files.startMultidrizzle(file, 
+                use_shiftfile=True, skysub=False,
+                final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                updatewcs=False, median=False, clean=True)
+        #
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='COSMOS-*-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)

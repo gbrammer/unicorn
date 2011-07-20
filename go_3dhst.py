@@ -564,7 +564,7 @@ def GOODS_SMG():
     import threedhst
     import unicorn.analysis
     go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
-    threedhst.options['AXE_EDGES'] = "250,0,0,0"
+    threedhst.options['AXE_EDGES'] = "180,0,0,0"
     threedhst.options['USE_TAXE'] = True
     
     threedhst.plotting.USE_PLOT_GUI = False
@@ -616,7 +616,7 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     threedhst.options['PIXFRAC'] = '0.8'
     threedhst.options['DRZSCALE'] = '0.06'
 
-    threedhst.options['AXE_EDGES'] = "250,0,0,0"
+    threedhst.options['AXE_EDGES'] = "180,0,0,0"
     threedhst.options['USE_TAXE'] = True
 
     #### Use F140W as detection image

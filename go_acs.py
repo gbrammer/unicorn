@@ -16,7 +16,11 @@ from pyraf import iraf
 
 from threedhst.prep_flt_files import process_3dhst_pair as pair
 
-def test():
+def go_all():
+    test(root='jbhm32')
+    test(root='jbhm51')
+    
+def test(root='jbhm51'):
     """
     COSMOS-23 ACS overlaps with COSMOS-25 WFC3
     """
@@ -34,8 +38,8 @@ def test():
     
     os.system('rm *flt.fits')
     
-    asn_direct_file = 'jbhm51010_asn.fits'
-    asn_grism_file = 'jbhm51020_asn.fits'
+    asn_direct_file = root+'010_asn.fits'
+    asn_grism_file = root+'020_asn.fits'
     
     #### Copy corrected FLT files to . 
     asn = threedhst.utils.ASNFile(asn_direct_file)
@@ -78,7 +82,7 @@ def test():
         updatewcs=True, clean=True, median=True)
     
     ## Check
-    threedhst.gmap.makeImageMap(['JBHM51010_drz.fits[1]*4', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-F140W_drz.fits', 'JBHM51020_drz.fits[1]', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-G141_drz.fits'], aper_list=[15])
+    # threedhst.gmap.makeImageMap(['JBHM51010_drz.fits[1]*4', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-F140W_drz.fits', 'JBHM51020_drz.fits[1]', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-G141_drz.fits'], aper_list=[15])
     
     ###################### Run the grism
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
@@ -88,10 +92,10 @@ def test():
 
     threedhst.process_grism.set_ACS_G800L()
     
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/JBHM51010_drz.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+root.upper()+'010_drz.fits'
     #threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
     
-    threedhst.process_grism.reduction_script(asn_grism_file='jbhm51020_asn.fits')
+    threedhst.process_grism.reduction_script(asn_grism_file=root+'020_asn.fits')
     
     ### SEDs unicorn.analysis.make_SED_plots(grism_root='jbhm51020')
     #os.chdir('../')

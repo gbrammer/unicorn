@@ -2327,22 +2327,22 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
         
         counter = 1
-        while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
-            counter += 1
-            print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
-            renorm /= new_norm
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=renorm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
-            os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
-            #
-            lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
-                eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
-                                  OUTPUT_DIRECTORY='OUTPUT', \
-                                  CACHE_FILE = 'Same')
-            #
-            dlam_spec = lci[-1]-lci[-2]
-            is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
-            #### check normalization
-            new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+        # while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
+        #     counter += 1
+        #     print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
+        #     renorm /= new_norm
+        #     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=renorm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
+        #     os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+        #     #
+        #     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+        #         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
+        #                           OUTPUT_DIRECTORY='OUTPUT', \
+        #                           CACHE_FILE = 'Same')
+        #     #
+        #     dlam_spec = lci[-1]-lci[-2]
+        #     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        #     #### check normalization
+        #     new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
             
         #### Show the results
         try:

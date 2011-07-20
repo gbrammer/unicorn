@@ -1959,7 +1959,9 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
     
-    lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=id,
+    #### Dummy
+    ok = match.rmatch < 1
+    lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=match.id_f140w[ok][0],
         grism_root=root, SPC = SPC, 
         cat = cat,
         grismCat = grismCat, zout = zout, fout = fout, 
@@ -1969,6 +1971,28 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         CACHE_FILE = 'Same',
         GET_SPEC_ONLY = True)
     
+    #### Object
+    result = unicorn.analysis.specphot(id=id,
+        grism_root=root, SPC = SPC, 
+        cat = cat,
+        grismCat = grismCat, zout = zout, fout = fout, 
+        OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
+        MAIN_OUTPUT_FILE = MAIN_OUTPUT_FILE,
+        OUTPUT_DIRECTORY = OUTPUT_DIRECTORY,
+        CACHE_FILE = 'Same',
+        GET_SPEC_ONLY = True)
+    
+    if result is not False:
+        #### Object is matched in the photometry
+        lam, spflux, sperr, lci, fobs, efobs, photom_idx = result
+    else:
+        #### No match
+        sp = threedhst.catIO.Readfile('HTML/ascii/%s_%05d.dat' %(root, id))
+        lam, spflux, sperr = sp.lam, sp.flux, sp.error
+        
+        fobs = fobs*0-999
+        efobs = fobs
+        
     use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
     #### allow additional normalization term

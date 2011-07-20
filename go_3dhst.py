@@ -218,14 +218,14 @@ def cosmos():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
     
     #threedhst.options['DRZRESOLA'] = '100.0'
     
     grism_asn = grism_asn
     
     #### Main loop for reduction
-    for i in range(len(grism_asn))[14:]:
+    for i in range(len(grism_asn))[0:]:
         asn = grism_asn[i]
         threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/' +  asn.replace('G141_asn','F140W_drz')
         # threedhst.options['PIXFRAC'] = 0.8

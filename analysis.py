@@ -2323,11 +2323,12 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         #
         dlam_spec = lci[-1]-lci[-2]
         is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        ################## Don't need to renormalize b/c do it with J/H filters
         #### check normalization
-        new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
-        
-        counter = 1
-        # while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
+        # new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
+        # 
+        # counter = 1
+        #         # while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
         #     counter += 1
         #     print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
         #     renorm /= new_norm

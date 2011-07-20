@@ -218,7 +218,7 @@ def cosmos():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
     
     #threedhst.options['DRZRESOLA'] = '100.0'
     

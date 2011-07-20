@@ -85,11 +85,13 @@ def test():
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
     
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS')
-    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=22)
+    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=20)
 
     threedhst.process_grism.set_ACS_G800L()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/JBHM51010_drz.fits'
+    threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
+    
     threedhst.process_grism.reduction_script(asn_grism_file='jbhm51020_asn.fits')
     
     ### SEDs unicorn.analysis.make_SED_plots(grism_root='jbhm51020')

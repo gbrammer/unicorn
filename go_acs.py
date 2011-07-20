@@ -80,17 +80,16 @@ def test():
     ## Check
     threedhst.gmap.makeImageMap(['JBHM51010_drz.fits[1]*4', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-F140W_drz.fits', 'JBHM51020_drz.fits[1]', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-G141_drz.fits'], aper_list=[15])
     
-    
     ###################### Run the grism
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
     
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS')
-    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=20)
+    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=25)
 
     threedhst.process_grism.set_ACS_G800L()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/JBHM51010_drz.fits'
-    threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
+    #threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
     
     threedhst.process_grism.reduction_script(asn_grism_file='jbhm51020_asn.fits')
     

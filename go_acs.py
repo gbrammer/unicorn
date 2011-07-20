@@ -88,12 +88,12 @@ def test(root='jbhm51'):
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
     
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS')
-    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=25)
+    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=27)
 
     threedhst.process_grism.set_ACS_G800L()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+root.upper()+'010_drz.fits'
-    #threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
+    threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
     
     threedhst.process_grism.reduction_script(asn_grism_file=root+'020_asn.fits')
     

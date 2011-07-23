@@ -135,7 +135,7 @@ def aegis():
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
     
     #### Main loop for reduction
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/AEGIS-4-F140W_drz.fits'

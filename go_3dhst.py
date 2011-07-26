@@ -319,12 +319,12 @@ def goods_ers():
     
     #### Copy necessary files from PREP_FLT to DATA
     os.chdir('PREP_FLT')
-    grism_asn  = glob.glob('WFC3*-G141_asn.fits')
-    files=glob.glob('WFC3*-G141_shifts.txt')
+    grism_asn  = glob.glob('WFC3*-G1??_asn.fits')
+    files=glob.glob('WFC3*-G1??_shifts.txt')
     files.extend(grism_asn)
+    files.extend(glob.glob('WFC3*tweak.fits'))
     for file in files:
         status = os.system('cp '+file+' ../DATA')
-        #shutil.copy(file, '../DATA')
     
     # try:
     #     iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
@@ -339,7 +339,7 @@ def goods_ers():
     
     #### Run aXe
     asn = 'WFC3-ERSII-G01-G141_asn.fits'
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/WFC3-ERSII-G01-F140W_asn.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/WFC3-ERSII-G01-F140W_drz.fits'
     #threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
     proc.reduction_script(asn_grism_file=asn)
     unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])

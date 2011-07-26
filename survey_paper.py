@@ -31,8 +31,15 @@ def all_pointings():
     pointings(ROOT='AEGIS')
     pointings(ROOT='UDS')
     pointings(ROOT='GOODS-N')
-    
-def pointings(ROOT='GOODS-SOUTH'):
+
+def all_pointings_width():
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll')
+    pointings(ROOT='COSMOS', width=6, corner='lr')
+    pointings(ROOT='AEGIS', width=7, corner='ll')
+    pointings(ROOT='UDS', width=9, corner='lr')
+    pointings(ROOT='GOODS-N', width=6, corner='ur')
+        
+def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files
     """
@@ -46,6 +53,11 @@ def pointings(ROOT='GOODS-SOUTH'):
     yticklab = None
     
     dx_ref = (53.314005633802822-52.886197183098595)*np.cos(-27.983151830808076/360*2*np.pi)
+    CANDELS_PATH = '/research/HST/GRISM/3DHST/REGIONS/CANDELS/'
+    candels_files = []
+    candels_alpha = 0.3
+    candels_color = '0.1'
+    
     
     #### GOODS-S
     if ROOT=='GOODS-SOUTH':
@@ -55,7 +67,9 @@ def pointings(ROOT='GOODS-SOUTH'):
         xtickv = [degrees(3,33,00, hours=True), degrees(3,32,30, hours=True), degrees(3,32,00, hours=True)]
         yticklab = [r'$-27^\circ40^\prime00^{\prime\prime}$', r'$45^\prime00^{\prime\prime}$', r'$-27^\circ50^\prime00^{\prime\prime}$', r'$55^\prime00^{\prime\prime}$']
         ytickv = [degrees(-27, 40, 00, hours=False), degrees(-27, 45, 00, hours=False), degrees(-27, 50, 00, hours=False), degrees(-27, 55, 00, hours=False)]
-        
+        candels_files = glob.glob(CANDELS_PATH+'/GOODS-S*reg')
+        candels_files.extend(glob.glob(CANDELS_PATH+'/GOODS-W*reg'))
+    
     #### COSMOS
     if ROOT=='COSMOS':
         x1, x0 = 149.99120563380279, 150.23823661971829
@@ -64,6 +78,7 @@ def pointings(ROOT='GOODS-SOUTH'):
         xtickv = [degrees(10,00,30, hours=True), degrees(10,00,00, hours=True)]
         yticklab = [r'$+2^\circ15^\prime00^{\prime\prime}$', r'$25^\prime00^{\prime\prime}$', r'$35^\prime00^{\prime\prime}$']
         ytickv = [degrees(02, 15, 00, hours=False), degrees(02, 25, 00, hours=False), degrees(02, 35, 00, hours=False)]
+        candels_files = glob.glob(CANDELS_PATH+'/COSMOS*reg')
     
     #### AEGIS
     if ROOT=='AEGIS':
@@ -73,6 +88,7 @@ def pointings(ROOT='GOODS-SOUTH'):
         xtickv = [degrees(14,18,00, hours=True), degrees(14,19,00, hours=True), degrees(14,20,00, hours=True)]
         yticklab = [r'$+52^\circ45^\prime00^{\prime\prime}$', r'$50^\prime00^{\prime\prime}$', r'$55^\prime00^{\prime\prime}$']
         ytickv = [degrees(52, 45, 00, hours=False), degrees(52, 50, 00, hours=False), degrees(52, 55, 00, hours=False)]
+        candels_files = glob.glob(CANDELS_PATH+'/EGS*reg')
     
     #### UDS
     if ROOT=='UDS':
@@ -82,6 +98,7 @@ def pointings(ROOT='GOODS-SOUTH'):
         xtickv = [degrees(2,18,00, hours=True), degrees(2,17,30, hours=True), degrees(2,17,00, hours=True), degrees(2,16,30, hours=True)]
         yticklab = [r'$05^\prime00^{\prime\prime}$', r'$-5^\circ10^\prime00^{\prime\prime}$', r'$15^\prime00^{\prime\prime}$']
         ytickv = [degrees(-5, 05, 00, hours=False), degrees(-5, 10, 00, hours=False), degrees(-5, 15, 00, hours=False)]
+        candels_files = glob.glob(CANDELS_PATH+'/UDS*reg')
     
     #### GOODS-N
     if ROOT=='GOODS-N':
@@ -93,18 +110,50 @@ def pointings(ROOT='GOODS-SOUTH'):
         xtickv = [degrees(12,37,30, hours=True), degrees(12,37,00, hours=True), degrees(12,36,30, hours=True), degrees(12,36,00, hours=True)]
         yticklab = [r'$+62^\circ10^\prime00^{\prime\prime}$', r'$15^\prime00^{\prime\prime}$', r'$20^\prime00^{\prime\prime}$']
         ytickv = [degrees(62, 10, 00, hours=False), degrees(62, 15, 00, hours=False), degrees(62, 20, 00, hours=False)]
+        candels_files = glob.glob(CANDELS_PATH+'/GOODSN-OR*reg')
+        candels_files.extend(glob.glob(CANDELS_PATH+'/GOODSN-SK*reg'))
         
     #### Make square for given plot dimensions
     dx = np.abs(x1-x0)*np.cos(y0/360*2*np.pi)
     dy = (y1-y0)
     
-    fig = unicorn.catalogs.plot_init(square=True, xs=7*dx/dx_ref, aspect=dy/dx)
+    if width is None:
+        width = 7*dx/dx_ref
+    
+    print '%s: plot width = %.2f\n' %(ROOT, width)
+        
+    fig = unicorn.catalogs.plot_init(square=True, xs=width, aspect=dy/dx)
     #fig = unicorn.catalogs.plot_init(square=True)
     
     ax = fig.add_subplot(111)
-      
+    
+    polys = []
+    for file in candels_files:
+        fp = open(file)
+        lines = fp.readlines()
+        fp.close()
+        #
+        polys.append(sup.polysplit(lines[1], get_shapely=True))
+        #fi = ax.fill(wfcx, wfcy, alpha=candels_alpha, color=candels_color)
+    
+    sup.polys = polys
+    
+    un = polys[0]
+    for pp in polys[1:]:
+        un = un.union(pp)
+    
+    if un.geometryType() is 'MultiPolygon':
+        for sub_poly in un.geoms:
+            x,y = sub_poly.exterior.xy
+            ax.plot(x,y, alpha=candels_alpha, color=candels_color, linewidth=1)
+            ax.fill(x,y, alpha=0.1, color='0.7')
+    else:        
+        x,y = un.exterior.xy
+        ax.plot(x,y, alpha=candels_alpha, color=candels_color, linewidth=1)
+        ax.fill(x,y, alpha=0.1, color='0.7')
+    
     files=glob.glob(unicorn.GRISM_HOME+'REGIONS/'+ROOT+'-[0-9]*reg')
-    for file in files[15:16]:
+    for file in files:
         #
         field = re.split('-[0-9]', file)[0]
         pointing = file.split(field+'-')[1].split('.reg')[0]
@@ -124,7 +173,7 @@ def pointings(ROOT='GOODS-SOUTH'):
             pl = ax.plot(acsx1, acsy1, alpha=0.1, color=acs_color)
             pl = ax.plot(acsx2, acsy2, alpha=0.1, color=acs_color)
         #
-        te = ax.text(np.mean(wfcx[:-1]), np.mean(wfcy[:-1]), pointing, va='center', ha='center', fontsize=8)
+        te = ax.text(np.mean(wfcx[:-1]), np.mean(wfcy[:-1]), pointing, va='center', ha='center', fontsize=13)
     
     #    
     if yticklab is not None:
@@ -136,10 +185,31 @@ def pointings(ROOT='GOODS-SOUTH'):
     ax.set_xlabel(r'$\alpha$')
     ax.set_ylabel(r'$\delta$')
     
-    ax.text(0.95, 0.05,ROOT,
-         horizontalalignment='right',
-         verticalalignment='bottom',
-         transform = ax.transAxes, fontsize='14')
+    fsi = '20'
+    
+    if corner=='lr':
+        ax.text(0.95, 0.05,r'$\mathit{%s}$' %(ROOT),
+            horizontalalignment='right',
+            verticalalignment='bottom',
+            transform = ax.transAxes, fontsize=fsi)
+    #
+    if corner=='ll':
+        ax.text(0.05, 0.05,r'$\mathit{%s}$' %(ROOT),
+            horizontalalignment='left',
+            verticalalignment='bottom',
+            transform = ax.transAxes, fontsize=fsi)
+    #
+    if corner=='ur':
+        ax.text(0.95, 0.95,r'$\mathit{%s}$' %(ROOT),
+            horizontalalignment='right',
+            verticalalignment='top',
+            transform = ax.transAxes, fontsize=fsi)
+    #
+    if corner=='ul':
+        ax.text(0.05, 0.95,r'$\mathit{%s}$' %(ROOT),
+            horizontalalignment='left',
+            verticalalignment='top',
+            transform = ax.transAxes, fontsize=fsi)
     
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -183,14 +253,25 @@ def hexagesimal(degrees, hours=True, string=True):
     else:
         return sign*deg, min, sec
 
-def polysplit(region='polygon(150.099223,2.391097,150.086084,2.422515,150.050573,2.407277,150.064586,2.376241)'):
+def polysplit(region='polygon(150.099223,2.391097,150.086084,2.422515,150.050573,2.407277,150.064586,2.376241)', get_shapely=False):
+    
     spl = region[region.find('(')+1:region.find(')')].split(',')
     px = spl[0::2]
     py = spl[1::2]
     px.append(px[0])
     py.append(py[0])
-    return np.cast[float](px), np.cast[float](py)
+    px, py = np.cast[float](px), np.cast[float](py)
     
+    if get_shapely:
+        from shapely.geometry import Polygon
+        list = []
+        for i in range(len(px)):
+            list.append((px[i], py[i]))
+        
+        poly = Polygon(tuple(list))
+        return poly
+    else:
+        return px, py
 #
 def demo_background_subtract(root='COSMOS-13'):
     """

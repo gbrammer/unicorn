@@ -1935,7 +1935,38 @@ def eazy_unicorn():
     unicorn.analysis.run_eazy_fit(root='AEGIS-2-G141', id=100, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
     
     unicorn.analysis.run_eazy_fit(OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', root='COSMOS-8-G141', id=1309)
+
+def run_eazy_on_all_objects():
     
+    logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/processed.log'
+    if not os.path.exists(logfile):
+        fp = open(logfile,'w')
+        fp.write('')
+        fp.close()
+        
+    fp = open(logfile)
+    log_lines = fp.readlines()
+    fp.close()
+    
+    for field in ['COSMOS','AEGIS','GOODS-S']:
+        os.chdir(unicorn.GRISM_HOME+field)
+        catalogs = glob.glob('HTML/*drz.cat')
+        print field, len(catalogs)
+        
+        for catalog in catalogs:
+            os.chdir(unicorn.GRISM_HOME+field)
+            cat = threedhst.sex.mySexCat(catalog)
+            pointing = os.path.basename(catalog).split('G141')[0]+'G141'
+            for id in cat.id:
+                object = '%s_%05d' %(pointing, id)
+                if object+'\n' not in log_lines:
+                    unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1)
+                
+                fp = open(logfile,'a')
+                fp.write('%s\n' %(object))
+                fp.close()
+                
+                
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     
     from scipy import polyval

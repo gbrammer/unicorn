@@ -2139,7 +2139,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)
     eazy_param.params['GET_ZP_OFFSETS'] = 0
     eazy_param.params['Z_STEP'] = 0.001
-    eazy_param.params['NMF_TOLERANCE'] = 1.e-3
+    eazy_param.params['NMF_TOLERANCE'] = 1.e-4
     
     if zmin is None:
         zmin = zout.l99[photom_idx]*0.8

@@ -306,6 +306,44 @@ def sn_primo():
         proc.reduction_script(asn_grism_file=asn)
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
+#
+def goods_ers():
+    """
+
+    """
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'ERS')
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
+    grism_asn  = glob.glob('WFC3*-G141_asn.fits')
+    files=glob.glob('WFC3*-G141_shifts.txt')
+    files.extend(grism_asn)
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    
+    # try:
+    #     iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
+    # except:
+    #     os.remove('f125w.fits')
+    #     iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
+    
+    os.chdir('../')
+    
+    #### Initialize parameters
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
+    
+    #### Run aXe
+    asn = 'WFC3-ERSII-G01-G141_asn.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/WFC3-ERSII-G01-F140W_asn.fits'
+    #threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
+    proc.reduction_script(asn_grism_file=asn)
+    unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+    go.clean_up()
 
 def sn_george():
     """

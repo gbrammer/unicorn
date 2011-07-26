@@ -20,6 +20,23 @@ import threedhst.prep_flt_files
 import threedhst.catIO as catIO
 import unicorn
 
+def goods_ers():
+    """
+    GOODS-ERS field (not candels)
+    """
+    import unicorn.candels
+    
+    unicorn.candels.make_asn_files()
+    
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+        
+    files=glob.glob('WFC3-*asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+
 def egs():
     import unicorn.candels
     

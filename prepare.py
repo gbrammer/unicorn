@@ -582,7 +582,40 @@ def SN_MARSHALL():
     # threedhst.gmap.makeImageMap(['MARSHALL-1-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-1-G141_drz.fits'], aper_list=[13,14,15])
     threedhst.gmap.makeImageMap(['MARSHALL-F125W_drz.fits', 'MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[13,14,15,16])
     
-#
+def GOODS_ERS():
+    ####******************************************************####
+    ####              GOODS-S ERS Field
+    ####******************************************************####
+    import os
+    import threedhst
+    import unicorn
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import pyfits
+    # reload threedhst.grism_sky   #### Reset the flat-field for F140W/G141
+    
+    os.chdir(unicorn.GRISM_HOME+'ERS/PREP_FLT')
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    direct = glob.glob('../RAW/ib*20_asn.fits')
+    grism = glob.glob('../RAW/ib*10_asn.fits')
+    
+    for i in range(len(direct))[:-1]:        
+        dir_i=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
+        gris_i=threedhst.prep_flt_files.make_targname_asn(grism[i], newfile=True)
+    
+    #### F140W / G141
+    threedhst.grism_sky.set_G141()
+    pair(direct[1], grism[1], ALIGN_IMAGE = ALIGN, TWEAKSHIFTS_ONLY=False, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+    
+    #### F098M / G102
+    threedhst.grism_sky.set_G102()
+    pair(direct[0], grism[0], ALIGN_IMAGE = ALIGN, TWEAKSHIFTS_ONLY=False, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=True, sky_images=['../CONF/G102_master_flatcorr.fits'], second_pass=False, overall=True)
+    
+    ##### Check results
+    threedhst.gmap.makeImageMap(['WFC3-ERSII-G01-F140W_drz.fits', 'WFC3-ERSII-G01-F140W_align.fits[0]*4', 'WFC3-ERSII-G01-F098M_drz.fits', 'WFC3-ERSII-G01-G141_drz.fits','WFC3-ERSII-G01-G102_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15])
+    
+    
 def DADDI():
     ####******************************************************####
     ####              HIGHZ-CLUSTER (z>2?) from Daddi
@@ -593,7 +626,7 @@ def DADDI():
     import unicorn
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
-
+    
     os.chdir(unicorn.GRISM_HOME+'DADDI/PREP_FLT')
     ALIGN = None
     

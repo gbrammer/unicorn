@@ -17,8 +17,10 @@ from pyraf import iraf
 from threedhst.prep_flt_files import process_3dhst_pair as pair
 
 def go_all():
-    test(root='jbhm32')
-    test(root='jbhm51')
+    import unicorn.go_acs
+    unicorn.go_acs.test(root='jbhm32')
+    unicorn.go_acs.test(root='jbhm51')
+    unicorn.go_acs.test(root='jbhm54')
     
 def test(root='jbhm51'):
     """
@@ -82,7 +84,7 @@ def test(root='jbhm51'):
         updatewcs=True, clean=True, median=True)
     
     ## Check
-    # threedhst.gmap.makeImageMap(['JBHM51010_drz.fits[1]*4', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-F140W_drz.fits', 'JBHM51020_drz.fits[1]', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-25-G141_drz.fits'], aper_list=[15])
+    threedhst.gmap.makeImageMap(['JBHM54010_drz.fits[1]*4', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-14-F140W_drz.fits', 'JBHM54020_drz.fits[1]', unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-14-G141_drz.fits'], aper_list=[16])
     
     ###################### Run the grism
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
@@ -92,8 +94,10 @@ def test(root='jbhm51'):
 
     threedhst.process_grism.set_ACS_G800L()
     
+    #threedhst.options['SKY_BACKGROUND'] = None
+    
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+root.upper()+'010_drz.fits'
-    threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/JBHM51020_drz.fits'
+    # threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/'+root.upper()+'020_drz.fits'
     
     threedhst.process_grism.reduction_script(asn_grism_file=root+'020_asn.fits')
     
@@ -121,7 +125,7 @@ def test(root='jbhm51'):
     
     ## make figures
     for id in grismCat.id:
-        unicorn.analysis.specphot(id=id, grism_root=grism_root, SPC = SPC, 
+        status = unicorn.analysis.specphot(id=id, grism_root=grism_root, SPC = SPC, 
             cat = cat,
             grismCat = grismCat, zout = zout, fout = fout, 
             OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
@@ -133,3 +137,5 @@ def test(root='jbhm51'):
     unicorn.go_3dhst.clean_up()
     
     os.system('rsync -avz HTML/ ~/Sites_GLOBAL/P/GRISM_ACS/')
+    
+    

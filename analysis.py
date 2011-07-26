@@ -1960,7 +1960,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
     
     #### Dummy
-    ok = match.rmatch < 1
+    ok = (match.rmatch < 1) & (match.logm > 10.5)
     lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=match.id_f140w[ok][0],
         grism_root=root, SPC = SPC, 
         cat = cat,
@@ -2139,6 +2139,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)
     eazy_param.params['GET_ZP_OFFSETS'] = 0
     eazy_param.params['Z_STEP'] /= 4
+    eazy_param.params['NMF_TOLERANCE'] = 1.e-3
     
     if zmin is None:
         zmin = zout.l99[photom_idx]*0.8

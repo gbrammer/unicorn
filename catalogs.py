@@ -143,6 +143,8 @@ def test_plots():
     lines = catIO.Readfile('full_emission_lines.cat')
     found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
     #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
+    red_limit = 15
+    red_sequence = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
     
     ##################################### 
     #### Galfit
@@ -160,8 +162,8 @@ def test_plots():
     
     gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
     gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
-    gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(1./np.abs(gfit.ba)) 
-    gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(1./np.abs(gfit.ba)) 
+    gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(np.abs(gfit.ba)) 
+    gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(np.abs(gfit.ba)) 
     
     ##### Selection slices
     dr = mcat.rmatch[idx] < 1
@@ -281,8 +283,6 @@ def test_plots():
     # plt.semilogy(mcat.logm[idx][oiii], -lines.halpha_eqw[idx_lines][oiii], marker='s', linestyle='None', color='red', alpha=0.2, markersize=8)
     
     ## red sequence
-    red_limit = 15
-    red_sequence = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
     plt.plot([0,100],[red_limit,red_limit], linestyle='--', alpha=0.5, color='green', linewidth=4)
 
     plt.text(9.5,1,r'has $z_\mathrm{spec}$', color='blue', fontsize=18)
@@ -771,4 +771,212 @@ def combine_sextractor_catalogs():
     fp.close()
     
     
+def show_acs_spectra():
+    import unicorn.catalogs
+    from unicorn.catalogs import match_string_arrays
+    import cosmocalc
+
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/')
+
+    ######################################
+    #### Redshifts and masses
+    ######################################
     
+    zout = catIO.Readfile('full_redshift.zout')
+    pointing = []
+    field = []
+    for obj in zout.id[0::3]:
+        point = obj.split('-G141')[0]
+        pointing.append(point)
+        field.append(re.split('-[1-9]',point)[0])
+    
+    pointing = np.array(pointing)
+    field = np.array(field)
+    
+    # mcat = catIO.Readfile('full_match.cat')
+    #     
+    # zsp = zout.z_spec[0::3] > 0
+    # dz = (zout.z_peak-zout.z_spec)/(1+zout.z_spec)
+    # found, idx = match_string_arrays(zout.id[0::3], mcat.id_f140w)
+    # idx = idx[idx >= 0]
+    # zsp = zsp & found
+    # 
+    # ######################################
+    # #### Emission line fits
+    # ######################################
+    # 
+    # lines = catIO.Readfile('full_emission_lines.cat')
+    # found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
+    # #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
+    # 
+    # ##################################### 
+    # #### Galfit
+    # #####################################
+    # gfit = catIO.Readfile('full_galfit.cat')
+    # found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.object, zout.id[0::3])
+    # found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.object)
+    # 
+    # #### Make a grid of redshifts to compute the plate scale and then interpolate it.
+    # zgrid = np.arange(100)/100.*4+1./100
+    # scale = zgrid*0.
+    # for i in range(100):
+    #     cc = cosmocalc.cosmocalc(zgrid[i])
+    #     scale[i] = cc['PS_kpc']
+    # 
+    # gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+    # gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+    # gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(1./np.abs(gfit.ba)) 
+    # gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(1./np.abs(gfit.ba)) 
+    # 
+    # ##### Selection slices
+    # dr = mcat.rmatch[idx] < 1
+    # zrange = (zout.z_peak[0::3] > 0.2)
+    # 
+    # keep = dr & zrange & (mcat.logm[idx] > 10.98) & (mcat.fcontam[idx] < 0.5)
+    # keep = dr & zrange & (mcat.mag_f140w[idx] < 24) & (mcat.fcontam[idx] < 0.5)
+    # 
+    # #### refine
+    # # zrange = (zout.z_peak[0::3] > 2) & (zout.z_peak[0::3] < 3)
+    # # zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
+    # # zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
+    # zrange = (zout.z_peak[0::3] > .0) & (zout.z_peak[0::3] < 1.5)
+    # keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
+    
+    #### Photometry with coords
+    phot = catIO.Readfile('full_sextractor.cat')
+    found_phot, idx_phot = match_string_arrays(zout.id[0::3], phot.id)
+    
+    #### ACS
+    root = 'jbhm54020'
+    acs = threedhst.sex.mySexCat('ACS/'+root+'_drz.cat')
+    acs.ra = np.cast[float](acs.X_WORLD)
+    acs.dec = np.cast[float](acs.Y_WORLD)
+
+    acs_match = []
+    acs_dr = np.arange(len(acs.NUMBER))+1.
+    
+    for i in range(len(acs.NUMBER)):
+        dr = np.sqrt((acs.ra[i]-phot.x_world)**2*np.cos(acs.dec[i]/360.*2*np.pi)**2+(acs.dec[i]-phot.y_world)**2)*3600.
+        ma = dr == dr.min()
+        acs_match.append(phot.id[ma][0])
+        acs_dr[i] = dr[ma][0]
+    
+    acs_match = np.array(acs_match)
+    acs.mag = np.cast[float](acs.MAG_F806W)
+    matches = (acs_dr < 1.0) & (acs.mag < 28)
+    idx = np.arange(len(acs.mag))[matches] 
+    
+    cat, zcat, fout = unicorn.analysis.read_catalogs(root='COSMOS')
+    
+    OUTPUT_DIRECTORY = os.path.dirname(zcat.filename)
+    MAIN_OUTPUT_FILE = os.path.basename(zcat.filename).split('.zout')[0]
+    
+    for i0, i in enumerate(idx):
+        i = idx[i0]
+        ra0, de0 = acs.ra[i], acs.dec[i]
+        dr = np.sqrt((cat.ra-ra0)**2*np.cos(de0/360.*2*np.pi)**2+(cat.dec-de0)**2)*3600.
+        photom_idx = np.where(dr == np.min(dr))[0][0]
+        drMatch = dr[photom_idx]*1.
+        #if drMatch > 0.5: 
+        #    continue
+        
+        ####
+        acs_file = '%s_%05d' %(root, acs.id[i])
+        wfc_file = acs_match[matches][i0]
+        
+        if not os.path.exists(acs_file+'.dat'):
+            os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_ACS/ascii/%s.dat' %(acs_file))
+        
+        if not os.path.exists(wfc_file+'.dat'):    
+            os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.5/ascii/%s.dat' %(wfc_file))
+
+        if (not os.path.exists(acs_file+'.dat')) | (not os.path.exists(wfc_file+'.dat')):
+            continue
+            
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
+        eazy.getEazySED(photom_idx, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, \
+                          OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, \
+                          CACHE_FILE = 'Same')
+    
+        acs_spec = catIO.Readfile(acs_file+'.dat')
+        wfc_spec = catIO.Readfile(wfc_file+'.dat')
+
+        acs_spec.flux -= acs_spec.contam
+        wfc_spec.flux -= wfc_spec.contam
+        
+        zi = zout.z_peak[::3][zout.id[::3] == wfc_file]
+        
+        if len(zi) == 0:
+            continue
+        else:
+            zi = zi[0]
+        
+        keep_acs = (acs_spec.lam > 6000) & (acs_spec.lam < 9000) & (acs_spec.flux > 0)
+        mask_acs = (np.abs(acs_spec.lam/(1+zi)-6563.) > 500) & (np.abs(acs_spec.lam/(1+zi)-5007.) > 500)
+        
+        keep_wfc = (wfc_spec.lam > 1.15e4) & (wfc_spec.lam < 1.62e4) & (wfc_spec.flux > 0)
+        mask_wfc = (np.abs(wfc_spec.lam/(1+zi)-6563.) > 500) & (np.abs(wfc_spec.lam/(1+zi))-5007. > 500)
+        
+        yint_acs = np.interp(acs_spec.lam, lambdaz, temp_sed)
+        norm_acs = np.sum((acs_spec.flux*yint_acs)[keep_acs & mask_acs])/np.sum(yint_acs[keep_acs & mask_acs]**2)
+
+        yint_wfc = np.interp(wfc_spec.lam, lambdaz, temp_sed)
+        norm_wfc = np.sum((wfc_spec.flux*yint_wfc)[keep_wfc & mask_wfc])/np.sum(yint_wfc[keep_wfc & mask_wfc]**2)
+        
+        xg = np.arange(1000)-500
+        yg = np.exp(-xg**2/2/100**2)
+        yg /= np.sum(yg)
+        ll = np.arange(3.8e4)+2000
+        yy = np.interp(ll, lambdaz, temp_sed)
+        
+        tconv = np.convolve(yy, yg, mode='same')
+        
+        fig = plt.figure(figsize=[5,3.7],dpi=100)
+        fig.subplots_adjust(wspace=0.2,hspace=0.1,left=0.1,
+                            bottom=0.15,right=0.98,top=0.98)
+        
+        ax = fig.add_subplot(111)
+        
+        zcorr = (1+zi)
+        zcorr = 1.
+        
+        #plt.plot(lambdaz, temp_sed, color='black', alpha=0.4)
+        ax.plot(ll/zcorr, tconv, color='black', alpha=0.3, linewidth=2)
+        #plt.plot(ll, tconv, color='orange', alpha=0.4)
+        ax.plot(wfc_spec.lam[keep_wfc]/zcorr, wfc_spec.flux[keep_wfc]/norm_wfc, color='red', linewidth=3, alpha=0.8)
+        ax.plot(acs_spec.lam[keep_acs]/zcorr, acs_spec.flux[keep_acs]/norm_acs, color='blue', linewidth=3, alpha=0.8)
+        ax.errorbar(lci/zcorr, fobs, yerr=efobs, marker='o', markersize=10, color='orange', ecolor='orange', linestyle='None', alpha=0.3)
+        ax.text(0.95, 0.85, r'$z=%.2f$' %(zi), ha='right', transform = ax.transAxes, fontsize=20)
+        ax.text(0.95, 0.1, r'$i_{814}=%5.2f$' %(acs.mag[i]), ha='right', transform = ax.transAxes, fontsize=16)
+        ax.text(0.95, 0.2, r'$H_{140}=%5.2f$' %(phot.mag_f1392w[phot.id == wfc_file][0]), ha='right', transform = ax.transAxes, fontsize=16)
+        
+        #ax.set_xlabel(r'$\lambda_\mathrm{rest}\ [\AA]$')
+        ax.set_xlabel(r'$\lambda_\mathrm{obs}\ [\AA]$')
+        
+        from pylab import *
+        from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
+        majorLocator   = MultipleLocator(5000)
+        majorFormatter = FormatStrFormatter('%d')
+        minorLocator   = MultipleLocator(2500)
+
+        ax.xaxis.set_major_locator(majorLocator)
+        ax.xaxis.set_major_formatter(majorFormatter)
+
+        #for the minor ticks, use no labels; default NullFormatter
+        ax.xaxis.set_minor_locator(minorLocator)
+
+        ax.set_xlim(3000,1.9e4)
+        ymax_acs = np.max(acs_spec.flux[keep_acs]/norm_acs)
+        ymax_wfc = np.max(wfc_spec.flux[keep_wfc]/norm_wfc)
+        
+        ymax = np.max([ymax_acs, ymax_wfc])
+        
+        ax.set_ylim(-0.1*ymax, 1.5*ymax)
+        
+        
+        plt.savefig('%04.2f_' %(zi) + acs_file+'_example.pdf')
+        plt.close()
+        
+        
+        

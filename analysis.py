@@ -471,7 +471,10 @@ specphot(id)
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
     
     if GET_SPEC_ONLY:
-        return lam, ffix*anorm, np.sqrt(ferr**2+(0.5*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
+        if drMatch > 1:
+            return False
+        else:
+            return lam, ffix*anorm, np.sqrt(ferr**2+(0.5*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
          
     if Verbose:
         print 'Start plot'

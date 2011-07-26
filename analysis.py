@@ -1957,7 +1957,7 @@ def run_eazy_on_all_objects():
             os.chdir(unicorn.GRISM_HOME+field)
             cat = threedhst.sex.mySexCat(catalog)
             pointing = os.path.basename(catalog).split('G141')[0]+'G141'
-            for id in cat.id:
+            for id in cat.id[np.cast[float](cat.FCOVER) > 0.4]:
                 object = '%s_%05d' %(pointing, id)
                 if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
                     unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1)

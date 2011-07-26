@@ -2608,6 +2608,38 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux
     
+def make_o2_templates():
+    """
+    Leaving the OIII strength fixed allows too much freedom in the fits for galaxies at z=0.5 and only ugriz.  The code likes to put the galaxies at z>0.7 with a huge OII line that mimicks the break.  As a fix, try making a set of the `noline` templates that include the eazy OII line from v1.1
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/templates/')
+    import glob
+    files=glob.glob('EAZY_v1.0_lines/*nolines.dat')
+    if not os.path.exists('O2_ONLY'):
+        os.system('mkdir O2_ONLY')
+    
+    for file in files:
+        noline = np.loadtxt(file)
+        noline_wave, noline_flux = noline[:,0], noline[:,1]
+        noline_keep = np.abs(noline_wave-3727) > 30
+        
+        hasline = np.loadtxt(file.replace('v1.0','v1.1').replace('_nolines',''))
+        hasline_wave, hasline_flux = hasline[:,0], hasline[:,1]
+        hasline_keep = np.abs(hasline_wave-3727) < 30
+        
+        xnew = np.append(noline_wave[noline_keep],hasline_wave[hasline_keep])
+        ynew = np.append(noline_flux[noline_keep],hasline_flux[hasline_keep])
+        
+        s = np.argsort(xnew)
+        xnew, ynew = xnew[s], ynew[s]
+        
+        fp = open('O2_ONLY/'+os.path.basename(file),'w')
+        for i in range(len(xnew)):
+            fp.write('%13.5e %13.5e\n' %(xnew[i], ynew[i]))
+        
+        fp.close()
+        
+    print "\n\nManually make a copy of 'fit_lines.spectra.param'\n\n"
     
 def make_line_templates():
     line_wavelengths = [[6562.800], [5006.843, 4958.911], [4861.325], [3727.0], [1216.], [9068.6, 9530.6]]

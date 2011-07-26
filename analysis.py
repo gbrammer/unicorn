@@ -1936,7 +1936,7 @@ def eazy_unicorn():
     
     unicorn.analysis.run_eazy_fit(OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', root='COSMOS-8-G141', id=1309)
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, compress=1.0, TEMPLATES_FILE='templates/fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     
     from scipy import polyval
     

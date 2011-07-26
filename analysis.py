@@ -1717,7 +1717,7 @@ def run_eazy_products_on_html(out):
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
-    os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.5/EAZY/')
+    os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
     
 def make_full_redshift_catalog():
     """
@@ -2138,7 +2138,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d' %(root, id)
     eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)
     eazy_param.params['GET_ZP_OFFSETS'] = 0
-    eazy_param.params['Z_STEP'] /= 4
+    eazy_param.params['Z_STEP'] = 0.001
     eazy_param.params['NMF_TOLERANCE'] = 1.e-3
     
     if zmin is None:

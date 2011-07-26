@@ -953,7 +953,7 @@ def show_acs_spectra():
         #ax.set_xlabel(r'$\lambda_\mathrm{rest}\ [\AA]$')
         ax.set_xlabel(r'$\lambda_\mathrm{obs}\ [\AA]$')
         
-        from pylab import *
+        #from pylab import *
         from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
         majorLocator   = MultipleLocator(5000)
@@ -973,7 +973,6 @@ def show_acs_spectra():
         ymax = np.max([ymax_acs, ymax_wfc])
         
         ax.set_ylim(-0.1*ymax, 1.5*ymax)
-        
         
         plt.savefig('%04.2f_' %(zi) + acs_file+'_example.pdf')
         plt.close()

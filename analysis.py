@@ -471,7 +471,7 @@ specphot(id)
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
     
     if GET_SPEC_ONLY:
-        return lam, ffix*anorm, np.sqrt(ferr**2+spec.field('CONTAM')**2)*anorm, lci, fobs, efobs, photom_idx
+        return lam, ffix*anorm, np.sqrt(ferr**2+(0.5*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
          
     if Verbose:
         print 'Start plot'
@@ -1988,7 +1988,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     else:
         #### No match
         sp = threedhst.catIO.Readfile('HTML/ascii/%s_%05d.dat' %(root, id))
-        lam, spflux, sperr = sp.lam, (sp.flux-sp.contam)/1.e-17*(sp.lam/5500.)**2, np.sqrt(sp.error**2+sp.contam**2)/1.e-17*(sp.lam/5500.)**2
+        lam, spflux, sperr = sp.lam, (sp.flux-sp.contam)/1.e-17*(sp.lam/5500.)**2, np.sqrt(sp.error**2+(0.5*sp.contam)**2)/1.e-17*(sp.lam/5500.)**2
         
         fobs = fobs*0-999
         efobs = fobs

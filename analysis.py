@@ -1943,6 +1943,10 @@ def eazy_unicorn():
 def run_eazy_on_all_objects():
     
     logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/processed.log'
+
+    logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/ers.log'
+    field = 'ERS'
+    
     if not os.path.exists(logfile):
         fp = open(logfile,'w')
         fp.write('')
@@ -1965,10 +1969,10 @@ def run_eazy_on_all_objects():
                 object = '%s_%05d' %(pointing, id)
                 if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
                     try:
-                        unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1)
+                        unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.7, zmin=0.02, zmax=4, TILT_ORDER=1)
                     except:
                         pass
-                        
+                    #    
                     fp = open(logfile,'a')
                     fp.write('%s\n' %(object))
                     fp.close()
@@ -2026,11 +2030,12 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     if result is not False:
         #### Object is matched in the photometry
         lam, spflux, sperr, lci, fobs, efobs, photom_idx = result
+        z_spec = zout.z_spec[photom_idx]
     else:
         #### No match
         sp = threedhst.catIO.Readfile('HTML/ascii/%s_%05d.dat' %(root, id))
         lam, spflux, sperr = sp.lam, (sp.flux-sp.contam)/1.e-17*(sp.lam/5500.)**2, np.sqrt(sp.error**2+(0.5*sp.contam)**2)/1.e-17*(sp.lam/5500.)**2
-        
+        z_spec = -1.0
         fobs = fobs*0-999
         efobs = fobs
         
@@ -2127,7 +2132,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param = threedhst.eazyPy.EazyParam(zout.filename.replace('zout','param'))
     
     cat_head = '# phot_id id ra dec z_spec'
-    cat_line = ' %d %s_%05d %f %f %8.3f' %(cat.id[photom_idx], root, id, cat.ra[photom_idx], cat.dec[photom_idx], zout.z_spec[photom_idx])
+    cat_line = ' %d %s_%05d %f %f %8.3f' %(cat.id[photom_idx], root, id, cat.ra[photom_idx], cat.dec[photom_idx], z_spec)
     no_spec = cat_line+''
     no_phot = cat_line+''
     for i in range(len(lci)):

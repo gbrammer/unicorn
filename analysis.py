@@ -2075,7 +2075,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fp.write('50 %.5e\n%.5e %.5e\n' %(fill_value, lam[0]-dlam, fill_value))
     #spflux[~np.isfinite(spflux) | (spflux < 0)] = 1.e-8
     for i in range(len(lam)):
-        if np.isfinite(spflux[i]):
+        if np.isfinite(spflux[i]) & (spflux[i] != 0):
             fp.write('%.5e %.5e\n' %(lam[i], spflux[i]))
     
     fp.write('%.5e %.5e\n2.e7 %.5e\n' %(lam[-1]+dlam, fill_value, fill_value))

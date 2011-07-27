@@ -950,7 +950,10 @@ class GalfitComponent():
         
 class GalfitLogfile():
     def __init__(self, logfile):
-        loglines = open(logfile).readlines()
+        fp = open(logfile)
+        loglines = fp.readlines()
+        fp.close()
+        
         components = []
         for i,line in enumerate(loglines):
             if line.strip().startswith('sersic'):
@@ -982,7 +985,9 @@ class GalfitLogfile():
         return self.list[idx]
         
 def read_log(logfile):
-    loglines = open(logfile).readlines()
+    fp = open(logfile)
+    loglines = fp.readlines()
+    fp.close()
     
     for i,line in enumerate(loglines):
         if line.strip().startswith('sersic'):

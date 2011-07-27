@@ -987,7 +987,10 @@ def chapman_smgs():
     import threedhst
     
     os.chdir(unicorn.GRISM_HOME+'GOODS-N/SCUBA/')
-    lines = open('Chapman_table2.dat').readlines()
+    fp = open('Chapman_table2.dat')
+    lines = fp.readlines()
+    fp.close()
+    
     N = len(lines)
     ra = np.arange(N)*1.; dec = ra*0.; zsmg=ra*0.; idsmg = []
     for i in range(N):
@@ -998,7 +1001,10 @@ def chapman_smgs():
         idsmg.append(rad)
     #
     os.chdir(unicorn.GRISM_HOME+'GOODS-N/SCUBA/')
-    lines = open('Chapman10_tables1.dat').readlines()
+    fp = open('Chapman10_tables1.dat')
+    lines = fp.readlines()
+    fp.close()
+    
     N = len(lines)
     ra = np.arange(N)*1.; dec = ra*0.; zsmg=ra*0.; idsmg = []
     for i in range(N):
@@ -1009,7 +1015,10 @@ def chapman_smgs():
         idsmg.append(lines[i][28:35])
     
     #
-    lines = open('../VLA/Morrison_table2.dat').readlines()
+    fp = open('../VLA/Morrison_table2.dat')
+    lines = fp.readlines()
+    fp.close()
+    
     N = len(lines)
     ra = np.arange(N)*1.; dec = ra*0.; zsmg=ra*0.; idsmg = []
     for i in range(N):
@@ -1516,7 +1525,10 @@ class BD_template():
     
     def read_template(self, txt):
         import numpy as np
-        lines = open(txt).readlines()
+        fp = open(txt)
+        lines = fp.readlines()
+        fp.close()
+        
         wave = []
         flux = []
         err = []
@@ -2638,6 +2650,7 @@ def make_line_templates():
     
     fp = open('templates/eazy_v1.0_nolines.spectra.param')
     spec_list = fp.readlines()
+    fp.close()
     
     last = np.int(spec_list[-1][0])
     for i in range(NLINE):

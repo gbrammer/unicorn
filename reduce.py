@@ -141,7 +141,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
      out_un = 'cps', fillval = '0', mode = 'al')
 
 def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat',output='scale_coeffs.dat', factor=2, pad=60):
-    lines = open(input).readlines()
+    fp = open(input)
+    lines = fp.readlines()
+    fp.close()
 
     spl = np.cast[float](lines[2].split()[1:])
     lines[2] = 'refpix %f %f\n' %(spl[1]*factor+pad/2, spl[1]*factor+pad/2)

@@ -1887,58 +1887,6 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
         canvas.print_figure(outfile+'.png', dpi=100, transparent=False)
         canvas.print_figure(outfile+'.pdf', dpi=100, transparent=False)
     
-    
-def eazy_unicorn():
-    import unicorn
-    unicorn.analysis.run_eazy_fit(root='COSMOS-3-G141', id=874, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='AEGIS-3-G141', id=683, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='AEGIS-25-G141', id=126, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='AEGIS-25-G141', id=595, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-25-G141', id=597, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-    
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-33-G141', id=966, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-33-G141', id=1033, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-18-G141', id=1043, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-    
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-23-G141', id=949, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-13-G141', id=535, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-15-G141', id=1139, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-14-G141', id=848, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-31-G141', id=1102, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-22-G141', id=1243, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-32-G141', id=1396, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=0.8, zmax=1.05)
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-21-G141', id=497, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-28-G141', id=1234, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-N-35-G141', id=698, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='COSMOS-18-G141', id=611, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='MARSHALL-225-G141', id=661, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-    
-    unicorn.analysis.run_eazy_fit(root='GOODS-S-24-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-S-24-G141', id=222, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-
-    unicorn.analysis.run_eazy_fit(root='GOODS-S-26-G141', id=274, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-    
-    unicorn.analysis.run_eazy_fit(root='AEGIS-2-G141', id=100, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest')
-    
-    unicorn.analysis.run_eazy_fit(OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', root='COSMOS-8-G141', id=1309)
 
 def run_eazy_on_all_objects():
     
@@ -2225,7 +2173,7 @@ def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim'
     
     res.write(file=output)
     
-def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1):
+def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1, pipe=' > log'):
     import unicorn
     import threedhst.eazyPy as eazy
     from scipy import polyfit, polyval
@@ -2240,7 +2188,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         
     #  Get the f_lambda fluxes with the original filters
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
     
     lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = \
         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2248,7 +2196,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
                           CACHE_FILE = 'Same')
     
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
     
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), 
                                                     OUTPUT_DIRECTORY='OUTPUT', 
@@ -2363,14 +2311,14 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     if run:
         #### Scale to photometry
         if COMPUTE_TILT:
-            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER)
+            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe)
         else:
             tilt = [0, 1]
         
         #### Now run
         renorm = spec_norm
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
-        status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+        status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         #
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
             eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \

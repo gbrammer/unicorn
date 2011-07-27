@@ -977,7 +977,7 @@ def open_spec(use):
             list.append(spec_path)
             list.append(galfit_file)
         
-    os.system('open '+' '.join(list))
+    status = os.system('open '+' '.join(list))
     
     
 def chapman_smgs():
@@ -1037,7 +1037,7 @@ def chapman_smgs():
                         list.append(sed_file)
                         smg.append((idsmg[i], zsmg[i]))
     
-    os.system('open '+' '.join(list))
+    status = os.system('open '+' '.join(list))
     for i in range(len(list)):
         print list[i], smg[i][0], smg[i][1]
         
@@ -1724,7 +1724,7 @@ def run_eazy_products_on_html(out):
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
-    os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
+    status = os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
     
 def make_full_redshift_catalog():
     """
@@ -1801,12 +1801,12 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
                     unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress, COMPUTE_TILT=True, TILT_ORDER=1)
                     #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:
-                    os.system('echo "" > OUTPUT/%s.zout' %(object))
+                    status = os.system('echo "" > OUTPUT/%s.zout' %(object))
                     failed = True
                     pass
             
             if not failed:
-                os.system('grep -v "#" OUTPUT/%s.zout >> %s' %(object, html.replace('html','zout')))
+                status = os.system('grep -v "#" OUTPUT/%s.zout >> %s' %(object, html.replace('html','zout')))
         
         if ('/SED/' in line) & (not failed):
             lines[i] = line.replace('..//SED/','./').replace('SED.png height=180','eazy.png height=250')
@@ -2240,7 +2240,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         
     #  Get the f_lambda fluxes with the original filters
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
     
     lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = \
         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2248,7 +2248,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
                           CACHE_FILE = 'Same')
     
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+    status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
     
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), 
                                                     OUTPUT_DIRECTORY='OUTPUT', 
@@ -2370,7 +2370,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         #### Now run
         renorm = spec_norm
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
-        os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
+        status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
         #
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
             eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2382,7 +2382,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             
         #### Show the results
         try:
-            os.system('head -3 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
+            status = os.system('head -3 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
         except:
             pass
                 
@@ -2519,9 +2519,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     print outfile
     
     if clean:
-        os.system('rm '+'%s_%05d' %(root, id) + '_threedhst.cat')
-        os.system('rm '+'%s_%05d' %(root, id) + '.FILT.RES')
-        os.system('rm '+'%s_%05d' %(root, id) + '.eazy.param')
+        status = os.system('rm '+'%s_%05d' %(root, id) + '_threedhst.cat')
+        status = os.system('rm '+'%s_%05d' %(root, id) + '.FILT.RES')
+        status = os.system('rm '+'%s_%05d' %(root, id) + '.eazy.param')
 
 def eqw_catalog():
     """ 
@@ -2648,7 +2648,7 @@ def make_o2_templates():
     import glob
     files=glob.glob('EAZY_v1.0_lines/*nolines.dat')
     if not os.path.exists('O2_ONLY'):
-        os.system('mkdir O2_ONLY')
+        status = os.system('mkdir O2_ONLY')
     
     for file in files:
         noline = np.loadtxt(file)

@@ -2308,7 +2308,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True):
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
@@ -2332,7 +2332,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             tilt = [0, 1]
         
         #### Now run
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt)
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
         # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \

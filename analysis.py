@@ -2068,7 +2068,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     os.chdir(ORIG_PATH)
     
     ### Have to fill the empty parts of the spectrum with something other than 0
-    fill_value = np.median(spflux[lam > 1.2e4) & (lam < 1.6e4) & (spflux != 0)])
+    fill_value = np.median(spflux[(lam > 1.2e4) & (lam < 1.6e4) & (spflux != 0)])
     
     ##### print the spectrum to a file in the templates directory
     fp = open('templates/%s_%05d' %(root, id)+'_spectrum.dat','w')

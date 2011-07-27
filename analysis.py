@@ -1942,10 +1942,15 @@ def eazy_unicorn():
 
 def run_eazy_on_all_objects():
     
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+
     logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/processed.log'
 
     logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/ers.log'
     field = 'ERS'
+
+    logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/goods-s.log'
+    field = 'GOODS-S'
     
     if not os.path.exists(logfile):
         fp = open(logfile,'w')

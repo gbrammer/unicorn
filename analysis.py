@@ -2078,7 +2078,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         if np.isfinite(spflux[i]):
             fp.write('%.5e %.5e\n' %(lam[i], spflux[i]))
     
-    fp.write('%.5e %.5e\n2.e7 %.5e\n' %(fill_value, lam[-1]+dlam, fill_value))
+    fp.write('%.5e %.5e\n2.e7 %.5e\n' %(lam[-1]+dlam, fill_value, fill_value))
     fp.close()
     
     #### Make the template file for this single grism spectrum

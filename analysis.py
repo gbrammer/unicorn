@@ -2157,11 +2157,11 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         for j in range(NKEEP):
             res_lines.append(' %5i %13.5e %13.5e\n' %(j+1, lsm0[j], ysmk[j]))
     
-    fp = open(OUT_RES,'w')
+    fp = open('%s_%05d' %(root, id) + '.FILT.RES','w')
     fp.writelines(res_lines)
     fp.close()
     
-    fp = open('threedhst.cat','w')
+    fp = open('%s_%05d' %(root, id) + '_threedhst.cat','w')
     fp.write(cat_head+'\n')
     fp.write(cat_line+'\n')
     fp.write(no_spec+'\n')
@@ -2172,10 +2172,10 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['READ_ZBIN'] = 'n'
     # eazy_param.params['TEMPLATES_FILE'] = 'templates/eazy_v1.1_lines.spectra.param'
     eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
-    eazy_param.params['FILTERS_RES'] = 'THREEDHST.RES'
+    eazy_param.params['FILTERS_RES'] = '%s_%05d' %(root, id) + '.FILT.RES'
     eazy_param.params['OUTPUT_DIRECTORY'] = 'OUTPUT'
     eazy_param.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
-    eazy_param.params['CATALOG_FILE'] = 'threedhst.cat'
+    eazy_param.params['CATALOG_FILE'] = '%s_%05d' %(root, id) + '_threedhst.cat'
     eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d' %(root, id)
     eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)
     eazy_param.params['GET_ZP_OFFSETS'] = 0
@@ -2334,7 +2334,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True):
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
@@ -2508,6 +2508,11 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     print outfile
     
+    if clean:
+        os.system('rm '+'%s_%05d' %(root, id) + '_threedhst.cat')
+        os.system('rm '+'%s_%05d' %(root, id) + '.FILT.RES')
+        os.system('rm '+'%s_%05d' %(root, id) + '.eazy.param')
+
 def eqw_catalog():
     """ 
     Make a full catalog of the line fluxes / eq. widths

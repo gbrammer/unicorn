@@ -2191,7 +2191,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['Z_MAX'] = zmax 
     eazy_param.params['MAGNITUDES'] = 0.0
     eazy_param.params['REST_FILTERS'] = '-,-'
-    eazy_param.write(file='threedhst.eazy.param')
+    eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
     
 def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim', wlo=1.08e4, whi=1.65e4):
     """
@@ -2230,7 +2230,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         
     #  Get the f_lambda fluxes with the original filters
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    os.system(eazy_binary + ' -p threedhst.eazy.param > log')
+    os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
     
     lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = \
         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2238,7 +2238,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
                           CACHE_FILE = 'Same')
     
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/grism_spectrum.spectra.param')
-    os.system(eazy_binary + ' -p threedhst.eazy.param > log')
+    os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
     
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), 
                                                     OUTPUT_DIRECTORY='OUTPUT', 
@@ -2360,7 +2360,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         #### Now run
         renorm = spec_norm
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
-        os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
+        os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param > log')
         #
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
             eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2369,27 +2369,6 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         #
         dlam_spec = lci[-1]-lci[-2]
         is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
-        ################## Don't need to renormalize b/c do it with J/H filters
-        #### check normalization
-        # new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
-        # 
-        # counter = 1
-        #         # while (np.abs(np.log10(new_norm)) > 0.045) & (counter <= MAXIT):
-        #     counter += 1
-        #     print 'Renormalize: %.2f %.2f' %(renorm, new_norm)
-        #     renorm /= new_norm
-        #     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=renorm, zmin=zmin, zmax=zmax, compress=compress, TILT_COEFFS=tilt)
-        #     os.system(eazy_binary + ' -p threedhst.eazy.param '+pipe)
-        #     #
-        #     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
-        #         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
-        #                           OUTPUT_DIRECTORY='OUTPUT', \
-        #                           CACHE_FILE = 'Same')
-        #     #
-        #     dlam_spec = lci[-1]-lci[-2]
-        #     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
-        #     #### check normalization
-        #     new_norm = np.sum(obs_sed[is_spec]*fobs[is_spec]/efobs[is_spec]**2)/np.sum(obs_sed[is_spec]**2/efobs[is_spec]**2)
             
         #### Show the results
         try:

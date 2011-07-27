@@ -25,6 +25,8 @@ def goods_ers():
     GOODS-ERS field (not candels)
     """
     import unicorn.candels
+    import threedhst
+    import threedhst.prep_flt_files
     
     unicorn.candels.make_asn_files()
     
@@ -36,7 +38,32 @@ def goods_ers():
             unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
-
+    #
+    #### Make detection images for the grism
+    os.system('cp '+unicorn.GRISM_HOME+'/ERS/PREP_FLT/WFC3-ERSII-G01-F140W_drz.fits .')
+    
+    #### F098M
+    os.system('cp WFC3-ERSII-G01-F140W_drz.fits WFC3-ERSII-G01-F098M_drz.fits')
+    threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='WFC3-ERSII-IR*-F098M',
+                                    pointing='WFC3-ERSII-G01-F098M',
+                                    run_multidrizzle=True, grow=200)
+     
+    #### F125W
+    os.system('cp WFC3-ERSII-G01-F140W_drz.fits WFC3-ERSII-G01-F125W_drz.fits')
+    threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='WFC3-ERSII-IR*-F125W',
+                                    pointing='WFC3-ERSII-G01-F125W',
+                                    run_multidrizzle=True, grow=200)
+    
+    #### F160W
+    os.system('cp WFC3-ERSII-G01-F140W_drz.fits WFC3-ERSII-G01-F160W_drz.fits')
+    threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='WFC3-ERSII-IR*-F160W',
+                                    pointing='WFC3-ERSII-G01-F160W',
+                                    run_multidrizzle=True, grow=200)
+    
+    ### Test
+    threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN_IMAGE), matchImage='WFC3-ERSII-G01-F160W_drz.fits', match_extension=1, output='ERS-F850LP.fits')
+    threedhst.gmap.makeImageMap(['ERS-F850LP.fits[0]*4','WFC3-ERSII-G01-F098M_drz.fits[1]*2', 'WFC3-ERSII-G01-F140W_drz.fits', 'WFC3-ERSII-G01-F125W_drz.fits', 'WFC3-ERSII-G01-F160W_drz.fits',], aper_list=[14,15], tileroot=['z850','f098m','f140w','f125w','f160w'])
+    
 def egs():
     import unicorn.candels
     

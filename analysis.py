@@ -2362,7 +2362,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
             print 'Refit, fine sampling: [%.2f, %.2f]' %(ztmp.l99[1], ztmp.u99[1])
             
-            eazy_param = eazy.EazyParam('%s_%05d.param' %(root, id))
+            eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
             eazy_param.params['Z_MIN'] = ztmp.l99[1]
             eazy_param.params['Z_MAX'] = ztmp.u99[1]

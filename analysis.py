@@ -2348,6 +2348,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines.spectra.param')
         
         zout = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+        print 'Refit, fine sampling: [%.2f, %.2f]' %(zout.l99[1], zout.u99[1])
         
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zout.l99[1], zmax=zout.u99[1], zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
         

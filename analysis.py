@@ -20,6 +20,8 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
+HAS_PHOTOMETRY = True
+
 noNewLine = '\x1b[1A\x1b[1M'
  
 def get_grism_path(root):
@@ -1945,6 +1947,7 @@ def run_eazy_on_all_objects():
                 
                 
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
+    import unicorn.analysis
     
     from scipy import polyval
     
@@ -1997,6 +2000,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         #### Object is matched in the photometry
         lam, spflux, sperr, lci, fobs, efobs, photom_idx = result
         z_spec = zout.z_spec[photom_idx]
+        unicorn.analysis.HAS_PHOTOMETRY = True
     else:
         #### No match
         sp = threedhst.catIO.Readfile('HTML/ascii/%s_%05d.dat' %(root, id))
@@ -2005,6 +2009,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         z_spec = -1.0
         fobs = fobs*0-999
         efobs = fobs
+        print 'No photometry!'
+        unicorn.analysis.HAS_PHOTOMETRY = False
         
     use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
@@ -2321,6 +2327,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
+    import unicorn.analysis
     
     t0 = time.time()
     
@@ -2336,7 +2343,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         OLD_RES='FILTER_UDS.RES'
     
     if run:
-        #### Scale to photometry
+        ########################### Scale to photometry
         if COMPUTE_TILT:
             tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe)
         else:
@@ -2344,15 +2351,19 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         
         tnorm = time.time()
         
-        #### Now run
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines.spectra.param')
+        ########################## Now run
+        #### If fitting with photometry, first run with eazy line templates 
+        #### and coarse sampling
+        if unicorn.analysis.HAS_PHOTOMETRY:
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines.spectra.param')
 
-        status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
+            status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
-        ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
-        print 'Refit, fine sampling: [%.2f, %.2f]' %(ztmp.l99[1], ztmp.u99[1])
-         
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=ztmp.l99[1], zmax=ztmp.u99[1], zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
+            ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+            print 'Refit, fine sampling: [%.2f, %.2f]' %(ztmp.l99[1], ztmp.u99[1])
+            zmin, zmax = ztmp.l99[1], ztmp.u99[1]
+            
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         

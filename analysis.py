@@ -11,6 +11,7 @@ USE_PLOT_GUI=False
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib.ticker as mticker
 
 from pyraf import iraf
 from iraf import iraf
@@ -2538,6 +2539,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
 class MyLocator(mticker.MaxNLocator):
     """
     Set maximum number of ticks, from
+    http://matplotlib.sourceforge.net/examples/pylab_examples/finance_work2.html
     """
     def __init__(self, *args, **kwargs):
         mticker.MaxNLocator.__init__(self, *args, **kwargs)

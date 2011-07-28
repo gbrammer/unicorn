@@ -2499,7 +2499,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     tplot = time.time()
     
-    print '%s, %.2f / %.2f / %.2f s' %(outfile, tnorm-t0, tfit-tnorm, tplot-tfit)
+    print '%s, %.2f + %.2f + %.2f = %.2f s' %(outfile, tnorm-t0, tfit-tnorm, tplot-tfit, tplot-t0)
     
     #### Clean up temporary files
     if clean:

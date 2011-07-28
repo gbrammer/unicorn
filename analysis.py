@@ -2372,7 +2372,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
             
         else:
-            funicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         

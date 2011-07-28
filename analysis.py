@@ -2500,9 +2500,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     ax.plot(zo.z_spec[0]*np.array([1,1]),[0,1.e4], color='green', linewidth=1)
     
-    
     ax.set_yticklabels([])
     ax.set_xlabel(r'$z$')
+    ax.xaxis.set_major_locator(MyLocator(4, prune='both'))
     
     ### Plot labels
     ax.text(0.5, 0.9, root+'_%05d' %(id), transform = ax.transAxes, horizontalalignment='center')
@@ -2534,6 +2534,16 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         status = os.system('rm %s_%05d' %(root, id) + '.eazy.param')
         status = os.system('rm templates/%s_%05d' %(root, id) + '.spectra.param')
         status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
+#
+class MyLocator(mticker.MaxNLocator):
+    """
+    Set maximum number of ticks, from
+    """
+    def __init__(self, *args, **kwargs):
+        mticker.MaxNLocator.__init__(self, *args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return mticker.MaxNLocator.__call__(self, *args, **kwargs)
 
 def eqw_catalog():
     """ 

@@ -2068,7 +2068,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     os.chdir(ORIG_PATH)
     
-    ### Have to fill the empty parts of the spectrum with something other than 0
+    ##### Have to fill the empty parts of the spectrum with something other than 0
     fill_value = np.median(spflux[(lam > 1.2e4) & (lam < 1.6e4) & (spflux > 0)])
     
     ##### print the spectrum to a file in the templates directory
@@ -2087,9 +2087,9 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fp.write('1 templates/%s_%05d_spectrum.dat 1.0 0 1.0\n' %(root, id))
     fp.close()
     
-    fpres = open(OLD_RES)
-    res_lines = fpres.readlines()
-    fpres.close()
+    fp = open(OLD_RES)
+    res_lines = fp.readlines()
+    fp.close()
     
     nfilt=0
     res_name = []
@@ -2211,8 +2211,8 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     if ('MARSHALL' in root) | ('UDS' in root):
         OLD_RES='FILTER_UDS.RES'
     
-    ###### Need to adjust the J/H filters in the FILTER files near the 
-    ###### edges of the grism sensitivity
+    ##### Need to adjust the J/H filters in the FILTER files near the 
+    ##### edges of the grism sensitivity
     if not os.path.exists(OLD_RES+'.trim'):
         unicorn.analysis.trim_jh_filters(input=OLD_RES, output=OLD_RES+'.trim')
         
@@ -2345,7 +2345,10 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         tnorm = time.time()
         
         #### Now run
-        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
+        unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines.spectra.param')
+        
+        # unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
+        
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
         tfit = time.time()

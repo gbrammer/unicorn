@@ -3,6 +3,7 @@ import pyfits
 import numpy as np
 import glob
 import shutil
+import time
 
 import matplotlib.pyplot as plt
 
@@ -2146,8 +2147,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fp.close()
     
     #### Set some EAZY parameters
+    
     eazy_param.params['READ_ZBIN'] = 'n'
-    # eazy_param.params['TEMPLATES_FILE'] = 'templates/eazy_v1.1_lines.spectra.param'
     eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
     eazy_param.params['FILTERS_RES'] = '%s_%05d' %(root, id) + '.FILT.RES'
     eazy_param.params['OUTPUT_DIRECTORY'] = 'OUTPUT'
@@ -2164,10 +2165,18 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     if zmax is None:
         zmax = zout.u99[photom_idx]/0.8
         
+    if zmin < 0:
+        zmin = 0
+    
+    if zmax < zmin:
+        zmax = zmin+1.e-3
+        
     eazy_param.params['Z_MIN'] = zmin
     eazy_param.params['Z_MAX'] = zmax 
+    
     eazy_param.params['MAGNITUDES'] = 0.0
     eazy_param.params['REST_FILTERS'] = '-,-'
+    
     eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
     
 def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim', wlo=1.08e4, whi=1.65e4):
@@ -2313,6 +2322,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     
+    t0 = time.time()
+    
     if (eazy_binary is None):
         if unicorn.hostname().startswith('uni'):
             eazy_binary = '/usr/local/bin/eazy_latest'
@@ -2331,9 +2342,13 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         else:
             tilt = [0, 1]
         
+        tnorm = time.time()
+        
         #### Now run
         unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
+        
+        tfit = time.time()
         
         # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
         #     eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
@@ -2348,7 +2363,10 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             status = os.system('head -3 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
         except:
             pass
-                
+    else:
+        tnorm = time.time()
+        tfit = time.time()
+                    
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
         eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
                           OUTPUT_DIRECTORY='OUTPUT', \
@@ -2479,7 +2497,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(outfile, dpi=100, transparent=False)
     
-    print outfile
+    tplot = time.time()
+    
+    print '%s, %.2f / %.2f / %.2f s' %(outfile, tnorm-t0, tfit-tnorm, tplot-tfit)
     
     #### Clean up temporary files
     if clean:

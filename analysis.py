@@ -23,6 +23,8 @@ import unicorn
 
 HAS_PHOTOMETRY = True
 PHOTOMETRY_ID = None
+BAD_SPECTRUM = False
+
 SPC_FILENAME = None
 SPC = None
 
@@ -1998,6 +2000,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     # root='WFC3-ERSII-G01-G141'; id=197; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
     from scipy import polyval
     
+    unicorn.analysis.BAD_SPECTRUM = False
+    
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
     if (('MARSHALL' in root) | ('UDS' in root)) & ('UDS' not in OLD_RES):
@@ -2181,7 +2185,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     if np.max(fnu_spec[use]) <= 0:
         fnu_spec[use] = fnu_spec[use]*0.-100
         efnu_spec[use] = efnu_spec[use]*0.-100
-    
+        unicorn.analysis.BAD_SPECTRUM = True
+        
     for i, l0 in enumerate(lam[use]):
         ### CAT
         cat_head += ' F%0d E%0d' %(nfilt+i+1, nfilt+i+1)
@@ -2463,6 +2468,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=[0,1], TEMPLATES_FILE=TEMPLATES_FILE)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
+        
+        if unicorn.analysis.BAD_SPECTRUM:
+            return False
         
         tfit = time.time()
         

@@ -1942,6 +1942,7 @@ def run_eazy_on_all_objects():
                 try:
                     result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log3')
                     if result is False:
+                        print object
                         root=pointing
                         status = os.system('rm %s_%05d' %(root, id) + '_threedhst.cat')
                         status = os.system('rm %s_%05d' %(root, id) + '.FILT.RES')

@@ -243,6 +243,10 @@ def read_grism_files(root='COSMOS-3-G141', BASE_PATH='', GRISM_NAME='G141'):
         SPC = unicorn.analysis.SPC
     else:
         try:
+            try:
+                unicorn.analysis.SPC.fits.close()
+            except:
+                pass
             SPC = threedhst.plotting.SPCFile(root+'_2_opt.SPC.fits',
                 axe_drizzle_dir=BASE_PATH+'DRIZZLE_'+GRISM_NAME)
             unicorn.analysis.SPC = SPC

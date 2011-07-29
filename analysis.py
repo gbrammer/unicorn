@@ -2381,7 +2381,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             ##### found, fit full redshift range.
             spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
             found_lines = threedhst.spec1d.findLines(spec, trim_abs=True)
-            if len(found_lines) == 0:
+            if found_lines is None:
                 return False
                 
             if len(found_lines) == 1:

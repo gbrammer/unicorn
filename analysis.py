@@ -1991,7 +1991,7 @@ def get_open_fds():
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     import unicorn.analysis
     
-    # root='COSMOS-23-G141'; id=39; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
+    # root='WFC3-ERSII-G01-G141'; id=197; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
     from scipy import polyval
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')

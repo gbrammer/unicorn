@@ -22,6 +22,7 @@ import threedhst.catIO as catIO
 import unicorn
 
 HAS_PHOTOMETRY = True
+PHOTOMETRY_ID = None
 
 noNewLine = '\x1b[1A\x1b[1M'
  
@@ -2012,6 +2013,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         lam, spflux, sperr, lci, fobs, efobs, photom_idx = result
         z_spec = zout.z_spec[photom_idx]
         unicorn.analysis.HAS_PHOTOMETRY = True
+        unicorn.analysis.PHOTOMETRY_ID = zout.id[photom_idx]
+        
     else:
         #### No match
         sp = threedhst.catIO.Readfile('HTML/ascii/%s_%05d.dat' %(root, id))
@@ -2022,6 +2025,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         efobs = fobs
         print 'No photometry!'
         unicorn.analysis.HAS_PHOTOMETRY = False
+        unicorn.analysis.PHOTOMETRY_ID = None
         
     use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
@@ -2514,10 +2518,15 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     ax.set_xticklabels(np.array([1.,1.2, 1.4, 1.6]))
     ax.set_xlabel(r'$\lambda$')
     
+    #### Photometry ID label
+    if unicorn.analysis.PHOTOMETRY_ID is not None:
+        ax.text(0.1, 0.8, '%0d' %(unicorn.analysis.PHOTOMETRY_ID), transform = ax.transAxes, horizontalalignment='left', verticalalignment='center', fontsize=9)
+
     ax.set_xlim(0.95e4,1.78e4)
     # ax.set_ylim(0.8*ymin, ymax*1.1)
     ax.set_ylim(-0.1*ymax, 1.2*ymax)
     
+        
     #################################### p(z) for combined, photometry, and spec 
     ax = fig.add_subplot(133)
     

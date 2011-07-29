@@ -1958,8 +1958,25 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
                 fp = open(logfile,'a')
                 fp.write('%s\n' %(object))
                 fp.close()
-                
-                
+                unicorn.analysis.get_open_fds()
+
+#
+def get_open_fds():
+    """
+    Testing, show open files
+    """ 
+    import fcntl
+    fds = []
+    for fd in range(3,resource.RLIMIT_NOFILE):
+            try:
+                    flags = fcntl.fcntl(fd, fcntl.F_GETFD)
+            except IOError:
+                    continue
+			#
+            fds.append(fd)
+	#
+    return fds
+                    
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     import unicorn.analysis
     
@@ -2345,6 +2362,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
 def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True):
     
+    # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO

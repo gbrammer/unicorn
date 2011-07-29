@@ -1949,7 +1949,6 @@ def run_eazy_on_all_objects():
                         status = os.system('rm %s_%05d' %(root, id) + '.eazy.param')
                         status = os.system('rm templates/%s_%05d' %(root, id) + '.spectra.param')   
                         status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
-                    
                 except:
                     pass
                 #    
@@ -2472,7 +2471,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     ax.semilogx([1],[1])
     ymax = max(fobs)
-    ymax = max(fobs[is_spec])
+    ymax = max(fobs[is_spec & (fobs > 0)])
     
     ## photometry
     ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.9, color='orange', markersize=6)
@@ -2516,7 +2515,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     ax.set_xlabel(r'$\lambda$')
     
     ax.set_xlim(0.95e4,1.78e4)
-    ax.set_ylim(0.8*ymin, ymax*1.1)
+    # ax.set_ylim(0.8*ymin, ymax*1.1)
+    ax.set_ylim(-0.1*ymax, 1.2*ymax)
     
     #################################### p(z) for combined, photometry, and spec 
     ax = fig.add_subplot(133)

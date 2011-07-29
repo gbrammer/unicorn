@@ -1925,26 +1925,25 @@ def run_eazy_on_all_objects():
     log_lines = fp.readlines()
     fp.close()
     
-    for field in ['COSMOS','AEGIS','GOODS-S']:
+    os.chdir(unicorn.GRISM_HOME+field)
+    catalogs = glob.glob('HTML/*drz.cat')
+    print field, len(catalogs)
+    
+    for catalog in catalogs:
         os.chdir(unicorn.GRISM_HOME+field)
-        catalogs = glob.glob('HTML/*drz.cat')
-        print field, len(catalogs)
-        
-        for catalog in catalogs:
-            os.chdir(unicorn.GRISM_HOME+field)
-            cat = threedhst.sex.mySexCat(catalog)
-            pointing = os.path.basename(catalog).split('G141')[0]+'G141'
-            for id in cat.id[np.cast[float](cat.FCOVER) > 0.4]:
-                object = '%s_%05d' %(pointing, id)
-                if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
-                    try:
-                        unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log3')
-                    except:
-                        pass
-                    #    
-                    fp = open(logfile,'a')
-                    fp.write('%s\n' %(object))
-                    fp.close()
+        cat = threedhst.sex.mySexCat(catalog)
+        pointing = os.path.basename(catalog).split('G141')[0]+'G141'
+        for id in cat.id[np.cast[float](cat.FCOVER) > 0.4]:
+            object = '%s_%05d' %(pointing, id)
+            if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
+                try:
+                    result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log3')
+                except:
+                    pass
+                #    
+                fp = open(logfile,'a')
+                fp.write('%s\n' %(object))
+                fp.close()
                 
                 
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):

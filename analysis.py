@@ -2328,6 +2328,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     import matplotlib.pyplot as plt
     import threedhst.eazyPy as eazy
+    import threedhst.catIO as catIO
     import unicorn.analysis
     
     t0 = time.time()
@@ -2368,11 +2369,35 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.15*(1+ztmp.z_peak[1])
             eazy_param.params['Z_STEP'] = 0.0025
             eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
-
+            
             print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
             
         else:
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE)
+            ##### No photometry found.  Look for emission lines in the spectrum, 
+            ##### and if one line found, fit it assuming OIII.  If more than one line
+            ##### found, fit full redshift range.
+            spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
+            found_lines = threedhst.spec1d.findLines(spec, trim_abs=True)
+            if len(found_lines) == 0:
+                return False
+                
+            if len(found_lines) == 1:
+                zmin = found_lines[0].wave/5007.-0.1
+                zmax = found_lines[0].wave/5007.+0.1
+                
+            if len(found_lines) > 1:
+                wmin = 1.e5
+                wmax = 0
+                for line in found_lines:
+                    if line.wave < wmin: 
+                        wmin = line.wave
+                    if line.wave > wmax:
+                        wmax = line.wave
+                
+                zmin = wmin/5007.-0.1
+                zmax = wmax/5007.+0.1
+                
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.0025, compress=compress, TILT_COEFFS=[0,1], TEMPLATES_FILE=TEMPLATES_FILE)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
@@ -2536,7 +2561,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         status = os.system('rm %s_%05d' %(root, id) + '.eazy.param')
         status = os.system('rm templates/%s_%05d' %(root, id) + '.spectra.param')
         status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
-#
+    
+    return True
+    
 class MyLocator(mticker.MaxNLocator):
     """
     Set maximum number of ticks, from

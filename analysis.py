@@ -2385,8 +2385,10 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
                 return False
                 
             if len(found_lines) == 1:
-                zmin = found_lines[0].wave/5007.-1-0.1
-                zmax = found_lines[0].wave/4863.-1+0.1
+                zmin = found_lines[0].wave/5007.-1
+                zmax = found_lines[0].wave/4863.-1
+                zmin -= 0.1*(1+zmax)
+                zmax += 0.1*(1+zmax)
                 
             if len(found_lines) > 1:
                 wmin = 1.e5
@@ -2399,6 +2401,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
                 
                 zmin = wmin/5007.-1-0.1
                 zmax = wmax/4863.-1+0.1
+                zmin -= 0.1*(1+zmax)
+                zmax += 0.1*(1+zmax)
                 
             unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=[0,1], TEMPLATES_FILE=TEMPLATES_FILE)
         

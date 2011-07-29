@@ -2181,7 +2181,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fnu_spec = spflux * (lam/5500.)**2
     efnu_spec = sperr * (lam/5500.)**2
     
-    print '\n\nMAX: %f\n\n' %np.max(fnu_spec[use])
+    #print '\n\nMAX: %f\n\n' %np.max(fnu_spec[use])
     if np.max(fnu_spec[use]) <= 0:
         fnu_spec[use] = fnu_spec[use]*0.-100
         efnu_spec[use] = efnu_spec[use]*0.-100

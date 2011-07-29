@@ -1965,7 +1965,8 @@ def get_open_fds():
     """
     Testing, show open files
     """ 
-    import fcntl
+    import fcntl, resource
+    
     fds = []
     for fd in range(3,resource.RLIMIT_NOFILE):
             try:

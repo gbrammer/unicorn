@@ -2368,8 +2368,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
-            eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.1*(1+ztmp.z_peak[1])
-            eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.1*(1+ztmp.z_peak[1])
+            eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1])
+            eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
             eazy_param.params['Z_STEP'] = 0.002
             eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             

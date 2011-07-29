@@ -23,6 +23,8 @@ import unicorn
 
 HAS_PHOTOMETRY = True
 PHOTOMETRY_ID = None
+SPC_FILENAME = None
+SPC = None
 
 noNewLine = '\x1b[1A\x1b[1M'
  
@@ -221,6 +223,7 @@ def read_grism_files(root='COSMOS-3-G141', BASE_PATH='', GRISM_NAME='G141'):
     Read root+'_drz.cat' and the associated SPC file.
     """
     import threedhst
+    import unicorn.analysis
     
     grismCat, SPC = None, None
     
@@ -236,12 +239,19 @@ def read_grism_files(root='COSMOS-3-G141', BASE_PATH='', GRISM_NAME='G141'):
             break
             
     ##### SPC file        
-    try:
-        SPC = threedhst.plotting.SPCFile(root+'_2_opt.SPC.fits',
+    if root+'_2_opt.SPC.fits' == unicorn.analysis.SPC_FILENAME:
+        SPC = unicorn.analysis.SPC
+    else:
+        try:
+            SPC = threedhst.plotting.SPCFile(root+'_2_opt.SPC.fits',
                 axe_drizzle_dir=BASE_PATH+'DRIZZLE_'+GRISM_NAME)
-    except:
-        SPC = None
-        
+            unicorn.analysis.SPC = SPC
+            unicorn.analysis.SPC_FILENAME = SPC.filename
+        except:
+            SPC = None
+            unicorn.analysis.SPC_FILENAME = None
+            unicorn.analysis.SPC = None
+    
     return grismCat, SPC
     
 def make_SED_plots(grism_root='COSMOS-3-G141'):
@@ -1981,6 +1991,7 @@ def get_open_fds():
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     import unicorn.analysis
     
+    # root='COSMOS-23-G141'; id=39; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
     from scipy import polyval
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')

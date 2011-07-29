@@ -2177,6 +2177,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     fnu_spec = spflux * (lam/5500.)**2
     efnu_spec = sperr * (lam/5500.)**2
     
+    print '\n\nMAX: %f\n\n' %np.max(fnu_spec[use])
+    
     for i, l0 in enumerate(lam[use]):
         ### CAT
         cat_head += ' F%0d E%0d' %(nfilt+i+1, nfilt+i+1)
@@ -2430,6 +2432,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             ##### and if one line found, fit it assuming OIII.  If more than one line
             ##### found, fit full redshift range.
             spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
+            
             found_lines = threedhst.spec1d.findLines(spec, trim_abs=True)
             if found_lines is None:
                 return False

@@ -2520,7 +2520,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     #### Photometry ID label
     if unicorn.analysis.PHOTOMETRY_ID is not None:
-        ax.text(0.1, 0.95, '%0d' %(unicorn.analysis.PHOTOMETRY_ID), transform = ax.transAxes, horizontalalignment='left', verticalalignment='center', fontsize=8)
+        ax.text(0.1, 0.95, '%0d' %(unicorn.analysis.PHOTOMETRY_ID), transform = ax.transAxes, horizontalalignment='left', verticalalignment='top', fontsize=8)
 
     ax.set_xlim(0.95e4,1.78e4)
     # ax.set_ylim(0.8*ymin, ymax*1.1)

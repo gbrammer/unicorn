@@ -1958,7 +1958,7 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
                 fp = open(logfile,'a')
                 fp.write('%s\n' %(object))
                 fp.close()
-                unicorn.analysis.get_open_fds()
+                print unicorn.analysis.get_open_fds()
 
 #
 def get_open_fds():

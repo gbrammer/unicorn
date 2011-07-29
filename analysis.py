@@ -2370,7 +2370,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
             eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.1*(1+ztmp.z_peak[1])
             eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.1*(1+ztmp.z_peak[1])
-            eazy_param.params['Z_STEP'] = 0.0025
+            eazy_param.params['Z_STEP'] = 0.002
             eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             
             print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])

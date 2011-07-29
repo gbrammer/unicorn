@@ -1908,13 +1908,16 @@ def run_eazy_on_all_objects():
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
 
-    logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/processed.log'
+    ######
+    #logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/processed.log'
 
     logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/ers.log'
     field = 'ERS'
 
     logfile = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/goods-s.log'
     field = 'GOODS-S'
+    
+    ######
     
     if not os.path.exists(logfile):
         fp = open(logfile,'w')
@@ -1938,6 +1941,14 @@ def run_eazy_on_all_objects():
             if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
                 try:
                     result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log3')
+                    if result is False:
+                        root=pointing
+                        status = os.system('rm %s_%05d' %(root, id) + '_threedhst.cat')
+                        status = os.system('rm %s_%05d' %(root, id) + '.FILT.RES')
+                        status = os.system('rm %s_%05d' %(root, id) + '.eazy.param')
+                        status = os.system('rm templates/%s_%05d' %(root, id) + '.spectra.param')   
+                        status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
+                    
                 except:
                     pass
                 #    

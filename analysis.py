@@ -1948,8 +1948,8 @@ def run_eazy_on_all_objects():
                         status = os.system('rm %s_%05d' %(root, id) + '_threedhst.cat')
                         status = os.system('rm %s_%05d' %(root, id) + '.FILT.RES')
                         status = os.system('rm %s_%05d' %(root, id) + '.eazy.param')
-                        status = os.system('rm templates/%s_%05d' %(root, id) + '.spectra.param')   
-                        status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
+                        status = os.system('rm templates/%s_%05d' %(root,id)+'.spectra.param')   
+                        status = os.system('rm templates/%s_%05d' %(root,id)+'_spectrum.dat')
                 except:
                     pass
                 #    

@@ -1978,7 +1978,7 @@ def get_open_fds():
     import fcntl, resource
     
     fds = []
-    for fd in range(3,resource.RLIMIT_NOFILE):
+    for fd in range(3,1024):
             try:
                     flags = fcntl.fcntl(fd, fcntl.F_GETFD)
             except IOError:

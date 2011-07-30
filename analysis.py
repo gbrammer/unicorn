@@ -2423,6 +2423,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         
         tnorm = time.time()
         
+        if unicorn.analysis.BAD_SPECTRUM:
+            return False
+        
         ########################## Now run
         #### If fitting with photometry, first run with eazy line templates 
         #### and coarse sampling

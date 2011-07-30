@@ -1953,7 +1953,8 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
         os.chdir(unicorn.GRISM_HOME+field)
         if not os.path.exists(catalog.replace('HTML','HTML/SED').replace('drz','match')):
             continue
-        
+        else:
+            print catalog
         cat = threedhst.sex.mySexCat(catalog)
         
         pointing = os.path.basename(catalog).split('G141')[0]+'G141'

@@ -2102,6 +2102,10 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         use = lbin > 0
         lam = lbin; spflux = fbin; sperr = ebin
     
+    if len(lam[use]) < 10:
+        unicorn.analysis.BAD_SPECTRUM = True
+        return False
+        
     #### Take a wavelength bin and convolve it with the thumbnail
     dlam = (lam[use][1]-lam[use][0])*bin_spec
     NBIN = 100

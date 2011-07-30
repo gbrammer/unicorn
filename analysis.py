@@ -1951,7 +1951,11 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
     
     for catalog in catalogs:
         os.chdir(unicorn.GRISM_HOME+field)
+        if not os.path.exists(cat.replace('HTML','HTML/SED').replace('drz','match')):
+            continue
+        
         cat = threedhst.sex.mySexCat(catalog)
+        
         pointing = os.path.basename(catalog).split('G141')[0]+'G141'
         for id in cat.id[np.cast[float](cat.FCOVER) > 0.4]:
             object = '%s_%05d' %(pointing, id)

@@ -2025,7 +2025,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
     
     #### Dummy to get some of the output variables
-    #print root, len(match.rmatch), np.max(match.logm)
+    print root, len(match.rmatch), np.max(match.logm), match.id_f140w[ok][0]
     
     ok = (match.rmatch < 1) & (match.logm > 10.)
     lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=match.id_f140w[ok][0],

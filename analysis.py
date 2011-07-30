@@ -2026,7 +2026,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     #### Dummy to get some of the output variables    
     ok = (match.rmatch < 1) & (match.logm > 10.)
-    print root, len(match.rmatch), np.max(match.logm), match.id_f140w[ok][0]
+    #print root, len(match.rmatch), np.max(match.logm), match.id_f140w[ok][0]
     lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=match.id_f140w[ok][0],
         grism_root=root, SPC = SPC, 
         cat = cat,

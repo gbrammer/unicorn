@@ -2289,6 +2289,9 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     #####  Get the f_lambda fluxes with the original (not trimmed) filters
     unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param')
     
+    if unicorn.analysis.BAD_SPECTRUM:
+        return [0,1]
+    
     if unicorn.analysis.HAS_PHOTOMETRY is False:
         return [0,1]
     

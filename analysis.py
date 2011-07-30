@@ -2525,6 +2525,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
     
     ax.semilogx([1],[1])
     ymax = max(fobs)
+    if len(fobs[is_spec & (fobs > 0)]) < 5:
+        return False
+        
     ymax = max(fobs[is_spec & (fobs > 0)])
     
     ## photometry

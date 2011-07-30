@@ -2032,15 +2032,21 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     #### Dummy to get some of the output variables    
     ok = (match.rmatch < 1) & (match.logm > 10.)
     #print root, len(match.rmatch), np.max(match.logm), match.id_f140w[ok][0]
-    lam, spflux, sperr, lci, fobs, efobs, photom_idx = unicorn.analysis.specphot(id=match.id_f140w[ok][0],
-        grism_root=root, SPC = SPC, 
-        cat = cat,
-        grismCat = grismCat, zout = zout, fout = fout, 
-        OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
-        MAIN_OUTPUT_FILE = MAIN_OUTPUT_FILE,
-        OUTPUT_DIRECTORY = OUTPUT_DIRECTORY,
-        CACHE_FILE = 'Same',
-        GET_SPEC_ONLY = True)
+    result = False
+    i=0
+    while (result is False) & (i < len(match.rmatch[ok])):
+        result = unicorn.analysis.specphot(id=match.id_f140w[ok][i],
+            grism_root=root, SPC = SPC, 
+            cat = cat,
+            grismCat = grismCat, zout = zout, fout = fout, 
+            OUT_PATH = './HTML/SED/', OUT_FILE_FORMAT=True, Verbose=False,
+            MAIN_OUTPUT_FILE = MAIN_OUTPUT_FILE,
+            OUTPUT_DIRECTORY = OUTPUT_DIRECTORY,
+            CACHE_FILE = 'Same',
+            GET_SPEC_ONLY = True)
+        i+=1
+    #
+    lam, spflux, sperr, lci, fobs, efobs, photom_idx = result
     
     #### Object
     result = unicorn.analysis.specphot(id=id,

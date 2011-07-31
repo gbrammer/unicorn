@@ -2410,7 +2410,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
@@ -2455,12 +2455,17 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
-            eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1])
-            eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
             eazy_param.params['Z_STEP'] = 0.002
-            eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             
-            print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
+            if force_zrange:
+                eazy_param.params['Z_MIN'] = zmin
+                eazy_param.params['Z_MAX'] = zmax                
+            else:
+                eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1])
+                eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
+                print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
+
+            eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             
         else:
             ##### No photometry found.  Look for emission lines in the spectrum, 

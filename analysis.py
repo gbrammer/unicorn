@@ -1818,8 +1818,11 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
     lines = fp.readlines()
     fp.close()
     
-    example_zout = glob.glob('OUTPUT/*.zout')[0]
-    os.system('head -1 ' + example_zout + ' > '+html.replace('html','zout'))
+    # example_zout = glob.glob('OUTPUT/*.zout')[0]
+    # os.system('head -1 ' + example_zout + ' > '+html.replace('html','zout'))
+    fp = open(html.replace('html','zout'),'w')
+    fp.write('# id z_spec z_a z_m1 chi_a z_p chi_p z_m2 odds l68 u68  l95 u95  l99 u99  nfilt q_z z_peak peak_prob z_mc\n')
+    fp.close()
     
     for i,line in enumerate(lines):
         failed = False

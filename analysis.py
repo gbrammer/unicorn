@@ -1761,58 +1761,6 @@ def run_eazy_products_on_html(out):
     #status = os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
     status = os.system('rsync -avz *zz.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
     
-def make_full_redshift_catalog():
-    """
-    Cat all individual zout files into a single file
-    """
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
-    files = glob.glob('OUTPUT/*G141*zout')
-    fp = open(files[0])
-    lines = fp.readlines()
-    fp.close()
-    for file in files[1:]:
-        print noNewLine+file
-        fp = open(file)
-        lines.extend(fp.readlines()[2:])
-        fp.close()
-        
-    fp = open('full_redshift.zout','w')
-    fp.writelines(lines)
-    fp.close()
-    
-    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.zout')
-    
-def combine_matched_catalogs():
-    """
-    Combine all of the match catalogs in the HTML/SED directories, adding
-    the correct object id with the full pointing name.
-    """
-    
-    os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-    files = glob.glob('../SED/*match.cat')
-    fp = open(files[0])
-    full_lines = fp.readlines()[0:2]
-    fp.close()
-    for file in files:
-        pointing = os.path.basename(file).split('_match')[0]
-        print noNewLine+pointing
-        fp = open(file)
-        lines = fp.readlines()[3:]
-        fp.close()
-        for line in lines:
-            spl = line.split()
-            id = int(spl[0])
-            object = "%s_%05d  " %(pointing, id)
-            full_lines.append(object+'  '.join(spl[1:])+'\n')
-    
-    fp = open('full_match.cat','w')
-    fp.writelines(full_lines)
-    fp.close()
-    
-    status = os.system('gzip full_match.cat')
-    
-    
 def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1.0):
     import unicorn
     
@@ -2686,34 +2634,6 @@ class MyLocator(mticker.MaxNLocator):
 
     def __call__(self, *args, **kwargs):
         return mticker.MaxNLocator.__call__(self, *args, **kwargs)
-
-def eqw_catalog():
-    """ 
-    Make a full catalog of the line fluxes / eq. widths
-    """
-    import unicorn.analysis
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
-    files=glob.glob('OUTPUT/*G141*.coeff')
-    lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
-    for file in files:
-        object=os.path.basename(file).split('.coeff')[0]
-        print noNewLine+object
-        root=object.split('G141')[0]+'G141'
-        id = int(object.split('G141_')[1])
-        #
-        try:
-            obj,z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
-        except:
-            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = -1,-1,-1,-1,-1,-1,-1
-        #
-        lines.append('%s %8.3f %8.2f %5.2e %8.2f %5.2e %8.2f %5.2e\n' %(object, z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux))
-    
-    fp = open('full_emission_lines.cat','w')
-    fp.writelines(lines)
-    fp.close()
-     
-    status = os.system('cp full_emission_lines.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_emission_lines.cat')
     
 def equivalent_width(root='GOODS-S-24-G141', id=29):
     """ 

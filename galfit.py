@@ -426,7 +426,7 @@ def get_thumb(id=None, root='orient1',
 def sync():
     import os
     print 'Syncing GALFIT files...'
-    os.system('rsync -az /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM/GALFIT/')
+    os.system('rsync -az /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/GALFIT/')
     print noNewLine+'Syncing GALFIT files...Done.'
     
 def make_full_catalog(output='full_galfit.cat'):
@@ -472,8 +472,8 @@ def make_full_catalog(output='full_galfit.cat'):
     fp.writelines(lines)
     fp.close()
     
-    status = os.system('cp '+output+' /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+output)
+    status = os.system('cp '+output+' /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/'+output)
     
     
 def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
@@ -486,6 +486,13 @@ def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
     else:
         return 'star_PSF.fits'
       
+def fit_all_fields():
+    unicorn.galfit.fits_for_samples(field='AEGIS')
+    unicorn.galfit.fits_for_samples(field='COSMOS')
+    unicorn.galfit.fits_for_samples(field='GOODS-S')
+    unicorn.galfit.fits_for_samples(field='GOODS-N')
+    unicorn.galfit.fits_for_samples(field='AEGIS')
+
 def fits_for_samples(field=''):
     """
     Run galfit on every object in that has the EAZY redshift fit completed.  The 

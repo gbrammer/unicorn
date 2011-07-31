@@ -832,6 +832,10 @@ def eqw_catalog():
     import unicorn.analysis
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     files=glob.glob('OUTPUT/*G141*.coeff')
+    if len(files) == 0:
+        os.system("ls OUTPUT/ |grep G141 |grep coeff |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
+        files = np.loadtxt('files.list', dtype=np.str)
+
     lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
     for file in files:
         object=os.path.basename(file).split('.coeff')[0]

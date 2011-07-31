@@ -770,7 +770,7 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         for file in files:
             if skip_goodsn:
                 if not 'GOODS-N' in file:
-                    maches.append(file)
+                    matches.append(file)
             else:
                 matches.append(file)
     else:
@@ -1721,7 +1721,7 @@ def make_full_selection(zmin=None, zmax=None):
     out='mass_11_F140W_22.html'
 
     ########## Massive z>1 galaxies
-    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=24., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=24., zrange=(1, 1.5),  use_kmag=False, contam=0.2, coverage=0.9)
     out='mass_11_z_1_1.5.html'
 
     unicorn.analysis.show_massive_galaxies(masslim=10.49, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
@@ -1757,7 +1757,8 @@ def run_eazy_products_on_html(out):
     unicorn.analysis.process_eazy_redshifts(html=out, zmin=0.2, zmax=3.8, compress=0.8)
     unicorn.analysis.show_triple_zphot_zspec(zout=out.replace('html','zout'), zmin=0, zmax=2.5)
     
-    status = os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
+    #status = os.system('rsync -avz *.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
+    status = os.system('rsync -avz *zz.png *.html *.pdf ~/Sites_GLOBAL/P/GRISM_v1.6/EAZY/')
     
 def make_full_redshift_catalog():
     """

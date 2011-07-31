@@ -824,7 +824,34 @@ def combine_matched_catalogs():
     fp.close()
     
     status = os.system('gzip full_match.cat')
+
+def eqw_catalog():
+    """ 
+    Make a full catalog of the line fluxes / eq. widths
+    """
+    import unicorn.analysis
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    files=glob.glob('OUTPUT/*G141*.coeff')
+    lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
+    for file in files:
+        object=os.path.basename(file).split('.coeff')[0]
+        print noNewLine+object
+        root=object.split('G141')[0]+'G141'
+        id = int(object.split('G141_')[1])
+        #
+        try:
+            obj,z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
+        except:
+            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = -1,-1,-1,-1,-1,-1,-1
+        #
+        lines.append('%s %8.3f %8.2f %5.2e %8.2f %5.2e %8.2f %5.2e\n' %(object, z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux))
     
+    fp = open('full_emission_lines.cat','w')
+    fp.writelines(lines)
+    fp.close()
+     
+    status = os.system('cp full_emission_lines.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_emission_lines.cat')
 
 def show_acs_spectra():
     import unicorn.catalogs

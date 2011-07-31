@@ -486,7 +486,7 @@ def get_galfit_psf_image(object='COSMOS-15-G141_00388'):
     else:
         return 'star_PSF.fits'
       
-def fits_for_samples():
+def fits_for_samples(field=''):
     """
     Run galfit on every object in that has the EAZY redshift fit completed.  The 
     outputs of the redshift fits are in /Users/gbrammer/Sites_GLOBAL/P/GRISM/EAZY/.
@@ -496,7 +496,7 @@ def fits_for_samples():
     
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
     
-    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/EAZY/*eazy.png')
+    files = glob.glob('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/EAZY/'+field+'*eazy.png')
     
     for file in files:
         object = os.path.basename(file.split('_eazy')[0])

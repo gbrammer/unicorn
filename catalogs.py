@@ -683,7 +683,7 @@ def make_object_tarfiles(objects, thumbs=True):
     print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/[st]*tar.gz .'
     
 def combine_sextractor_catalogs():
-    os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM')
+    os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/')
 
     files=glob.glob('*drz.cat')
     

@@ -769,8 +769,63 @@ def combine_sextractor_catalogs():
     fp.write(header)
     fp.writelines(out_lines)
     fp.close()
+
+def make_full_redshift_catalog():
+    """
+    Cat all individual zout files into a single file
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    files = glob.glob('OUTPUT/*G141*zout')
+    if len(files) == 0:
+        os.system('ls OUTPUT |grep G141 |grep zout > files.list')
+        files = np.loadtxt('files.list', dtype=np.str)
+        
+    fp = open(files[0])
+    lines = fp.readlines()
+    fp.close()
+    for file in files[1:]:
+        print noNewLine+file
+        fp = open(file)
+        lines.extend(fp.readlines()[2:])
+        fp.close()
+        
+    fp = open('full_redshift.zout','w')
+    fp.writelines(lines)
+    fp.close()
     
+    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.zout')
     
+def combine_matched_catalogs():
+    """
+    Combine all of the match catalogs in the HTML/SED directories, adding
+    the correct object id with the full pointing name.
+    """
+    
+    os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    files = glob.glob('../SED/*match.cat')
+    fp = open(files[0])
+    full_lines = fp.readlines()[0:2]
+    fp.close()
+    for file in files:
+        pointing = os.path.basename(file).split('_match')[0]
+        print noNewLine+pointing
+        fp = open(file)
+        lines = fp.readlines()[3:]
+        fp.close()
+        for line in lines:
+            spl = line.split()
+            id = int(spl[0])
+            object = "%s_%05d  " %(pointing, id)
+            full_lines.append(object+'  '.join(spl[1:])+'\n')
+    
+    fp = open('full_match.cat','w')
+    fp.writelines(full_lines)
+    fp.close()
+    
+    status = os.system('gzip full_match.cat')
+    
+
 def show_acs_spectra():
     import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays

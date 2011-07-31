@@ -763,7 +763,7 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     """
     
     if unicorn.hostname().startswith('unicorn'):
-        os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+        os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
         scripts="../scripts"
         files = glob.glob('../SED/*match.cat')
         matches = []
@@ -1750,7 +1750,7 @@ def run_eazy_products_on_html(out):
     if out is not 'massive.html':
         shutil.move('massive.html', out)
         
-    shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
+    shutil.copy('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/'+out, unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     #out='full_faint.html'
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     
@@ -1778,8 +1778,8 @@ def make_full_redshift_catalog():
     fp.writelines(lines)
     fp.close()
     
-    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/full_redshift.zout')
+    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.zout')
     
 def combine_matched_catalogs():
     """
@@ -1787,7 +1787,7 @@ def combine_matched_catalogs():
     the correct object id with the full pointing name.
     """
     
-    os.chdir('/Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
+    os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
     files = glob.glob('../SED/*match.cat')
     fp = open(files[0])
     full_lines = fp.readlines()[0:2]
@@ -2701,8 +2701,8 @@ def eqw_catalog():
     fp.writelines(lines)
     fp.close()
      
-    status = os.system('cp full_emission_lines.cat /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.5/ANALYSIS/full_emission_lines.cat')
+    status = os.system('cp full_emission_lines.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_emission_lines.cat')
     
 def equivalent_width(root='GOODS-S-24-G141', id=29):
     """ 

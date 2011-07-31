@@ -714,8 +714,8 @@ def combine_sextractor_catalogs():
         fp.close()
         pointing = file.split('-G141')[0]
         field = re.split('-[1-9]',pointing)[0]
-        if field.startswith('GEORGE'):
-            pointing_number = '1'
+        if len(pointing.split(field+'-')) == 1:
+            pointing_number == '1'
         else:
             pointing_number = pointing.split(field+'-')[1]
         #
@@ -755,7 +755,7 @@ def combine_sextractor_catalogs():
         fp.close()
         pointing = file.split('-G141')[0]
         field = re.split('-[1-9]',pointing)[0]
-        if field.startswith('GEORGE'):
+        if len(pointing.split(field+'-')) == 1:
             pointing_number = '1'
         else:
             pointing_number = pointing.split(field+'-')[1]

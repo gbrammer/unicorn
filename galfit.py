@@ -440,7 +440,11 @@ def make_full_catalog(output='full_galfit.cat'):
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
     
     files=glob.glob('*G141*log')
-    
+    if files == []:
+        ### For some reason, glob doesn't appear to work when too many files present
+        os.system('ls |grep G141 |grep log > files.list')
+        files = np.loadtxt('files.list', dtype=np.str)
+        
     lines = ['# id   PSF_FIT   r_e  r_e_err   n  n_err  ba  ba_err   chi2\n']
     for file in files:
         object = file.split('_galfit')[0]

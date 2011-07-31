@@ -1721,7 +1721,7 @@ def make_full_selection(zmin=None, zmax=None):
     out='mass_11_F140W_22.html'
 
     ########## Massive z>1 galaxies
-    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=24., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_11_z_1_1.5.html'
 
     unicorn.analysis.show_massive_galaxies(masslim=10.49, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)

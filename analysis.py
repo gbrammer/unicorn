@@ -784,10 +784,10 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
         if not skip_goodsn:
             matches.extend(glob.glob('../GOODS-N/HTML/SED/*match.cat'))
         
-        matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
+        # matches.extend(glob.glob('../SN-GEORGE/HTML/SED/*match.cat'))
         # matches.extend(glob.glob('../SN-PRIMO/HTML/SED/*match.cat'))    
-        matches.extend(glob.glob('../SN-MARSHALL/HTML/SED/*match.cat'))
-        # matches.extend(glob.glob('../ERS/HTML/SED/*match.cat'))
+        # matches.extend(glob.glob('../SN-MARSHALL/HTML/SED/*match.cat'))
+        matches.extend(glob.glob('../ERS/HTML/SED/*match.cat'))
     
     print matches
     
@@ -1979,12 +1979,12 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
                 fp = open(logfile,'a')
                 fp.write('%s\n' %(object))
                 fp.close()
-                print unicorn.analysis.get_open_fds()
+                #print unicorn.analysis.get_open_fds()
 
 #
 def get_open_fds():
     """
-    Testing, show open files
+    Show open files because was getting "too many open files" error.
     """ 
     import fcntl, resource
     

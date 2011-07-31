@@ -1834,8 +1834,8 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
             
             if not os.path.exists('OUTPUT/%s.zout' %(object)):
                 try:
-                    print object
-                    unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress, COMPUTE_TILT=True, TILT_ORDER=1)
+                    print 'MISSING! '+object
+                    #unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = '/usr/local/bin/eazy_latest', zmin=zmin, zmax=zmax, compress=compress, COMPUTE_TILT=True, TILT_ORDER=1)
                     #os.system('cat OUTPUT/threedhst.zout > OUTPUT/%s.zout' %(object))
                 except:
                     status = os.system('echo "" > OUTPUT/%s.zout' %(object))

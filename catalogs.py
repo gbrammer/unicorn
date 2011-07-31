@@ -58,7 +58,7 @@ def test_plots():
     from unicorn.catalogs import match_string_arrays
     import cosmocalc
     
-    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/')
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
     
     ######################################
     #### Full photometry
@@ -117,7 +117,7 @@ def test_plots():
     #### Redshifts and masses
     ######################################
     
-    zout = catIO.Readfile('full_redshift.zout')
+    zout = catIO.Readfile('full_redshift.cat')
     pointing = []
     field = []
     for obj in zout.id[0::3]:
@@ -133,7 +133,7 @@ def test_plots():
     zsp = zout.z_spec[0::3] > 0
     dz = (zout.z_peak-zout.z_spec)/(1+zout.z_spec)
     found, idx = match_string_arrays(zout.id[0::3], mcat.id_f140w)
-    idx = idx[idx >= 0]
+    #idx = idx[idx >= 0]
     zsp = zsp & found
 
     ######################################
@@ -150,8 +150,8 @@ def test_plots():
     #### Galfit
     #####################################
     gfit = catIO.Readfile('full_galfit.cat')
-    found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.object, zout.id[0::3])
-    found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.object)
+    found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
+    found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
     
     #### Make a grid of redshifts to compute the plate scale and then interpolate it.
     zgrid = np.arange(100)/100.*4+1./100
@@ -184,14 +184,30 @@ def test_plots():
     # unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
     
     ##### Q_z vs dz
-    plt.semilogx(zout.q_z[0::3][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='red', alpha=0.4)
+    plt.semilogx(zout.q_z[0::3][zsp & dr], dz[0::3][zsp & dr], marker='o', linestyle='None', color='red', alpha=0.4)
     plt.ylim(-0.2, 0.2)
     plt.xlim(1.e-3, 10)
     plt.xlabel(r'$Q_z$')
     plt.ylabel(r'$\Delta z$')
 
     ##### z vs dz
-    fig = plt.figure(figsize=(5.5,5), dpi=100)
+    qz = zout.q_z < 0.1
+    eqw = -lines.halpha_eqw[idx_lines] < 30
+    
+    main = zsp & dr
+    test = eqw[main]
+    
+    plt.plot(zout.z_spec[0::3][main][test], dz[0::3][main][test], marker='o', linestyle='None', color='red', alpha=0.05)
+    plt.plot(zout.z_spec[0::3][main][~test], dz[0::3][main][~test], marker='o', linestyle='None', color='blue', alpha=0.05)
+    plt.ylim(-0.2, 0.2)
+    plt.xlim(0, 4)
+    plt.xlabel(r'$z_\mathrm{spec}$')
+    plt.ylabel(r'$\Delta z$')
+    
+    #### Real figure
+    fig = unicorn.catalogs.plot_init()
+    
+    #fig = plt.figure(figsize=(5.5,5), dpi=100)
     fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.15,
                         bottom=0.10,right=0.99,top=0.97)
 
@@ -221,6 +237,7 @@ def test_plots():
     plt.xlabel(r'$z_\mathrm{spec}$')
     plt.ylabel(r'$\Delta z$')
     plt.text(1.5,-0.05,r'$\sigma=%.3f$' %(threedhst.utils.biweight(dz[0::3][zsp & keep & stats])), fontsize=16)
+    plt.text(0.9,-0.05,r'$N=%0d$' %(len(dz[0::3][zsp & keep & stats])), fontsize=16)
 
     plt.savefig('redshift_errors.pdf')
     plt.savefig('redshift_errors.png')
@@ -249,17 +266,19 @@ def test_plots():
     ##### Redshift distribution
     unicorn.catalogs.plot_init()
     
-    hist = np.histogram(zout.z_peak[0::3][keep], bins=100, range=(1,1.5))
-    plt.plot((hist[1][:-1]+hist[1][1:])/2., hist[0], linestyle='steps', color='black', alpha=0.5)
+    hist = np.histogram(zout.z_spec[0::3][keep], bins=200, range=(1,1.5))
+    plt.plot((hist[1][:-1]+hist[1][1:])/2., 0-hist[0], linestyle='steps', color='red', alpha=0.8)
+    hist = np.histogram(zout.z_peak[0::3][keep], bins=200, range=(1,1.5))
+    plt.plot((hist[1][:-1]+hist[1][1:])/2., hist[0], linestyle='steps', color='black', alpha=0.8)
     hist_wide = np.histogram(zout.z_peak[0::3][keep], bins=6, range=(0.9,1.5))
     plt.plot(hist_wide[1][1:], hist_wide[0]/20., linestyle='steps', color='black', alpha=0.5, linewidth=4)
     #plt.plot((hist_wide[1][:-1]+hist_wide[1][1:])/2., hist_wide[0]/20., linestyle='steps', color='black', alpha=0.5, linewidth=4)
     plt.xlim(1,1.5)
-    plt.ylim(0,30)
-    plt.xlabel(r'$z_\mathrm{grism}\ (\Delta z=0.005)$')
+    plt.ylim(-10,30)
+    plt.xlabel(r'$z_\mathrm{grism}\ (\Delta z=0.0025)$')
     plt.ylabel(r'$N\ \ (N_\mathrm{tot}=%d)$' %len(zout.z_peak[0::3][keep]))
    
-    peak = np.abs(zout.z_peak[0::3][keep]-1.335) < 0.005
+    peak = np.abs(zout.z_peak[0::3][keep]-1.020) < 0.005
     zout.id[0::3][keep][peak]
     
     plt.savefig('redshift_dist.pdf')
@@ -267,10 +286,15 @@ def test_plots():
     
     ##### line strength vs dz
     
-    plt.semilogx(-lines.halpha_eqw[idx_lines][zsp & keep], dz[0::3][zsp & keep], marker='o', linestyle='None', color='blue', alpha=0.4)
+    haw = -lines.oiii_eqw
+    xmax = 2500
+    NBAD = len(haw[haw > xmax])
+    haw[haw > xmax] = xmax + np.random.randn(NBAD)*10.
+    
+    plt.semilogx(haw[idx_lines][zsp & dr], dz[0::3][zsp & dr], marker='o', linestyle='None', color='blue', alpha=0.4)
     plt.ylim(-0.2, 0.2)
-    plt.xlim(0.1, 500)
-    plt.xlabel(r'$\log M/M_\odot$')
+    plt.xlim(0.1, xmax+100)
+    plt.xlabel(r'$\mathrm{H}\alpha\ \mathrm{EQW}$')
     plt.ylabel(r'$\Delta z$')
     
     ##### plot mass vs equivalent width
@@ -299,7 +323,6 @@ def test_plots():
     # unicorn.catalogs.plot_init()
     # plt.contourf(xedge[1:], 10**yedge[1:], hist.transpose(), Vbins, colors=Vcolors, alpha=1.0, linethick=2)
     # plt.semilogy(mcat.logm[idx][keep], -lines.halpha_eqw[idx_lines][keep]/(1+zout.z_peak[0::3][keep]), marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
-    f_init
     
     plt.ylim(0.1, 500)
     plt.xlim(9, 11.6)
@@ -354,7 +377,7 @@ def test_plots():
     vd08 = catIO.Readfile('vd08_sdss.dat')
     plt.plot(vd08.logm, 10**vd08.log_re, marker='None', color='green', alpha=0.3, linewidth=14)
     
-    plt.ylim(0.6, 20)
+    plt.ylim(0.2, 20)
     plt.xlim(9, 11.6)
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$r_\mathrm{e}\ \mathrm{(kpc)}$')
@@ -547,7 +570,7 @@ def fill_image(objects, x, y, scale=None, xrange=(0,1), yrange=(0,1), NX=1024, N
     
 def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show_lines=False):
     
-    zout = catIO.Readfile('full_redshift.zout')
+    zout = catIO.Readfile('full_redshift.cat')
     
     #objects = ['GOODS-S-24-G141_00459','GOODS-N-27-G141_00447']
     xm = np.array([3000,8000])
@@ -769,7 +792,9 @@ def combine_sextractor_catalogs():
     fp.write(header)
     fp.writelines(out_lines)
     fp.close()
-
+    
+    status = os.system('gzip ANALYSIS/*_sextractor.cat')
+    
 def make_full_redshift_catalog():
     """
     Cat all individual zout files into a single file
@@ -789,12 +814,12 @@ def make_full_redshift_catalog():
         lines.extend(fp.readlines()[2:])
         fp.close()
         
-    fp = open('full_redshift.zout','w')
+    fp = open('full_redshift.cat','w')
     fp.writelines(lines)
     fp.close()
     
-    status = os.system('cp full_redshift.zout /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.zout')
+    status = os.system('cp full_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.cat')
     
 def combine_matched_catalogs():
     """
@@ -868,7 +893,7 @@ def show_acs_spectra():
     #### Redshifts and masses
     ######################################
     
-    zout = catIO.Readfile('full_redshift.zout')
+    zout = catIO.Readfile('full_redshift.cat')
     pointing = []
     field = []
     for obj in zout.id[0::3]:

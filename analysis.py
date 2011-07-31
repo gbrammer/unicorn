@@ -1818,7 +1818,8 @@ def process_eazy_redshifts(html='massive.html', zmin=None, zmax=None, compress=1
     lines = fp.readlines()
     fp.close()
     
-    os.system('head -1 OUTPUT/threedhst.zout > '+html.replace('html','zout'))
+    example_zout = glob.glob('OUTPUT/*.zout')[0]
+    os.system('head -1 ' + example_zout + ' > '+html.replace('html','zout'))
     
     for i,line in enumerate(lines):
         failed = False

@@ -777,7 +777,7 @@ def make_full_redshift_catalog():
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     files = glob.glob('OUTPUT/*G141*zout')
     if len(files) == 0:
-        os.system('ls OUTPUT |grep G141 |grep zout > files.list')
+        os.system("ls OUTPUT/ |grep G141 |grep zout |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
         files = np.loadtxt('files.list', dtype=np.str)
         
     fp = open(files[0])

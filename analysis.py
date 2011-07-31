@@ -1723,11 +1723,12 @@ def make_full_selection(zmin=None, zmax=None):
     ########## Massive z>1 galaxies
     unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=24., zrange=(1, 1.5),  use_kmag=False, contam=0.2, coverage=0.9)
     out='mass_11_z_1_1.5.html'
+    unicorn.analysis.run_eazy_products_on_html(out)
 
     unicorn.analysis.show_massive_galaxies(masslim=10.49, maglim=23., zrange=(1, 1.5),  use_kmag=False, contam=0.05, coverage=0.9)
     out='mass_10.5_z_1_1.5.html'
 
-    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1.5, 2.5),  use_kmag=False, contam=0.05, coverage=0.9)
+    unicorn.analysis.show_massive_galaxies(masslim=10.99, maglim=23., zrange=(1.5, 2.5),  use_kmag=False, contam=0.2, coverage=0.9)
     out='mass_11_z_1.5_2.5.html'
     
     unicorn.analysis.show_massive_galaxies(masslim=10., maglim=22., zrange=(1.0,1.5),  use_kmag=False, contam=0.05, coverage=0.9)
@@ -1738,7 +1739,7 @@ def make_full_selection(zmin=None, zmax=None):
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
-    unicorn.analysis.show_massive_galaxies(masslim=10, maglim=21, zrange=(0.2,0.3),  use_kmag=False, contam=0.1, coverage=0.8)
+    unicorn.analysis.show_massive_galaxies(masslim=9, maglim=22, zrange=(1.1,4),  use_kmag=False, contam=0.1, coverage=0.8)
     out='test.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     

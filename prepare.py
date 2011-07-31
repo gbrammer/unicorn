@@ -145,6 +145,8 @@ def COSMOS(FORCE=False):
     import glob
     import os
     
+    #### COSMOS-17 alignment is bad
+    
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
     #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'

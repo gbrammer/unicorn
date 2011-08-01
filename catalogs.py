@@ -118,6 +118,8 @@ def test_plots():
     ######################################
     
     zout = catIO.Readfile('full_redshift.cat')
+    unicorn.catalogs.zout = zout
+    
     pointing = []
     field = []
     for obj in zout.id[0::3]:
@@ -180,8 +182,8 @@ def test_plots():
     keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
     
     ### copy to macbook
-    # copy = keep & (mcat.logm[idx] > 8.)
-    # unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy])
+    copy = keep & (mcat.logm[idx] > 8.)
+    # unicorn.catalogs.make_object_tarfiles(zout.id[0::3][copy], thumbs=False)
     
     ##### Q_z vs dz
     plt.semilogx(zout.q_z[0::3][zsp & dr], dz[0::3][zsp & dr], marker='o', linestyle='None', color='red', alpha=0.4)
@@ -401,8 +403,8 @@ def test_plots():
     plt.plot([0,100],[4,4], color='red', linestyle='--', alpha=0.4, linewidth=4)
     plt.ylim(0.2, 21)
     plt.xlim(9, 11.6)
-    plt.text(9.2,1.1,r'$n=1$', fontsize=14)
-    plt.text(9.2,4.4,r'$n=4$', fontsize=14)
+    plt.text(11.5,1.1,r'$n=1$', fontsize=14, horizontalalignment='right')
+    plt.text(11.5,4.4,r'$n=4$', fontsize=14, horizontalalignment='right')
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$n$')
     
@@ -431,35 +433,45 @@ def test_plots():
     ######### Composite spectra
     eqw = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     
-    mass = keep & (mcat.logm[idx] > 10.6)
+    mass = keep & (mcat.logm[idx] > 10.)
     
     eqws = eqw[mass]
     eqws.sort()
     quartiles = eqws[np.cast[int](np.round(np.array([0.25,0.5,0.75])*len(eqws)))]
     thirds = eqws[np.cast[int](np.round(np.array([1./3, 2./3])*len(eqws)))]
     
-    high_eqw = (eqw > 23.7) & mass
-    med_eqw = (eqw > 9.8) & (eqw <= 23.7) & mass
-    low_eqw = (eqw <= 9.8) & mass
-    
+    high_eqw = (eqw > 40) & mass
+    med_eqw = (eqw > 10) & (eqw <= 40) & mass
+    low_eqw = (eqw <= 10) & mass
+        
     unicorn.catalogs.plot_init(square=True, xs=7)
     
-    unicorn.catalogs.composite_spectra(lines.id[idx_lines][high_eqw], color='blue', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=True)
-    plt.text(7700,1.8,r'$N_\mathrm{EW>24}=%d$' %(len(lines.id[idx_lines][high_eqw])), color='blue', horizontalalignment='right')
+    bins = quartiles
+    colors = ['red','orange','green','blue']
+    
+    lnorm = 5900
+    #### Lower limit
+    eqw_bin = (eqw < bins[0]) & mass
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][eqw_bin], color=colors[0], alpha=0.02, lnorm=lnorm, NITER=3, show_lines=True)
+    plt.text(7700,1.6,r'$N_\mathrm{EW<%.1f}=%d$' %(bins[0], len(lines.id[idx_lines][eqw_bin])), color=colors[0], horizontalalignment='right')
+    # plt.ylim(0.7,2)
+    # plt.xlim(4300, 7900)
+    
+    #### Middle bins
+    for i in range(0,len(bins)-1):
+        eqw_bin = (eqw >= bins[i]) & (eqw < bins[i+1]) & mass
+        unicorn.catalogs.composite_spectra(lines.id[idx_lines][eqw_bin], color=colors[i+1], alpha=0.02, lnorm=lnorm, NITER=3, show_lines=True)
+        plt.text(7700,1.6+(i+1)*0.1,r'$N_\mathrm{%.1f<EW<%.1f}=%d$' %(bins[i], bins[i+1], len(lines.id[idx_lines][eqw_bin])), color=colors[i+1], horizontalalignment='right')
+    
+    #### Upper bin
+    eqw_bin = (eqw > bins[-1]) & mass
+    unicorn.catalogs.composite_spectra(lines.id[idx_lines][eqw_bin], color=colors[-1], alpha=0.02, lnorm=lnorm, NITER=3, show_lines=True)
+    plt.text(7700,1.6+(i+2)*0.1,r'$N_\mathrm{EW>%.1f}=%d$' %(bins[-1], len(lines.id[idx_lines][eqw_bin])), color=colors[-1], horizontalalignment='right')
+    
+    plt.text(7700,1.5,r'$\log\ M/M_\odot > %.1f$' %(np.min(mcat.logm[idx][mass])), color='black', horizontalalignment='right')
+    
     plt.ylim(0.7,2)
-    plt.xlim(4300, 7900)
-
-    #unicorn.catalogs.plot_init()
-    unicorn.catalogs.composite_spectra(lines.id[idx_lines][med_eqw], color='green', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=False)
-    plt.text(7700,1.7,r'$N_\mathrm{10<EW<24}=%d$' %(len(lines.id[idx_lines][med_eqw])), color='green', horizontalalignment='right')
-    plt.ylim(0.7,2)
-    plt.xlim(4300, 7900)
-
-    #unicorn.catalogs.plot_init()
-    unicorn.catalogs.composite_spectra(lines.id[idx_lines][low_eqw], color='red', alpha=0.02, lnorm=6.e3, NITER=3, show_lines=False)
-    plt.text(7700,1.6,r'$N_\mathrm{EW<10}=%d$' %(len(lines.id[idx_lines][low_eqw])), color='red', horizontalalignment='right')
-    plt.ylim(0.7,2)
-    plt.xlim(4300, 7900)
+    plt.xlim(4500, 7900)
     
     plt.xlabel(r'$\lambda_\mathrm{rest}$')
     plt.ylabel(r'$f_\lambda$')
@@ -569,8 +581,9 @@ def fill_image(objects, x, y, scale=None, xrange=(0,1), yrange=(0,1), NX=1024, N
     return im
     
 def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show_lines=False):
+    import unicorn.catalogs
     
-    zout = catIO.Readfile('full_redshift.cat')
+    zout = unicorn.catalogs.zout #catIO.Readfile('full_redshift.cat')
     
     #objects = ['GOODS-S-24-G141_00459','GOODS-N-27-G141_00447']
     xm = np.array([3000,8000])
@@ -585,7 +598,7 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         zi = zout.z_peak[0::3][zout.id[0::3] == object][0]
         #
         try:
-            data = np.loadtxt('DATA/'+object+'_scaled.dat')
+            data = np.loadtxt('DATA/'+object+'_obs_sed.dat')
         except:
             continue
         #           
@@ -600,16 +613,23 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         s = np.argsort(lc)
         fint = np.interp(lnorm, lc[s]/(1+zi), flam[s])
         
-        mask = is_spec & (np.abs(lc/(1+zi)-6563.) > 200)
+        mask = is_spec & (np.abs(lc/(1+zi)-6563.) > 300)
+
+        #mask = is_spec & (np.abs(lc/(1+zi)-lnorm) < 200)
+
         ymint = np.interp(lc[mask]/(1+zi), xm, ym)
         fnorm = np.sum(flam[mask]*ymint*efnu[mask]**2)/np.sum(ymint**2*efnu[mask]**2)
+        
+        #fnorm = fint
+        
         flam /= fnorm
         eflam = efnu/(lc/5500.)**2/fnorm
         #
         if iter == NITER:
-            plt.plot(lc[is_spec]/(1+zi), flam[is_spec], color=color, alpha=alpha)
+            #plt.plot(lc[is_spec]/(1+zi), flam[is_spec], color=color, alpha=alpha)
             #plt.plot(lc[~is_spec]/(1+zi), flam[~is_spec], color=color, alpha=alpha, marker='o', markersize=5, linestyle='None')
-        #
+            pass
+            
         avgx.extend(lc[is_spec]/(1+zi))
         avgy.extend(flam[is_spec])
     
@@ -617,12 +637,12 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
       avgy = np.array(avgy)
       xm, ym, ys, N = threedhst.utils.runmed(avgx, avgy, NBIN=100)
       if iter == NITER:
-          plt.plot(xm, ym, color='white', alpha=0.5, linewidth=6)
-          plt.plot(xm, ym, color=color, alpha=8, linewidth=3)
+          plt.plot(xm, ym, color='white', alpha=0.5, linewidth=4) #, drawstyle='steps-mid')
+          plt.plot(xm, ym, color=color, alpha=0.8, linewidth=2) #, drawstyle='steps-mid')
     
     if show_lines:
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
-            plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.3)
+            plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
 def plot_init(square=True, xs=6, aspect=1):
     # plt.rcParams['font.family'] = 'serif'
@@ -647,14 +667,14 @@ def plot_init(square=True, xs=6, aspect=1):
                         bottom=0.10,right=0.99,top=0.97)        
     return fig
     
-def make_object_tarfiles(objects, thumbs=True):
+def make_object_tarfiles(objects, thumbs=False):
     """
     Make a script to get spectra and thumbnails from unicorn.
     """
     
     ###### Thumbnails
     if thumbs:
-        os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.5/images')
+        os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/images')
         line = 'tar czvf thumbs.tar.gz'
         for object in objects:
             line += ' %s_thumb.fits.gz' %(object)

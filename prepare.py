@@ -136,7 +136,8 @@ def GOODSN_mosaic():
     #### Make full alignment mosaic
     threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN), matchImage='GOODS-N-F140W_drz.fits', match_extension=1, output='GOODS-N-F850LP.fits')
     
-    threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-F850LP.fits[0]*6','GOODS-N-G141_drz.fits*2'], aper_list=[13,14,15], polyregions=glob.glob('*F140W_asn.pointing.reg'), zmin=-0.1, zmax=3)
+    zooms=[13,14,15]
+    threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*2', 'GOODS-N-F850LP.fits[0]*6','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]'], aper_list=zooms, tileroot=['F140W', 'G141', 'GOODS-z850','0.5-8keV'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
         
   
 def COSMOS(FORCE=False):
@@ -192,7 +193,7 @@ def COSMOS_mosaic():
     threedhst.utils.combine_asn_shifts(direct_files, out_root='COSMOS-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
-    SCALE = 0.06
+    SCALE = 0.128254
     #SCALE = 0.5
     PIXFRAC=0.6
     NX, NY = int(9670*0.06/SCALE), int(18890*0.06/SCALE)
@@ -215,12 +216,13 @@ def COSMOS_mosaic():
     threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits', 'COSMOS-G141_drz.fits', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04'], aper_list=[14], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
     
     ### Temporary release of the direct mosaic
-    iraf.imcopy('COSMOS-F140W_drz.fits[1]','COSMOS-F140w_11-06-17_sci.fits')
-    iraf.imcopy('COSMOS-F140W_drz.fits[2]','COSMOS-F140w_11-06-17_wht.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-07-31_sci.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-07-31_wht.fits')
     #!tar czvf COSMOS-F140w_11-06-17.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
     #!mv COSMOS-F140w_11-06-17* ../MOSAIC
         
-    threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-06-17_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=[13,14,15,16,17], tileroot=['F140W','F814W','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'])
+    zooms = [13,14,15]
+    threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-07-31_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=zooms, tileroot=['F140W','ACS','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
     
     ### don't need high-res tiles of lo-res images sitting around
     os.system('rm ~/Sites/FITS/tiles/MIPS*1[67].png')
@@ -301,7 +303,9 @@ def GOODSS_mosaic():
              ra=53.154223, dec=-27.807325,
              final_outnx = NX, final_outny=NY)
     
-    threedhst.gmap.makeImageMap(['GOODS-S-F140W_drz.fits', 'GOODS-S-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+    zooms=[13,14,15]
+    threedhst.gmap.makeImageMap(['GOODS-S-F140W_drz.fits', 'GOODS-S-G141_drz.fits','/3DHST/Ancillary//GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','F125W','0.5-8keV'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+    
     
 def AEGIS(FORCE=False):
     from threedhst.prep_flt_files import process_3dhst_pair as pair
@@ -355,7 +359,7 @@ def AEGIS_mosaic():
     
     ## some changes
     
-    SCALE = 0.06
+    SCALE = 0.128254
     #SCALE = 0.5
     PIXFRAC=0.8
     NX, NY = int(18000*0.06/SCALE), int(19000*0.06/SCALE)
@@ -374,7 +378,8 @@ def AEGIS_mosaic():
              ra=214.88705, dec=52.85442,
              final_outnx = NX, final_outny=NY)
     #
-    threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits'], aper_list=[13,14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    zooms=[13,14,15]
+    threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
 
 def SN_GEORGE():
     ####********************************************####

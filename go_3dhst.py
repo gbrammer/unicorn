@@ -284,24 +284,25 @@ def sn_primo():
     grism_asn  = glob.glob('PRIMO-1???-G141_asn.fits')
     files=glob.glob('PRIMO-1???-G141_shifts.txt')
     files.extend(grism_asn)
+    files.append('PRIMO-1026-F160W_tweak.fits')
     for file in files:
         status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
     
     try:
-        iraf.imcopy('PRIMO_F125W_drz.fits[1]', '../DATA/f125w.fits')
+        iraf.imcopy('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT/PRIMO-F125W_drz.fits[1]', '../DATA/f125w.fits')
     except:
         os.remove('../DATA/f125w.fits')
-        iraf.imcopy('PRIMO_F125W_drz.fits[1]', '../DATA/f125w.fits')
+        iraf.imcopy('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT/PRIMO-F125W_drz.fits[1]', '../DATA/f125w.fits')
     
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=26)
     
     #### Main loop for reduction
     for i, asn in enumerate(grism_asn):
-        threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/PRIMO_F160W_drz.fits'
+        threedhst.options['PREFAB_DIRECT_IMAGE'] = '/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT/PRIMO-F160W_drz.fits'
         threedhst.options['OTHER_BANDS'] = [['f125w.fits', 'F125W' , 1248.6, 26.25]]
         proc.reduction_script(asn_grism_file=asn)
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
@@ -367,12 +368,13 @@ def sn_george():
     try:
         iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
     except:
-        os.remove('f125w.fits')
+        os.remove('../DATA/f125w.fits')
         iraf.imcopy('GEORGE-F125W_drz.fits[1]', '../DATA/f125w.fits')
+    
     os.chdir('../')
     
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=26)
     
     #### Run aXe
     asn = 'GEORGE-G141_asn.fits'
@@ -410,7 +412,7 @@ def sn_marshall():
     os.chdir('../')
 
     #### Initialize parameters
-    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=24.5)
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=26)
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/MARSHALL-F160W_drz.fits'
     threedhst.options['OTHER_BANDS'] = [['f125w_sci.fits', 'F125W' , 1248.6, 26.25]]
 

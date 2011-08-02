@@ -31,6 +31,7 @@ import unicorn
 import numpy as np
 import os
 import glob
+import shutil
 
 def fix_GOODSN_asn():
     """
@@ -633,7 +634,7 @@ def SN_PRIMO():
     import threedhst
     import unicorn
     import unicorn.candels
-
+    
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
 
@@ -646,14 +647,127 @@ def SN_PRIMO():
 
     pair('ibfup2020_asn.fits','ibfup2030_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
     
-    ##### Direct images
+    #### Make empty ASNs for 11-01, only has single direct image for each set of 
+    #### grism exposures
+    asn = threedhst.utils.ASNFile('ibfup1020_asn.fits')
+    asn.exposures = ['ibfupacsq','ibfupbdkq']
+    asn.product = 'ibfupa010'.upper()
+    asn.write('ibfupa010_asn.fits')
+    
+    pair('ibfupa010_asn.fits','ibfupa020_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
+    
+    files=glob.glob('PRIMO-1101-G141*')
+    for file in files:
+        out = file.replace('1101','1101-a')
+        status = os.system('mv %s %s' %(file, out))
+    
+    #### Second set
+    asn = threedhst.utils.ASNFile('ibfup1020_asn.fits')
+    asn.exposures = ['ibfupbdkq', 'ibfupacsq']
+    asn.product = 'ibfupb010'.upper()
+    asn.write('ibfupb010_asn.fits')
+    
+    pair('ibfupb010_asn.fits','ibfupb020_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
+    
+    files=glob.glob('PRIMO-1101-G141*')
+    for file in files:
+        out = file.replace('1101','1101-b')
+        status = os.system('mv %s %s' %(file, out))
+       
+    ##### Other direct images
     files=glob.glob('ibfup[5-7]*asn.fits')
-    files.extend(glob.glob('ibifup[cd[*asn.fits'))
+    files.extend(glob.glob('ibfup[cd]*asn.fits'))
     
     for file in files:
-        unicorn.candels.prep_candels(asn_file=file, 
-            ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
-            GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+        pair(file,'ibfup2030_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=True)
+    
+    ##### Combine different sets of direct / grism images
+    
+    ## something wrong with these
+    status = os.system('rm PRIMO-112*')
+    status = os.system('rm PRIMO-1027*')
+    
+    direct_files = glob.glob('PRIMO-*-F125W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='PRIMO-F125W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.prep_flt_files.startMultidrizzle('PRIMO-F125W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+    
+    direct_files = glob.glob('PRIMO-*-F160W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='PRIMO-F160W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.prep_flt_files.startMultidrizzle('PRIMO-F160W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=53.159487, dec=-27.776371,
+             final_outnx=2980, final_outny=2380)
+    
+    direct_files = glob.glob('PRIMO-1101-?-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='PRIMO-1101-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.prep_flt_files.startMultidrizzle('PRIMO-1101-G141_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+    
+    
+    threedhst.gmap.makeImageMap(['PRIMO-F160W_drz.fits','PRIMO-F125W_drz.fits', 'PRIMO-1026-F160W_align.fits[0]','PRIMO-1026-G141_drz.fits', 'PRIMO-1101-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[15], polyregions=glob.glob('PRIMO-*-G141_asn.pointing.reg'))
+    
+    ###################
+    ####  Make detection image from CANDELS
+    ###################
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT')
+    unicorn.candels.make_asn_files()
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    visits = ['GOODS-SD5-VMX','GOODS-SD5-VGX','GOODS-S205-VHS','GOODS-SDW-VH7','GOODS-S075-VCM','GOODS-SD2-V71','GOODS-SD5-VGU','GOODS-S205-VHT','GOODS-S075-VJ3','GOODS-SD5-VGV','GOODS-SD2-V7J','GOODS-S1-V3J']
+    for visit in visits:
+        if os.path.exists(visit+'-F125W_asn.fits') & (not os.path.exists(visit+'-F125W_drz.fits')):
+            print visit
+            for filter in ['F125W','F160W']:
+                try:
+                    unicorn.candels.prep_candels(asn_file=visit+'-'+filter+'_asn.fits', 
+                        ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                        SCALE=0.06)
+                except:
+                    pass
+    
+    #### Shifts not right for this visit
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-SD5-VMX-F160W', 
+              ALIGN_IMAGE='GOODS-SD5-VMX-F125W_drz.fits', ALIGN_EXTENSION=1,  
+              fitgeometry='shift', clean=True)
+    #
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-SD5-VMX-F160W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.6, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+     threedhst.gmap.makeImageMap(['GOODS-SD5-VMX-F160W_drz.fits','GOODS-SD5-VMX-F125W_drz.fits','GOODS-SD5-VMX-F160W_align.fits[0]*4'], zmin=-0.06, zmax=0.6, aper_list=[15], polyregions=glob.glob('PRIMO-*-G141_asn.pointing.reg'))
+    
+    ### Combine CANDELS visits into a single image                
+    for filter in ['F125W','F160W']:
+        drz_files = glob.glob('GOODS-*-'+filter+'_drz.fits')
+        direct_files = []
+        for drz in drz_files:
+            direct_files.append(drz.replace('drz','asn'))
+        #
+        threedhst.utils.combine_asn_shifts(direct_files, out_root='PRIMO-'+filter,
+            path_to_FLT='./', run_multidrizzle=False)
+    
+        threedhst.prep_flt_files.startMultidrizzle('PRIMO-'+ filter+'_asn.fits',
+                use_shiftfile=True, skysub=False,
+                final_scale=0.06, pixfrac=0.6, driz_cr=False,
+                updatewcs=False, clean=True, median=False,
+                ra=53.159487, dec=-27.776371,
+                final_outnx=2980, final_outny=2380)
+    
+    threedhst.gmap.makeImageMap(['PRIMO-F125W_drz.fits', 'PRIMO-F160W_drz.fits','/3DHST/Spectra/Work/SN-PRIMO/PREP_FLT/PRIMO-F160W_drz.fits','/3DHST/Spectra/Work/SN-PRIMO/PREP_FLT/PRIMO-1101-G141_drz.fits'], zmin=-0.08, zmax=2, aper_list=[16], polyregions=glob.glob('PRIMO-*-G141_asn.pointing.reg'))
     
 def DADDI():
     ####******************************************************####

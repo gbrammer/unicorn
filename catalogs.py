@@ -65,53 +65,45 @@ def test_plots():
     ######################################
     
     phot = catIO.Readfile('full_sextractor.cat')
-    phot_goods = catIO.Readfile('goodsn_sextractor.cat')
+    #phot_goods = catIO.Readfile('goodsn_sextractor.cat')
     
-    # Marijn's test of size vs mag
-    ok = (phot.field == 'AEGIS') | (phot.field == 'COSMOS') | (phot.field == 'GOODS-S')
+    ##### Marijn's test of size vs mag
+    ours = (phot.field == 'AEGIS') | (phot.field == 'COSMOS') | (phot.field == 'GOODS-S')
+    theirs = (phot.field == 'GOODS-N') 
+        
+    unicorn.catalogs.plot_init()
     
-    xsep = np.array([14.6, 20.1, 21.7, 23.7, 24.6])
-    ysep = np.array([9.6, 4.90, 3.11, 2.34, 2.14])
-    yint = np.interp(phot.mag_f1392w, xsep, ysep)
-    yint_goods = np.interp(phot_goods.mag_f1392w, xsep, ysep)
-    
-    is_star = phot.a_image < yint
-    is_star_goods = phot_goods.a_image < yint_goods
-    
-    radius = np.sqrt(phot.a_image**2+phot.b_image**2)
-    
-    
-    ## A_image
-    plt.plot(xsep, ysep, color='red', linewidth=3, alpha=0.3)
-    plt.plot(phot.mag_f1392w[ok & ~is_star], phot.a_image[ok & ~is_star], marker='.', alpha=0.08, linestyle='None', color='black', markersize=3)
-    plt.plot(phot.mag_f1392w[ok & is_star], phot.a_image[ok & is_star], marker='.', alpha=0.2, linestyle='None', color='red', markersize=3)
+    plt.plot(phot.mag_f1392w[ours], phot.flux_radius[ours], marker='.', alpha=0.1, linestyle='None', color='red', markersize=3)
+    plt.plot(phot.mag_f1392w[theirs], phot.flux_radius[theirs], marker='.', alpha=0.1, linestyle='None', color='blue', markersize=3)
 
-    plt.plot(phot_goods.mag_f1392w[~is_star_goods], phot_goods.a_image[~is_star_goods], marker='.', alpha=0.08, linestyle='None', color='black', markersize=3)
-    plt.plot(phot_goods.mag_f1392w[is_star_goods], phot_goods.a_image[is_star_goods], marker='.', alpha=0.2, linestyle='None', color='red', markersize=3)
-
-    plt.xlim(14,24.8)
+    plt.xlim(14,25.7)
     plt.ylim(0,20)
-    plt.xlabel(r'$m_\mathrm{140}$')
-    plt.ylabel('A_IMAGE')
+    plt.xlabel(r'$\mathrm{MAG\_AUTO_{F140W}}$')
+    plt.ylabel(r'$\mathrm{FLUX\_RADIUS}\ (0.06^{\prime\prime}\ \mathrm{pix})$')
     
+    plt.text(15,17,'3D-HST',color='red')
+    plt.text(15,15,'GOODS-N',color='blue')
+
     plt.savefig('mag_vs_SEx_size.pdf')
     plt.savefig('mag_vs_SEx_size.png')
     
-    ## Kron radius
-    plt.plot(phot.mag_f1392w[ok & is_star], phot.kron_radius[ok & is_star], marker='o', alpha=0.05, linestyle='None', color='red', markersize=3)
-    plt.plot(phot.mag_f1392w[ok & ~is_star], phot.kron_radius[ok & ~is_star], marker='o', alpha=0.05, linestyle='None', color='black', markersize=3)
-    plt.xlim(14,24.8)
-    plt.ylim(0,20)
-    plt.xlabel(r'$m_\mathrm{140}$')
-    plt.ylabel('KRON_RADIUS')
+    #### S/N vs mag
+    sn = 2.5/np.log(10)/phot.magerr_aper
+    #sn = phot.flux_auto/phot.fluxerr_auto
     
-    ## a**2+b**2
-    plt.plot(phot.mag_f1392w[ok & ~is_star], radius[ok & ~is_star], marker='o', alpha=0.05, linestyle='None', color='black', markersize=3)
-    plt.plot(phot.mag_f1392w[ok & is_star], radius[ok & is_star], marker='o', alpha=0.05, linestyle='None', color='red', markersize=3)
-    plt.xlim(14,24.8)
-    plt.ylim(0,20)
-    plt.xlabel(r'$m_\mathrm{140}$')
-    plt.ylabel(r'$\mathrm{A\_IMAGE}^2+\ \mathrm{B\_IMAGE}^2$')
+    ok = np.isfinite(sn)
+    unicorn.catalogs.plot_init()
+    plt.plot(phot.mag_f1392w[ours & ok], sn[ours & ok], marker='.', alpha=0.1, linestyle='None', color='red', markersize=3)
+    plt.plot(phot.mag_f1392w[theirs & ok], sn[theirs & ok], marker='.', alpha=0.1, linestyle='None', color='blue', markersize=3)
+    
+    plt.semilogy()
+    plt.xlim(18,25.7)
+    plt.ylim(3,1000)
+    plt.xlabel(r'$\mathrm{MAG\_AUTO_{F140W}}$')
+    plt.ylabel(r'$\mathrm{S/N}\ (1^{\prime\prime}\ \mathrm{aper})$')
+    
+    plt.savefig('mag_vs_SN.pdf')
+    plt.savefig('mag_vs_SN.png')
     
     ######################################
     #### Redshifts and masses

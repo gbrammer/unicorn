@@ -1875,7 +1875,7 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
         canvas.print_figure(outfile+'.pdf', dpi=100, transparent=False)
     
 
-def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
+def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
 
@@ -1917,7 +1917,7 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log'):
             if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
                 result = True
                 #try:
-                result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.75, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=pipe)
+                result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=compress, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=pipe)
                 #except:
                 #    pass
                 #    

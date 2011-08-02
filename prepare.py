@@ -748,8 +748,8 @@ def SN_PRIMO():
              use_shiftfile=True, skysub=False,
              final_scale=0.06, pixfrac=0.6, driz_cr=False,
              updatewcs=False, clean=True, median=False)
-     
-     threedhst.gmap.makeImageMap(['GOODS-SD5-VMX-F160W_drz.fits','GOODS-SD5-VMX-F125W_drz.fits','GOODS-SD5-VMX-F160W_align.fits[0]*4'], zmin=-0.06, zmax=0.6, aper_list=[15], polyregions=glob.glob('PRIMO-*-G141_asn.pointing.reg'))
+    #
+    threedhst.gmap.makeImageMap( ['GOODS-SD5-VMX-F160W_drz.fits','GOODS-SD5-VMX-F125W_drz.fits','GOODS-SD5-VMX-F160W_align.fits[0]*4'], zmin=-0.06, zmax=0.6, aper_list=[15], polyregions=glob.glob('PRIMO-*-G141_asn.pointing.reg'))
     
     ### Combine CANDELS visits into a single image                
     for filter in ['F125W','F160W']:

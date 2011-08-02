@@ -623,6 +623,37 @@ def GOODS_ERS():
     ##### Check results
     threedhst.gmap.makeImageMap(['WFC3-ERSII-G01-F140W_drz.fits', 'WFC3-ERSII-G01-F140W_align.fits[0]*4', 'WFC3-ERSII-G01-F098M_drz.fits', 'WFC3-ERSII-G01-G141_drz.fits','WFC3-ERSII-G01-G102_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15])
     
+#
+def SN_PRIMO():
+    ####********************************************####
+    ####              SN-PRIMO (GOODS-S / UDF)
+    ####********************************************####
+    
+    import os
+    import threedhst
+    import unicorn
+    import unicorn.candels
+
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+
+    os.chdir(unicorn.GRISM_HOME+'SN-PRIMO/PREP_FLT')
+    
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    ##### Direct + grism
+    pair('ibfup1020_asn.fits','ibfup1030_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
+
+    pair('ibfup2020_asn.fits','ibfup2030_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=False, SKIP_GRISM=False)
+    
+    ##### Direct images
+    files=glob.glob('ibfup[5-7]*asn.fits')
+    files.extend(glob.glob('ibifup[cd[*asn.fits'))
+    
+    for file in files:
+        unicorn.candels.prep_candels(asn_file=file, 
+            ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
+            GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
     
 def DADDI():
     ####******************************************************####

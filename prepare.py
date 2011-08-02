@@ -30,6 +30,7 @@ import unicorn
 
 import numpy as np
 import os
+import glob
 
 def fix_GOODSN_asn():
     """
@@ -515,7 +516,7 @@ def SN_MARSHALL():
     import unicorn
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
-
+    
     os.chdir(unicorn.GRISM_HOME+'SN-MARSHALL/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits'
     

@@ -502,7 +502,7 @@ def SN_GEORGE():
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
     
-    threedhst.gmap.makeImageMap(['GEORGE-F125W_drz.fits', 'GEORGE-F160W_drz.fits', 'GEORGE-1-F160W_align.fits[0]*4', 'GEORGE-G141_drz.fits*2'], aper_list=[15, 16], polyregions=glob.glob('GEORGE-*_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['GEORGE-F125W_drz.fits', 'GEORGE-F160W_drz.fits', 'GEORGE-1-F160W_align.fits[0]*4', 'GEORGE-G141_drz.fits*2'], aper_list=[15], polyregions=glob.glob('GEORGE-1-F125W_asn.pointing.reg'))
     
     
 def SN_MARSHALL():
@@ -587,7 +587,7 @@ def SN_MARSHALL():
     
     #### Check
     # threedhst.gmap.makeImageMap(['MARSHALL-1-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-1-G141_drz.fits'], aper_list=[13,14,15])
-    threedhst.gmap.makeImageMap(['MARSHALL-F125W_drz.fits', 'MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[13,14,15,16])
+    threedhst.gmap.makeImageMap(['MARSHALL-F125W_drz.fits', 'MARSHALL-F160W_drz.fits', 'MARSHALL-1-F160W_align.fits[0]', 'MARSHALL-225-G141_drz.fits', 'MARSHALL-245-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[15], polyregions=glob.glob('MARSHALL-1-F160W_asn.pointing.reg'))
     
 def GOODS_ERS():
     ####******************************************************####
@@ -646,4 +646,43 @@ def DADDI():
         pair(direct[i], grism[i], ALIGN_IMAGE = None, TWEAKSHIFTS_ONLY=True, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
     #
     threedhst.gmap.makeImageMap(['HIGHZ-CLUSTER-4-F140W_drz.fits', 'HIGHZ-CLUSTER-4-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15, 16])
+
+def count_pointings():
+    import unicorn
+    import glob
+    os.chdir(unicorn.GRISM_HOME)
+    directories = glob.glob('*')
+    for dir in directories:
+        cats = glob.glob(dir+'/HTML/*drz.cat')
+        print '%s: %0d' %(dir, len(cats))
+
+def copy_drz_images():
+    """
+    cd /Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/DRZ
     
+    for field in AEGIS COSMOS GOODS-N GOODS-S ERS; do
+        rsync -avz /3DHST/Spectra/Work/${field}/PREP_FLT/*F140W_drz.fits ./
+        rsync -avz /3DHST/Spectra/Work/${field}/DATA/*G141_drz.fits ./
+    done
+    
+    gzip *drz.fits
+    
+    """
+    return True
+    
+def add_links_to_overview_websites():
+    """
+    cd /Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/MOSAIC
+    
+    for field in AEGIS COSMOS GOODS-N GOODS-S; do
+        echo $field
+        cd $field
+        cp scripts/threedhst.js scripts/threedhst.js.bkup
+        perl -pi -e "s/\/\/ GEvent/GEvent/" scripts/threedhst.js
+        perl -pi -e "s/xxx\//unicorn.astro.yale.edu\/P\/GRISM_v1.6\//" scripts/threedhst.js
+        perl -pi -e "s/F140W.yyy/G141_index.html/" scripts/threedhst.js
+        cd ../
+    done
+    
+    """
+    return True

@@ -873,7 +873,7 @@ def eqw_catalog():
         os.system("ls OUTPUT/ |grep G141 |grep coeff |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
         files = np.loadtxt('files.list', dtype=np.str)
 
-    lines = ['# id  z_grism halpha_eqw halpha_flux oiii_eqw oiii_flux hbeta_eqw hbeta_flux\n']
+    lines = ['# id  z_grism halpha_eqw  halpha_eqw_err  halpha_flux   oiii_eqw oiii_eqw_err  oiii_flux   hbeta_eqw  hbeta_eqw_err  hbeta_flux\n']
     for file in files:
         object=os.path.basename(file).split('.coeff')[0]
         print noNewLine+object
@@ -881,11 +881,12 @@ def eqw_catalog():
         id = int(object.split('G141_')[1])
         #
         try:
-            obj,z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
+            obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=root, id=id)
         except:
-            z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux = -1,-1,-1,-1,-1,-1,-1
+            print '\n\nFail!\n\n'
+            z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = -1,-1,-1,-1,-1,-1,-1,-1,-1,-1
         #
-        lines.append('%s %8.3f %8.2f %5.2e %8.2f %5.2e %8.2f %5.2e\n' %(object, z_grism,halpha_eqw,halpha_flux,oiii_eqw,oiii_flux,hbeta_eqw,hbeta_flux))
+        lines.append('%s %8.3f %15.2e %5.2e %5.2e %15.2e %5.2e %5.2e %15.2e %5.2e %5.2e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
     
     fp = open('full_emission_lines.cat','w')
     fp.writelines(lines)

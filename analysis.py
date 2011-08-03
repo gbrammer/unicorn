@@ -2634,6 +2634,83 @@ class MyLocator(mticker.MaxNLocator):
 
     def __call__(self, *args, **kwargs):
         return mticker.MaxNLocator.__call__(self, *args, **kwargs)
+
+#########################################
+#                                       #
+#                                       #
+#     Fit equivalent widths             #
+#                                       #
+#                                       #
+#########################################
+def eqw_Eval(x, p):
+    """ Compute the sum of the templates """
+    y = np.dot(p, x)
+    return y
+
+def eqw_myfunct(p, fjac=None, x=None, y=None, err=None):
+    # Parameter values are passed in "p"
+    # If fjac==None then partial derivatives should not be
+    # computed.  It will always be None if MPFIT is called with default
+    # flag.
+    model = eqw_Eval(x, p)
+    # Non-negative status value means MPFIT should continue, negative means
+    # stop the calculation.
+    status = 0
+    return [status, (y-model)/err]
+
+def eqw_run_mpfit(fobs, efobs, fit_templates, show_results=False):
+    import copy
+    import unicorn.mpfit as mpfit
+    import matplotlib.pyplot as plt
+    
+    x = fit_templates
+    y = fobs
+    ey = efobs
+    
+    #### ignore bad data
+    keep = (y > -99) & (ey > 0) & np.isfinite(y) & (y != 0)    
+    fa = {'x':x[:,keep], 'y':y[keep], 'err':ey[keep]}
+        
+    NPARAM = x.shape[0]
+    
+    p0 = np.ones(NPARAM,dtype='float64')  #initial conditions
+    pactual = np.ones(NPARAM) #actual values used to make data
+    parbase={'value':0., 'fixed':0, 'limited':[0, 0], 'limits':[0,0.]}
+    parinfo=[]
+    for i in range(NPARAM):
+        parinfo.append(copy.deepcopy(parbase))
+
+    for i in range(NPARAM): 
+        parinfo[i]['value']=p0[i]
+    
+    #### Fix continuum normalization to unity
+    #parinfo[0]['value'] = 1.
+    #parinfo[0]['fixed'] = 1
+    
+    m = mpfit.mpfit(eqw_myfunct, p0, parinfo=parinfo,functkw=fa, quiet=1)
+    #print m.params, m.params/m.perror
+    
+    ### Correlation matrix
+    m.pcor = m.covar * 0.
+    for i in range(NPARAM):
+        for j in range(NPARAM):
+            m.pcor[i,j] = m.covar[i,j]/np.sqrt(m.covar[i,i]*m.covar[j,j])
+    
+    ### relative error
+    m.relerr = np.zeros(NPARAM)
+    m.relerr[0] = m.perror[0]/m.params[0]
+    
+    for i in range(1, NPARAM):
+        m.relerr[i] = np.sqrt((m.perror[0]/m.params[0])**2+(m.perror[i]/m.params[i])**2)
+        
+    if show_results:
+        print 'Show'
+        xarr = np.arange(x.shape[1])
+        plt.errorbar(xarr, y, yerr=ey, linestyle='None', marker='o', color='blue')
+        yfit = eqw_Eval(x, m.params)
+        plt.plot(xarr, yfit, color='red', alpha=0.5, linewidth=3)
+    
+    return m
     
 def equivalent_width(root='GOODS-S-24-G141', id=29):
     """ 
@@ -2655,30 +2732,76 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO
     import cosmocalc
+    import unicorn.analysis
     
     zout = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
     eazy_param = eazy.EazyParam('OUTPUT/%s_%05d.param' %(root, id))
     
-    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'OUTPUT/line_eqw.tempfilt')
+    # tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'OUTPUT/line_eqw.tempfilt')
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
     
     coeffs['coeffs'] *= 1./(1+zout.z_peak[0])**2
     
     continuum = np.dot(temp_seds['temp_seds'][:,0:6], coeffs['coeffs'][0:6,0])                             
     
+    zpeak_i = tempfilt['zgrid'][coeffs['izbest'][0]]
+    lci = tempfilt['lc']
+    
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    
+    fobs = tempfilt['fnu'][:,0]/(lci/5500.)**2
+    efobs = tempfilt['efnu'][:,0]/(lci/5500.)**2
+    
+    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:6,coeffs['izbest'][0]],coeffs['coeffs'][0:6,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    
+    obs_sed_ha = np.dot(tempfilt['tempfilt'][:,6,coeffs['izbest'][0]],coeffs['coeffs'][6,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    
+    obs_sed_oiii = np.dot(tempfilt['tempfilt'][:,7,coeffs['izbest'][0]],coeffs['coeffs'][7,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    
+    obs_sed_hb = np.dot(tempfilt['tempfilt'][:,8,coeffs['izbest'][0]],coeffs['coeffs'][8,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    
+    # obs_sed_ha /= obs_sed_ha.max()
+    # obs_sed_oiii /= obs_sed_oiii.max()
+    # obs_sed_hb /= obs_sed_hb.max()
+    
+    fit_templates = np.array([obs_sed_continuum, obs_sed_ha, obs_sed_oiii, obs_sed_hb])
+
+    if np.std(obs_sed_ha[is_spec]/obs_sed_ha.max()) < 1.e-4:
+        fit_templates[1,:] *= 0.
+    #    
+    if np.std(obs_sed_oiii[is_spec]/obs_sed_ha.max()) < 1.e-4:
+        fit_templates[2,:] *= 0.
+    #    
+    if np.std(obs_sed_oiii[is_spec]/obs_sed_ha.max()) < 1.e-4:
+        fit_templates[3,:] *= 0.
+    #    
+    
+    try:
+        mp = unicorn.analysis.eqw_run_mpfit(fobs[is_spec], efobs[is_spec], fit_templates[:, is_spec], show_results=False)
+        relerr, perror = mp.relerr, mp.perror
+    except:
+        relerr, perror = np.zeros(4)-1, np.zeros(4)-1
+        
+    #mp.relerr, mp.params, mp.perror
+    
     #### for testing
     plot = """
         tempfiltx, coeffsx, temp_sedsx, pzx = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
-        
         
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
         dlam_spec = lci[-1]-lci[-2]
         is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
         
-        plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), continuum, color='black')
-        plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), temp_sed, color='red', alpha=0.6)
+        # plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), continuum, color='black')
+        # plt.plot(temp_seds['templam']*(1+zout.z_peak[0]), temp_sed, color='red', alpha=0.6)
         plt.plot(lci[is_spec], fobs[is_spec], color='blue', alpha=0.4)
         plt.errorbar(lci[is_spec], fobs[is_spec], efobs[is_spec], color='blue', alpha=0.4)
-        plt.plot(lci[is_spec], obs_sed[is_spec], color='red', linewidth=3, alpha=0.4)
+        plt.plot(lci[is_spec], obs_sed_continuum[is_spec], color='black', alpha=0.4, linewidth=3)
+        plt.plot(lci[is_spec], obs_sed_ha[is_spec], color='black', alpha=0.4, linewidth=3)
+        # plt.plot(lci[is_spec], obs_sed_manual[is_spec], color='red', alpha=0.4, linewidth=3)
+        
+        plt.plot(lci[is_spec], obs_sed[is_spec], color='orange', linewidth=3, alpha=0.4)
         plt.semilogx()
         plt.xlim(3000,4.e4)
         
@@ -2705,24 +2828,35 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
-    halpha_eqw = np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
+    halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
     halpha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
-
+    halpha_err = halpha_eqw*relerr[1]
+    if perror[1] == 0:
+        halpha_err = -1.
+        
     # cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
     # halpha_lum = halpha_flux*cc['DL_cm']**2*4*np.pi
     # halpha_sfr = 7.9e-42*halpha_lum
     
     oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0
-    oiii_eqw = np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
+    oiii_eqw = -np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
     oiii_flux = coeffs['coeffs'][7,0]/coeffs['tnorm'][7]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(5007.*(1+zout.z_peak[0]))**2*(5007.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
-
+    oiii_err = oiii_eqw*relerr[2]
+    if perror[2] == 0:
+        oiii_err = -1.
+    
     hbeta =  temp_seds['temp_seds'][:,8]*coeffs['coeffs'][8,0]
     hbeta[hbeta < 1.e-8*hbeta.max()] = 0
-    hbeta_eqw = np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
+    hbeta_eqw = -np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
     hbeta_flux = coeffs['coeffs'][8,0]/coeffs['tnorm'][8]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(4861.*(1+zout.z_peak[0]))**2*(4861.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    hbeta_err = hbeta_eqw*relerr[3]
+    if perror[3] == 0:
+        hbeta_err = -1.
     
-    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, halpha_flux, oiii_eqw, oiii_flux, hbeta_eqw, hbeta_flux
+    ###### MPFIT to get errors on normalizations
+    
+    return '%s_%05d' %(root, id), zout.z_peak[0], halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux
     
 def make_o2_templates():
     """

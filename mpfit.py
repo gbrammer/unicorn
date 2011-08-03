@@ -2356,7 +2356,7 @@ def test_myfunctlin(p, fjac=None, x=None, y=None, err=None):
     # stop the calculation.
     status = 0
     return [status, (y-model)/err]
-#
+
 def test_linfit():
     #from numpy.testing import *
     import numpy as N
@@ -2375,7 +2375,7 @@ def test_linfit():
     ey=0.07*N.ones(y.shape,dtype='float64')
     p0=N.array([1.0,1.0],dtype='float64')  #initial conditions
     pactual=N.array([3.2,1.78]) #actual values used to make data
-    parbase={'value':0., 'fitaxed':0, 'limited':[0,0], 'limits':[0.,0.]}
+    parbase={'value':0., 'fixed':0, 'limited':[0,0], 'limits':[0.,0.]}
     parinfo=[]
     for i in range(len(pactual)):
         parinfo.append(copy.deepcopy(parbase))
@@ -2384,7 +2384,7 @@ def test_linfit():
         parinfo[i]['value']=p0[i]
     #
     fa = {'x':x, 'y':y, 'err':ey}
-    m = mpfit.mpfit(mpfit.test_myfunctlin, p0, parinfo=parinfo,functkw=fa)
+    m = mpfit.mpfit(mpfit.test_myfunctlin, p0, parinfo=parinfo,functkw=fa, quiet=1)
     
     #### [GBB, show results]
     plt.errorbar(x, y, yerr=ey, linestyle='None', marker='o', color='blue')

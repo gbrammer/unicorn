@@ -742,8 +742,8 @@ def combine_sextractor_catalogs():
         if file.startswith('GN20'):
             continue
         ### GOODS-N catalogs don't have the MAG_APER columns
-        if file.startswith('GOODS-N'):
-            continue
+        # if file.startswith('GOODS-N'):
+        #     continue
         #
         fp = open(file)
         lines = fp.readlines()
@@ -766,45 +766,45 @@ def combine_sextractor_catalogs():
     fp.close()
     
     ########## GOODS-N separate for now because doesn't have same columns
-    files=glob.glob('GOODS-N*drz.cat')
-    
-    fp = open(files[0])
-    lines = fp.readlines()
-    fp.close()
-    
-    line = lines[0]
-    columns = []
-    i=0
-    while line.startswith('#'):
-        columns.append(line.split()[2])
-        i+=1
-        line = lines[i]
-    
-    header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
-    out_lines = []
-    for file in files:
-        print noNewLine+file
-        if file.startswith('GN20'):
-            continue
-        fp = open(file)
-        lines = fp.readlines()
-        fp.close()
-        pointing = file.split('-G141')[0]
-        field = re.split('-[1-9]',pointing)[0]
-        if len(pointing.split(field+'-')) == 1:
-            pointing_number = '1'
-        else:
-            pointing_number = pointing.split(field+'-')[1]
-        #
-        for line in lines:
-            if not line.startswith('#'):
-                number = int(line.split()[0])
-                out_lines.append('%s-G141_%05d %s %3s ' %(pointing, number, field, pointing_number)+line)
-    
-    fp = open('ANALYSIS/goodsn_sextractor.cat','w')
-    fp.write(header)
-    fp.writelines(out_lines)
-    fp.close()
+    # files=glob.glob('GOODS-N*drz.cat')
+    # 
+    # fp = open(files[0])
+    # lines = fp.readlines()
+    # fp.close()
+    # 
+    # line = lines[0]
+    # columns = []
+    # i=0
+    # while line.startswith('#'):
+    #     columns.append(line.split()[2])
+    #     i+=1
+    #     line = lines[i]
+    # 
+    # header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
+    # out_lines = []
+    # for file in files:
+    #     print noNewLine+file
+    #     if file.startswith('GN20'):
+    #         continue
+    #     fp = open(file)
+    #     lines = fp.readlines()
+    #     fp.close()
+    #     pointing = file.split('-G141')[0]
+    #     field = re.split('-[1-9]',pointing)[0]
+    #     if len(pointing.split(field+'-')) == 1:
+    #         pointing_number = '1'
+    #     else:
+    #         pointing_number = pointing.split(field+'-')[1]
+    #     #
+    #     for line in lines:
+    #         if not line.startswith('#'):
+    #             number = int(line.split()[0])
+    #             out_lines.append('%s-G141_%05d %s %3s ' %(pointing, number, field, pointing_number)+line)
+    # 
+    # fp = open('ANALYSIS/goodsn_sextractor.cat','w')
+    # fp.write(header)
+    # fp.writelines(out_lines)
+    # fp.close()
     
     status = os.system('gzip ANALYSIS/*_sextractor.cat')
     

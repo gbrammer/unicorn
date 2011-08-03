@@ -71,11 +71,13 @@ def test_plots():
     ##### Marijn's test of size vs mag
     ours = (phot.field == 'AEGIS') | (phot.field == 'COSMOS') | (phot.field == 'GOODS-S')
     theirs = (phot.field == 'GOODS-N') 
-        
+    candels = (phot.field == 'PRIMO') | (phot.field == 'GEORGE') | (phot.field == 'MARSHALL')
+    
     unicorn.catalogs.plot_init()
     
     plt.plot(phot.mag_f1392w[ours], phot.flux_radius[ours], marker='.', alpha=0.1, linestyle='None', color='red', markersize=3)
     plt.plot(phot.mag_f1392w[theirs], phot.flux_radius[theirs], marker='.', alpha=0.1, linestyle='None', color='blue', markersize=3)
+    plt.plot(phot.mag_f1392w[candels], phot.flux_radius[candels], marker='.', alpha=0.5, linestyle='None', color='green', markersize=3)
 
     plt.xlim(14,25.7)
     plt.ylim(0,20)
@@ -139,7 +141,7 @@ def test_plots():
     found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
     #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
     red_limit = 15
-    red_sequence = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
+    red_sequence = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
     
     ##################################### 
     #### Galfit
@@ -173,6 +175,7 @@ def test_plots():
     # zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
     zrange = (zout.z_peak[0::3] > 1.0) & (zout.z_peak[0::3] < 1.5)
     keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
+    keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 1) 
     
     ### copy to macbook
     copy = keep & (mcat.logm[idx] > 8.)
@@ -187,7 +190,7 @@ def test_plots():
 
     ##### z vs dz
     qz = zout.q_z < 0.1
-    eqw = -lines.halpha_eqw[idx_lines] < 30
+    eqw = lines.halpha_eqw[idx_lines] < 30
     
     main = zsp & dr
     test = eqw[main]
@@ -281,7 +284,7 @@ def test_plots():
     
     ##### line strength vs dz
     
-    haw = -lines.oiii_eqw
+    haw = lines.oiii_eqw
     xmax = 2500
     NBAD = len(haw[haw > xmax])
     haw[haw > xmax] = xmax + np.random.randn(NBAD)*10.
@@ -295,11 +298,11 @@ def test_plots():
     ##### plot mass vs equivalent width
     unicorn.catalogs.plot_init()
     
-    plt.semilogy(mcat.logm[idx][~zsp & keep], -lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
-    plt.semilogy(mcat.logm[idx][zsp & keep], -lines.halpha_eqw[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.semilogy(mcat.logm[idx][~zsp & keep], lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    plt.semilogy(mcat.logm[idx][zsp & keep], lines.halpha_eqw[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     
-    # oiii = keep & (zout.z_peak[0::3] > 1.2) & (-lines.oiii_eqw[idx_lines] > 25)
-    # plt.semilogy(mcat.logm[idx][oiii], -lines.halpha_eqw[idx_lines][oiii], marker='s', linestyle='None', color='red', alpha=0.2, markersize=8)
+    # oiii = keep & (zout.z_peak[0::3] > 1.2) & (lines.oiii_eqw[idx_lines] > 25)
+    # plt.semilogy(mcat.logm[idx][oiii], lines.halpha_eqw[idx_lines][oiii], marker='s', linestyle='None', color='red', alpha=0.2, markersize=8)
     
     ## red sequence
     plt.plot([0,100],[red_limit,red_limit], linestyle='--', alpha=0.5, color='green', linewidth=4)
@@ -317,7 +320,7 @@ def test_plots():
     # 
     # unicorn.catalogs.plot_init()
     # plt.contourf(xedge[1:], 10**yedge[1:], hist.transpose(), Vbins, colors=Vcolors, alpha=1.0, linethick=2)
-    # plt.semilogy(mcat.logm[idx][keep], -lines.halpha_eqw[idx_lines][keep]/(1+zout.z_peak[0::3][keep]), marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
+    # plt.semilogy(mcat.logm[idx][keep], lines.halpha_eqw[idx_lines][keep]/(1+zout.z_peak[0::3][keep]), marker='o', linestyle='None', color='red', alpha=0.5, markersize=5)
     
     plt.ylim(0.1, 500)
     plt.xlim(9, 11.6)
@@ -330,18 +333,39 @@ def test_plots():
     plt.savefig('ha_mass_zspec.pdf')
     plt.savefig('ha_mass_zspec.png')
     
+    ####### H-alpha equivalent width signal to noise
+    sn_halpha = lines.halpha_eqw/lines.halpha_eqw_err
+    sn_halpha = lines.halpha_eqw_err
+
+    plt.semilogx(lines.halpha_eqw[idx_lines][~zsp & keep]/(1+0*zout.z_peak[0::3][~zsp & keep]), sn_halpha[idx_lines][~zsp & keep], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    plt.semilogx(lines.halpha_eqw[idx_lines][zsp & keep]/(1+0*zout.z_peak[0::3][zsp & keep]), sn_halpha[idx_lines][zsp & keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=6)
+    plt.semilogy()
+    
+    plt.errorbar(mcat.logm[idx][~zsp & keep], lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), yerr= lines.halpha_eqw_err[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4, ealpha=0.9, ecolor='black')
+    plt.errorbar(mcat.logm[idx][zsp & keep], lines.halpha_eqw[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), yerr= lines.halpha_eqw_err[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8, ealpha=0.9, ecolor='blue')
+    plt.semilogx()
+    plt.semilogy()
+    plt.ylim(0.1, 500)
+    plt.xlim(9, 11.6)
+    
+    plt.plot([0.03,3000],[0.01,1000], color='red',alpha=0.5, linewidth=3)
+    plt.xlim(0.1, 800)
+    plt.ylim(0.1, 200)
+    plt.ylabel(r'$\mathrm{eqw\ signal-to-noise}$')
+    plt.xlabel(r'$\mathrm{H}\alpha\ \mathrm{eqw\ (observed\ frame)}$')
+    
     ####### OIII emitters
     oiii = keep & (zout.z_peak[0::3] > 1.2)
-    plt.semilogy(mcat.logm[idx][oiii], -lines.halpha_eqw[idx_lines][oiii], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
-    plt.semilogy(mcat.logm[idx][zsp & oiii], -lines.halpha_eqw[idx_lines][zsp & oiii], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.semilogy(mcat.logm[idx][oiii], lines.halpha_eqw[idx_lines][oiii], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    plt.semilogy(mcat.logm[idx][zsp & oiii], lines.halpha_eqw[idx_lines][zsp & oiii], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     
     plt.ylim(0.01, 500)
     plt.xlim(8.5, 11.6)
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$\mathrm{H}\alpha\ \mathrm{EQW}$')
 
-    plt.semilogy(mcat.logm[idx][oiii], -lines.oiii_eqw[idx_lines][oiii], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
-    plt.semilogy(mcat.logm[idx][zsp & oiii], -lines.oiii_eqw[idx_lines][zsp & oiii], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
+    plt.semilogy(mcat.logm[idx][oiii], lines.oiii_eqw[idx_lines][oiii], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    plt.semilogy(mcat.logm[idx][zsp & oiii], lines.oiii_eqw[idx_lines][zsp & oiii], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
     
     plt.ylim(0.01, 500)
     plt.xlim(8.5, 11.6)
@@ -424,7 +448,7 @@ def test_plots():
     plt.savefig('mass_ba.png')
         
     ######### Composite spectra
-    eqw = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
+    eqw = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     
     mass = keep & (mcat.logm[idx] > 10.)
     
@@ -474,7 +498,7 @@ def test_plots():
     
     ################################################
     #### Eq-W vs size
-    eqw = -lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
+    eqw = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     eqw[eqw < 0.2] = 0.2
     mass_limit = 10.6
     massive = mcat.logm[idx] > mass_limit
@@ -891,7 +915,7 @@ def eqw_catalog():
             print '\n\nFail!\n\n'
             z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = -1,-1,-1,-1,-1,-1,-1,-1,-1,-1
         #
-        lines.append('%s %8.3f %15.2e %10.2e %10.2e %15.2e %10.2e %10.2e %15.2e %10.2e %10.2e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
+        lines.append('%s %8.3f %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
     
     fp = open('full_emission_lines.cat','w')
     fp.writelines(lines)

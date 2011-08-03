@@ -497,6 +497,9 @@ def fit_all_fields():
     unicorn.galfit.fits_for_samples(field='GOODS-S')
     unicorn.galfit.fits_for_samples(field='GOODS-N')
     unicorn.galfit.fits_for_samples(field='AEGIS')
+    unicorn.galfit.fits_for_samples(field='PRIMO')
+    unicorn.galfit.fits_for_samples(field='GEORGE')
+    unicorn.galfit.fits_for_samples(field='MARSHALL')
 
 def fits_for_samples(field=''):
     """

@@ -891,7 +891,7 @@ def eqw_catalog():
             print '\n\nFail!\n\n'
             z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = -1,-1,-1,-1,-1,-1,-1,-1,-1,-1
         #
-        lines.append('%s %8.3f %15.2e %5.2e %5.2e %15.2e %5.2e %5.2e %15.2e %5.2e %5.2e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
+        lines.append('%s %8.3f %15.2e %10.2e %10.2e %15.2e %10.2e %10.2e %15.2e %10.2e %10.2e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
     
     fp = open('full_emission_lines.cat','w')
     fp.writelines(lines)

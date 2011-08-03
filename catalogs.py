@@ -4,6 +4,7 @@ import numpy as np
 import glob
 import shutil
 import re
+import time
 
 import matplotlib.pyplot as plt
 
@@ -734,7 +735,7 @@ def combine_sextractor_catalogs():
         i+=1
         line = lines[i]
     
-    header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
+    header = '# ID FIELD POINTING '+' '.join(columns)+'\n# '+time.ctime()+'\n'
     out_lines = []
     for file in files:
         print noNewLine+file
@@ -819,6 +820,8 @@ def make_full_redshift_catalog():
         
     fp = open(files[0])
     lines = fp.readlines()
+    lines[0]+='# '+time.ctime()+'\n'
+    
     fp.close()
     for file in files[1:]:
         print noNewLine+file
@@ -843,6 +846,7 @@ def combine_matched_catalogs():
     files = glob.glob('../SED/*match.cat')
     fp = open(files[0])
     full_lines = fp.readlines()[0:2]
+    full_lines[0]+='# '+time.ctime()+'\n'
     fp.close()
     for file in files:
         pointing = os.path.basename(file).split('_match')[0]
@@ -867,13 +871,14 @@ def eqw_catalog():
     Make a full catalog of the line fluxes / eq. widths
     """
     import unicorn.analysis
+    
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     files=glob.glob('OUTPUT/*G141*.coeff')
     if len(files) == 0:
         os.system("ls OUTPUT/ |grep G141 |grep coeff |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
         files = np.loadtxt('files.list', dtype=np.str)
 
-    lines = ['# id  z_grism halpha_eqw  halpha_eqw_err  halpha_flux   oiii_eqw oiii_eqw_err  oiii_flux   hbeta_eqw  hbeta_eqw_err  hbeta_flux\n']
+    lines = ['# id  z_grism halpha_eqw  halpha_eqw_err  halpha_flux   oiii_eqw oiii_eqw_err  oiii_flux   hbeta_eqw  hbeta_eqw_err  hbeta_flux\n# '+time.ctime()+'\n']
     for file in files:
         object=os.path.basename(file).split('.coeff')[0]
         print noNewLine+object

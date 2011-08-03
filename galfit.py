@@ -436,6 +436,7 @@ def make_full_catalog(output='full_galfit.cat'):
     """
     import glob
     import unicorn.galfit 
+    import time
     
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/GALFIT')
     
@@ -445,7 +446,7 @@ def make_full_catalog(output='full_galfit.cat'):
         os.system('ls |grep G141 |grep log > files.list')
         files = np.loadtxt('files.list', dtype=np.str)
         
-    lines = ['# id   PSF_FIT   r_e  r_e_err   n  n_err  ba  ba_err   chi2\n']
+    lines = ['# id   PSF_FIT   r_e  r_e_err   n  n_err  ba  ba_err   chi2\n# '+time.ctime()+'\n']
     for file in files:
         object = file.split('_galfit')[0]
         print noNewLine+object

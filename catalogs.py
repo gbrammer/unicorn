@@ -911,8 +911,8 @@ def make_full_redshift_catalog():
     fp.writelines(spec_lines)
     fp.close()
     
-    status = os.system('cp full_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/full_redshift.cat')
+    status = os.system('cp *_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/*_redshift.cat')
     
 def combine_matched_catalogs():
     """

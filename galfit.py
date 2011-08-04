@@ -456,7 +456,7 @@ def make_full_catalog(output='full_galfit.cat'):
             #
             if 'psf' in log.components:
                 is_psf = 1
-                mag = log.list[0]['mag']
+                mag = log.list[0]['mag'] 
                 re = (-1,-1)
                 n = (-1,-1)
                 ba = (-1, -1)

@@ -202,7 +202,9 @@ def test_plots():
     plt.xlabel(r'$z_\mathrm{spec}$')
     plt.ylabel(r'$\Delta z$')
     
-    #### Real figure
+    ################################################
+    #### Real figure, redshift errors
+    ################################################
     fig = unicorn.catalogs.plot_init()
     
     #fig = plt.figure(figsize=(5.5,5), dpi=100)
@@ -261,7 +263,9 @@ def test_plots():
     plt.xlabel(r'$\log M/M_\odot$')
     plt.ylabel(r'$\Delta z$')
 
+    ################################################
     ##### Redshift distribution
+    ################################################
     unicorn.catalogs.plot_init()
     
     hist = np.histogram(zout.z_spec[0::3][keep], bins=200, range=(1,1.5))
@@ -295,7 +299,9 @@ def test_plots():
     plt.xlabel(r'$\mathrm{H}\alpha\ \mathrm{EQW}$')
     plt.ylabel(r'$\Delta z$')
     
+    ################################################
     ##### plot mass vs equivalent width
+    ################################################
     unicorn.catalogs.plot_init()
     
     plt.semilogy(mcat.logm[idx][~zsp & keep], lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
@@ -333,26 +339,43 @@ def test_plots():
     plt.savefig('ha_mass_zspec.pdf')
     plt.savefig('ha_mass_zspec.png')
     
+    ################################################
     ####### H-alpha equivalent width signal to noise
-    sn_halpha = lines.halpha_eqw/lines.halpha_eqw_err
-    sn_halpha = lines.halpha_eqw_err
+    ################################################
+    fig = unicorn.catalogs.plot_init()
+    ax = fig.add_subplot(111)
+    
+    sn_halpha = (lines.halpha_eqw/lines.halpha_eqw_err)
+    ### scale by object size
+    #sn_halpha[idx_lines] *= gfit.r_e[idx_gfit]/10.
+    ax.plot([0.01,3000],[3,3], color='orange',alpha=0.2, linewidth=3)
+    #sn_halpha = lines.halpha_eqw_err
+    #plt.plot([0.03,3000],[0.01,1000], color='orange',alpha=0.2, linewidth=3)
+    
+    keep = keep & (lines.halpha_eqw_err[idx_lines] > 0)
 
-    plt.semilogx(lines.halpha_eqw[idx_lines][~zsp & keep]/(1+0*zout.z_peak[0::3][~zsp & keep]), sn_halpha[idx_lines][~zsp & keep], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
-    plt.semilogx(lines.halpha_eqw[idx_lines][zsp & keep]/(1+0*zout.z_peak[0::3][zsp & keep]), sn_halpha[idx_lines][zsp & keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=6)
-    plt.semilogy()
+    ax.semilogx(lines.halpha_eqw[idx_lines][~zsp & keep]/(1+0*zout.z_peak[0::3][~zsp & keep]), sn_halpha[idx_lines][~zsp & keep], marker='o', linestyle='None', color='black', alpha=0.2, markersize=4)
+    ax.semilogx(lines.halpha_eqw[idx_lines][zsp & keep]/(1+0*zout.z_peak[0::3][zsp & keep]), sn_halpha[idx_lines][zsp & keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=6)
     
-    plt.errorbar(mcat.logm[idx][~zsp & keep], lines.halpha_eqw[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), yerr= lines.halpha_eqw_err[idx_lines][~zsp & keep]/(1+zout.z_peak[0::3][~zsp & keep]), marker='o', linestyle='None', color='black', alpha=0.2, markersize=4, ealpha=0.9, ecolor='black')
-    plt.errorbar(mcat.logm[idx][zsp & keep], lines.halpha_eqw[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), yerr= lines.halpha_eqw_err[idx_lines][zsp & keep]/(1+zout.z_peak[0::3][zsp & keep]), marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8, ealpha=0.9, ecolor='blue')
-    plt.semilogx()
-    plt.semilogy()
-    plt.ylim(0.1, 500)
-    plt.xlim(9, 11.6)
+    xm, ym, ys, ns = threedhst.utils.runmed(lines.halpha_eqw[idx_lines][keep]/(1+0*zout.z_peak[0::3][keep]), sn_halpha[idx_lines][keep], NBIN=20)
+    ax.plot(xm, ym, color='orange', alpha=0.5, linewidth=8)
     
-    plt.plot([0.03,3000],[0.01,1000], color='red',alpha=0.5, linewidth=3)
-    plt.xlim(0.1, 800)
-    plt.ylim(0.1, 200)
-    plt.ylabel(r'$\mathrm{eqw\ signal-to-noise}$')
-    plt.xlabel(r'$\mathrm{H}\alpha\ \mathrm{eqw\ (observed\ frame)}$')
+    ax.semilogy()
+    
+    ax.set_xticklabels(['1','10','100'])
+    ax.set_xticks([1,10,100])
+
+    ax.set_yticklabels(['0.3','1','3','10','30','100'])
+    ax.set_yticks([0.3,1,3,10,30,100])
+    
+    ax.plot([10,10], [0.01,3000], color='orange',alpha=0.2, linewidth=3)
+    ax.set_xlim(0.3, 800)
+    ax.set_ylim(0.1, 200)
+    ax.set_ylabel(r'$\mathrm{eqw\ signal-to-noise}$')
+    ax.set_xlabel(r'$\mathrm{H}\alpha\ \mathrm{eqw\ (observed\ frame)}$')
+    
+    fig.savefig('ha_eqw_errors.pdf')
+    fig.savefig('ha_eqw_errors.png')
     
     ####### OIII emitters
     oiii = keep & (zout.z_peak[0::3] > 1.2)
@@ -372,12 +395,9 @@ def test_plots():
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$\mathrm{OIII}\ \mathrm{eqw}$')
     
+    ################################################
     #### Mass - size
-    # plt.semilogy(mcat.logm[idx][keep], gfit.r_e_kpc[idx_gfit][keep], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
-    plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.r_e_kpc[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.3, markersize=8)
-    plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.r_e_kpc[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.3, markersize=8)
-    
-    # circularized
+    ################################################
     unicorn.catalogs.plot_init(square=True)
     
     plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.r_e_kpc_circ[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
@@ -403,32 +423,41 @@ def test_plots():
     plt.savefig('mass_size.pdf')
     plt.savefig('mass_size.png')
     
+    ################################################
     #### Mass - n
-    unicorn.catalogs.plot_init()
+    ################################################
+    fig = unicorn.catalogs.plot_init()
+    ax = fig.add_subplot(111)
     
-    plt.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.n[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
-    plt.semilogy(mcat.logm[idx][keep & red_sequence], gfit.n[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.1, markersize=8)
+    ax.semilogy(mcat.logm[idx][keep & ~red_sequence], gfit.n[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.1, markersize=8)
+    ax.semilogy(mcat.logm[idx][keep & red_sequence], gfit.n[idx_gfit][keep & red_sequence], marker='o', linestyle='None', color='red', alpha=0.1, markersize=8)
 
     xm, ym, ys, ns = threedhst.utils.runmed(mcat.logm[idx][keep], gfit.n[idx_gfit][keep], NBIN=10)
-    plt.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='black', ecolor='black', alpha=0.6, marker='o', markersize=12)
+    ax.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='black', ecolor='black', alpha=0.6, marker='o', markersize=12)
     xm, ym, ys, ns = threedhst.utils.runmed(mcat.logm[idx][keep & ~red_sequence], gfit.n[idx_gfit][keep & ~red_sequence], NBIN=10)
-    plt.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='blue', ecolor='blue', alpha=0.6, marker='o', markersize=12)
+    ax.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='blue', ecolor='blue', alpha=0.6, marker='o', markersize=12)
     xm, ym, ys, ns = threedhst.utils.runmed(mcat.logm[idx][keep & red_sequence], gfit.n[idx_gfit][keep & red_sequence], NBIN=10)
-    plt.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='red', ecolor='red', alpha=0.6, marker='o', markersize=12)
+    ax.errorbar(xm, ym, yerr=ys/np.sqrt(ns), color='red', ecolor='red', alpha=0.6, marker='o', markersize=12)
 
-    plt.plot([0,100],[1,1], color='blue', linestyle='--', alpha=0.4, linewidth=4)
-    plt.plot([0,100],[4,4], color='red', linestyle='--', alpha=0.4, linewidth=4)
-    plt.ylim(0.2, 21)
-    plt.xlim(9, 11.6)
-    plt.text(11.5,1.1,r'$n=1$', fontsize=14, horizontalalignment='right')
-    plt.text(11.5,4.4,r'$n=4$', fontsize=14, horizontalalignment='right')
-    plt.xlabel(r'$\log\ M/M_\odot$')
-    plt.ylabel(r'$n$')
+    ax.plot([0,100],[1,1], color='blue', linestyle='--', alpha=0.4, linewidth=4)
+    ax.plot([0,100],[4,4], color='red', linestyle='--', alpha=0.4, linewidth=4)
+    ax.text(11.5,1.1,r'$n=1$', fontsize=14, horizontalalignment='right')
+    ax.text(11.5,4.4,r'$n=4$', fontsize=14, horizontalalignment='right')
     
-    plt.savefig('mass_n.pdf')
-    plt.savefig('mass_n.png')
+    ax.set_yticklabels(['1','4','10'])
+    ax.set_yticks([1,4,10])
     
+    ax.set_ylim(0.2, 21)
+    ax.set_xlim(9, 11.6)
+    ax.set_xlabel(r'$\log\ M/M_\odot$')
+    ax.set_ylabel(r'$n$')
+    
+    fig.savefig('mass_n.pdf')
+    fig.savefig('mass_n.png')
+    
+    ################################################
     #### Mass - b/a
+    ################################################
     unicorn.catalogs.plot_init()
     
     plt.plot(mcat.logm[idx][keep & ~red_sequence], gfit.ba[idx_gfit][keep & ~red_sequence], marker='o', linestyle='None', color='blue', alpha=0.2, markersize=8)
@@ -447,7 +476,9 @@ def test_plots():
     plt.savefig('mass_ba.pdf')
     plt.savefig('mass_ba.png')
         
+    ################################################
     ######### Composite spectra
+    ################################################
     eqw = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     
     mass = keep & (mcat.logm[idx] > 10.)
@@ -498,6 +529,7 @@ def test_plots():
     
     ################################################
     #### Eq-W vs size
+    ################################################
     eqw = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3])
     eqw[eqw < 0.2] = 0.2
     mass_limit = 10.6
@@ -836,6 +868,8 @@ def make_full_redshift_catalog():
     """
     Cat all individual zout files into a single file
     """
+    import copy
+    
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
     files = glob.glob('OUTPUT/*G141*zout')
     if len(files) == 0:
@@ -846,15 +880,35 @@ def make_full_redshift_catalog():
     lines = fp.readlines()
     lines[0]+='# '+time.ctime()+'\n'
     
+    specphot_lines = copy.deepcopy(lines[0:3])
+    phot_lines = copy.deepcopy(lines[0:3])
+    spec_lines = copy.deepcopy(lines[0:3])
+    
     fp.close()
     for file in files[1:]:
         print noNewLine+file
         fp = open(file)
-        lines.extend(fp.readlines()[2:])
+        flines = fp.readlines()[2:]
+        lines.extend(flines)
+        specphot_lines.append(flines[0])
+        phot_lines.append(flines[1])
+        spec_lines.append(flines[2])
         fp.close()
         
     fp = open('full_redshift.cat','w')
     fp.writelines(lines)
+    fp.close()
+
+    fp = open('specphot_redshift.cat','w')
+    fp.writelines(specphot_lines)
+    fp.close()
+
+    fp = open('phot_redshift.cat','w')
+    fp.writelines(phot_lines)
+    fp.close()
+
+    fp = open('spec_redshift.cat','w')
+    fp.writelines(spec_lines)
     fp.close()
     
     status = os.system('cp full_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')

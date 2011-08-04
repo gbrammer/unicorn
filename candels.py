@@ -67,11 +67,12 @@ def goods_ers():
 def egs():
     import unicorn.candels
     
+    os.chdir('/Users/gbrammer/CANDELS/EGS/PREP_FLT/')
     unicorn.candels.make_asn_files()
     
     #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
     ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
-    #ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits'
+    ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits'
     
     files=glob.glob('EGS-V*asn.fits')
     for file in files:
@@ -80,24 +81,36 @@ def egs():
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
             
-    
-    files=glob.glob('EGS-V*asn.fits')
+    #### Refine F125W shifts, using F160W images as reference
+    files=glob.glob('EGS-V*F125W_asn.fits')
     for file in files:
         root = file.split('_asn')[0]
         try:
             threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
-              ALIGN_IMAGE='/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits',
+              ALIGN_IMAGE=root.replace('F125W','F160W')+'_drz.fits',
               fitgeometry='shift', clean=True,
-              ALIGN_EXTENSION=0)
+              ALIGN_EXTENSION=1)
         except:
-            continue
+            # continue
+            pass
         #
         threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=0.06, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False)
         #
-        threedhst.gmap.makeImageMap([root+'_drz.fits', root+'_align.fits[0]'], aper_list=[16], tileroot=[root,'F814W'])
+        threedhst.gmap.makeImageMap([root+'_drz.fits', root+'_align.fits[0]'], aper_list=[16], tileroot=[root,'F814W'], polyregions=glob.glob('EGS*F125W*reg'))
+
+    # V0T-F125 71/1I-F160Wsatellite trail, V54-125 - bad shift
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='EGS-V54-F125W',
+      ALIGN_IMAGE='EGS-V0R-F125W_drz.fits',
+      fitgeometry='shift', clean=True,
+      ALIGN_EXTENSION=1)
+    #
+    threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
+         use_shiftfile=True, skysub=False,
+         final_scale=0.06, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False)
     #
     
     for filt in ['F125W', 'F160W']:
@@ -113,11 +126,9 @@ def egs():
              ra=214.92061, dec=52.878457, final_outnx=7547, 
              final_outny=31900, final_rot=42)
     #
-    threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]'], aper_list=[14], tileroot=['WIRDS-K','F814W'])
+    threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*2','EGS-epoch2-F125W_drz.fits', 'EGS-epoch2-F160W_drz.fits'], aper_list=[14], tileroot=['F814W','F125W','F160W'], polyregions=glob.glob('*F125W_asn.pointing.reg'))
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
-    
-    threedhst.gmap.makeImageMap(['PREP_FLT/EGS-epoch2-F125W_drz.fits',  '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]'], aper_list=[14], tileroot=['F125W','F814W'])
     
     
 def uds():

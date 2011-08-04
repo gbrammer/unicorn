@@ -889,10 +889,12 @@ def make_full_redshift_catalog():
         print noNewLine+file
         fp = open(file)
         flines = fp.readlines()[2:]
-        lines.extend(flines)
-        specphot_lines.append(flines[0])
-        phot_lines.append(flines[1])
-        spec_lines.append(flines[2])
+        if len(flines) == 3:
+            lines.extend(flines)
+            specphot_lines.append(flines[0])
+            phot_lines.append(flines[1])
+            spec_lines.append(flines[2])
+        #
         fp.close()
         
     fp = open('full_redshift.cat','w')

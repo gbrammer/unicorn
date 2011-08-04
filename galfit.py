@@ -446,7 +446,7 @@ def make_full_catalog(output='full_galfit.cat'):
         os.system('ls |grep G141 |grep log > files.list')
         files = np.loadtxt('files.list', dtype=np.str)
         
-    lines = ['# id   PSF_FIT   r_e  r_e_err   n  n_err  ba  ba_err   chi2\n# '+time.ctime()+'\n']
+    lines = ['# id   PSF_FIT  mag mag_err  r_e  r_e_err   n  n_err  ba  ba_err   chi2\n# '+time.ctime()+'\n']
     for file in files:
         object = file.split('_galfit')[0]
         print noNewLine+object
@@ -456,22 +456,25 @@ def make_full_catalog(output='full_galfit.cat'):
             #
             if 'psf' in log.components:
                 is_psf = 1
+                mag = log.list[0]['mag']
                 re = (-1,-1)
                 n = (-1,-1)
                 ba = (-1, -1)
             else:
                 is_psf = 0
+                mag = log.list[0]['mag']
                 re = log.list[0]['re']
                 n = log.list[0]['n']
                 ba = log.list[0]['ba']
         except:
             is_psf = -1
+            mag = (-1,-1)
             re = (-1,-1)
             n = (-1,-1)
             ba = (-1, -1)
             chi2 = -1
         #
-        lines.append("%s   %d   %7.2f %7.2f  %5.1f  %5.1f   %5.2f  %5.2f  %6.2e\n" %(object, is_psf, re[0], re[1], n[0], n[1], ba[0], ba[1], chi2))
+        lines.append("%s   %d   %7.2f %7.2f   %7.2f %7.2f  %5.1f  %5.1f   %5.2f  %5.2f  %6.2e\n" %(object, is_psf, mag[0], mag[1], re[0], re[1], n[0], n[1], ba[0], ba[1], chi2))
     
     fp = open(output,'w')
     fp.writelines(lines)

@@ -20,6 +20,8 @@ import threedhst.prep_flt_files
 import threedhst.catIO as catIO
 import unicorn
 
+noNewLine = '\x1b[1A\x1b[1M'
+
 def goods_ers():
     """
     GOODS-ERS field (not candels)
@@ -473,4 +475,164 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[], clean=True,
                     initial_order=DIRECT_HIGHER_ORDER, save_fit=False)
+
+def make_test_catalog():
+    """
+    Run SExtractor on some CANDELS images to see what the mag vs. size relation looks like
+    """
+    import threedhst
+    os.chdir('/Users/gbrammer/CANDELS/JUNK')
+    
+    #### Run SExtractor on the direct image, with the WHT 
+    #### extension as a weight image
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+
+    se.overwrite = True
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['FILTER']    = 'Y'
+    #### Detect thresholds (default = 1.5)
+    se.options['DETECT_THRESH']    = '3'
+    se.options['ANALYSIS_THRESH']  = '3' 
+
+    #### Run SExtractor
+    threedhst.options['MAG_ZEROPOINT'] = '26.25'
+    se.options['CATALOG_NAME']    = 'UDS01_F125W_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = 'UDS01_F125W_seg.fits'
+    se.options['WEIGHT_IMAGE']    = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f125w_v0.5_wht.fits'
+    status = se.sextractImage('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f125w_v0.5_drz.fits')
+
+    threedhst.options['MAG_ZEROPOINT'] = '25.96'
+    se.options['CATALOG_NAME']    = 'UDS01_F160W_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = 'UDS01_F160W_seg.fits'
+    se.options['WEIGHT_IMAGE']    = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_wht.fits'
+    status = se.sextractImage('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits')
+    
+    ######### Locally
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/FIRST_PAPER/GRISM_v1.6')
+    uds125 = threedhst.sex.mySexCat('UDS01_F125W_drz.cat')
+    uds160 = threedhst.sex.mySexCat('UDS01_F160W_drz.cat')
+    threed = catIO.Readfile('full_sextractor.cat')
+    
+    fig = unicorn.catalogs.plot_init(xs=4,aspect=2)
+    
+    #fig = plt.figure(figsize=(5.5,5), dpi=100)
+    fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.15,
+                        bottom=0.10,right=0.99,top=0.97)
+
+    ## zphot
+    ax = fig.add_subplot(311)   
+    plt.plot(np.cast[float](uds125.MAG_AUTO)+26.25, np.cast[float](uds125.FLUX_RADIUS), marker='o', alpha=0.2, linestyle='None', markersize=3, color='blue')
+    plt.plot([0,100],[2.5,2.5], alpha=0.2, color='black', linewidth=10)
+    plt.xlim(14.1,25)
+    plt.ylim(0,11)
+    plt.text(15,9,'UDS F125W')
+    
+    ax = fig.add_subplot(312)
+    plt.plot(np.cast[float](uds160.MAG_AUTO)+26.25, np.cast[float](uds160.FLUX_RADIUS), marker='o', alpha=0.2, linestyle='None', markersize=3, color='blue')
+    plt.plot([0,100],[2.5,2.5], alpha=0.2, color='black', linewidth=10)
+    plt.xlim(14.1,25)
+    plt.ylim(0,11)
+    plt.text(15,9,'UDS F160W')
+    #plt.close()
+    
+    ax = fig.add_subplot(313)
+    plt.plot(th.mag_f1392w, th.flux_radius, marker='o', color='red', alpha=0.1, linestyle='None', markersize=3)
+    plt.plot([0,100],[2.5,2.5], alpha=0.2, color='black', linewidth=10)
+    plt.xlim(14.1,25)
+    plt.ylim(0,11)
+    plt.xlabel('MAG_AUTO')
+    plt.ylabel('FLUX_RADIUS')
+    plt.text(15,9,'3D-HST F140W')
+    
+    plt.savefig('size_candels_3dhst.png')
+    
+    plt.close()
+
+def star_stacks():
+    """ 
+    Make stacks of the images and weights around stars, 3DHST and CANDELS
+    """
+    import unicorn
+    import threedhst.catIO as catIO
+    import threedhst
+    import pyfits
+    import os
+    import numpy as np
+    import glob
+    noNewLine = '\x1b[1A\x1b[1M'
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    
+    NX = 50
+    phot = catIO.Readfile('full_sextractor.cat')
+    uds125 = threedhst.sex.mySexCat('UDS01_F125W_drz.cat')
+    uds160 = threedhst.sex.mySexCat('UDS01_F160W_drz.cat')
+    
+    stars_125 = (np.cast[float](uds125.MAG_AUTO)+26.25 > 18) & (np.cast[float](uds125.MAG_AUTO)+26.25 < 19) & (np.cast[float](uds125.FLUX_RADIUS) < 3)
+    stars_160 = (np.cast[float](uds160.MAG_AUTO)+26.25 > 18) & (np.cast[float](uds160.MAG_AUTO)+26.25 < 19) & (np.cast[float](uds160.FLUX_RADIUS) < 3)
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    
+    # d_125 = pyfits.open('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f125w_v0.5_drz.fits')
+    #d_125 = pyfits.open('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f125w_v0.5_wht.fits')
+
+    #d_125 = pyfits.open('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits')
+    d_125 = pyfits.open('/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_wht.fits')
+    
+    #### Have to do wht, drz separately for memory issues
+    
+    data_125 = d_125[0].data
+    
+    drz_125 = np.zeros((2*NX,2*NX))
+    wht_125 = np.zeros((2*NX,2*NX))
+    
+    idx = np.arange(len(stars_125))
+    count=0
+    for i in idx[stars_125]:
+        print str(i)
+        xc = np.round(float(uds125.X_IMAGE[i]))
+        yc = np.round(float(uds125.Y_IMAGE[i]))
+        drz_125 += data_125[yc-NX:yc+NX,xc-NX:xc+NX]
+        count+=1
+        #wht_125 += w_125_data[yc-NX:yc+NX,xc-NX:xc+NX]
+    
+    pyfits.writeto('star_drz_160.fits', data=drz_125/count, clobber=True)
+    
+    pyfits.writeto('star_wht_160.fits', data=drz_125/count, clobber=True)
+    
+    ####### Threedhst
+    stars_3d = (phot.mag_f1392w > 18) & (phot.mag_f1392w < 19) & (phot.flux_radius < 3) & ((phot.field == 'AEGIS') | (phot.field == 'COSMOS') | (phot.field == 'GOODS-S') | (phot.field == 'GOODS-N'))
+    idx = np.arange(len(stars_3d))
+    old_pointing = 'xxx'
+    
+    drz_125 = np.zeros((2*NX,2*NX))
+    wht_125 = np.zeros((2*NX,2*NX))
+    
+    count=0.
+    for obj in phot.id[stars_3d]:
+        path = unicorn.analysis.get_grism_path(obj)
+        pointing = obj.split('G141')[0]+'F140W'
+        print noNewLine+pointing
+        if pointing != old_pointing:
+            drz = pyfits.open(path+'PREP_FLT/'+pointing+'_drz.fits')
+            old_pointing = pointing
+        #
+        i = phot.id == obj
+        xc = np.round(float(phot.x_image[i]))
+        yc = np.round(float(phot.y_image[i]))
+        #
+        try:
+            drz_125 += drz[1].data[yc-NX:yc+NX,xc-NX:xc+NX]
+            wht_125 += drz[2].data[yc-NX:yc+NX,xc-NX:xc+NX]
+            count+=1
+        except:
+            pass
+        
+    #
+    pyfits.writeto('star_drz_3d.fits', data=drz_125/count, clobber=True)
+    pyfits.writeto('star_wht_3d.fits', data=wht_125/count, clobber=True)
+    
     

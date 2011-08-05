@@ -833,3 +833,15 @@ def add_links_to_overview_websites():
     
     """
     return True
+    
+def check_weights():
+    """
+    Check if MultiDrizzle is still flagging stars as cosmic rays
+    """
+    
+    os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT/')
+    threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits[1]', 'COSMOS-F140W_drz.fits[2]*0.0008'], aper_list=[15], zmin=-0.1, zmax=0.5, polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
+
+    threedhst.gmap.makeImageMap(['COSMOS-23-F140W_drz.fits[1]', 'COSMOS-23-F140W_drz.fits[2]*0.0008'], aper_list=[16], zmin=-0.1, zmax=0.5, polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
+    
+    

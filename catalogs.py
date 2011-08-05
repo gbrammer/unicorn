@@ -162,6 +162,23 @@ def test_plots():
     gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(np.abs(gfit.ba)) 
     gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(np.abs(gfit.ba)) 
     
+    #############
+    ####   Compare galfit mags to SExtractor
+    ##############
+    phot = catIO.Readfile('full_sextractor.cat')
+    gfit = catIO.Readfile('full_galfit.cat')
+    found_gfit, idx_gfit = match_string_arrays(gfit.id, phot.id)
+    dmag = gfit.mag-phot.mag_f1392w[idx_gfit]
+    
+    f140 = (phot.field == 'COSMOS') | (phot.field == 'AEGIS') | (phot.field == 'GOODS-S') | (phot.field == 'GOODS-N')
+    
+    ok = (gfit.n > 0) & (gfit.mag_err < 0.5)
+    plt.plot(gfit.mag, gfit.mag_err, marker='o', alpha=0.1, linestyle='None')
+
+    plt.plot(gfit.mag[ok & f140[idx_gfit]], dmag[ok & f140[idx_gfit]], marker='o', alpha=0.05, linestyle='None')
+    plt.xlim(14,25)
+    plt.ylim(-2,2)
+    
     ##### Selection slices
     dr = mcat.rmatch[idx] < 1
     zrange = (zout.z_peak[0::3] > 0.2)

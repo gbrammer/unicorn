@@ -21,6 +21,8 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
+import cosmocalc
+
 HAS_PHOTOMETRY = True
 PHOTOMETRY_ID = None
 BAD_SPECTRUM = False
@@ -1952,7 +1954,198 @@ def get_open_fds():
             fds.append(fd)
 	#
     return fds
-                    
+
+def generate_rf_colors(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=range(135,164), filename='rf_dummy'):
+    """
+    Make a fake catalog with all of the filters to interpolate. 
+    Run with the line templates and Z_MAX = 0 to just get the template fluxes at z=0.
+    """
+    import threedhst.eazyPy as eazy
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    if unicorn.hostname().startswith('uni'):
+        eazy_binary = '/usr/local/bin/eazy_latest'
+    else:
+        eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'
+    
+    #rf_filter_ids = range(135,164)
+    hline = '# id '
+    fluxes = ' 0 '
+    for filt in rf_filter_ids:
+        hline += ' F%0d E%0d' %(filt, filt)
+        fluxes += ' 1.0 0.1'
+    
+    fp = open(filename+'.cat','w')
+    fp.write(hline+'\n')
+    fp.write(fluxes+'\n')
+    fp.close()
+    
+    try:
+        os.system('rm zphot.param.default')
+    except:
+        pass
+    
+    #### Generate default param file    
+    os.system(eazy_binary + ' > /tmp/log')
+    zp = eazy.EazyParam('zphot.param.default')
+    
+    zp.params['FILTERS_RES'] = FILTERS_RES
+    zp.params['TEMPLATES_FILE'] = 'templates/o2_fit_lines.spectra.param'
+    zp.params['TEMP_ERR_FILE'] = 'templates/TEMPLATE_ERROR.eazy_v1.0'
+    zp.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
+    zp.params['CATALOG_FILE'] = filename+'.cat'
+    zp.params['Z_MIN'] = 0
+    zp.params['Z_MAX'] = 1.e-3
+    zp.params['Z_STEP'] = 0.1
+    zp.params['MAIN_OUTPUT_FILE'] = filename
+    zp.params['CACHE_FILE'] = filename+'.tempfilt'
+    zp.params['APPLY_PRIOR'] = 'y'
+    zp.params['PRIOR_FILTER'] = 153
+    
+    zp.write('rf_dummy.zphot.param')
+    
+    os.system(eazy_binary+' -p rf_dummy.zphot.param > /tmp/log')
+    
+def make_rf_flux_catalog():
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    #### UBV (Maiz-Apellaniz), ugriz (SDSS), JHK (2MASS), UV1600, UV2800
+    filters = [153,154,155,156,157,158,159,160,161,162,163,218,219]
+    
+    unicorn.analysis.generate_rf_colors(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=filters, filename='rf_dummy')
+    
+    zp_rf = eazy.EazyParam('OUTPUT/rf_dummy.param')
+    head_line = '# id z_grism  DM '
+    legend = ['# %s\n# \n# Only use grism+photometry redshifts\n# \n' %(time.ctime())]
+    
+    for filt in zp_rf.filters:
+        head_line += ' L%0d' %(filt.fnumber)
+        legend.append('# %0d: %s, %12.2f\n' %(filt.fnumber, filt.name, filt.lambda_c))
+    
+    legend.append('# \n')
+    
+    fp = open('full_rf_fluxes.cat','w')
+    fp.write(head_line+'\n')
+    fp.writelines(legend)
+    
+    files=glob.glob('OUTPUT/*G141*param')
+    if len(files) == 0:
+        status = os.system('ls OUTPUT |grep G141 |grep param > /tmp/list')
+        fpf = open('/tmp/list')
+        lines = fpf.readlines()
+        fpf.close()
+        for line in lines:
+            files.append('OUTPUT/'+line[:-1])
+    
+    for file in files:
+        print noNewLine +file
+        
+        root=os.path.basename(file).split('G141')[0]+'G141'
+        id=int(os.path.basename(file).split('G141_')[1].split('.param')[0])
+        
+        zfit, DM, obs_sed_rf, filts = unicorn.analysis.get_rf_fluxes(root=root, id=id, dummy='rf_dummy', verbose=False, check_plot=False)
+        
+        #### Only get the results for the first fit = spectrum + photometry
+        cat_line = ' %s_%05d  %9.5f %6.2f' %(root, id, zfit[0], DM[0])
+        for i in range(len(filts)):
+            cat_line += ' %12.5e' %(obs_sed_rf[i, 0])
+            
+        fp.write(cat_line+'\n')
+        
+    fp.close()
+    
+    
+def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True, check_plot=False):
+    """
+    Compute the rest-frame colors using the z=0 interpolated fluxes in the dummy 
+    catalog and the coefficients from the actual fit.
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    zp_rf = eazy.EazyParam('OUTPUT/%s.param' %(dummy))
+    zp_obj = eazy.EazyParam('OUTPUT/%s_%05d.param' %(root, id))
+
+    tempfilt_rf, coeffs_rf, temp_seds_rf, pz_rf = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s' %(dummy), OUTPUT_DIRECTORY='OUTPUT',CACHE_FILE = 'Same')
+    
+    tempfilt_obj, coeffs_obj, temp_seds_obj, pz_obj = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT',CACHE_FILE = 'Same')
+    
+    NTEMP = tempfilt_rf['NTEMP']
+    ### Possible that different templates used for each
+    if zp_rf.templates != zp_obj.templates:
+        if verbose:
+            print ' *** WARNING, different template sets used ***'
+            print '\n Rest-frame:\n=========='
+            for t in zp_rf.templates:
+                print t
+            #
+            print '\n Object:\n=========='
+            for t in zp_obj.templates:
+                print t
+            #
+        if tempfilt_rf['NTEMP'] > tempfilt_obj['NTEMP']:
+            NTEMP = tempfilt_obj['NTEMP']
+    
+    ##### Redshift from the fit
+    zfit = tempfilt_obj['zgrid'][coeffs_obj['izbest']]
+    DM = zfit*0
+    for i, zi in enumerate(zfit):
+        cc = cosmocalc.cosmocalc(zfit[i], H0=zp_obj['H0'], WM=zp_obj['OMEGA_M'])
+        DM[i] = 5.*np.log10(cc['DL_Mpc']*1.e5/np.sqrt(1+zfit[i])) #### Last (1+z) term is used because f_nu is interpolated in observed-frame units.  
+
+    ##### The following checks if a given emission line falls within DELTA_LINE Ang.
+    ##### (observed frame) of the central wavelength of one of the observed 
+    ##### filters.  If so, we assume that the photometry constrains the strength
+    ##### of the line in the fit.  If not, remove the line from the rf_template flux.
+    
+    DELTA_LINE = 300 ### Angstroms, observed frame
+    lc_rf = tempfilt_rf['lc'].copy()
+    lc_obj = tempfilt_obj['lc'].copy()
+    dlam_spec = lc_obj[-1]-lc_obj[-2]
+    is_spec = np.append(np.abs(1-np.abs(lc_obj[1:]-lc_obj[0:-1])/dlam_spec) < 0.05,True)
+    
+    line_names = ['Ha','OIII','Hb','OII_3727']
+    line_waves = [6563., 5007., 4861., 3727.]
+    NLINES = len(line_names)
+    
+    # print DELTA_LINE/dlam_spec
+    
+    for i, temp in enumerate(zp_obj.templates[0:NTEMP]):
+        value = 1.
+        for j in range(NLINES):
+            if line_names[j] in temp:
+                line_obs = line_waves[j]*(1+zfit[0])
+                dline = np.abs(line_obs-lc_obj)
+                dline[is_spec] *= DELTA_LINE/dlam_spec
+                if verbose:
+                    print 'Closest filter, %8s: %7.1f A' %(line_names[j], dline.min())
+                if dline.min() > DELTA_LINE:
+                    if verbose:
+                        print 'z=%.2f, setting %s template to zero.' %(zfit[0], line_names[j])
+                    coeffs_obj['coeffs'][i,:] *= value
+                    tempfilt_rf['tempfilt'][:,i,0] = (lc_rf/5500.)**2
+                        
+    ##### Rest-frame fnu fluxes, zeropoint from the EAZY run.
+    idx=0
+    obs_sed_rf = np.dot(tempfilt_rf['tempfilt'][:,0:NTEMP,0],\
+                     coeffs_obj['coeffs'][0:NTEMP,:])
+    
+    #### Check results    
+    if check_plot:
+        lambdaz, temp_sed, lci, obs_sed, fobs_new, efobs_new = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+        plt.plot(lci, obs_sed, marker='o', linestyle='None', alpha=0.5)
+        plt.semilogx()
+
+        lc_rf = np.arange(len(zp_rf.filters)*1.)
+        for i, filt in enumerate(zp_rf.filters):
+            lc_rf[i] = filt.lambda_c
+
+        plt.plot(lc_rf*(1+zfit[0]), obs_sed_rf[:,0]/(lc_rf*(1+zfit[0])/5500.)**2, marker='o', color='red', markersize=10, linestyle='None', alpha=0.3)
+        
+    return zfit, DM, obs_sed_rf, zp_rf.filters
+    
 def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
     import unicorn.analysis
     

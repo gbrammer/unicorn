@@ -2046,11 +2046,14 @@ def make_rf_flux_catalog():
         root=os.path.basename(file).split('G141')[0]+'G141'
         id=int(os.path.basename(file).split('G141_')[1].split('.param')[0])
         
-        zfit, DM, obs_sed_rf, filts = unicorn.analysis.get_rf_fluxes(root=root, id=id, dummy='rf_dummy', verbose=False, check_plot=False)
-        
+        try:
+            zfit, DM, obs_sed_rf, filts = unicorn.analysis.get_rf_fluxes(root=root, id=id, dummy='rf_dummy', verbose=False, check_plot=False)
+        except:
+            zfit, DM, obs_sed_rf = np.zeros(3)-1, np.zeros(3)-1, np.zeros((len(zp_rf.filters),3))-1
+            
         #### Only get the results for the first fit = spectrum + photometry
         cat_line = ' %s_%05d  %9.5f %6.2f' %(root, id, zfit[0], DM[0])
-        for i in range(len(filts)):
+        for i in range(len(zp_rf.filters)):
             cat_line += ' %12.5e' %(obs_sed_rf[i, 0])
             
         fp.write(cat_line+'\n')

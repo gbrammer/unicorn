@@ -1955,7 +1955,7 @@ def get_open_fds():
 	#
     return fds
 
-def generate_rf_colors(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=range(135,164), filename='rf_dummy'):
+def generate_rf_colors(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=range(135,164), filename='rf_dummy', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param'):
     """
     Make a fake catalog with all of the filters to interpolate. 
     Run with the line templates and Z_MAX = 0 to just get the template fluxes at z=0.
@@ -1991,21 +1991,23 @@ def generate_rf_colors(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=range(135
     zp = eazy.EazyParam('zphot.param.default')
     
     zp.params['FILTERS_RES'] = FILTERS_RES
-    zp.params['TEMPLATES_FILE'] = 'templates/o2_fit_lines.spectra.param'
+    zp.params['TEMPLATES_FILE'] = TEMPLATES_FILE
+    zp.params['TEMPLATE_COMBOS'] = '1'
     zp.params['TEMP_ERR_FILE'] = 'templates/TEMPLATE_ERROR.eazy_v1.0'
     zp.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
     zp.params['CATALOG_FILE'] = filename+'.cat'
     zp.params['Z_MIN'] = 0
-    zp.params['Z_MAX'] = 1.e-3
+    zp.params['Z_MAX'] = 4.0
     zp.params['Z_STEP'] = 0.1
+    zp.params['Z_STEP_TYPE'] = 0   
     zp.params['MAIN_OUTPUT_FILE'] = filename
     zp.params['CACHE_FILE'] = filename+'.tempfilt'
     zp.params['APPLY_PRIOR'] = 'y'
     zp.params['PRIOR_FILTER'] = 153
     
-    zp.write('rf_dummy.zphot.param')
+    zp.write(filename+'.zphot.param')
     
-    os.system(eazy_binary+' -p rf_dummy.zphot.param > /tmp/log')
+    os.system(eazy_binary+' -p '+filename+'.zphot.param > /tmp/log')
     
 def make_rf_flux_catalog():
     import unicorn.analysis
@@ -2149,7 +2151,7 @@ def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True,
         
     return zfit, DM, obs_sed_rf, zp_rf.filters
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', TILT_COEFFS=[0, 1]):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1]):
     import unicorn.analysis
     
     # root='WFC3-ERSII-G01-G141'; id=197; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
@@ -2555,7 +2557,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt

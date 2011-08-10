@@ -353,7 +353,8 @@ def make_selection_html(catalog_file='selection.cat'):
     fp.writelines(lines)
     fp.close()
     
-    base = os.path.basename(catalog_file)
+    base = catalog_file.split('.cat')[0]
+    
     print '! rsync -avz %s.cat %s.html ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/' %(base, base)
 
 def make_selection_for_Pieters_paper():
@@ -363,7 +364,7 @@ def make_selection_for_Pieters_paper():
     
     unicorn.catalogs.read_catalogs()
     
-    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
+    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
     
     print len(keep[keep])
     

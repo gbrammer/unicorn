@@ -246,6 +246,9 @@ def make_selection_catalog(selection, filename='selection.cat', make_html=True):
     
     fp.close()
     
+    if make_html:
+        make_selection_html(catalog_file=filename)
+        
 def make_selection_html(catalog_file='selection.cat'):
     """
     Make a webpage for a given selection.
@@ -339,7 +342,7 @@ def make_selection_html(catalog_file='selection.cat'):
             <td> <img src=../SED/%s_SED.png height=180px> </td> 
             <td> <img src=../EAZY/%s_eazy.png height=180px> </td> 
             <td> <img src=../GALFIT/%s_galfit.png height=180px> </td> 
-        </tr> """ %(cat.object[i], cat.mag_f140w[i], cat.z_gris[i], cat.lmass[i], object, object, object, object, object, object)
+        </tr> """ %(cat.object[i], cat.mag_f140w[i], cat.z_gris[i], cat.lmass[i], cat.object[i], cat.object[i], cat.object[i], cat.object[i], cat.object[i], cat.object[i])
         
         lines.append(line)
     
@@ -349,7 +352,8 @@ def make_selection_html(catalog_file='selection.cat'):
     fp.writelines(lines)
     fp.close()
     
-    print '! rsync *.cat *.html ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/'
+    base = os.path.basename(catalog_file)
+    print '! rsync -avz %s.cat %s.html ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/' %(base, base)
 
 def make_selection_for_Pieters_paper():
     import unicorn.catalogs
@@ -360,7 +364,9 @@ def make_selection_for_Pieters_paper():
     
     keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
     
-    unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat')
+    print len(keep[keep])
+    
+    unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat', make_html=True)
     unicorn.catalogs.make_selection_html(catalog_file='for_pieter_Aug10.cat')
     
 def match_string_arrays(target=['b','a','d'], source=['a','b','c']):

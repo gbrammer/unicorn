@@ -311,7 +311,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <br> <b>fcontam</b> < %.2f
         <br> %.2f < <b>fcover</b> < %.2f
     </p> 
-    <h2> N=%d </h2>
+    <h2> N=%d, <a href=./%s>catalog</a> </h2>
     
     <table id="myTable" cellspacing="1" class="tablesorter"> 
     <thead> 
@@ -327,7 +327,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <th> GALFIT </th> 
     </thead> 
     <tbody> 
-    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, cat.N)
+    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, cat.N, catalog_file)
     
     lines = [head]
     for i in range(cat.N):
@@ -359,11 +359,11 @@ def make_selection_html(catalog_file='selection.cat'):
 
 def make_selection_for_Pieters_paper():
     import unicorn.catalogs
-    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
     
     unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
     
     keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
     

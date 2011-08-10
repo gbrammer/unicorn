@@ -354,6 +354,8 @@ def make_selection_html(catalog_file='selection.cat'):
 def make_selection_for_Pieters_paper():
     import unicorn.catalogs
     
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    
     unicorn.catalogs.read_catalogs()
     
     keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
@@ -480,7 +482,7 @@ def test_plots():
     #### Rest-frame colors
     ######################################
     
-    rest = catIO.Readfile('full_rf_fluxes.cat.partial')
+    rest = catIO.Readfile('full_rf_fluxes.cat')
     found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
     
     ### plt.plot(zout.z_peak[0::3], rest.z_grism[idx_rest], marker='o', linestyle='None', color='blue', alpha=0.5); plt.xlim(0,5); plt.ylim(0,5)

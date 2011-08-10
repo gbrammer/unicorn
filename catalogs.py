@@ -21,13 +21,346 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
+import cosmocalc
+
 noNewLine = '\x1b[1A\x1b[1M'
 
 zout = None
+phot = None
 mcat = None
-gfit = None
 lines = None
+rest = None
+gfit = None
+selection_params = None
 
+## from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+
+def read_catalogs(force=False):
+    """ 
+    Read all of the catalogs and run the matching between them.
+    """
+    import unicorn.catalogs
+    from unicorn.catalogs import match_string_arrays
+    
+    if (unicorn.catalogs.rest is not None) & (not force):
+        print 'Looks like catalogs already read in.  To redo, use `read_catalogs(force=True)`.'
+        return True
+        
+    PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
+        
+    ######################################
+    #### Redshifts, master ID list
+    ######################################
+    
+    print noNewLine+'Reading Redshifts...'
+    
+    zout = catIO.Readfile(PATH_TO_CAT+'full_redshift.cat')
+    
+    pointing = []
+    field = []
+    for obj in zout.id[0::3]:
+        point = obj.split('-G141')[0]
+        pointing.append(point)
+        field.append(re.split('-[1-9]',point)[0])
+    
+    pointing = np.array(pointing)
+    field = np.array(field)
+    
+    zout.pointing = pointing
+    zout.field = field
+    
+    unicorn.catalogs.zout = zout
+    
+    ######################################
+    #### Full photometry
+    ######################################
+    
+    print noNewLine+'Reading SExtractor photometry...'
+    
+    phot = catIO.Readfile(PATH_TO_CAT+'full_sextractor.cat')
+
+    if not os.path.exists(PATH_TO_CAT+'phot.npz'):
+        found, idx = match_string_arrays(zout.id[0::3], phot.id)
+        np.savez(PATH_TO_CAT+'phot.npz', found=found, idx=idx)
+    else:
+        npz = np.load(PATH_TO_CAT+'phot.npz')
+        found, idx = npz['found'], npz['idx']
+
+    #found, idx = match_string_arrays(zout.id[0::3], phot.id)
+    phot.idx = idx
+    
+    unicorn.catalogs.phot = phot
+    
+    ######################################
+    #### Matches to photometric catalogs
+    ######################################
+    
+    print noNewLine+'Reading external catalog matches...'
+    
+    mcat = catIO.Readfile(PATH_TO_CAT+'full_match.cat')
+    if not os.path.exists(PATH_TO_CAT+'mcat.npz'):
+        found, idx = match_string_arrays(zout.id[0::3], mcat.id_f140w)
+        np.savez(PATH_TO_CAT+'mcat.npz', found=found, idx=idx)
+    else:
+        npz = np.load(PATH_TO_CAT+'mcat.npz')
+        found, idx = npz['found'], npz['idx']
+        
+    mcat.idx = idx
+    unicorn.catalogs.mcat = mcat
+    
+    ######################################
+    #### Emission line fits
+    ######################################
+    
+    print noNewLine+'Reading Emission lines...'
+    
+    lines = catIO.Readfile(PATH_TO_CAT+'full_emission_lines.cat')
+    if not os.path.exists(PATH_TO_CAT+'lines.npz'):
+        found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
+        np.savez(PATH_TO_CAT+'lines.npz', found=found_lines, idx=idx_lines)
+    else:
+        npz = np.load(PATH_TO_CAT+'lines.npz')
+        found_lines, idx_lines = npz['found'], npz['idx']
+    
+    lines.idx = idx_lines
+    unicorn.catalogs.lines = lines
+    
+    ######################################
+    #### Rest-frame colors
+    ######################################
+    
+    print noNewLine+'Reading Rest-frame colors...'
+    
+    rest = catIO.Readfile(PATH_TO_CAT+'full_rf_fluxes.cat.partial')
+    if not os.path.exists(PATH_TO_CAT+'rest.npz'):
+        found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
+        np.savez(PATH_TO_CAT+'rest.npz', found=found_rest, idx=idx_rest)
+    else:
+        npz = np.load(PATH_TO_CAT+'rest.npz')
+        found_rest, idx_rest = npz['found'], npz['idx']
+    
+    rest.idx = idx_rest
+    unicorn.catalogs.rest = rest
+    
+    ##################################### 
+    #### Galfit
+    #####################################
+    
+    print noNewLine+'Reading GALFIT...'
+    
+    gfit = catIO.Readfile(PATH_TO_CAT+'full_galfit.cat')
+    if not os.path.exists(PATH_TO_CAT+'gfit.npz'):
+        found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
+        found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
+        np.savez(PATH_TO_CAT+'gfit.npz', found=found_gfit, idx=idx_gfit, found_rev=found_gfit_rev, idx_rev=idx_gfit_rev)
+    else:
+        npz = np.load(PATH_TO_CAT+'gfit.npz')
+        found_gfit, idx_gfit, found_gfit_rev, idx_gfit_rev = npz['found'], npz['idx'], npz['found_rev'], npz['idx_rev']
+
+    # found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
+    # found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
+    
+    #### Make a grid of redshifts to compute the plate scale and then interpolate it.
+    zgrid = np.arange(100)/100.*4+1./100
+    scale = zgrid*0.
+    for i in range(100):
+        cc = cosmocalc.cosmocalc(zgrid[i])
+        scale[i] = cc['PS_kpc']
+    
+    gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+    gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+    gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(np.abs(gfit.ba)) 
+    gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(np.abs(gfit.ba)) 
+    
+    gfit.idx = idx_gfit
+    unicorn.catalogs.gfit = gfit
+
+class selectionParams():
+    def __init__(self, zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
+        self.zmin=1.0
+        self.zmax=1.5
+        self.fcontam=0.2
+        self.qzmin=0.
+        self.qzmax=0.4
+        self.dr=1.0
+        self.has_zspec=False
+        self.fcovermin=0.9
+        self.fcovermax=1.0
+        self.massmin=11
+        self.massmax=15
+        self.magmin=0
+        self.magmax=30
+        
+def run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
+    """
+    Run a selection on the 3D-HST catalogs
+    """
+    import unicorn.catalogs
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    dr_match = mcat.rmatch[mcat.idx] < dr
+    
+    zrange = (zout.z_peak[0::3] >= zmin) & (zout.z_peak[0::3] <= zmax)
+    
+    keep = dr_match & zrange & (mcat.fcontam[mcat.idx] <= fcontam) & (zout.q_z[0::3] >= qzmin)  & (zout.q_z[0::3] <= qzmax) 
+    
+    keep = keep & (phot.fcover[phot.idx] >= fcovermin) & (phot.fcover[phot.idx] <= fcovermax)
+    
+    keep = keep & (mcat.logm[mcat.idx] >= massmin) & (mcat.logm[mcat.idx] <= massmax)
+
+    keep = keep & (phot.mag_f1392w[phot.idx] >= magmin) & (phot.mag_f1392w[phot.idx] <= magmax)
+    
+    unicorn.catalogs.selection_params = selectionParams(zmin=zmin, zmax=zmax, fcontam=fcontam, qzmin=qzmin, qzmax=qzmax, dr=dr, has_zspec=has_zspec, fcovermin=fcovermin, fcovermax=fcovermax, massmin=massmin, massmax=massmax)
+    
+    return keep
+
+def make_selection_catalog(selection, filename='selection.cat', make_html=True):
+    """ 
+    Make a single catalog for a given `selection` that combines the outputs
+    of the separate 3D-HST catalogs
+    """
+    import unicorn
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    UV = -2.5*np.log10(rest.l153/rest.l155)
+    VJ = -2.5*np.log10(rest.l155/rest.l161)
+    
+    int_idx = np.arange(len(phot.idx))[selection]
+    #print gfit.id[gfit.idx][selection][0:10]
+    #print gfit.id[gfit.idx][int_idx][0:10]
+    
+    fp = open(filename,'w')
+    fp.write('#   object   z_fast   z_gris   z_phot2   z_spec   Q_z   mag_f140w   fcontam   lmass    Av   Umv   VmJ      eqwHa   eqwHa_err   r_e_pix  r_e_pix_err   r_e_kpc   r_e_circ   sersic_n  sersic_n_err  ba \n# eqw: observed frame\n')
+    
+    for ii in int_idx:
+        object = gfit.id[gfit.idx][ii]
+        print noNewLine+object
+        #### Match to FAST catalog to get Av
+        cat, zout_phot, fout = unicorn.analysis.read_catalogs(root=object)
+        fmat = np.where(fout.id == mcat.id_phot[mcat.idx][ii])[0][0]
+        #fout.lmass[fmat], mcat.logm[mcat.idx][ii]
+        
+        string_line = ' %-30s %8.4f %8.4f %8.4f %8.4f  %.1e   %6.3f  %4.2f  %7.3f  %7.3f  %8.3f %8.3f   %15.2e  %15.2e  %8.2f %8.2f  %8.2f  %8.2f  %8.1f  %8.1f  %8.2f' %(object, fout.z[fmat], zout.z_peak[0::3][ii], zout.z_peak[1::3][ii], zout.z_spec[0::3][ii], zout.q_z[0::3][ii], phot.mag_f1392w[phot.idx][ii], phot.fcontam[phot.idx][ii],  fout.lmass[fmat], fout.Av[fmat], UV[rest.idx][ii], VJ[rest.idx][ii], lines.halpha_eqw[lines.idx][ii], lines.halpha_eqw_err[lines.idx][ii], gfit.r_e[gfit.idx][ii], gfit.r_e_err[gfit.idx][ii], gfit.r_e_kpc[gfit.idx][ii], gfit.r_e_kpc_circ[gfit.idx][ii], gfit.n[gfit.idx][ii], gfit.n_err[gfit.idx][ii], gfit.ba[gfit.idx][ii])
+        
+        fp.write(string_line+'\n')
+    
+    fp.close()
+    
+def make_selection_html(catalog_file='selection.cat'):
+    """
+    Make a webpage for a given selection.
+    """
+    import unicorn.catalogs
+    from unicorn.catalogs import selection_params as par
+    
+    if par is None:
+        par = unicorn.catalogs.selectionParams()
+        
+    cat = catIO.Readfile(catalog_file)
+    
+    head="""
+    <html> 
+    <head> 
+    <link rel="stylesheet" href="../scripts/style.css" type="text/css" id="" media="print, projection, screen" /> 
+    
+    <script type="text/javascript" src="../scripts/jquery-1.4.2.min.js"></script> 
+    
+    <script type="text/javascript" src="../scripts/jquery.tablesorter.min.js"></script> 
+    
+    <script type="text/javascript" id="js"> 
+    
+    // Add ability to sort the table
+    $(document).ready(function() {
+        $.tablesorter.defaults.sortList = [[2,2]]; 
+        $("table").tablesorter({
+                // pass the headers argument and assing a object
+                headers: {
+                        // assign the secound column (we start counting zero)
+                        4: {
+                                sorter: false
+                        },
+                        5: {
+                                sorter: false
+                        },
+                        6: {
+                                sorter: false
+                        },
+                        7: {
+                                sorter: false
+                        },
+                        8: {
+                                sorter: false
+                        },
+                        9: {
+                                sorter: false
+                        },
+                }
+        });        
+    });
+    </script> 
+    
+    </head> 
+    <body> 
+    <p> 
+        %.2f < mag_F140W < %.2f
+        <br> %.2f < log M/Msun < %.2f
+        <br> %.2f < z < %.2f
+        <br> fcontam < %.2f
+        <br> %.2f < fcover < %.2f
+    </p> 
+    
+    <table id="myTable" cellspacing="1" class="tablesorter"> 
+    <thead> 
+        <th> Grism id </th> 
+        <th> Mag_WFC3 </th> 
+        <th> z </th> 
+        <th> logM </th> 
+        <th> Thumb </th> 
+        <th> 2D </th> 
+        <th> 1D </th> 
+        <th> SED </th> 
+        <th> EAZY </th> 
+        <th> GALFIT </th> 
+    </thead> 
+    <tbody> 
+    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax)
+    
+    lines = [head]
+    for i in range(cat.N):
+        line="""
+        <tr> 
+            <td> %s </td> 
+            <td> %.2f </td> 
+            <td> %.3f </td> 
+            <td> %.2f </td> 
+            <td> <img src=../images/%s_thumb.png height=180px> </td> 
+            <td> <img src=../images/%s_2D.png height=180px> </td> 
+            <td> <img src=../images/%s_1D.png height=180px> </td> 
+            <td> <img src=../SED/%s_SED.png height=180px> </td> 
+            <td> <img src=../EAZY/%s_eazy.png height=180px> </td> 
+            <td> <img src=../GALFIT/%s_galfit.png height=180px> </td> 
+        </tr> """ %(cat.object[i], cat.mag_f140w[i], cat.z_gris[i], cat.lmass[i], object, object, object, object, object, object)
+        
+        lines.append(line)
+    
+    lines.append("        </tbody></table></body></html>")
+    
+    fp = open(catalog_file.replace('.cat','.html'),'w')
+    fp.writelines(lines)
+    fp.close()
+    
+    print '! rsync *.cat *.html ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/'
+
+def make_selection_for_Pieters_paper():
+    import unicorn.catalogs
+    
+    unicorn.catalogs.read_catalogs()
+    
+    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
+    
+    unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat')
+    unicorn.catalogs.make_selection_html(catalog_file='for_pieter_Aug10.cat')
+    
 def match_string_arrays(target=['b','a','d'], source=['a','b','c']):
     """
     
@@ -142,6 +475,15 @@ def test_plots():
     #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
     red_limit = 15
     red_sequence = lines.halpha_eqw[idx_lines]/(1+zout.z_peak[0::3]) < red_limit
+
+    ######################################
+    #### Rest-frame colors
+    ######################################
+    
+    rest = catIO.Readfile('full_rf_fluxes.cat.partial')
+    found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
+    
+    ### plt.plot(zout.z_peak[0::3], rest.z_grism[idx_rest], marker='o', linestyle='None', color='blue', alpha=0.5); plt.xlim(0,5); plt.ylim(0,5)
     
     ##################################### 
     #### Galfit
@@ -191,8 +533,9 @@ def test_plots():
     # zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
     # zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
     zrange = (zout.z_peak[0::3] > 1.0) & (zout.z_peak[0::3] < 1.5)
-    keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
-    keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 1) 
+    keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.4) 
+    #keep = dr & zrange & (mcat.fcontam[idx] < 0.02) & (zout.q_z[0::3] < 0.1) 
+    #keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 1) 
     
     ### copy to macbook
     copy = keep & (mcat.logm[idx] > 8.)
@@ -600,6 +943,79 @@ def test_plots():
     plt.xlabel(r'$\log\ M/M_\odot$')
     plt.ylabel(r'$\log\ \mathrm{EQW\ H}\alpha$')    
     plt.savefig('eqw_mass9_morph_B.pdf')
+
+def uvj_test():
+    """
+    ################################################
+    #### UVJ, ha_lines
+    ################################################
+    """
+    import unicorn.catalogs
+    
+    unicorn.catalogs.read_catalogs()
+    
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    
+    #### Selection
+    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.25, qz=0.4, dr=1.0)
+    
+    #### Only massive
+    keep = keep & (mcat.logm[mcat.idx] >= 11)
+    
+    #### Figure
+    fig = unicorn.catalogs.plot_init(square=True)
+    
+    UV = -2.5*np.log10(rest.l153/rest.l155)
+    VJ = -2.5*np.log10(rest.l155/rest.l161)
+    
+    keep_rest = keep & (rest.idx > -1) 
+    detected_lines = (lines.halpha_eqw[lines.idx]/(1+zout.z_peak[0::3]) > 5) & (lines.halpha_eqw[lines.idx]/lines.halpha_eqw_err[lines.idx] > 3)
+    
+    plt.plot(VJ[rest.idx][keep_rest & detected_lines], UV[rest.idx][keep_rest & detected_lines], color='blue', marker='o', linestyle='None', alpha=0.2, markersize=6)
+    plt.plot(VJ[rest.idx][keep_rest & ~detected_lines], UV[rest.idx][keep_rest & ~detected_lines], color='red', marker='o', linestyle='None', alpha=0.4, markersize=6)
+    
+    #### Compare colors of fit templates
+    tempfilt, coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='rf_dummy', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
+    
+    uflux = tempfilt['tempfilt'][0,0:6,0]*1.
+    vflux = tempfilt['tempfilt'][2,0:6,0]*1.
+    jflux = tempfilt['tempfilt'][8,0:6,0]*1.
+
+    uflux /= vflux
+    jflux /= vflux
+    vflux /= vflux
+    
+    uv_temp = -2.5*np.log10(uflux/vflux)
+    vj_temp = -2.5*np.log10(vflux/jflux)
+    plt.plot(vj_temp, uv_temp, marker='o', markersize=12, alpha=0.5, linestyle='None', color='black')
+    
+    s = np.argsort(vj_temp)
+    s = np.append(s, s[0])
+    
+    for i in range(len(s)-1):
+        uv_int = []
+        vj_int = []
+        for f in np.arange(0,1.01,0.01):
+            uv_int.append( -2.5*np.log10((uflux[s][i]*f+uflux[s][i+1]*(1-f))/(vflux[s][i]*f+vflux[s][i+1]*(1-f))))
+            vj_int.append( -2.5*np.log10((vflux[s][i]*f+vflux[s][i+1]*(1-f))/(jflux[s][i]*f+jflux[s][i+1]*(1-f))))
+        #
+        plt.plot(vj_int, uv_int, color='black', alpha=0.1, marker='None', linewidth=3)
+    
+    
+    # dusty = (VJ[idx_rest] > 1.5) & (UV[idx_rest] > 1.5)
+    # plt.plot(VJ[idx_rest][keep & zsp & dusty], UV[idx_rest][keep & zsp & dusty], color='green', marker='x', linestyle='None', alpha=0.8, markersize=6)
+    # print rest.id[idx_rest][keep & zsp & dusty]
+    
+    plt.text(0,2.1,r'$1 < z < 1.5$', fontsize=13)
+    plt.text(0,1.9,r'Split: EQW H$\alpha=5\AA$', fontsize=11)
+    plt.xlim(-0.35,2.15)
+    plt.ylim(0,2.5)
+    plt.xlabel(r'$(V-J)$')
+    plt.ylabel(r'$(U-V)$')
+    
+    fig.savefig('UVJ_v1.0.png')
     
 def fill_image(objects, x, y, scale=None, xrange=(0,1), yrange=(0,1), NX=1024, NY=1024):
     
@@ -1204,5 +1620,13 @@ def show_acs_spectra():
         plt.savefig('%04.2f_' %(zi) + acs_file+'_example.pdf')
         plt.close()
         
-        
-        
+
+def gen_rgb_colortable(Vbins = range(10), rgb = (1,0,0), reverse=False):
+    values = np.arange(len(Vbins))*1./len(Vbins)
+    if reverse:
+        values = 1.-values
+    Vcolors = []
+    for i in range(len(Vbins)):
+        Vcolors.append((rgb[0]*values[i], rgb[1]*values[i], rgb[2]*values[i]))
+    #
+    return Vcolors

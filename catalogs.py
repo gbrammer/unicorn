@@ -305,12 +305,13 @@ def make_selection_html(catalog_file='selection.cat'):
     </head> 
     <body> 
     <p> 
-        %.2f < mag_F140W < %.2f
-        <br> %.2f < log M/Msun < %.2f
-        <br> %.2f < z < %.2f
-        <br> fcontam < %.2f
-        <br> %.2f < fcover < %.2f
+        %.2f < <b>mag_F140W</b> < %.2f
+        <br> %.2f < <b>log M/Msun</b> < %.2f
+        <br> %.2f < <b>z_gris</b> < %.2f
+        <br> <b>fcontam</b> < %.2f
+        <br> %.2f < <b>fcover</b> < %.2f
     </p> 
+    <h2> N=%d </h2>
     
     <table id="myTable" cellspacing="1" class="tablesorter"> 
     <thead> 
@@ -326,7 +327,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <th> GALFIT </th> 
     </thead> 
     <tbody> 
-    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax)
+    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, cat.N)
     
     lines = [head]
     for i in range(cat.N):

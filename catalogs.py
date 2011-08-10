@@ -359,6 +359,7 @@ def make_selection_html(catalog_file='selection.cat'):
 
 def make_selection_for_Pieters_paper():
     import unicorn.catalogs
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
     
@@ -368,8 +369,13 @@ def make_selection_for_Pieters_paper():
     
     print len(keep[keep])
     
+    unicorn.catalogs.make_object_tarfiles(zout.id[0::3][keep], thumbs=False)
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    os.system('mv ../spec.tar.gz for_pieter_Aug10.spec.tar.gz')
+    
     unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat', make_html=True)
-    unicorn.catalogs.make_selection_html(catalog_file='for_pieter_Aug10.cat')
+
+    os.system('rsync -avz for_pieter_Aug10.* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
     
 def match_string_arrays(target=['b','a','d'], source=['a','b','c']):
     """
@@ -1177,13 +1183,13 @@ def make_object_tarfiles(objects, thumbs=False):
     
     
     #### Get photometry + scaled spectra from the tempfilt files
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER')
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/GRISM_v1.6')
     
     tarline = 'tar czvf spec.tar.gz'
     for object in objects:
         print noNewLine+object
         #
-        tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
+        tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../../REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
         
         #### Photometry + spectrum
         fp = open(object+'_obs_sed.dat','w')
@@ -1215,7 +1221,7 @@ def make_object_tarfiles(objects, thumbs=False):
         #
     os.system(tarline)
     
-    print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/[st]*tar.gz .'
+    print 'scp $UNICORN:'+unicorn.GRISM_HOME+'ANALYSIS/FIRST_PAPER/GRISM_V1.6/spec*tar.gz .'
     
 def combine_sextractor_catalogs():
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/')

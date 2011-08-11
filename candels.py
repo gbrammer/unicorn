@@ -447,7 +447,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                        PATH_TO_RAW='../RAW',
                        GET_SHIFT=True,
                        DIRECT_HIGHER_ORDER=2,
-                       SCALE=0.06):
+                       SCALE=0.06,
+                       bg_skip=False):
     
     import threedhst
     import threedhst.prep_flt_files
@@ -460,7 +461,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
     
     threedhst.prep_flt_files.prep_flt(asn_file=asn_file,
                     get_shift=GET_SHIFT, 
-                    bg_only=False, bg_skip=False, redo_background=True,
+                    bg_only=False, bg_skip=bg_skip, redo_background=True,
                     ALIGN_IMAGE=ALIGN_IMAGE, 
                     ALIGN_EXT=ALIGN_EXTENSION,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
@@ -470,8 +471,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
     
     if DIRECT_HIGHER_ORDER > 0:
         threedhst.prep_flt_files.prep_flt(asn_file=asn_file,
-                    get_shift=False, 
-                    bg_only=False, bg_skip=False, redo_background=False,
+                    get_shift=False, first_run=False, 
+                    bg_only=False, bg_skip=bg_skip, redo_background=False,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[], clean=True,
                     initial_order=DIRECT_HIGHER_ORDER, save_fit=False)

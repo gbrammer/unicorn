@@ -466,7 +466,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[],
                     align_geometry='shift', clean=True,
-                    initial_order=0, save_fit=False)
+                    initial_order=0, save_fit=False, TWEAKSHIFTS_ONLY=(ALIGN_IMAGE is None))
     
     if DIRECT_HIGHER_ORDER > 0:
         threedhst.prep_flt_files.prep_flt(asn_file=asn_file,

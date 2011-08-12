@@ -25,6 +25,117 @@ noNewLine = '\x1b[1A\x1b[1M'
 
 root = None
 
+def orbit_structure():
+    """
+    Show the POSTARG offsets in WFC3 / ACS
+    """
+    
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.12)
+    ax = fig.add_subplot(111)
+    
+    a11 = 0.1355
+    b10 = 0.1211 # arcsec / pix, from instrument HB
+    
+    #dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
+    #dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
+    
+    xpostarg = np.array([0, 1.355, 0.881, -0.474])
+    ypostarg = np.array([0, 0.424, 1.212, 0.788])
+    
+    xoff = xpostarg/a11
+    yoff = ypostarg/b10
+        
+    ax.plot(xoff, yoff, marker='o', markersize=10, color='red', alpha=0.8, zorder=10)
+    
+    if 1 == 1:
+        for i in range(4):
+            ax.text(xoff[i], yoff[i]+0.5, 'F140W + G141', horizontalalignment='center', backgroundcolor='white', zorder=20)
+            
+    ax.set_xlabel(r'$x$ offset [pix]')
+    ax.set_ylabel(r'$y$ offset [pix]')
+
+    scale = 4
+    x0 = -2.9
+    y0 = -5.5
+    
+    ax.fill(np.array([0,1,1,0])*scale+x0, np.array([0,0,1,1])*scale+y0, color='white', zorder=10)
+    ax.fill(np.array([0,1,1,0])*scale+x0, np.array([0,0,1,1])*scale+y0, color='black', alpha=0.1, zorder=11)
+    ax.plot(np.array([0.5,0.5])*scale+x0, np.array([0,1])*scale+y0, color='black', alpha=0.2, zorder=12)
+    ax.plot(np.array([0,1])*scale+x0, np.array([0.5,0.5])*scale+y0, color='black', alpha=0.2, zorder=12)
+    
+    ax.plot(np.abs(xoff-np.cast[int](xoff))*scale+x0, np.abs(yoff-np.cast[int](yoff))*scale+y0, marker='o', markersize=10, color='red', alpha=0.8, zorder=13)
+    ax.text(x0+scale/2., y0-1, 'WFC3 Primary', horizontalalignment='center')
+    
+    #plt.xlim(-5,11)
+    #plt.ylim(-5,11)
+    
+    #### ACS:
+    # XPOS = x*a11 + y*a10
+    # YPOS = x*b11 + y*b10
+    # 
+    #       a10    a11      b10     b11
+    # WFC: 0.0000   0.0494  0.0494  0.0040
+    a10, a11, b10, b11 =  0.0000,0.0494,0.0494,0.0040
+    #xoff = np.cumsum(xpostarg)
+    #yoff = np.cumsum(ypostarg)
+
+    acsang = 45.
+    acsang = 92.16- -45.123
+    xpos_acs, ypos_acs = threedhst.utils.xyrot(xpostarg, ypostarg, acsang)
+    xpix_acs = xpos_acs / a11
+    ypix_acs = (ypos_acs-xpix_acs*b11)/b10
+
+    x0 = 5.5
+    #y0 = -4.5
+    
+    ax.fill(np.array([0,1,1,0])*scale+x0, np.array([0,0,1,1])*scale+y0, color='white', zorder=10)
+    ax.fill(np.array([0,1,1,0])*scale+x0, np.array([0,0,1,1])*scale+y0, color='black', alpha=0.1, zorder=11)
+    ax.plot(np.array([0.5,0.5])*scale+x0, np.array([0,1])*scale+y0, color='black', alpha=0.2, zorder=12)
+    ax.plot(np.array([0,1])*scale+x0, np.array([0.5,0.5])*scale+y0, color='black', alpha=0.2, zorder=12)
+
+    ax.plot(np.abs(xpix_acs-np.cast[int](xpix_acs))*scale+x0, np.abs(ypix_acs-np.cast[int](ypix_acs))*scale+y0, marker='o', markersize=10, color='blue', alpha=0.8, zorder=13)
+    #ax.plot(np.array([0,0.5,1,0.5])*scale+x0, np.array([0,0.5,0.5,1])*scale+y0, marker='o', marker='None', color='blue', linestyle='--', alpha=0.6, zorder=13)
+    ax.plot(np.array([0,0.5,0.5,1])*scale+x0, np.array([0,1,0.5,0.5])*scale+y0, marker='o', marker='None', color='blue', linestyle='--', alpha=0.6, zorder=13)
+    
+    ax.text(x0+scale/2., y0-1, 'ACS Parallel', horizontalalignment='center')
+    
+    #plt.grid(alpha=0.5, zorder=1, markevery=5)
+    
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
+    ax.set_xlim(-5.9,12.5)
+    #ax.set_ylim(-5.9,12.5)
+    ax.set_ylim(-6.9,11.5)
+
+    majorLocator   = MultipleLocator(5)
+    majorFormatter = FormatStrFormatter('%d')
+    minorLocator   = MultipleLocator(1)
+
+    ax.xaxis.set_major_locator(majorLocator)
+    ax.xaxis.set_minor_locator(minorLocator)
+    ax.xaxis.set_major_formatter(majorFormatter)
+    ax.xaxis.grid(alpha=0.5, zorder=1, which='major')
+    ax.xaxis.grid(alpha=0.2, zorder=1, which='minor')
+
+    ax.yaxis.set_major_locator(majorLocator)
+    ax.yaxis.set_minor_locator(minorLocator)
+    ax.yaxis.set_major_formatter(majorFormatter)
+    ax.yaxis.grid(alpha=0.5, zorder=1, which='major')
+    ax.yaxis.grid(alpha=0.2, zorder=1, which='minor')
+        
+    fig.savefig('dither_box.pdf')
+    
+def exptimes():
+    """
+    Extract the range of exposure times from the formatted Phase-II files
+    """
+    os.system('grep F814W 12???.pro   |grep " S " > f814w.exptime')
+    os.system('grep G800L 12???.pro   |grep " S " > g800l.exptime')
+    os.system('grep F140W *.pro |grep MULTIAC |grep NSAMP > f140w.exptime')
+    os.system('grep G141 *.pro |grep MULTIAC |grep NSAMP > g141.exptime')
+    
 def all_pointings():
     pointings(ROOT='GOODS-SOUTH')
     pointings(ROOT='COSMOS')
@@ -38,7 +149,7 @@ def all_pointings_width():
     pointings(ROOT='AEGIS', width=7, corner='ll')
     pointings(ROOT='UDS', width=9, corner='lr')
     pointings(ROOT='GOODS-N', width=6, corner='ur')
-        
+            
 def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files

@@ -1142,7 +1142,7 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
-def plot_init(square=True, xs=6, aspect=1):
+def plot_init(square=True, xs=6, aspect=1, left=0.22):
     # plt.rcParams['font.family'] = 'serif'
     # plt.rcParams['font.serif'] = ['Times']
     plt.rcParams['patch.edgecolor'] = 'None'
@@ -1150,7 +1150,7 @@ def plot_init(square=True, xs=6, aspect=1):
 
     if square:
         #xs=5
-        lrbt = np.array([0.22,0.02,0.11,0.02])*5./xs     
+        lrbt = np.array([left,0.02,0.11,0.02])*5./xs     
         ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect
         lrbt[[2,3]] /= aspect
         fig = plt.figure(figsize=(xs,ys), dpi=100)
@@ -1451,55 +1451,6 @@ def show_acs_spectra():
     
     pointing = np.array(pointing)
     field = np.array(field)
-    
-    # mcat = catIO.Readfile('full_match.cat')
-    #     
-    # zsp = zout.z_spec[0::3] > 0
-    # dz = (zout.z_peak-zout.z_spec)/(1+zout.z_spec)
-    # found, idx = match_string_arrays(zout.id[0::3], mcat.id_f140w)
-    # idx = idx[idx >= 0]
-    # zsp = zsp & found
-    # 
-    # ######################################
-    # #### Emission line fits
-    # ######################################
-    # 
-    # lines = catIO.Readfile('full_emission_lines.cat')
-    # found_lines, idx_lines = match_string_arrays(zout.id[0::3], lines.id)
-    # #lines.halpha_eqw[idx_lines] /= (1+zout.z_peak[0::3][found_lines])
-    # 
-    # ##################################### 
-    # #### Galfit
-    # #####################################
-    # gfit = catIO.Readfile('full_galfit.cat')
-    # found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.object, zout.id[0::3])
-    # found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.object)
-    # 
-    # #### Make a grid of redshifts to compute the plate scale and then interpolate it.
-    # zgrid = np.arange(100)/100.*4+1./100
-    # scale = zgrid*0.
-    # for i in range(100):
-    #     cc = cosmocalc.cosmocalc(zgrid[i])
-    #     scale[i] = cc['PS_kpc']
-    # 
-    # gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
-    # gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
-    # gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(1./np.abs(gfit.ba)) 
-    # gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(1./np.abs(gfit.ba)) 
-    # 
-    # ##### Selection slices
-    # dr = mcat.rmatch[idx] < 1
-    # zrange = (zout.z_peak[0::3] > 0.2)
-    # 
-    # keep = dr & zrange & (mcat.logm[idx] > 10.98) & (mcat.fcontam[idx] < 0.5)
-    # keep = dr & zrange & (mcat.mag_f140w[idx] < 24) & (mcat.fcontam[idx] < 0.5)
-    # 
-    # #### refine
-    # # zrange = (zout.z_peak[0::3] > 2) & (zout.z_peak[0::3] < 3)
-    # # zrange = (zout.z_peak[0::3] > 1.5) & (zout.z_peak[0::3] < 2.)
-    # # zrange = (zout.z_peak[0::3] > 0.4) & (zout.z_peak[0::3] < 1.0)
-    # zrange = (zout.z_peak[0::3] > .0) & (zout.z_peak[0::3] < 1.5)
-    # keep = dr & zrange & (mcat.fcontam[idx] < 0.2) & (zout.q_z[0::3] < 0.1) 
     
     #### Photometry with coords
     phot = catIO.Readfile('full_sextractor.cat')

@@ -26,10 +26,10 @@ import threedhst
 
 from socket import gethostname as hostname
 
-if hostname().startswith('uni') | hostname().startswith('850dhcp8'):
-    GRISM_HOME = '/3DHST/Spectra/Work/'
+if hostname().startswith('uni'):
 else:
     GRISM_HOME = '/research/HST/GRISM/3DHST/'
 
 if hostname().startswith('850dhcp8'):
+    GRISM_HOME = '/3DHST/Spectra/Work/'
     threedhst.sex.RUN_MODE='direct'

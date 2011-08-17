@@ -22,10 +22,14 @@ import catalogs
 import survey_paper
 import go_acs
 
+import threedhst
+
 from socket import gethostname as hostname
 
-if hostname().startswith('uni'):
+if hostname().startswith('uni') | hostname().startswith('850dhcp8'):
     GRISM_HOME = '/3DHST/Spectra/Work/'
 else:
     GRISM_HOME = '/research/HST/GRISM/3DHST/'
 
+if hostname().startswith('850dhcp8'):
+    threedhst.sex.RUN_MODE='direct'

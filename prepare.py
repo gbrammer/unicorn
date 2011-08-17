@@ -33,6 +33,173 @@ import os
 import glob
 import shutil
 
+def check_COSMOS_stars():
+    """
+    Run SExtractor and try to get the FWHM of the new reduction compared to the old,
+    which had many stars with central pixels rejected by the CR rejection.
+    """    
+    import matplotlib.pyplot as plt
+    import unicorn.go_3dhst as go
+    
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=28)
+    
+    os.chdir('/3DHST/Spectra/Work/COSMOS/PREP_FLT_UNICORN')
+    
+    files=glob.glob('COSMOS-*-F140W_drz.fits')
+        
+    for file in files:
+        ROOT_GRISM = file.split('_drz.fits')[0]
+        iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
+        iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
+        se = threedhst.sex.SExtractor()
+        se.aXeParams()
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+        se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = ROOT_GRISM+'_WHT.fits'
+        se.options['FILTER']    = 'Y'
+        se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
+        se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
+        se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
+        status = se.sextractImage(ROOT_GRISM+'_SCI.fits')
+        os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
+    
+    os.system('grep "#" COSMOS-1-F140W_drz.cat > cosmos_old.cat')
+    os.system('cat COSMOS-*-F140W_drz.cat |grep -v "#" >> cosmos_old.cat')
+    
+    os.chdir('../NEW')
+    files=glob.glob('../PREP_FLT/COSMOS-2[678]-F140W_drz.fits')
+    for file in files:
+        ROOT_GRISM = os.path.basename(file).split('_drz.fits')[0]
+        iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
+        iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
+        se = threedhst.sex.SExtractor()
+        se.aXeParams()
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+        se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = ROOT_GRISM+'_WHT.fits'
+        se.options['FILTER']    = 'Y'
+        se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
+        se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
+        se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
+        status = se.sextractImage(ROOT_GRISM+'_SCI.fits')
+        os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
+    
+    os.system('grep "#" COSMOS-1-F140W_drz.cat > cosmos_new.cat')
+    os.system('cat COSMOS-*-F140W_drz.cat |grep -v "#" >> cosmos_new.cat')
+    
+    old = threedhst.sex.mySexCat('../PREP_FLT_UNICORN/cosmos_old.cat')
+    new = threedhst.sex.mySexCat('cosmos_new.cat')
+
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1.5)
+    
+    ax = fig.add_subplot(211)
+    plt.plot(old.MAG_AUTO, old.FLUX_RADIUS, marker='o', linestyle='None', alpha=0.1, color='blue', markersize=3)
+    plt.text(15,10,'GRISM_v1.6')
+    plt.semilogy()
+    plt.xlim(14,26)
+    plt.ylim(1,20)
+
+    ax = fig.add_subplot(212)
+    plt.plot(new.MAG_AUTO, new.FLUX_RADIUS, marker='o', linestyle='None', alpha=0.1, color='blue', markersize=3)
+    plt.text(15,10,'August 16')
+    plt.semilogy()
+    plt.xlim(14,26)
+    plt.ylim(1,20)
+    plt.xlabel('MAG_AUTO')
+    plt.ylabel('FLUX_RADIUS')
+    
+    fig.savefig('f140w_sizes_aug16.png')
+    
+    ##### Stack images and weights
+
+    os.chdir('../PREP_FLT_UNICORN')
+
+    NX = 100
+    img_old = np.zeros((2*NX, 2*NX))
+    wht_old = np.zeros((2*NX, 2*NX))
+    
+    files=glob.glob('COSMOS-*-F140W_drz.cat')
+    for file in files:
+        print file
+        cat = threedhst.sex.mySexCat(file)
+        drz = pyfits.open(file.replace('cat','fits'))
+        radius = np.cast[float](cat.FLUX_RADIUS)
+        mag = np.cast[float](cat.MAG_AUTO)
+        xpix, ypix = np.round(np.cast[float](cat.X_IMAGE)), np.round(np.cast[float](cat.Y_IMAGE))
+        keep = (radius < 3.5) & (mag >= 18) & (mag < 18.5)
+        NOBJ = len(cat.NUMBER)
+        idx = np.arange(NOBJ)[keep]
+        if len(idx) > 0:
+            for i in idx:
+                try:
+                    img_old += drz[1].data[ypix[i]-NX:ypix[i]+NX, xpix[i]-NX:xpix[i]+NX]
+                    wht_old += drz[2].data[ypix[i]-NX:ypix[i]+NX, xpix[i]-NX:xpix[i]+NX]
+                except:
+                    pass
+                    
+    img_old /= img_old.max()
+    wht_old /= np.median(wht_old)
+    
+    #
+    os.chdir('../NEW')
+    NX = 100
+    img_new = np.zeros((2*NX, 2*NX))
+    wht_new = np.zeros((2*NX, 2*NX))
+    
+    files=glob.glob('COSMOS-*-F140W_drz.cat')
+    for file in files:
+        print file
+        cat = threedhst.sex.mySexCat(file)
+        drz = pyfits.open('../PREP_FLT/'+file.replace('cat','fits'))
+        radius = np.cast[float](cat.FLUX_RADIUS)
+        mag = np.cast[float](cat.MAG_AUTO)
+        xpix, ypix = np.round(np.cast[float](cat.X_IMAGE)), np.round(np.cast[float](cat.Y_IMAGE))
+        keep = (radius < 3.5) & (mag >= 18) & (mag < 18.5)
+        NOBJ = len(cat.NUMBER)
+        idx = np.arange(NOBJ)[keep]
+        if len(idx) > 0:
+            for i in idx:
+                try:
+                    img_new += drz[1].data[ypix[i]-NX:ypix[i]+NX, xpix[i]-NX:xpix[i]+NX]
+                    wht_new += drz[2].data[ypix[i]-NX:ypix[i]+NX, xpix[i]-NX:xpix[i]+NX]
+                except:
+                    pass
+                    
+    img_new /= img_new.max()
+    wht_new /= np.median(wht_new)
+    
+    import threedhst.dq
+    ds9 = threedhst.dq.myDS9()
+    
+    ds9.frame(1)
+    ds9.v(img_old, vmin=0, vmax=1)
+    ds9.set('scale log')
+    ds9.set('cmap value 1.08889 0.270588')
+
+    ds9.frame(2)
+    ds9.v(img_new, vmin=0, vmax=1)
+    ds9.set('scale log')
+    ds9.set('cmap value 1.08889 0.270588')
+
+    ds9.frame(3)
+    ds9.v(wht_old, vmin=0.5, vmax=1.1)
+    ds9.set('scale log')
+    ds9.set('cmap value 6.7325 0.960993')
+
+    ds9.frame(4)
+    ds9.v(wht_new, vmin=0.5, vmax=1.1)
+    ds9.set('scale log')
+    ds9.set('cmap value 6.7325 0.960993')
+    
+    
 def fix_GOODSN_asn():
     """
     Replace the bad flt files with the new fixed ones.
@@ -151,8 +318,8 @@ def COSMOS(FORCE=False):
     #### COSMOS-17 alignment is bad
     
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
-    #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
+    #ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
+    ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
     #ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
     
     #### Direct images only
@@ -161,7 +328,7 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=False, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
     
     threedhst.gmap.makeImageMap(['COSMOS-12-F140W_drz.fits', 'COSMOS-12-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14,15,16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
             

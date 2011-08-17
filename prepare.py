@@ -97,7 +97,29 @@ def check_COSMOS_stars():
     
     old = threedhst.sex.mySexCat('../PREP_FLT_UNICORN/cosmos_old.cat')
     new = threedhst.sex.mySexCat('cosmos_new.cat')
-
+    
+    os.chdir('/3DHST/Spectra/Work/GOODS-N/PREP_FLT')
+    
+    file='GOODS-N-F140W_drz.fits'
+    ROOT_GRISM = file.split('_drz.fits')[0]
+    iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
+    iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = ROOT_GRISM+'_WHT.fits'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
+    se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
+    se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
+    status = se.sextractImage(ROOT_GRISM+'_SCI.fits')
+    os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1.5)
     
     ax = fig.add_subplot(211)

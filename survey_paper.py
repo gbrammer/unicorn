@@ -25,6 +25,80 @@ noNewLine = '\x1b[1A\x1b[1M'
 
 root = None
 
+def throughput():
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    
+    xg141, yg141 = np.loadtxt('g141.dat', unpack=True)
+    xf140, yf140 = np.loadtxt('f140w.dat', unpack=True)
+    xf814, yf814 = np.loadtxt('f814w.dat', unpack=True)
+    xg800l, yg800l = np.loadtxt('g800l.dat', unpack=True)
+
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.12)
+    
+    plt.plot(xg141, yg141, color='black', linewidth=2, alpha=0.5)
+    plt.fill(xg141, yg141, color='red', linewidth=2, alpha=0.1)
+    plt.plot(xf140, yf140, color='black', linewidth=2, alpha=0.7)
+    
+    plt.plot(xg800l, yg800l, color='black', linewidth=2, alpha=0.5)
+    plt.fill(xg800l, yg800l, color='blue', linewidth=2, alpha=0.1)
+    plt.plot(xf814, yf814, color='black', linewidth=2, alpha=0.7)
+    
+    
+
+    em_lines = [3727, 4861, 5007, 6563.]
+    offset = np.array([0,-0.05,0,0])
+    offset = 0.25+np.array([-0.15,-0.1,0.02,-0.1])
+
+    em_names = ['[OII]',r'H$\beta$','[OIII]',r'H$\alpha$']
+    
+    dlam = 25
+    zi = 1
+    
+    show_spectra = False
+    colors=['blue','green','red']    
+    if show_spectra:
+      for zi in [1,2,3]:
+        sedx, sedy = np.loadtxt('templates/EAZY_v1.0_lines/eazy_v1.0_sed4_nolines.dat', unpack=True)
+        sedy *= 1.*sedy.max()
+        dl = dlam/(1+zi)
+        for em_line in em_lines:
+            em_gauss = 1./np.sqrt(2*np.pi*dl**2)*np.exp(-1*(sedx-em_line)**2/2/dl**2)
+            sedy += em_gauss/em_gauss.max()*0.6
+
+        plt.plot(sedx*(1+zi), sedy*0.4+0.5, color=colors[zi-1], alpha=0.7, linewidth=2)
+        plt.text(5500.,1.18-zi*0.13,r'$z=%d$' %(zi), color=colors[zi-1], fontsize=11)
+        
+      for i in range(4):
+        plt.text(em_lines[i]*(1+1), 1+offset[i], em_names[i], horizontalalignment='center', fontsize=10)
+    
+    show_continuous = True
+    if show_continuous:
+        em_lines = [3727, 5007, 6563.]
+        zgrid = np.arange(1000)/1000.*4
+        for line in em_lines:
+            plt.plot(line*(1+zgrid), zgrid/4.*0.8+0.5, linewidth=2, alpha=0.5, color='black')
+        for zi in [0,1,2,3]:
+            plt.plot([0.1,2.e4],np.array([zi,zi])/4.*0.8+0.5, linestyle='--', color='black', alpha=0.2)
+            
+    
+    plt.text(5800, 0.08,'G800L',rotation=33., color='black', alpha=0.7)
+    plt.text(5800, 0.08,'G800L',rotation=33., color='blue', alpha=0.4)
+
+    plt.text(7100, 0.03,'F814W',rotation=80., color='black', alpha=0.9)
+
+    plt.text(1.115e4, 0.17,'G141',rotation=15., color='black', alpha=0.7)
+    plt.text(1.115e4, 0.17,'G141',rotation=15., color='red', alpha=0.4)
+
+    plt.text(1.21e4, 0.03,'F140W',rotation=88., color='black', alpha=0.9)
+
+    
+    plt.xlim(4500, 1.79e4)
+    plt.ylim(0,1.4)
+    plt.xlabel(r'$\lambda$')
+    plt.ylabel('throughput')
+    
+    fig.savefig('throughput.pdf')
+    
 def orbit_structure():
     """
     Show the POSTARG offsets in WFC3 / ACS
@@ -136,6 +210,66 @@ def exptimes():
     os.system('grep F140W *.pro |grep MULTIAC |grep NSAMP > f140w.exptime')
     os.system('grep G141 *.pro |grep MULTIAC |grep NSAMP > g141.exptime')
     
+    ### G141
+    fp = open('g141.exptime')
+    lines = fp.readlines()
+    fp.close()
+    nsamp = []
+    object = []
+    for line in lines:
+        nsamp.append(line.split('NSAMP=')[1][0:2])
+        object.append(line.split()[1])
+        
+    expsamp = np.zeros(17)
+    expsamp[12] = 1002.94
+    expsamp[13] = 1102.94
+    expsamp[14] = 1202.94
+    expsamp[15] = 1302.94
+    expsamp[16] = 1402.94
+    
+    nsamp = np.cast[int](nsamp)
+    nsamp+=1 ### this seems to be the case for all actual observations !!
+    objects = object[::4]
+    NOBJ = len(nsamp)/4
+    texp = np.zeros(NOBJ)
+    for i in range(NOBJ):
+        texp[i] = np.sum(expsamp[nsamp[i*4:(i+1)*4]])
+        print objects[i], texp[i]
+        
+    print 'G141:  %.1f - %.1f' %(texp.min(), texp.max())
+    
+def spectral_features():
+    wmin, wmax = 1.1e4, 1.65e4
+    
+    print '%-8s  %.1f -- %.1f' %('Halpha', wmin/6563.-1, wmax/6563.-1)
+    print '%-8s  %.1f -- %.1f' %('OIII', wmin/5007.-1, wmax/5007.-1)
+    print '%-8s  %.1f -- %.1f' %('OII', wmin/3727.-1, wmax/3727.-1)
+    print '%-8s  %.1f -- %.1f' %('4000', wmin/4000.-1, wmax/4000.-1)
+
+    wmin, wmax = 0.55e4, 1.0e4
+    print '\n\nACS\n\n'
+    print '%-8s  %.1f -- %.1f' %('Halpha', wmin/6563.-1, wmax/6563.-1)
+    print '%-8s  %.1f -- %.1f' %('OIII', wmin/5007.-1, wmax/5007.-1)
+    print '%-8s  %.1f -- %.1f' %('OII', wmin/3727.-1, wmax/3727.-1)
+    print '%-8s  %.1f -- %.1f' %('4000', wmin/4000.-1, wmax/4000.-1)
+
+def sync():
+    pass
+    """
+paths="RAW HTML/scripts PREP_FLT"
+dirs="AEGIS COSMOS ERS GOODS-N GOODS-S SN-GEORGE SN-MARSHALL SN-PRIMO UDS"
+for dir in $dirs; do 
+    mkdir ${dir}
+    mkdir ${dir}/HTML
+    for path in $paths; do 
+        # du -sh ${dir}/${path}
+        mkdir ${dir}/${path}
+        rsync -avz --progress $UNICORN:/3DHST/Spectra/Work/${dir}/${path} ${dir}/${path} 
+    done
+done
+
+
+    """
 def all_pointings():
     pointings(ROOT='GOODS-SOUTH')
     pointings(ROOT='COSMOS')
@@ -149,7 +283,7 @@ def all_pointings_width():
     pointings(ROOT='AEGIS', width=7, corner='ll')
     pointings(ROOT='UDS', width=9, corner='lr')
     pointings(ROOT='GOODS-N', width=6, corner='ur')
-            
+        
 def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files

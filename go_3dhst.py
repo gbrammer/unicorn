@@ -639,8 +639,8 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     
     threedhst.defaultOptions()
     
-    threedhst.options['DETECT_THRESH'] = 2
-    threedhst.options['ANALYSIS_THRESH'] = 1
+    threedhst.options['DETECT_THRESH'] = 1.4
+    threedhst.options['ANALYSIS_THRESH'] = 1.4
     threedhst.options['LIMITING_MAGNITUDE'] = LIMITING_MAGNITUDE
 
     threedhst.options['FULL_EXTRACTION_GEOMETRY'] = False

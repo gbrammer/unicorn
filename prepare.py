@@ -98,12 +98,13 @@ def check_COSMOS_stars():
     old = threedhst.sex.mySexCat('../PREP_FLT_UNICORN/cosmos_old.cat')
     new = threedhst.sex.mySexCat('cosmos_new.cat')
     
+    ######### GOODS-N
     os.chdir('/3DHST/Spectra/Work/GOODS-N/PREP_FLT')
     
     file='GOODS-N-F140W_drz.fits'
     ROOT_GRISM = file.split('_drz.fits')[0]
-    iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
-    iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
+    #iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
+    #iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
     se = threedhst.sex.SExtractor()
     se.aXeParams()
     se.copyConvFile()
@@ -112,13 +113,17 @@ def check_COSMOS_stars():
     se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-    se.options['WEIGHT_IMAGE']    = ROOT_GRISM+'_WHT.fits'
+    se.options['WEIGHT_IMAGE']    = file+'[1]'
     se.options['FILTER']    = 'Y'
     se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
     se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
     se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
-    status = se.sextractImage(ROOT_GRISM+'_SCI.fits')
-    os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
+    status = se.sextractImage(file+'[0]')
+    #os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
+    
+    goodsn = threedhst.sex.mySexCat('GOODS-N-F140W_drz.cat')
+    
+    os.chdir('/3DHST/Spectra/Work/COSMOS/NEW/')
     
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1.5)
     
@@ -131,6 +136,7 @@ def check_COSMOS_stars():
 
     ax = fig.add_subplot(212)
     plt.plot(new.MAG_AUTO, new.FLUX_RADIUS, marker='o', linestyle='None', alpha=0.1, color='blue', markersize=3)
+    plt.plot(goodsn.MAG_AUTO, goodsn.FLUX_RADIUS, marker='o', linestyle='None', alpha=0.1, color='purple', markersize=3)
     plt.text(15,10,'August 16')
     plt.semilogy()
     plt.xlim(14,26)
@@ -139,6 +145,13 @@ def check_COSMOS_stars():
     plt.ylabel('FLUX_RADIUS')
     
     fig.savefig('f140w_sizes_aug16.png')
+    
+    #### Signal to noise
+    SN = np.cast[float](goodsn.FLUX_APER)/np.cast[float](goodsn.FLUXERR_APER)
+    plt.plot(goodsn.MAG_AUTO, SN, marker='o', linestyle='None', alpha=0.1, color='purple', markersize=3)
+    plt.semilogy()
+    plt.xlim(14,30)
+    plt.ylim(0.1,500)
     
     ##### Stack images and weights
 

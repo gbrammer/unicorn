@@ -376,7 +376,7 @@ def COSMOS_mosaic():
     threedhst.utils.combine_asn_shifts(direct_files, out_root='COSMOS-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
-    SCALE = 0.128254
+    SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
     NX, NY = int(9670*0.06/SCALE), int(18890*0.06/SCALE)

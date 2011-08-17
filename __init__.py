@@ -33,4 +33,4 @@ else:
 
 if hostname().startswith('850dhcp8'):
     GRISM_HOME = '/3DHST/Spectra/Work/'
-    threedhst.sex.RUN_MODE='direct'
+    #threedhst.sex.RUN_MODE='direct'

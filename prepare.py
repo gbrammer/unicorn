@@ -260,7 +260,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False)
     
     # threedhst.gmap.makeImageMap(['GOODS-N-42-F140W_drz.fits', 'GOODS-N-42-G141_drz.fits*3', 'GOODS-N-42-F140W_align.fits[0]*4'], aper_list=[15], polyregions=["GOODS-N-42-F140W_asn.pointing.reg"])
     
@@ -290,12 +290,18 @@ def GOODSN_mosaic():
     direct_files = glob.glob('GOODS-N-*-G141_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-N-G141',
                        path_to_FLT='./', run_multidrizzle=False)
+        
+    SCALE = 0.06
+    PIXFRAC=0.8
+    NX, NY = int(6840*0.128254/SCALE), int(8042*0.128254/SCALE)
     
-    SCALE = 0.128254
     threedhst.prep_flt_files.startMultidrizzle('GOODS-N-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
-             final_scale=SCALE, pixfrac=0.6, driz_cr=False,
-             updatewcs=False, clean=True, median=False) #,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=189.17736, dec=62.23892,
+             final_outnx = NX, final_outny=NY, ivar_weights=False)
+             
     
     threedhst.prep_flt_files.startMultidrizzle('GOODS-N-G141_asn.fits',
              use_shiftfile=True, skysub=False,
@@ -314,9 +320,7 @@ def COSMOS(FORCE=False):
     import threedhst.prep_flt_files
     import glob
     import os
-    
-    #### COSMOS-17 alignment is bad
-    
+        
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
     #ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
     ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
@@ -329,6 +333,16 @@ def COSMOS(FORCE=False):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+    
+    #### Fix shifts for COSMOS-18
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-18-F140W', 
+              ALIGN_IMAGE='COSMOS-17-F140W_drz.fits', ALIGN_EXTENSION=1,  
+              fitgeometry='shift', clean=True)
+    
+    threedhst.prep_flt_files.startMultidrizzle('COSMOS-18-F140W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
     
     threedhst.gmap.makeImageMap(['COSMOS-12-F140W_drz.fits', 'COSMOS-12-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14,15,16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
             
@@ -364,7 +378,7 @@ def COSMOS_mosaic():
     
     SCALE = 0.128254
     #SCALE = 0.5
-    PIXFRAC=0.6
+    PIXFRAC=0.8
     NX, NY = int(9670*0.06/SCALE), int(18890*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('COSMOS-F140W_asn.fits',

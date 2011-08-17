@@ -12,6 +12,8 @@ $Date$
 """
 __version__ = "$Rev$"
 
+import threedhst
+
 import prepare
 import reduce
 import candels
@@ -21,8 +23,6 @@ import galfit
 import catalogs
 import survey_paper
 import go_acs
-
-import threedhst
 
 from socket import gethostname as hostname
 

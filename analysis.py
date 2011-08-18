@@ -2151,7 +2151,8 @@ def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True,
         
     return zfit, DM, obs_sed_rf, zp_rf.filters
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1]):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1], eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'):
+    
     import unicorn.analysis
     
     # root='WFC3-ERSII-G01-G141'; id=197; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; check=False; bin_spec=1; spec_norm=1.; zmin=None; zmax=None; zstep=0.0025; compress=1.0; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; TILT_COEFFS=[0, 1]
@@ -2159,7 +2160,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     unicorn.analysis.BAD_SPECTRUM = False
     
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    os.chdir(eazy_working_directory)
     
     if (('MARSHALL' in root) | ('UDS' in root)) & ('UDS' not in OLD_RES):
         OLD_RES='FILTER_UDS.RES'
@@ -2435,12 +2436,12 @@ def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim'
     
     res.write(file=output)
     
-def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1, pipe=' > log'):
+def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1, pipe=' > log', eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'):
     import unicorn
     import threedhst.eazyPy as eazy
     from scipy import polyfit, polyval
     
-    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    os.chdir(eazy_working_directory)
     
     if ('MARSHALL' in root) | ('UDS' in root):
         OLD_RES='FILTER_UDS.RES'
@@ -2451,7 +2452,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         unicorn.analysis.trim_jh_filters(input=OLD_RES, output=OLD_RES+'.trim')
         
     #####  Get the f_lambda fluxes with the original (not trimmed) filters
-    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param')
+    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory)
     
     if unicorn.analysis.BAD_SPECTRUM:
         return [0,1]
@@ -2464,7 +2465,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
     
     #####  Get the f_lambda fluxes with the trimmed filters
-    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param')
+    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory)
     
     status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
     
@@ -2557,7 +2558,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
@@ -2594,7 +2595,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         #### If fitting with photometry, first run with eazy line templates 
         #### and coarse sampling
         if unicorn.analysis.HAS_PHOTOMETRY:
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param')
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory)
 
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
@@ -2643,10 +2644,15 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
                 zmax = wmax/4863.-1+0.1
                 zmin -= 0.1*(1+zmax)
                 zmax += 0.1*(1+zmax)
-                
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=[0,1], TEMPLATES_FILE=TEMPLATES_FILE)
+            
+            tilt = [0, 1]
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
+        
+        fp = open('%s_%05d.tilt' %(root, id),'w')
+        fp.write('%s_%05d  %.4f %.4f\n' %(root, id, tilt[0], tilt[1]))
+        fp.close()
         
         if unicorn.analysis.BAD_SPECTRUM:
             return False
@@ -2821,7 +2827,25 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
     
     return True
+
+def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
+    """
+    Run FAST fit on the photometry + spectra.  If the catalog and template file
+    for a given object isn't found, run `run_eazy_fit` first.
     
+    root='COSMOS-8-G141'; id=498; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=0.2; zmax=5; compress=0.8; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=1; force_zrange=False
+    """
+    import unicorn
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FAST')
+    
+    object = '%s_%05d' %(root, id)
+    
+    if (not os.path.exists(object+'_threedhst.cat')) | (not os.path.exists(object+'.FILT.RES')):
+        unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, TEMPLATES_FILE=TEMPLATES_FILE, run=True, pipe=pipe, bin_spec=1, spec_norm=1, eazy_binary = eazy_binary, zmin=0.2, zmax=5, compress=0.75, GET_NORM=GET_NORM, COMPUTE_TILT=True, TILT_ORDER=1, clean=False, force_zrange=force_zrange, eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/FAST')
+    
+    
+       
 class MyLocator(mticker.MaxNLocator):
     """
     Set maximum number of ticks, from

@@ -2922,7 +2922,9 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
         fp = open(object+'_threedhst.cat')
         lines = fp.readlines()
         fp.close()
-    
+        
+        zout = catIO.Readfile('OUTPUT/%s.zout' %(object))
+        
         #### Put z_peak for phot + grism as z_spec in the catalog    
         lines[0] = lines[0].replace(' z_spec ',' z_spec_old ').replace(' id ',' id_gris ')[:-1]+' id z_spec\n'
         for i in range(1,4):

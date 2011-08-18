@@ -2655,7 +2655,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
             tilt = [0,1]
         
         if len(tilt) == 1:
-            tilt = [0,tilt]
+            tilt = [0,tilt[0]]
         
         print 'Tilt: %e %e\n' %(tilt[0], tilt[1])
         

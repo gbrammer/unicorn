@@ -358,6 +358,7 @@ def make_selection_html(catalog_file='selection.cat'):
     print '! rsync -avz %s.cat %s.html ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/' %(base, base)
 
 def make_selection_for_Pieters_paper():
+    import unicorn
     import unicorn.catalogs
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
@@ -365,17 +366,26 @@ def make_selection_for_Pieters_paper():
     unicorn.catalogs.read_catalogs()
     from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
     
-    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=11, massmax=15, magmin=0, magmax=30)
+    keep = unicorn.catalogs.run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=10.8, massmax=15, magmin=0, magmax=30)
     
     print len(keep[keep])
-    
-    unicorn.catalogs.make_object_tarfiles(zout.id[0::3][keep], thumbs=False)
-    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
-    os.system('mv ../spec.tar.gz for_pieter_Aug10.spec.tar.gz')
-    
-    unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat', make_html=True)
 
-    os.system('rsync -avz for_pieter_Aug10.* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
+    unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug18.cat', make_html=True)
+
+    #### Run FAST
+    for object in phot.id[phot.idx][keep][90:]:
+        root=object.split('G141')[0]+'G141'
+        id = np.int(object.split('G141_')[1])
+        unicorn.analysis.run_FAST_fit(root=root, id=id)
+    
+    os.system('rsync -avz for_pieter* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
+    
+    # unicorn.catalogs.make_object_tarfiles(zout.id[0::3][keep], thumbs=False)
+    # os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    # os.system('mv ../spec.tar.gz for_pieter_Aug10.spec.tar.gz')
+    # 
+    # unicorn.catalogs.make_selection_catalog(keep, filename='for_pieter_Aug10.cat', make_html=True)
+    # os.system('rsync -avz for_pieter_Aug10.* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
     
 def match_string_arrays(target=['b','a','d'], source=['a','b','c']):
     """

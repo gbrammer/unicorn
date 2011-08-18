@@ -2961,9 +2961,9 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
     os.system('/usr/local/share/FAST/FAST_v0.9b/fast %s_fast.param' %(object))
     
     #### Fix the FAST output file, put the header first and add the object name
-    print 'Fix OUTPUT/%s_threedhst.fout' %(object)
+    print 'Fix FAST_OUTPUT/%s_threedhst.fout' %(object)
     
-    fp = open('OUTPUT/%s_threedhst.fout' %(object))
+    fp = open('FAST_OUTPUT/%s_threedhst.fout' %(object))
     lines = fp.readlines()
     fp.close()
     
@@ -2972,7 +2972,7 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
             start = i+1
             header = line
             
-    fp = open('OUTPUT/%s_threedhst.fout' %(object),'w')
+    fp = open('FAST_OUTPUT/%s_threedhst.fout' %(object),'w')
     fp.write(header.replace(' id ', ' object id'))
     fp.writelines(lines[0:start-1])
     for line in lines[start:]:

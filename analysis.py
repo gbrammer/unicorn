@@ -2654,6 +2654,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         if tilt is False:
             tilt = [0,1]
         
+        print tilt
+        
         print 'Tilt: %e %e\n' %(tilt[0], tilt[1])
         
         fp = open('%s_%05d.tilt' %(root, id),'w')

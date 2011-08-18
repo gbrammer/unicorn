@@ -2650,6 +2650,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
+        print 'Tilt: %f %f\n' %(tilt[0], tilt[1])
+        
         fp = open('%s_%05d.tilt' %(root, id),'w')
         fp.write('%s_%05d  %.4f %.4f\n' %(root, id, tilt[0], tilt[1]))
         fp.close()
@@ -2827,7 +2829,79 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         status = os.system('rm templates/%s_%05d' %(root, id) + '_spectrum.dat')
     
     return True
+#
+def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', savepath='./OUTPUT/'):
+    """
+    Make ascii files with the best-fit eazy templates and p(z) for the 3D-HST fit.
+    
+    Currently only the spec + photometry combined fit is saved in the obs_sed and 
+    temp_sed files.  All three fits are saved in the pz.dat file.
+    
+    """
+    
+    if not savepath.endswith('/'):
+        savepath += '/'
+        
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    
+    #### Photometry + spectrum
+    fp = open(savepath+object+'_obs_sed.dat','w')
+    fp.write('# lc fnu efnu obs_sed \n')
 
+    obs_sed = np.dot(tempfilt['tempfilt'][:,:,coeffs['izbest'][0]],\
+                     coeffs['coeffs'][:,0])# /(lci/5500.)**2
+    
+    for i in range(tempfilt['NFILT']):
+        fp.write(' %8.4e %8.4e %8.4e  %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i]))
+    
+    fp.close()
+        
+    #### template fit
+    zi = tempfilt['zgrid'][coeffs['izbest'][0]]
+    lambdaz = temp_seds['templam']*(1+zi)
+    temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,0])
+    temp_sed *= (lambdaz/5500.)**2/(1+zi)**2
+    
+    fp = open(savepath+object+'_temp_sed.dat','w')
+    fp.write('# lam fnu_temp\n')
+    for i in range(temp_seds['NTEMPL']):
+        fp.write(' %8.4e %8.4e\n' %(lambdaz[i], temp_sed[i]))
+    fp.close()
+    
+    #### p(z)
+    
+    zgrid, pz0 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    zgrid, pz1 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    zgrid, pz2 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    
+    fp = open(savepath+object+'_pz.dat','w')
+    fp.write('#  z pz_both pz_phot pz_spec\n')
+    for i in range(len(zgrid)):
+        fp.write('%f %.3e %.3e %.3e\n' %(zgrid[i], pz0[i], pz1[i], pz2[i]))
+    
+    fp.close()
+        
+def make_masked_FAST_errfunc():
+    """
+    Make a template error function for FAST that is very large near emission lines to 
+    apply an effective mask.
+    """
+    temperr = '/usr/local/share/FAST/FAST_v0.9b/Template_error/TEMPLATE_ERROR.fast.v0.2'
+
+    w,t = np.loadtxt(temperr, unpack=True)
+    
+    lines = [4861, 5007, 6563.]
+    for line in lines:
+        mask = np.abs(w-line) < 250
+        t[mask] = 1000
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FAST')
+    fp = open(os.path.basename(temperr)+'_linemask','w')
+    for i in range(len(w)):
+        fp.write('%f %f\n' %(w[i], t[i]))
+    
+    fp.close()
+    
 def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
     """
     Run FAST fit on the photometry + spectra.  If the catalog and template file
@@ -2844,6 +2918,40 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
     if (not os.path.exists(object+'_threedhst.cat')) | (not os.path.exists(object+'.FILT.RES')):
         unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, TEMPLATES_FILE=TEMPLATES_FILE, run=True, pipe=pipe, bin_spec=1, spec_norm=1, eazy_binary = eazy_binary, zmin=0.2, zmax=5, compress=0.75, GET_NORM=GET_NORM, COMPUTE_TILT=True, TILT_ORDER=1, clean=False, force_zrange=force_zrange, eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/FAST')
     
+        fp = open(object+'_threedhst.cat')
+        lines = fp.readlines()
+        fp.close()
+    
+        #### Put z_peak for phot + grism as z_spec in the catalog    
+        lines[0] = lines[0].replace(' z_spec ',' z_spec_old ').replace(' id ',' id_gris ')[:-1]+' id z_spec\n'
+        for i in range(1,4):
+            lines[i] = lines[i][:-1]+' %d %.4f\n' %(i,zout.z_peak[0])
+
+        #
+        fp = open(object+'_threedhst.cat','w')
+        fp.writelines(lines)
+        fp.close()
+        
+    param = threedhst.eazyPy.EazyParam('OUTPUT/%s.param' %(object))
+    
+    
+    #### Make a fast.param file
+    fp = open('fast.param')  ### default parameters
+    lines = fp.readlines()
+    fp.close()
+    
+    ## change for each object
+    lines[80] = 'CATALOG        = \'%s_threedhst\'\n' %(object)
+    lines[81] = 'AB_ZEROPOINT   = %f\n' %(param.params['PRIOR_ABZP'])
+    lines[82] = 'FILTERS_RES    = \'%s.FILT.RES\'\n' %(object)
+    lines[231] = 'Z_MIN          = %f\n' %(zout.z_peak[0])
+    lines[232] = 'Z_MAX          = %f\n' %(zout.z_peak[0])
+    
+    fp = open('%s_fast.param' %(object),'w')
+    fp.writelines(lines)
+    fp.close()
+    
+    os.system('/usr/local/share/FAST/FAST_v0.9b/fast %s_fast.param' %(object))
     
        
 class MyLocator(mticker.MaxNLocator):

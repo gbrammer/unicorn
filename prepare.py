@@ -147,7 +147,7 @@ def check_COSMOS_stars():
     fig.savefig('f140w_sizes_aug16.png')
     
     #### Signal to noise
-    SN = np.cast[float](goodsn.FLUX_APER)/np.cast[float](goodsn.FLUXERR_APER)
+    SN = np.cast[float](goodsn.FLUX_AUTO)/np.cast[float](goodsn.FLUXERR_AUTO)
     plt.plot(goodsn.MAG_AUTO, SN, marker='o', linestyle='None', alpha=0.1, color='purple', markersize=3)
     plt.semilogy()
     plt.xlim(14,30)

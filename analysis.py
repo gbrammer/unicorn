@@ -2910,6 +2910,7 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
     root='COSMOS-8-G141'; id=498; OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=0.2; zmax=5; compress=0.8; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=1; force_zrange=False
     """
     import unicorn
+    import copy
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FAST')
     
@@ -2953,7 +2954,27 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
     
     os.system('/usr/local/share/FAST/FAST_v0.9b/fast %s_fast.param' %(object))
     
-       
+    #### Fix the FAST output file, put the header first and add the object name
+    fp = open('OUTPUT/%s_threedhst.fout' %(object))
+    lines = fp.readlines()
+    fp.close()
+    
+    for i,line in enumerate(lines):
+        if line.startswith('#    id'):
+            start = i+1
+            header = line
+            
+    fp = open('OUTPUT/%s_threedhst.fout' %(object),'w')
+    fp.write(header.replace(' id ', ' object id'))
+    fp.writelines(lines[0:start-1])
+    for line in lines[start:]:
+        fp.write(object + ' ' + line)
+        
+    fp.close()
+    
+    #### Make the eazy ASCII files
+    unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')
+    
 class MyLocator(mticker.MaxNLocator):
     """
     Set maximum number of ticks, from

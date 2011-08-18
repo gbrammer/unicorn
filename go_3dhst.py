@@ -638,7 +638,7 @@ def clean_3dhst_files(root='G850.1-G141'):
 def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     
     threedhst.sex.USE_CONVFILE = 'gauss_2.0_5x5.conv'
-    print 'Default kernel: %s' %threedhst.sex.USE_CONVFILE
+    print '\nSExtractor convolution kernel: %s' %threedhst.sex.USE_CONVFILE
     
     threedhst.defaultOptions()
     

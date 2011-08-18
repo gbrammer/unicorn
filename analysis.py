@@ -2980,6 +2980,9 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
         
     fp.close()
     
+    #### Show FAST results
+    print lines[start]
+    
     #### Make the eazy ASCII files
     print 'Make EAZY ascii files in ./ASCII ...'
     unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')

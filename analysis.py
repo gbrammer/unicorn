@@ -2653,7 +2653,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         print 'Tilt: %f %f\n' %(tilt[0], tilt[1])
         
         fp = open('%s_%05d.tilt' %(root, id),'w')
-        fp.write('%s_%05d  %.4f %.4f\n' %(root, id, tilt[0], tilt[1]))
+        fp.write('%s_%05d  %.4e %.4e\n' %(root, id, tilt[0], tilt[1]))
         fp.close()
         
         if unicorn.analysis.BAD_SPECTRUM:
@@ -2934,9 +2934,10 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
         fp = open(object+'_threedhst.cat','w')
         fp.writelines(lines)
         fp.close()
-        
-    param = threedhst.eazyPy.EazyParam('OUTPUT/%s.param' %(object))
     
+    zout = catIO.Readfile('OUTPUT/%s.zout' %(object))
+    
+    param = threedhst.eazyPy.EazyParam('OUTPUT/%s.param' %(object))
     
     #### Make a fast.param file
     fp = open('fast.param')  ### default parameters

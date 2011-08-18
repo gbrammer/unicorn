@@ -2650,7 +2650,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', O
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
-        print 'Tilt: %f %f\n' %(tilt[0], tilt[1])
+        print 'Tilt: %e %e\n' %(tilt[0], tilt[1])
         
         fp = open('%s_%05d.tilt' %(root, id),'w')
         fp.write('%s_%05d  %.4e %.4e\n' %(root, id, tilt[0], tilt[1]))
@@ -2916,6 +2916,8 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
     
     object = '%s_%05d' %(root, id)
     
+    zout = None
+    
     if (not os.path.exists(object+'_threedhst.cat')) | (not os.path.exists(object+'.FILT.RES')):
         unicorn.analysis.run_eazy_fit(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, TEMPLATES_FILE=TEMPLATES_FILE, run=True, pipe=pipe, bin_spec=1, spec_norm=1, eazy_binary = eazy_binary, zmin=0.2, zmax=5, compress=0.75, GET_NORM=GET_NORM, COMPUTE_TILT=True, TILT_ORDER=1, clean=False, force_zrange=force_zrange, eazy_working_directory=unicorn.GRISM_HOME+'ANALYSIS/FAST')
     
@@ -2935,7 +2937,8 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', O
         fp.writelines(lines)
         fp.close()
     
-    zout = catIO.Readfile('OUTPUT/%s.zout' %(object))
+    if zout is None:
+        zout = catIO.Readfile('OUTPUT/%s.zout' %(object))
     
     param = threedhst.eazyPy.EazyParam('OUTPUT/%s.param' %(object))
     

@@ -44,6 +44,8 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'AEGIS/'
     if root.startswith('GOODS-N'):
         PATH = unicorn.GRISM_HOME+'GOODS-N/'
+    if root.startswith('UDS'):
+        PATH = unicorn.GRISM_HOME+'UDS/'
     if root.startswith('GN20'):
         PATH = unicorn.GRISM_HOME+'GOODS-N/'
     if root.startswith('G850.1'):
@@ -74,6 +76,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     
     KTOT_COL = None
     ### Optionally supply a grism basename and determine the field from that
+    if root.startswith('UDS'):
+        uds=True
     if root.startswith('COSMOS'):
         cosmos=True
     if root.startswith('AEGIS'):

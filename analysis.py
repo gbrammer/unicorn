@@ -179,10 +179,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #
     if udf and unicorn.hostname().startswith('uni'):
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
-        CAT_PATH = GRISM_PATH+'FIREWORKS/'
+        CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
 
-            CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
-        #
         CAT_FILE = CAT_PATH+'hudf09.cat'
         ZOUT_FILE = CAT_PATH+'hudf09.zout'
         FOUT_FILE = CAT_PATH + 'hudf09.fout'

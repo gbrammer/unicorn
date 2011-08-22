@@ -63,7 +63,7 @@ def get_grism_path(root):
     #
     return PATH
     
-def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, ecdfs=False, uds=False):
+def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, ecdfs=False, uds=False, udf=False):
     """
     
     Read photometry, redshift, SPS catalogs for a given field.
@@ -88,6 +88,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         goodsn=True
     if root.startswith('GOODS-S'):
         cdfs=True
+
+    if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38'):
+        udf=True
+        
     if root.startswith('MARSHALL'):
         uds=True
     if root.startswith('PRIMO'):
@@ -172,7 +176,18 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'fireworks.zout'
         FOUT_FILE = CAT_PATH + 'fireworks.fout'
         KTOT_COL = 'Ks_totf'
-        
+    #
+    if udf and unicorn.hostname().startswith('uni'):
+        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
+        CAT_PATH = GRISM_PATH+'FIREWORKS/'
+
+            CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
+        #
+        CAT_FILE = CAT_PATH+'hudf09.cat'
+        ZOUT_FILE = CAT_PATH+'hudf09.zout'
+        FOUT_FILE = CAT_PATH + 'hudf09.fout'
+        KTOT_COL = 'f_kv2_tot'
+       
     if uds:
         GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'

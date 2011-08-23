@@ -52,6 +52,8 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'GOODS-N/'
     if root.startswith('GOODS-S'):
         PATH = unicorn.GRISM_HOME+'GOODS-S/'
+    if root.startswith('UDF'):
+        PATH = unicorn.GRISM_HOME+'GOODS-S/'
     if root.startswith('WFC3-ERS'):
         PATH = unicorn.GRISM_HOME+'ERS/'
     if root.startswith('MARSHALL'):

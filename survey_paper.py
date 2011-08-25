@@ -253,6 +253,86 @@ def spectral_features():
     print '%-8s  %.1f -- %.1f' %('OII', wmin/3727.-1, wmax/3727.-1)
     print '%-8s  %.1f -- %.1f' %('4000', wmin/4000.-1, wmax/4000.-1)
 
+def aXe_model():
+    import copy
+    import scipy.ndimage as nd
+    
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    
+    dir = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-F140W_drz.fits')
+    gri = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-G141_drz.fits.gz')
+    mod = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-FC-G141CONT_drz.fits.gz')
+
+    #### rotate all the images so that dispersion axis is along X
+    angle = gri[1].header['PA_APER']#+180
+    direct = nd.rotate(dir[1].data, angle, reshape=False)
+    grism = nd.rotate(gri[1].data, angle, reshape=False)
+    model = nd.rotate(mod[1].data, angle, reshape=False)
+    
+    
+    xc, yc = 1877, 2175
+    NX, NY = 1270, 365
+    aspect = 3.*NY/NX
+    
+    xc, yc = 1731, 977
+    NX, NY = 882, 467
+    
+    aspect = 1.*NY/NX
+    
+    plt.gray()
+    
+    plt.rcParams['lines.linewidth'] = 2
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=aspect, left=0.12)
+    
+    fig.subplots_adjust(wspace=0.0,hspace=0.0,left=0.01,
+                        bottom=0.015,right=0.99,top=0.985)
+    
+    fs1 = 15 ### Font size of label
+    xlab, ylab = 0.04*NX/3., NY-0.02*NY
+    
+    ax = fig.add_subplot(221)
+    ax.imshow(0-direct[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.2, vmax=0.02, interpolation='nearest')
+    ax.set_yticklabels([]); ax.set_xticklabels([])
+    xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
+    ax.text(xlab, ylab, 'a) Direct F140W', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+
+    #ax.text(xlab, ylab, r'$%d\times\ $$%d^{\prime\prime}$' %(NX*0.06, NY*0.06), fontsize=18, backgroundcolor='white', verticalalignment='top')
+    
+    ax = fig.add_subplot(222)
+    ax.imshow(0-grism[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.04, vmax=0.004, interpolation='nearest')
+    ax.set_yticklabels([]); ax.set_xticklabels([])
+    xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
+    ax.text(xlab, ylab, 'b) Grism G141', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+
+    ax = fig.add_subplot(223)
+    diff = grism-model
+        
+    ### Flag em lines and 0th order
+    dy0 = 20
+    
+    emx, emy = [223, 272, 487, 754, 520, 850, 565, 558, 51, 834, 345, 495], [122, 189, 83, 240, 148, 124, 336, 418, 338, 225, 197, 268]
+    ax.plot(np.array(emx)+(xc-1731), np.array(emy)-dy0+(yc-977), marker='o', markersize=5, linestyle='None', color='green', alpha=0.9)
+    
+    zx, zy = [301, 393, 648], [183, 321, 446]
+    ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='o', markersize=5, linestyle='None', color='red', alpha=0.9)
+
+    ax.text(0.04*NX/3., 0.02*NY, 'Em.', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='green')
+    ax.text(0.3*NX/3., 0.02*NY, r'0th', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='red')
+    
+    ax.imshow(0-diff[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.02, vmax=0.002, interpolation='nearest')
+    ax.set_yticklabels([]); ax.set_xticklabels([])
+    xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
+    ax.text(xlab, ylab, r'd) Grism$-$model', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    
+    ax = fig.add_subplot(224)
+    ax.imshow(0-model[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.04, vmax=0.004, interpolation='nearest')
+    ax.set_yticklabels([]); ax.set_xticklabels([])
+    xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
+    ax.text(xlab, ylab, r'c) aXe Model', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    
+    fig.savefig('grism_model.pdf')
+    
 def sync():
     pass
     """
@@ -278,6 +358,8 @@ def all_pointings():
     pointings(ROOT='GOODS-N')
 
 def all_pointings_width():
+    from unicorn.survey_paper import pointings
+    
     pointings(ROOT='GOODS-SOUTH', width=7, corner='ll')
     pointings(ROOT='COSMOS', width=6, corner='lr')
     pointings(ROOT='AEGIS', width=7, corner='ll')
@@ -418,7 +500,17 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
             pl = ax.plot(acsx1, acsy1, alpha=0.1, color=acs_color)
             pl = ax.plot(acsx2, acsy2, alpha=0.1, color=acs_color)
         #
-        te = ax.text(np.mean(wfcx[:-1]), np.mean(wfcy[:-1]), pointing, va='center', ha='center', fontsize=13)
+        xoff, yoff = 0.0, 0.0
+        if ROOT=='GOODS-SOUTH':
+            #print pointing
+            if pointing == '36':
+                xoff, yoff = 0.002,0.0075
+            if pointing == '37':
+                xoff, yoff = -0.005,-0.007
+            if pointing == '38':
+                xoff, yoff = 0.007,-0.007
+            
+        te = ax.text(np.mean(wfcx[:-1])+xoff, np.mean(wfcy[:-1])+yoff, pointing, va='center', ha='center', fontsize=13)
     
     #    
     if yticklab is not None:
@@ -621,10 +713,9 @@ def demo_background_subtract(root='COSMOS-13'):
     
     os.system('mv %s-G141_drz.fits %s-G141_drz_final.fits' %(root, root))
     
-    
     make_plot(root=root)
     
-def make_plot(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.02)):
+def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.02)):
     import unicorn.survey_paper as sup
     
     if sup.root != root:
@@ -839,4 +930,87 @@ def compare_sky():
     canvas = FigureCanvasAgg(fig)
     canvas.print_figure('sky_backgrounds.pdf', dpi=100, transparent=False)
 
+def grism_flat_dependence():
+    """
+    Compute the higher order terms for the grism flat-field
+    """
+    
+    import unicorn
+    import threedhst
+    
+    # f140 = threedhst.grism_sky.flat_f140[1].data[5:-5, 5:-5]
+    # 
+    # flat = pyfits.open(unicorn.GRISM_HOME+'CONF/WFC3.IR.G141.flat.2.fits')
+    # wmin, wmax = flat[0].header['WMIN'], flat[0].header['WMAX']
+    # 
+    # a0 = flat[0].data
+    # 
+    # lam = 1.1e4
+    # x = (lam-wmin)/(wmax-wmin)
+    # 
+    # aX = a0*0.
+    # for i,ext in enumerate(flat[1:]):
+    #     print i
+    #     aX += ext.data*x**(i+1)
+        
+    f105 = pyfits.open(os.getenv('iref')+'/uc72113oi_pfl.fits')[1].data[5:-5,5:-5]
+    #f105 = pyfits.open(os.getenv('iref')+'/uc72113ni_pfl.fits')[1].data[5:-5,5:-5] # F098M
+    f140 = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')[1].data[5:-5,5:-5]
+    f160 = pyfits.open(os.getenv('iref')+'/uc721145i_pfl.fits')[1].data[5:-5,5:-5]
+    
+    xs = 8
+    fig = plt.figure(figsize=(xs,xs/3.), dpi=100)
+    fig.subplots_adjust(wspace=0.01,hspace=0.01,left=0.01, bottom=0.01,right=0.99,top=0.99)        
+    
+    vmin, vmax = 0.95, 1.05
+    ### put scale within the box
+    NX = 100
+    y0, y1 = 1014-1.5*NX, 1014-1*NX
+    y0 -= NX; y1 -= NX
+    
+    ### F140W flat
+    ax = fig.add_subplot(131)
+    ax.imshow(f140, vmin=0.95, vmax=1.05, interpolation='nearest')
+    ax.text(50,950, 'F140W', verticalalignment='top', fontsize=14, backgroundcolor='white')
+    ax.set_xlim(0,1014)
+    ax.set_ylim(0,1014)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    ### F105W/F140W, with label
+    ratio = f105/f140
+    x0 = 300
+    ratio[y0:y1,x0-2.5*NX:x0-1.5*NX] = vmin
+    ratio[y0:y1,x0-1.5*NX:x0-0.5*NX] = (vmin+1)/2.
+    ratio[y0:y1,x0-0.5*NX:x0+0.5*NX] = 1.
+    ratio[y0:y1,x0+0.5*NX:x0+1.5*NX] = (vmax+1)/2.
+    ratio[y0:y1,x0+1.5*NX:x0+2.5*NX] = vmax
+    xbox = np.array([0,1,1,0,0])*NX
+    ybox = np.array([0,0,1,1,0])*NX/2
+    
+    ax = fig.add_subplot(132)
+    ax.imshow(ratio, vmin=0.95, vmax=1.05, interpolation='nearest')
+    ax.plot(xbox+x0-0.5*NX, ybox+y1-0.5*NX, color='0.6', alpha=0.1)
+    
+    fs = 9
+    ax.text(x0-2*NX, y0-0.5*NX, '%.2f' %(vmin), horizontalalignment='center', verticalalignment='center', fontsize=fs)
+    ax.text(x0-0*NX, y0-0.5*NX, '%.2f' %(1), horizontalalignment='center', verticalalignment='center', fontsize=fs)
+    ax.text(x0+2*NX, y0-0.5*NX, '%.2f' %(vmax), horizontalalignment='center', verticalalignment='center', fontsize=fs)
+
+    ax.text(50,950, 'F105W / F140W', verticalalignment='top', fontsize=14)
+    ax.set_xlim(0,1014)
+    ax.set_ylim(0,1014)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+        
+    ### F160W/F140W
+    ax = fig.add_subplot(133)
+    ax.imshow(f160/f140, vmin=0.95, vmax=1.05, interpolation='nearest')
+    ax.text(50,950, 'F160W / F140W', verticalalignment='top', fontsize=14)
+    ax.set_xlim(0,1014)
+    ax.set_ylim(0,1014)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    fig.savefig('compare_flats.pdf')
     

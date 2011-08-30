@@ -54,6 +54,11 @@ def goods_s():
     files=glob.glob('GOODS-S-[0-9]*-G141_shifts.txt')
     files.extend(grism_asn)
     files.extend(glob.glob('GOODS-S-[0-9]*-F140W_tweak.fits'))
+    
+    files.extend(glob.glob('UDF-*F140W_tweak.fits'))
+    files.extend(glob.glob('UDF-*G141_shifts.txt'))
+    files.extend(glob.glob('UDF-*G141_asn.fits'))
+
     for file in files:
         status = os.system('cp '+file+' ../DATA')
         #shutil.copy(file, '../DATA')
@@ -93,7 +98,32 @@ def goods_s():
     proc.reduction_script(asn_grism_file='GOODS-S-26-G141_asn.fits')
     unicorn.analysis.make_SED_plots(grism_root='GOODS-S-26-G141')
     go.clean_up()
+    
+    ### UDF
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26)
 
+    # threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-34-F140W_drz.fits'
+    # proc.reduction_script(asn_grism_file='GOODS-S-34-G141_asn.fits')
+    # unicorn.analysis.make_SED_plots(grism_root='GOODS-S-34-G141')
+    # go.clean_up()
+    
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='UDF-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDF-G141')
+    go.clean_up()
+    
+    #### Test with fluxcube
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
+    
+    CANDELS='/3DHST/Ancillary/GOODS-S/CANDELS/'
+    
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-F140W_drz.fits'
+    threedhst.options['OTHER_BANDS'] = [[CANDELS+'hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits', 'F125W' , 1248.6, 26.25], [CANDELS+'hlsp_candels_hst_wfc3_gsd01_f160w_v0.5_drz.fits', 'F160W' , 1537.6, 25.96]]
+    
+    proc.reduction_script(asn_grism_file='UDF-FC-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDF-FC-G141')
+    go.clean_up()
+    
     # go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=20.5)
     # 
     # threedhst.options['AXE_EDGES'] = "0,0,0,0"
@@ -308,6 +338,38 @@ def sn_primo():
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
 #
+def uds():
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'UDS')
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
+    grism_asn  = glob.glob('UDS-[0-9]*-G141_asn.fits')
+    files=glob.glob('UDS-[0-9]*-G141_shifts.txt')
+    files.extend(grism_asn)
+    files.extend(glob.glob('UDS-[0-9]*-F140W_tweak.fits'))
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    os.chdir('../')
+    
+    #### Initialize parameters
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=23.5)
+    
+    #### Main loop for reduction
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDS-5-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='UDS-5-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDS-5-G141')
+    go.clean_up()
+
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDS-23-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='UDS-23-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDS-23-G141')
+    go.clean_up()
+
 def goods_ers():
     """
 

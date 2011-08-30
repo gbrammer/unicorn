@@ -312,10 +312,10 @@ def aXe_model():
     dy0 = 20
     
     emx, emy = [223, 272, 487, 754, 520, 850, 565, 558, 51, 834, 345, 495], [122, 189, 83, 240, 148, 124, 336, 418, 338, 225, 197, 268]
-    ax.plot(np.array(emx)+(xc-1731), np.array(emy)-dy0+(yc-977), marker='o', markersize=5, linestyle='None', color='green', alpha=0.9)
+    ax.plot(np.array(emx)+(xc-1731), np.array(emy)-dy0+(yc-977), marker='^', markersize=5, linestyle='None', color='green', alpha=0.9)
     
     zx, zy = [301, 393, 648], [183, 321, 446]
-    ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='o', markersize=5, linestyle='None', color='red', alpha=0.9)
+    ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='^', markersize=5, linestyle='None', color='red', alpha=0.9)
 
     ax.text(0.04*NX/3., 0.02*NY, 'Em.', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='green')
     ax.text(0.3*NX/3., 0.02*NY, r'0th', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='red')
@@ -723,7 +723,7 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
         
     path = unicorn.analysis.get_grism_path(root)
     os.chdir(path+'EXAMPLE')
-
+    
     first = pyfits.open('%s-G141_drz_first.fits' %(root))
     flat = pyfits.open('%s-G141_drz_flat.fits' %(root))
     sky = pyfits.open('%s-G141_drz_sky.fits' %(root))
@@ -733,91 +733,97 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     sup.im_shape = im_shape
     
     med = threedhst.utils.biweight(sky[1].data, mean=True)
-
+    
     ysize = 3.
     #fig = plt.figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*4,ysize], dpi=100)
+    
     
     top_panel = 0.2
     NPANEL = 4
     
     if USE_PLOT_GUI:
-        fig = plt.figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*NPANEL*(1-top_panel),ysize],dpi=100)
+        fig = plt.figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*NPANEL*(1-top_panel)/2,ysize*2],dpi=100)
     else:
-        fig = Figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*NPANEL*(1-top_panel),ysize], dpi=100)
+        fig = Figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*NPANEL*(1-top_panel)/2.,ysize*2], dpi=100)
     
-    fig.subplots_adjust(wspace=0.02,hspace=0.02,left=0.01,
+    fig.subplots_adjust(wspace=0.02,hspace=0.02,left=0.02,
                         bottom=0.07,right=0.99,top=0.97)
     #
     
+    plt.rcParams['lines.linewidth'] = 1
+    
     vmin, vmax = -0.2, 0.1
     
-    x0 = 0.005
-    y0 = x0
-    dx = (1.-(NPANEL+1)*x0)/NPANEL
+    x0 = 0.005*2
+    y0 = x0/2.
+    dx = (1.-(NPANEL+1)*x0)/NPANEL*2
+    
+    top_panel/=2.
     
     #ax = fig.add_subplot(141)
-    ax = fig.add_axes(((x0+(dx+x0)*0), y0, dx, 1-top_panel-y0))
+    ax = fig.add_axes(((x0+(dx+x0)*0), y0+0.5, dx, 0.5-top_panel-y0))
     
     ax.imshow(0-(first[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin-0.1,vmax=vmax+0.15)    
-    axis_imshow(ax, text='a)\ Raw')
+    sup.axis_imshow(ax, text='a)\ Raw')
     ax.text(0.12, 0.85, r'$\mathrm{%s}$' %(root), horizontalalignment='left', verticalalignment='center',
                  transform = ax.transAxes, color='black', fontsize=14)
     #
     #show_limits(ax, -(vmax+0.15)+med, -(vmin-0.1)+med)
     
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*0), (1-top_panel), dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*0), (0.5-top_panel)+0.5, dx, top_panel-2*y0))
     pp = sup.first_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.first_prof[i])
         pp += sup.first_prof[i]
     ax.plot(pp/4., color='black')
-    axis_profile(ax, yrange=range1, text='a)\ Raw')
+    sup.axis_profile(ax, yrange=range1, text='a)\ Raw')
     
     #ax = fig.add_subplot(142)
-    ax = fig.add_axes(((x0+(dx+x0)*1), y0, dx, 1-top_panel-y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1), y0+0.5, dx, 0.5-top_panel-y0))
     ax.imshow(0-(flat[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
-    axis_imshow(ax, text='b)\ Flat')
+    sup.axis_imshow(ax, text='b)\ Flat')
     #show_limits(ax, -vmax+med, -vmin+med)
-
+    
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*1), (1-top_panel), dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1), (0.5-top_panel)+0.5, dx, top_panel-2*y0))
     pp = sup.flat_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.flat_prof[i])
         pp += sup.flat_prof[i]
     ax.plot(pp/4., color='black')
-    axis_profile(ax, yrange=range1, text='b)\ Flat')
+    sup.axis_profile(ax, yrange=range1, text='b)\ Flat')
     
+    ###########
     #ax = fig.add_subplot(143)
-    ax = fig.add_axes(((x0+(dx+x0)*2), y0, dx, 1-top_panel-y0))
+    ax = fig.add_axes(((x0+(dx+x0)*0), y0, dx, 0.5-top_panel-y0))
     ax.imshow(0-(sky[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
-    axis_imshow(ax, text='c)\ Sky')
+    sup.axis_imshow(ax, text='c)\ Sky')
     #show_limits(ax, -vmax+med, -vmin+med)
     
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*2), (1-top_panel), dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*0), (0.5-top_panel), dx, top_panel-2*y0))
     pp = sup.sky_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.sky_prof[i])
         pp += sup.sky_prof[i]
     ax.plot(pp/4., color='black')
-    axis_profile(ax, yrange=range1, text='c)\ Sky')
-
+    sup.axis_profile(ax, yrange=range1, text='c)\ Sky')
+    
     #ax = fig.add_subplot(144)
-    ax = fig.add_axes(((x0+(dx+x0)*3), y0, dx, 1-top_panel-y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1), y0, dx, 0.5-top_panel-y0))
     ax.imshow(0-(final[1].data), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
-    axis_imshow(ax, text='d)\ Final')
+    sup.axis_imshow(ax, text='d)\ Final')
     #show_limits(ax, -vmax, -vmin)
     
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*3), (1-top_panel), dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1), (0.5-top_panel), dx, top_panel-2*y0))
     pp = sup.final_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.final_prof[i])
         pp += sup.final_prof[i]
     ax.plot(pp/4., color='black')
-    axis_profile(ax, yrange=range2, text='d)\ Final')
+    sup.axis_profile(ax, yrange=range2, text='d)\ Final')
     
     outfile = '%s-G141_demo.pdf' %(root)
     
@@ -956,7 +962,15 @@ def grism_flat_dependence():
     f105 = pyfits.open(os.getenv('iref')+'/uc72113oi_pfl.fits')[1].data[5:-5,5:-5]
     #f105 = pyfits.open(os.getenv('iref')+'/uc72113ni_pfl.fits')[1].data[5:-5,5:-5] # F098M
     f140 = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')[1].data[5:-5,5:-5]
+    ref = 'F140W'
     f160 = pyfits.open(os.getenv('iref')+'/uc721145i_pfl.fits')[1].data[5:-5,5:-5]
+    
+    #### Narrow bands
+    f140 = pyfits.open(os.getenv('iref')+'/PFL/uc72113si_pfl.fits')[1].data[5:-5,5:-5]
+    REF = 'F127M'
+    
+    #f140 = pyfits.open(os.getenv('iref')+'/PFL/uc721140i_pfl.fits')[1].data[5:-5,5:-5]
+    #f160 = pyfits.open(os.getenv('iref')+'/PFL/uc721146i_pfl.fits')[1].data[5:-5,5:-5]
     
     xs = 8
     fig = plt.figure(figsize=(xs,xs/3.), dpi=100)
@@ -971,7 +985,7 @@ def grism_flat_dependence():
     ### F140W flat
     ax = fig.add_subplot(131)
     ax.imshow(f140, vmin=0.95, vmax=1.05, interpolation='nearest')
-    ax.text(50,950, 'F140W', verticalalignment='top', fontsize=14, backgroundcolor='white')
+    ax.text(50,950, REF, verticalalignment='top', fontsize=14, backgroundcolor='white')
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])
@@ -997,7 +1011,7 @@ def grism_flat_dependence():
     ax.text(x0-0*NX, y0-0.5*NX, '%.2f' %(1), horizontalalignment='center', verticalalignment='center', fontsize=fs)
     ax.text(x0+2*NX, y0-0.5*NX, '%.2f' %(vmax), horizontalalignment='center', verticalalignment='center', fontsize=fs)
 
-    ax.text(50,950, 'F105W / F140W', verticalalignment='top', fontsize=14)
+    ax.text(50,950, 'F105W / '+REF, verticalalignment='top', fontsize=14)
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])
@@ -1006,7 +1020,7 @@ def grism_flat_dependence():
     ### F160W/F140W
     ax = fig.add_subplot(133)
     ax.imshow(f160/f140, vmin=0.95, vmax=1.05, interpolation='nearest')
-    ax.text(50,950, 'F160W / F140W', verticalalignment='top', fontsize=14)
+    ax.text(50,950, 'F160W / '+REF, verticalalignment='top', fontsize=14)
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])

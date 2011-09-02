@@ -2937,6 +2937,72 @@ def make_masked_FAST_errfunc():
     
     fp.close()
     
+def make_eazy_2d_continuum(root='UDF-G141', id=1279):
+    """ 
+    Make a 2D continuum image from the best-fit EAZY template.
+    """
+    from scipy import polyval
+    
+    FIT_DIR = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/'
+    
+    object = '%s_%05d' %(root, id)
+    if not os.path.exists(FIT_DIR+'%s.tilt' %(object)):
+        print 'Need to run_eazy_fit(root=\'%s\', id=%d)' %(root, id)
+        return -1
+    
+    tilt = np.cast[float](np.loadtxt(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/%s.tilt' %(object), dtype=np.str)[1:])
+    
+    PATH = unicorn.analysis.get_grism_path(grism_root)
+    twod = pyfits.open(PATH+'HTML/images/%s_2D.fits.gz' %(object))
+    thumb = pyfits.open(PATH+'HTML/images/%s_thumb.fits.gz' %(object))
+    
+    #### Eazy outputs
+    eazy_param = eazy.EazyParam(FIT_DIR+'OUTPUT/%s_%05d.param' %(root, id))
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY=FIT_DIR+'OUTPUT', CACHE_FILE = 'Same')
+    
+    iz = coeffs['izbest'][0]
+    z_peak = tempfilt['zgrid'][iz]
+    continuum_full = np.dot(temp_seds['temp_seds'][:,0:7], coeffs['coeffs'][0:7,0])                             
+    continuum_filt = np.dot(tempfilt['tempfilt'][:,0:7,iz], coeffs['coeffs'][0:7,0])                             
+    
+    lci = tempfilt['lc']
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    
+    #### template interpolated at image wavelengths
+    image_lambda = (np.arange(twod[1].header['NAXIS1'])+1-twod[1].header['CRPIX1'])*twod[1].header['CDELT1']+twod[1].header['CRVAL1']
+    
+    sens = pyfits.open(unicorn.GRISM_HOME+'CONF/WFC3.IR.G141.1st.sens.2.fits')
+    sens_int = np.interp(image_lambda, sens[1].data.WAVELENGTH, sens[1].data.SENSITIVITY)
+    
+
+    yflux = np.interp(image_lambda, lci[is_spec], continuum_filt[is_spec], left=0, right=0) *3.e18*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))/image_lambda**2*(1+z_peak)
+    
+    yelec = yflux*sens_int
+    
+    #### Add the tilt computed from the fit
+    yelec /= polyval(tilt, image_lambda-1.4e4)
+    
+    #### Normalize by the model profile
+    profile = np.sum(twod[5].data, axis=1)
+    profile /= np.sum(profile)
+    
+    #### Normalize by the object profile
+    profile = np.sum(thumb[0].data, axis=1)
+    profile /= np.sum(profile)
+    
+    #### Normalize to the spectrum itself
+    mask = yelec > 0
+    for i in range(len(profile)):
+        profile[i] = np.sum(yelec[mask]*(twod[1].data[i,mask]-twod[4].data[i,mask]))/np.sum(yelec[mask]**2)
+        
+    continuum_model = np.dot(profile.reshape(-1,1), yelec.reshape(1,-1))
+    
+    pyfits.writeto('%s/%s_continuum.fits' %(FIT_DIR,object), continuum_model, header=twod[1].header, clobber=True)
+    status = os.system('gzip -f %s/%s_continuum.fits' %(FIT_DIR,object))
+    
+    print '%s%s_continuum.fits' %(FIT_DIR,object)
+    
 def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
     """
     Run FAST fit on the photometry + spectra.  If the catalog and template file

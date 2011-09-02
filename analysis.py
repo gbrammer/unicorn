@@ -2998,10 +2998,10 @@ def make_eazy_2d_continuum(root='UDF-G141', id=1279):
         
     continuum_model = np.dot(profile.reshape(-1,1), yelec.reshape(1,-1))
     
-    pyfits.writeto('%s/%s_continuum.fits' %(FIT_DIR,object), continuum_model, header=twod[1].header, clobber=True)
-    status = os.system('gzip -f %s/%s_continuum.fits' %(FIT_DIR,object))
+    pyfits.writeto('%s/CONTINUUM/%s_continuum.fits' %(FIT_DIR,object), continuum_model, header=twod[1].header, clobber=True)
+    status = os.system('gzip -f %s/CONTINUUM/%s_continuum.fits' %(FIT_DIR,object))
     
-    print '%s%s_continuum.fits' %(FIT_DIR,object)
+    print '%sCONTINUUM/%s_continuum.fits' %(FIT_DIR,object)
     
 def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
     """

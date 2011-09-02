@@ -349,7 +349,9 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
         #for i in range(size[0]):
         #    profile[i,:] /= profile[i,:].sum()
         profile /= profile.sum()
-        
+    
+    profile = profile[::-1]
+    
     LSM = size[0]/2
     xmin = 3000
     xmax = 2.4e4
@@ -3003,6 +3005,17 @@ def make_eazy_2d_continuum(root='UDF-G141', id=1279):
     
     print '%sCONTINUUM/%s_continuum.fits' %(FIT_DIR,object)
     
+    xxx = """
+    id=1874
+    
+    im = pyfits.open('/Users/gbrammer/Downloads/UDF-G141_%05d_2D.fits.gz' %(id))
+    model = pyfits.open('/research/HST/GRISM/3DHST/ANALYSIS/REDSHIFT_FITS/CONTINUUM/UDF-G141_%05d_continuum.fits.gz' %(id))
+    ds9.frame(1)
+    ds9.v(im[1].data-im[4].data, vmin=-0.01, vmax=0.1)
+    ds9.frame(2)
+    ds9.v(im[1].data-model[0].data-im[4].data, vmin=-0.01, vmax=0.1)
+    
+    """
 def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
     """
     Run FAST fit on the photometry + spectra.  If the catalog and template file

@@ -2952,7 +2952,7 @@ def make_eazy_2d_continuum(root='UDF-G141', id=1279):
     
     tilt = np.cast[float](np.loadtxt(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/%s.tilt' %(object), dtype=np.str)[1:])
     
-    PATH = unicorn.analysis.get_grism_path(grism_root)
+    PATH = unicorn.analysis.get_grism_path(root)
     twod = pyfits.open(PATH+'HTML/images/%s_2D.fits.gz' %(object))
     thumb = pyfits.open(PATH+'HTML/images/%s_thumb.fits.gz' %(object))
     

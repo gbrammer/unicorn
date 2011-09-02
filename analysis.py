@@ -53,7 +53,7 @@ def get_grism_path(root):
     if root.startswith('GOODS-S'):
         PATH = unicorn.GRISM_HOME+'GOODS-S/'
     if root.startswith('UDF'):
-        PATH = unicorn.GRISM_HOME+'GOODS-S/'
+        PATH = unicorn.GRISM_HOME+'UDF/'
     if root.startswith('WFC3-ERS'):
         PATH = unicorn.GRISM_HOME+'ERS/'
     if root.startswith('MARSHALL'):
@@ -180,7 +180,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'Ks_totf'
     #
     if udf and unicorn.hostname().startswith('uni'):
-        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
+        GRISM_PATH=unicorn.GRISM_HOME+'UDF/'
         CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
 
         CAT_FILE = CAT_PATH+'hudf09.cat'

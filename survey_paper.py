@@ -1030,7 +1030,7 @@ def grism_flat_dependence():
     
 def get_background_level(pointing='GOODS-S-28'):
     """
-    Get the sky background levels from the raw FLT images
+    Get the sky background levels from the raw FLT images, with an object and dq mask
     """
     
     xi, yi = np.indices((1014, 1014))
@@ -1044,7 +1044,7 @@ def get_background_level(pointing='GOODS-S-28'):
     for path in ['AEGIS','COSMOS','GOODS-S','GOODS-N','UDS']:
         os.chdir(unicorn.GRISM_HOME+path+'/PREP_FLT')
         info = catIO.Readfile('files.info')
-        print '\n\n%s\n\n' path
+        print '\n\n%s\n\n' %(path)
         for ii, file in enumerate(info.file):
             file = file.replace('.gz','')
             print file

@@ -1028,3 +1028,41 @@ def grism_flat_dependence():
     
     fig.savefig('compare_flats.pdf')
     
+def get_background_level(pointing='GOODS-S-28'):
+    """
+    Get the sky background levels from the raw FLT images
+    """
+    
+    xi, yi = np.indices((1014, 1014))
+    DPIX = 300
+    
+    flat = pyfits.open(os.getenv('iref')+'uc721143i_pfl.fits')[1].data[5:-5,5:-5]
+    
+    fp = open(unicorn.GRISM_HOME+'ANALYSIS/sky_background.dat','w')
+    fp.write('# file targname filter date_obs bg_mean bg_sigma\n')
+    
+    for path in ['AEGIS','COSMOS','GOODS-S','GOODS-N','UDS']:
+        os.chdir(unicorn.GRISM_HOME+path+'/PREP_FLT')
+        info = catIO.Readfile('files.info')
+        print '\n\n%s\n\n' path
+        for ii, file in enumerate(info.file):
+            file = file.replace('.gz','')
+            print file
+            #
+            try:
+                flt_raw = pyfits.open(threedhst.utils.find_fits_gz('../RAW/'+file))
+                flt_fix = pyfits.open(threedhst.utils.find_fits_gz(file))
+                seg = pyfits.open(threedhst.utils.find_fits_gz(file.replace('fits','seg.fits')))
+            except:
+                continue
+            #    
+            mask = (seg[0].data == 0) & ((flt_fix[3].data & (4+32+16+512+2048+4096)) == 0) & (np.abs(xi-507) < DPIX) & (np.abs(yi-507) < DPIX)
+            #
+            if info.filter[ii].startswith('G'):
+                flt_raw[1].data /= flat
+            #    
+            background = threedhst.utils.biweight(flt_raw[1].data[mask], both=True)
+            fp.write('%s   %16s   %5s   %s   %.3f %.3f\n' %(file, info.targname[ii], info.filter[ii], info.date_obs[ii], background[0], background[1]))
+        
+    fp.close()
+    

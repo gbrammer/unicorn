@@ -40,7 +40,51 @@ def redo_all_SED_plots():
             print file.split('_asn')[0]
             unicorn.analysis.make_SED_plots(grism_root=file.split('_asn')[0])
             
+def UDF():
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'UDF')
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
 
+    files = []
+    files.extend(glob.glob('UDF-*F140W_tweak.fits'))
+    files.extend(glob.glob('UDF-*G141_shifts.txt'))
+    files.extend(glob.glob('UDF-*G141_asn.fits'))
+
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+    os.chdir('../')
+    
+    ### UDF
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26.5)
+    
+    threedhst.options['OTHER_BANDS'] = [['../PREP_FLT/udf-candels-f125w.fits', 'F125W' , 1248.6, 26.25], ['../PREP_FLT/udf-candels-f160w.fits', 'F160W' , 1537.6, 25.96]]
+    
+    #### Use a detection image that has the candels imaging filling in the perimeter
+    #### of the 3D-HST pointing
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-fill-F140W_drz.fits'
+    
+    proc.reduction_script(asn_grism_file='UDF-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDF-G141')
+    go.clean_up()
+    
+    # #### Test with fluxcube
+    # go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
+    # 
+    # CANDELS='/3DHST/Ancillary/GOODS-S/CANDELS/'
+    # 
+    # threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-F140W_drz.fits'
+    # threedhst.options['OTHER_BANDS'] = [[CANDELS+'hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits', 'F125W' , 1248.6, 26.25], [CANDELS+'hlsp_candels_hst_wfc3_gsd01_f160w_v0.5_drz.fits', 'F160W' , 1537.6, 25.96]]
+    # 
+    # proc.reduction_script(asn_grism_file='UDF-FC-G141_asn.fits')
+    # unicorn.analysis.make_SED_plots(grism_root='UDF-FC-G141')
+    # go.clean_up()
+    
 def goods_s():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -99,29 +143,9 @@ def goods_s():
     unicorn.analysis.make_SED_plots(grism_root='GOODS-S-26-G141')
     go.clean_up()
     
-    ### UDF
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26)
-
-    # threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-34-F140W_drz.fits'
-    # proc.reduction_script(asn_grism_file='GOODS-S-34-G141_asn.fits')
-    # unicorn.analysis.make_SED_plots(grism_root='GOODS-S-34-G141')
-    # go.clean_up()
-    
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-F140W_drz.fits'
-    proc.reduction_script(asn_grism_file='UDF-G141_asn.fits')
-    unicorn.analysis.make_SED_plots(grism_root='UDF-G141')
-    go.clean_up()
-    
-    #### Test with fluxcube
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25.5)
-    
-    CANDELS='/3DHST/Ancillary/GOODS-S/CANDELS/'
-    
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-F140W_drz.fits'
-    threedhst.options['OTHER_BANDS'] = [[CANDELS+'hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits', 'F125W' , 1248.6, 26.25], [CANDELS+'hlsp_candels_hst_wfc3_gsd01_f160w_v0.5_drz.fits', 'F160W' , 1537.6, 25.96]]
-    
-    proc.reduction_script(asn_grism_file='UDF-FC-G141_asn.fits')
-    unicorn.analysis.make_SED_plots(grism_root='UDF-FC-G141')
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/GOODS-S-34-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='GOODS-S-34-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='GOODS-S-34-G141')
     go.clean_up()
     
     # go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=20.5)
@@ -721,7 +745,7 @@ def set_parameters(direct='F140W', LIMITING_MAGNITUDE=25):
     threedhst.options['PIXFRAC'] = '0.8'
     threedhst.options['DRZSCALE'] = '0.06'
 
-    threedhst.options['AXE_EDGES'] = "180,0,0,0"
+    threedhst.options['AXE_EDGES'] = "90,0,0,0"
     threedhst.options['USE_TAXE'] = True
 
     #### Use F140W as detection image

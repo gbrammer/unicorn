@@ -1027,8 +1027,41 @@ def grism_flat_dependence():
     ax.set_xticklabels([])
     
     fig.savefig('compare_flats.pdf')
+
+def process_sky_background():
+    import threedhst.catIO as catIO
+    import re
     
-def get_background_level(pointing='GOODS-S-28'):
+    info = catIO.Readfile('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/sky_background.dat')
+    
+    field = []
+    for targ in info.targname:
+        targ = targ.replace('GNGRISM','GOODS-NORTH-')
+        field.append(re.split('-[1-9]',targ)[0].upper())
+    
+    field = np.array(field)   
+    is_UDF = field == 'xxx'
+    for i,targ in enumerate(info.targname):
+        m = re.match('GOODS-SOUTH-3[4678]',targ)
+        if m is not None:
+            is_UDF[i] = True
+            
+    fields = ['AEGIS','COSMOS','GOODS-SOUTH','GOODS-NORTH','UDS']
+    colors = ['red','blue','green','purple','orange']
+    
+    for i in range(len(fields)):
+        match = (field == fields[i]) & (info.filter == 'G141')
+        h = plt.hist(info.bg_mean[match], range=(0,5), bins=50, color=colors[i], alpha=0.5)
+        bg = threedhst.utils.biweight(info.bg_mean[match], both=True)
+        print '%-14s %.3f %.3f ' %(fields[i], bg[0], bg[1])
+        
+    match = is_UDF & (info.filter == 'G141')
+    bg = threedhst.utils.biweight(info.bg_mean[match], both=True)
+    print '%-14s %.3f %.3f ' %('HUDF09', bg[0], bg[1])
+    
+    plt.xlim(0,3.5)
+    
+def get_background_level():
     """
     Get the sky background levels from the raw FLT images, with an object and dq mask
     """
@@ -1065,4 +1098,74 @@ def get_background_level(pointing='GOODS-S-28'):
             fp.write('%s   %16s   %5s   %s   %.3f %.3f\n' %(file, info.targname[ii], info.filter[ii], info.date_obs[ii], background[0], background[1]))
         
     fp.close()
+    
+def get_spec_signal_to_noise():
+    """
+    Measure the S/N directly from the spectrum of all objects.
+    """
+    
+    fp = open(unicorn.GRISM_HOME+'ANALYSIS/spec_signal_to_noise.dat','w')
+    fp.write('# object mag_auto flux_radius sig_noise n_bins\n')
+
+    for path in ['AEGIS','COSMOS','GOODS-S','GOODS-N','UDS']:
+        os.chdir(unicorn.GRISM_HOME+path)
+        SPC_files = glob.glob('DRIZZLE_G141/*opt.SPC.fits')
+        for file in SPC_files:
+            pointing = os.path.basename(file).split('_2_opt')[0]
+            #
+            SPC = threedhst.plotting.SPCFile(file,axe_drizzle_dir='./')
+            cat = threedhst.sex.mySexCat('DATA/%s_drz.cat' %(pointing))
+            try:
+                mag_auto = np.cast[float](cat.MAG_F1392W)
+                flux_radius = np.cast[float](cat.FLUX_RADIUS)
+            except:
+                continue
+            #
+            for id in SPC._ext_map:
+                print noNewLine+'%s_%05d' %(pointing, id)
+                #
+                spec = SPC.getSpec(id)
+                mask = (spec.LAMBDA > 1.15e4) & (spec.LAMBDA < 1.6e4) & (spec.CONTAM/spec.FLUX < 0.1) & np.isfinite(spec.FLUX)
+                if len(mask[mask]) > 1:
+                    signal_noise = threedhst.utils.biweight(spec.FLUX[mask]/spec.FERROR[mask], mean=True)
+                    mat = cat.id == id
+                    fp.write('%s_%05d %8.3f %8.3f   %13.3e %-0d\n' %(pointing, id, mag_auto[mat][0], flux_radius[mat][0], signal_noise, len(mask[mask])))
+                #   
+                else:
+                    continue
+    
+    fp.close()
+          
+def process_signal_to_noise():
+    import threedhst.catIO as catIO
+    import re
+
+    info = catIO.Readfile('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/spec_signal_to_noise.dat')
+
+    field = []
+    for targ in info.object:
+        targ = targ.replace('GNGRISM','GOODS-NORTH-')
+        field.append(re.split('-[1-9]',targ)[0].upper())
+
+    field = np.array(field)   
+
+    ff = field == 'COSMOS'
+    plt.plot(info.mag_auto[ff], info.sig_noise[ff]*2.5, marker='o', color='red', alpha=0.1, linestyle='None')
+
+    ff = field == 'AEGIS'
+    plt.plot(info.mag_auto[ff], info.sig_noise[ff]*2.5, marker='o', color='blue', alpha=0.1, linestyle='None')
+
+    plt.semilogy()
+    plt.plot([12,30],[3,3], linewidth=3, alpha=0.5, color='black')
+    plt.ylim(0.1,300)
+    plt.xlim(16,25)
+    
+    mm = (info.mag_auto > 22.5) & (info.mag_auto < 23)
+    plt.plot(info.flux_radius[mm & (field == 'COSMOS')], info.sig_noise[mm & (field == 'COSMOS')]*2.5, marker='o', color='red', alpha=0.1, linestyle='None')
+    plt.plot(info.flux_radius[mm & (field == 'AEGIS')], info.sig_noise[mm & (field == 'AEGIS')]*2.5, marker='o', color='blue', alpha=0.1, linestyle='None')
+    
+    plt.semilogy()
+    plt.plot([0,30],[3,3], linewidth=3, alpha=0.5, color='black')
+    plt.ylim(0.1,300)
+    plt.xlim(0,12)
     

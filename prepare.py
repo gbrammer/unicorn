@@ -553,8 +553,26 @@ def UDF():
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
+        
     
-    ######## Combine them
+
+    os.chdir(unicorn.GRISM_HOME+'UDF/PREP_FLT')
+    
+    ##### Make a dumy combined image of 3D-HST + PRIMO to get the total area covered 
+    ##### to make a common detection image
+    # files = glob.glob('*G141_asn.fits')
+    # threedhst.utils.combine_asn_shifts(files, out_root='dummy-G141',
+    #                     path_to_FLT='./', run_multidrizzle=False)
+    # #
+    # threedhst.prep_flt_files.startMultidrizzle('dummy-G141_asn.fits',
+    #          use_shiftfile=True, skysub=False,
+    #          final_scale=0.2, pixfrac=0.8, driz_cr=False,
+    #          updatewcs=False, clean=True, median=False)
+    
+    ra0, dec0 = 53.158733, -27.785316
+    NX, NY = 1083*0.2/0.06, 1106*0.2/0.06
+    
+    ######## Combine the 3D-HST pointings
     #### Direct mosaic
     direct_files = glob.glob('GOODS-S-3[4678]-F140W_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDF-F140W',
@@ -571,46 +589,133 @@ def UDF():
     threedhst.prep_flt_files.startMultidrizzle('UDF-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
-             updatewcs=False, clean=True, median=False)
+             updatewcs=False, clean=True, median=False,
+             ra=ra0, dec=dec0, final_outnx=NX*0.06/SCALE, final_outny=NY*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('UDF-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
-             updatewcs=False, clean=True, median=False)
-    #
+             updatewcs=False, clean=True, median=False,
+             ra=ra0, dec=dec0, final_outnx=NX*0.06/SCALE, final_outny=NY*0.06/SCALE)
+             
     threedhst.gmap.makeImageMap(['GOODS-S-34-F140W_drz.fits', 'UDF-F140W_drz.fits',  'GOODS-S-34-G141_drz.fits', 'UDF-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'), zmin=-0.01, zmax=0.1)
-    
-    
-    ###### Make fluxcube images from CANDELS
-    sw = threedhst.sex.SWarp()
-    sw._aXeDefaults()
-    sw.swarpMatchImage('UDF-F140W_drz.fits')        
-    sw.swarpImage('UDF-F140W_drz.fits[1]', mode='waiterror')    # swarp the reference image to istelf to get better image center
-    sw.swarpRecenter()      # Refine center position from SWarp's own output
-    
-    #### DRZ placeholder for CANDELS images
-    drz = pyfits.open('UDF-F140W_drz.fits')
-    
-    CANDELS='/3DHST/Ancillary/GOODS-S/CANDELS/'
-
-    sw.swarpImage(CANDELS+'hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits')    
-    co = pyfits.open('coadd.fits')
-    drz[1].data = co[0].data
-    drz.writeto('UDF-F125W_drz.fits')
-    
-    # threedhst.shifts.matchImagePixels(input=glob.glob(CANDELS+'*160*drz.fits'), matchImage='UDF-F140W_drz.fits', match_extension=1, output='f160w.fits')
-    
-    sw.swarpImage(CANDELS+'hlsp_candels_hst_wfc3_gsd01_f160w_v0.5_drz.fits')    
-    co = pyfits.open('coadd.fits')
-    drz[1].data = co[0].data
-    drz.writeto('UDF-F160W_drz.fits')
-    
-    threedhst.gmap.makeImageMap(['UDF-F140W_drz.fits',  'UDF-F125W_drz.fits', 'UDF-F160W_drz.fits','f160w.fits[0]'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'), zmin=-0.03, zmax=0.3)
-    
+     
     #### Make a second UDF G141 file for testing with the flux cube
     direct_files = glob.glob('GOODS-S-3[4678]-G141_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDF-FC-G141',
                        path_to_FLT='./', run_multidrizzle=False)
+    
+    #
+    ###################
+    ####  Make detection image from CANDELS
+    ###################
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT')
+    unicorn.candels.make_asn_files()
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    ### Find visits that overlap with the grism pointing
+    fp = open('/3DHST/Spectra/Work/UDF/PREP_FLT/grism.reg')
+    lines = fp.readlines()
+    fp.close()
+    
+    region = lines[4]
+    spl = np.float_(np.array(region[region.find('(')+1:region.find(')')].split(',')))
+    grismx, grismy = spl[0::2],spl[1::2]
+    
+    region_files = glob.glob('GOODS*F160W*pointing.reg')
+    visits = []
+    for region_file in region_files:
+        fp = open(region_file)
+        lines = fp.readlines()
+        fp.close()
+        #
+        region = lines[1]
+        spl = np.float_(np.array(region[region.find('(')+1:region.find(')')].split(',')))
+        regx, regy = spl[0::2],spl[1::2]
+        #
+        if threedhst.regions.polygons_intersect(grismx, grismy, regx, regy):
+            visits.append(region_file.split('-F160W')[0])
+          
+    import tarfile
+    fptar = tarfile.open('udf_regions.tar.gz','w|gz')
+    for visit in visits:
+        fptar.add(visit+'-F160W_asn.pointing.reg')
+    
+    fptar.close()
+      
+    #visits = ['GOODS-SD5-VMX','GOODS-SD5-VGX','GOODS-S205-VHS','GOODS-SDW-VH7','GOODS-S075-VCM','GOODS-SD2-V71','GOODS-SD5-VGU','GOODS-S205-VHT','GOODS-S075-VJ3','GOODS-SD5-VGV','GOODS-SD2-V7J','GOODS-S1-V3J']
+    
+    FORCE=True
+    for visit in visits:
+        if os.path.exists(visit+'-F125W_asn.fits') & (not os.path.exists(visit+'-F125W_drz.fits')) | FORCE:
+            print visit
+            for filter in ['F125W','F160W']:
+                try:
+                    unicorn.candels.prep_candels(asn_file=visit+'-'+filter+'_asn.fits', 
+                        ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                        SCALE=0.06, geometry='rxyscale')
+                except:
+                    pass
+    #
+    ##### bad shifts, redo with CANDELS as alignment
+    bad_shifts = ['GOODS-S075-VJ9','GOODS-S205-V60','GOODS-S205-VHY','GOODS-SD2-V7G','GOODS-SD3-VEL','GOODS-SD5-VGQ','GOODS-SDW-V02','GOODS-SDW-VHB']
+    bad_shifts = ['GOODS-SD2-V7G','GOODS-SD5-VGQ']
+    ALIGN = '/3DHST/Ancillary//GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits'
+    for bad in bad_shifts[0:1]:
+        for filter in ['F125W','F160W']:
+            try:
+                unicorn.candels.prep_candels(asn_file=bad+'-'+filter+'_asn.fits', 
+                    ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                    SCALE=0.06, geometry='rxyscale')
+            except:
+                pass
+    
+    ##### Something very wrong with VGQ, V7G, delete the first visit from the 
+    ##### files.info file, the exposures were repeated with a HOPR.
+    os.system('rm GOODS-SD5-VGQ*')
+    os.system('rm GOODS-SD2-V7G*')
+    
+    threedhst.gmap.makeImageMap( ['GOODS-SD2-V7G-F125W_drz.fits','GOODS-SD2-V7G-F125W_align.fits[0]*4','GOODS-SD2-V7G-F160W_drz.fits','GOODS-SD2-V7G-F160W_align.fits[0]*4'], zmin=-0.06, zmax=0.6, aper_list=[15])
+    
+    ### Combine CANDELS visits into a single image                
+    for filter in ['F125W','F160W']:
+        drz_files = glob.glob('GOODS-*-'+filter+'_drz.fits')
+        direct_files = []
+        for drz in drz_files:
+            direct_files.append(drz.replace('drz','asn'))
+        #
+        threedhst.utils.combine_asn_shifts(direct_files, out_root='UDF-'+filter,
+            path_to_FLT='./', run_multidrizzle=False)
+        #
+        threedhst.prep_flt_files.startMultidrizzle('UDF-'+ filter+'_asn.fits',
+                use_shiftfile=True, skysub=False,
+                final_scale=0.06, pixfrac=0.6, driz_cr=False,
+                updatewcs=False, clean=True, median=False,
+                ra=ra0, dec=dec0,
+                final_outnx=NX, final_outny=NY)
+    #
+    os.system('cp UDF-F???W_drz.fits '+unicorn.GRISM_HOME+'UDF/PREP_FLT')
+    
+    os.chdir(unicorn.GRISM_HOME+'UDF/PREP_FLT')
+    threedhst.gmap.makeImageMap( ['UDF-F140W_drz.fits','UDF-F125W_drz.fits','UDF-F160W_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[15,16])
+    
+    #### Fill in empty areas of F140W image with the average of F125W and F160W
+    f140 = pyfits.open('UDF-F140W_drz.fits')
+    f125 = pyfits.open('UDF-F125W_drz.fits')
+    f160 = pyfits.open('UDF-F160W_drz.fits')
+    
+    avg = 0.5*f125[1].data*10**(-0.4*(26.25-26.46))+0.5*f160[1].data*10**(-0.4*(25.96-26.46))
+    wht = 0.5*f125[2].data+0.5*f160[2].data
+
+    mask = f140[2].data < 900
+    f140[1].data[mask] = avg[mask]
+    f140[2].data[mask] = wht[mask]
+    f140.writeto('UDF-fill-F140W_drz.fits', clobber=True)
+
+    pyfits.writeto('udf-candels-f125w.fits',f125[1].data, header=f160[1].header)
+    pyfits.writeto('udf-candels-f160w.fits',f160[1].data, header=f160[1].header)
     
 def AEGIS(FORCE=False):
     from threedhst.prep_flt_files import process_3dhst_pair as pair

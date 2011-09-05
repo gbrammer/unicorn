@@ -1140,7 +1140,9 @@ def process_signal_to_noise():
     import threedhst.catIO as catIO
     import re
 
-    info = catIO.Readfile('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/spec_signal_to_noise.dat')
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/')
+    
+    info = catIO.Readfile('spec_signal_to_noise.dat')
 
     field = []
     for targ in info.object:
@@ -1148,24 +1150,80 @@ def process_signal_to_noise():
         field.append(re.split('-[1-9]',targ)[0].upper())
 
     field = np.array(field)   
-
-    ff = field == 'COSMOS'
-    plt.plot(info.mag_auto[ff], info.sig_noise[ff]*2.5, marker='o', color='red', alpha=0.1, linestyle='None')
-
-    ff = field == 'AEGIS'
-    plt.plot(info.mag_auto[ff], info.sig_noise[ff]*2.5, marker='o', color='blue', alpha=0.1, linestyle='None')
-
-    plt.semilogy()
-    plt.plot([12,30],[3,3], linewidth=3, alpha=0.5, color='black')
-    plt.ylim(0.1,300)
-    plt.xlim(16,25)
     
-    mm = (info.mag_auto > 22.5) & (info.mag_auto < 23)
-    plt.plot(info.flux_radius[mm & (field == 'COSMOS')], info.sig_noise[mm & (field == 'COSMOS')]*2.5, marker='o', color='red', alpha=0.1, linestyle='None')
-    plt.plot(info.flux_radius[mm & (field == 'AEGIS')], info.sig_noise[mm & (field == 'AEGIS')]*2.5, marker='o', color='blue', alpha=0.1, linestyle='None')
+    snscale = 2.5 ### aXe errors too large
     
-    plt.semilogy()
-    plt.plot([0,30],[3,3], linewidth=3, alpha=0.5, color='black')
-    plt.ylim(0.1,300)
-    plt.xlim(0,12)
+    ma = 'o'
+    ms = 5
     
+    ##### S/N vs mag.
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.12)
+    fig.subplots_adjust(wspace=0.2,hspace=0.24,left=0.12, bottom=0.09,right=0.975,top=0.99)
+    
+    ax = fig.add_subplot(211)
+    
+    ff = (field == 'COSMOS') & (info.sig_noise > 0)
+    ax.plot(info.mag_auto[ff], info.sig_noise[ff]*snscale, marker=ma, markersize=ms, color='red', alpha=0.1, linestyle='None')
+    xm, ym, ys, ns = threedhst.utils.runmed(info.mag_auto[ff], info.sig_noise[ff]*snscale, NBIN=30)
+
+    ff = (field == 'AEGIS') & (info.sig_noise > 0)
+    ax.plot(info.mag_auto[ff], info.sig_noise[ff]*snscale, marker=ma, markersize=ms, color='blue', alpha=0.1, linestyle='None')
+
+    ax.plot(xm,ym,color='white',linewidth=6,alpha=0.5)
+    ax.plot(xm,ym,color='red',linewidth=3,alpha=0.9)
+
+    xm, ym, ys, ns = threedhst.utils.runmed(info.mag_auto[ff], info.sig_noise[ff]*snscale, NBIN=30)
+    ax.plot(xm,ym,color='white',linewidth=6,alpha=0.5)
+    ax.plot(xm,ym,color='blue',linewidth=3,alpha=0.9)
+
+    ax.semilogy()
+    ax.plot([12,30],[3,3], linewidth=3, alpha=0.4, color='black', linestyle='--')
+    ax.set_ylim(0.2,300)
+    ax.set_xlim(16,25)
+    ax.set_yticklabels(['1','3','10','100']) #; ax.set_xticklabels([])
+    ytick = ax.set_yticks([1,3,10,100]) #; xtick = ax.set_xticks([0,NX]); 
+    if plt.rcParams['text.usetex']:
+        ax.set_xlabel('MAG\_AUTO (F140W)')
+    else:
+        ax.set_xlabel('MAG_AUTO (F140W)')
+                
+    ax.set_ylabel('S / N')
+    
+    ax.text(16.5,1,'AEGIS',color='blue', fontsize=12)
+    ax.text(16.5,0.5,'COSMOS',color='red', fontsize=12)
+    
+    ##### S/N vs size for a mag bin
+    ax = fig.add_subplot(212)
+    
+    m0, m1 = 22., 22.5
+    
+    mm = (info.mag_auto > m0) & (info.mag_auto < m1) & (info.sig_noise > 0)
+    
+    ax.plot(info.flux_radius[mm & (field == 'COSMOS')], info.sig_noise[mm & (field == 'COSMOS')]*snscale, marker=ma, markersize=ms, color='red', alpha=0.3, linestyle='None')
+    xm, ym, ys, ns = threedhst.utils.runmed(info.flux_radius[mm & (field == 'COSMOS')], info.sig_noise[mm & (field == 'COSMOS')]*snscale, NBIN=5)
+    
+    ax.plot(info.flux_radius[mm & (field == 'AEGIS')], info.sig_noise[mm & (field == 'AEGIS')]*snscale, marker=ma, markersize=ms, color='blue', alpha=0.3, linestyle='None')
+
+    ax.plot(xm,ym,color='white',linewidth=6,alpha=0.5)
+    ax.plot(xm,ym,color='red',linewidth=3,alpha=0.9)
+    
+    xm, ym, ys, ns = threedhst.utils.runmed(info.flux_radius[mm & (field == 'AEGIS')], info.sig_noise[mm & (field == 'AEGIS')]*snscale, NBIN=5)
+    ax.plot(xm,ym,color='white',linewidth=6,alpha=0.5)
+    ax.plot(xm,ym,color='blue',linewidth=3,alpha=0.9)
+    #plt.plot(xm,ym/np.sqrt(2),color='blue',linewidth=3,alpha=0.5)
+    
+    ax.semilogy()
+    #ax.plot([0,30],[3,3], linewidth=3, alpha=0.5, color='black')
+    ax.set_ylim(2,15)
+    ax.set_xlim(1.5,12)
+    ax.set_yticklabels(['3','5','10']) #; ax.set_xticklabels([])
+    ytick = ax.set_yticks([3,5,10]) #; xtick = ax.set_xticks([0,NX]); 
+    ax.set_xlabel(r'R$_{50}$ [0.06$^{\prime\prime}$ pix]')
+    
+    ax.set_ylabel('S / N')
+    if plt.rcParams['text.usetex']:
+        ax.text(11.8,13, r'$%.1f < m_{140} < %.1f$' %(m0, m1), horizontalalignment='right', verticalalignment='top')
+    else:
+        ax.text(11.8,13, r'%.1f < $m_{140}$ < %.1f' %(m0, m1), horizontalalignment='right', verticalalignment='top')
+        
+    fig.savefig('spec_signal_to_noise.pdf')

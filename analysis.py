@@ -537,8 +537,7 @@ specphot(id)
     else:
         fig = Figure(figsize=[xs,ys], dpi=100)
     
-    fig.subplots_adjust(wspace=0.2,hspace=0.2,left=0.13*4.8/xs,
-                        bottom=0.15*4.8/xs,right=1.-0.02*4.8/xs,top=1-0.10*4.8/xs)
+    fig.subplots_adjust(wspace=0.2,hspace=0.2,left=0.13*4.8/xs, bottom=0.15*4.8/xs,right=1.-0.02*4.8/xs,top=1-0.10*4.8/xs)
     
     ax = fig.add_subplot(111)
     

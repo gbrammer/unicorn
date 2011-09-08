@@ -480,6 +480,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
         ax.fill(x,y, alpha=0.1, color='0.7')
     
     files=glob.glob(unicorn.GRISM_HOME+'REGIONS/'+ROOT+'-[0-9]*reg')
+    wfc3_polys = []
     for file in files:
         #
         field = re.split('-[0-9]', file)[0]
@@ -487,6 +488,8 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
         fp = open(file)
         lines = fp.readlines()
         fp.close()
+        #
+        wfc3_polys.append(sup.polysplit(lines[1], get_shapely=True)) 
         #
         wfcx, wfcy = sup.polysplit(lines[1])
         fi = ax.fill(wfcx, wfcy, alpha=0.2, color=wfc3_color)
@@ -509,8 +512,33 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
                 xoff, yoff = -0.005,-0.007
             if pointing == '38':
                 xoff, yoff = 0.007,-0.007
-            
+        #    
         te = ax.text(np.mean(wfcx[:-1])+xoff, np.mean(wfcy[:-1])+yoff, pointing, va='center', ha='center', fontsize=13)
+    
+    #### Get field area from full WFC3 polygons
+    un = wfc3_polys[0]
+    for pp in wfc3_polys[1:]:
+        un = un.union(pp)
+        
+    if un.geometryType() is 'MultiPolygon':
+        total_area = 0
+        xavg, yavg, wht = 0, 0, 0
+        for sub_poly in un.geoms:
+            area_i = sub_poly.area*np.cos(y0/360.*2*np.pi)
+            total_area += area_i
+            x,y = sub_poly.exterior.xy
+            xavg += np.mean(x)*area_i**2
+            yavg += np.mean(y)*area_i**2
+            wht += area_i**2
+            #ax.plot(x,y, alpha=0.8, color='orange', linewidth=1)
+        xavg, yavg = xavg/wht, yavg/wht
+    else:        
+        total_area = un.area*np.cos(y0/360.*2*np.pi)
+        x,y = un.exterior.xy
+        #ax.plot(x,y, alpha=0.8, color='orange', linewidth=1)
+        xavg, yavg = np.mean(x), np.mean(y)
+    
+    #plt.plot([xavg,xavg],[yavg,yavg], marker='x', markersize=20)
     
     #    
     if yticklab is not None:
@@ -551,11 +579,25 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     
-    print 'RA  - ', hexagesimal(x0), hexagesimal(x1)
-    print 'Dec - ', hexagesimal(y0, hours=False), hexagesimal(y1, hours=False)
+    # print 'RA  - ', hexagesimal(x0), hexagesimal(x1)
+    # print 'Dec - ', hexagesimal(y0, hours=False), hexagesimal(y1, hours=False)
+    print 'RA  - ', hexagesimal(xavg)
+    print 'Dec - ', hexagesimal(yavg, hours=False)
+    print 'Area: %.1f\n' %(total_area*3600.)
     
     plt.savefig('%s_pointings.pdf' %(ROOT))
 
+def get_UDF_center():
+    file='/research/HST/GRISM/3DHST/REGIONS/GOODS-SOUTH-38.reg'
+    field = re.split('-[0-9]', file)[0]
+    pointing = file.split(field+'-')[1].split('.reg')[0]
+    fp = open(file)
+    lines = fp.readlines()
+    fp.close()
+    #
+    px, py = sup.polysplit(lines[1], get_shapely=False)
+    print 'UDF: ', hexagesimal(np.mean(px[:-1]), hours=True), hexagesimal(np.mean(py[:-1]), hours=False)
+    
 def degrees(deg, min, sec, hours=True):
     
     adeg = np.abs(deg)

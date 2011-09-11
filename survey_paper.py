@@ -1329,13 +1329,13 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
         se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT-1)
         wht = pyfits.open(WHT_IMAGE)
-        img_wht = wht[WHT_EXT].data
+        img_wht = wht[WHT_EXT_SEX].data
         
     se.options['FILTER']    = 'Y'
     se.options['DETECT_THRESH']    = '1.4'
     se.options['ANALYSIS_THRESH']  = '1.4'
     se.options['MAG_ZEROPOINT'] = '%.2f' %(ZP)  ### arbitrary, actual mags don't matter
-    status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT-1))
+    status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT_SEX-1))
     
     #### Read the Segmentation image
     segim = pyfits.open('%s_empty_seg.fits' %(SCI_ROOT))

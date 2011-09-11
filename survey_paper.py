@@ -1272,10 +1272,12 @@ def process_signal_to_noise():
     
 def run_empty_apertures_fields():
     import glob
+    import os
     import unicorn
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/EMPTY_APERTURES/')
     
     files = glob.glob('/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-*-F140W_drz.fits')
+    files = glob.glob('/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-*-F140W_drz.fits')
     
     for file in files:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.46, make_plot=True)

@@ -1274,7 +1274,7 @@ def run_empty_apertures_fields():
     import unicorn
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/EMPTY_APERTURES/')
     
-    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_sci.fits', SCI_EXT=0, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_wht.fits', WHT_EXT=0, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
+    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', SCI_EXT=1, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', WHT_EXT=2, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
     
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
     """
@@ -1353,10 +1353,11 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     fluxes = np.zeros((NSIM, len(apertures)))
     
     #### Loop throuth the desired apertures and randomly place NSIM of them
-    aper = np.zeros(img_shape)*0.
+    aper = np.zeros(img_shape, dtype=np.float)
     for iap, ap in enumerate(apertures):
-        aper_image = np.zeros(img_shape)
+        #aper_image = np.zeros(img_shape)
         icount = 0
+        print 'Aperture radius: %.2f pix' %(ap)
         while icount < NSIM:
             #### Random coordinate
             xc = np.random.rand()*(img_shape[1]-4*ap)+2*ap
@@ -1387,8 +1388,8 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             #### aperture are greater than zero
             if ((seg*aper).max() == 0) & ((aper*wht_data).min() > 0):
                 fluxes[icount, iap] = (aper*img_data).sum()
-                aper_image += aper
-                print icount
+                #aper_image += aper
+                print noNewLine+'%d' %(icount)
                 icount += 1
             else:
                 continue

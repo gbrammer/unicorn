@@ -1279,8 +1279,8 @@ def run_empty_apertures_fields():
     files = glob.glob('/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-*-F140W_drz.fits')
     files = glob.glob('/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-*-F140W_drz.fits')
     
-    for file in files:
-        unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.46, make_plot=True)
+    for file in files[1:]:
+        unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
         
     
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
@@ -1479,7 +1479,7 @@ def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25,
     ax.set_ylabel(r'$\sigma_\mathrm{biw}$')
     #ax.text(apertures.max(), 0.1*sigma.max(), r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right')
     ax.text(0.08, 0.85, r'$N_\mathrm{ap}=%d$' %(im[0].header['NSIM']), transform=ax.transAxes)
-    ax.set_ylim(0,1.5*sigma.max())
+    ax.set_ylim(0,2)
     
     ################################# Plot AB depth
     ax = fig.add_subplot(122)
@@ -1498,6 +1498,8 @@ def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25,
     ax.text(apertures.max(), ZP-2.5*np.log10(sigma.min()*NSIG), ROOT, horizontalalignment='right', verticalalignment='top')
     
     ax.text(apertures.max(), ZP-2.5*np.log10(1.7*sigma.min()*NSIG), r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right', verticalalignment='top')
+    
+    ax.set_ylim(23, 30)
     
     ################################## Save the result
     outfile = ROOT+'_empty.pdf'

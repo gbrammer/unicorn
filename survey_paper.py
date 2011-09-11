@@ -1388,12 +1388,13 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             #### Only keep the result if the aperture doesn't intersect with an object
             #### as defined in the segmention image and if all weights within the 
             #### aperture are greater than zero
-            if ((seg*aper).max() == 0) & ((aper*img_wht).min() > 0):
+            if ((seg*aper).max() == 0) & ((img_wht*aper).min() > 0):
                 fluxes[icount, iap] = (aper*img_data).sum()
                 #aper_image += aper
                 print noNewLine+'%d' %(icount)
                 icount += 1
             else:
+                print noNewLine+'Skip: %f %f' %((seg*aper).max(), (img_wht*aper).min())
                 continue
     
     #### Make the output FITS file.  List of aperture radii in extension 1, aperture

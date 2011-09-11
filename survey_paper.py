@@ -1270,6 +1270,12 @@ def process_signal_to_noise():
         
     fig.savefig('spec_signal_to_noise.pdf')
     
+def run_empty_apertures_fields():
+    import unicorn
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/EMPTY_APERTURES/')
+    
+    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_sci.fits', SCI_EXT=0, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_wht.fits', WHT_EXT=0, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
+    
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True):
     """
     1) Run SExtractor on the input image to generate a segmentation map.
@@ -1289,11 +1295,15 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     from shapely.geometry import Point, Polygon
     
     if SCI_EXT == 0:
-        SCI_EXT = 1
-    
+        SCI_EXT_SEX = 1
+    else:
+        SCI_EXT_SEX = SCI_EXT
+        
     if WHT_EXT == 0:
-        WHT_EXT = 1
-    
+        WHT_EXT_SEX = 1
+    else:
+        WHT_EXT_SEX = WHT_EXT
+        
     ROOT = os.path.basename(SCI_IMAGE).split('.fits')[0]
     
     #### Open the science image

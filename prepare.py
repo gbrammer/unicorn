@@ -41,16 +41,12 @@ def check_COSMOS_stars():
     import matplotlib.pyplot as plt
     import unicorn.go_3dhst as go
     
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=28)
-    
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26)
     os.chdir('/3DHST/Spectra/Work/COSMOS/PREP_FLT_UNICORN')
-    
     files=glob.glob('COSMOS-*-F140W_drz.fits')
         
     for file in files:
         ROOT_GRISM = file.split('_drz.fits')[0]
-        iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
-        iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
         se = threedhst.sex.SExtractor()
         se.aXeParams()
         se.copyConvFile()
@@ -59,16 +55,24 @@ def check_COSMOS_stars():
         se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
         se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-        se.options['WEIGHT_IMAGE']    = ROOT_GRISM+'_WHT.fits'
+        se.options['WEIGHT_IMAGE']    = file+'[1]'
         se.options['FILTER']    = 'Y'
         se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
         se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
         se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
-        status = se.sextractImage(ROOT_GRISM+'_SCI.fits')
-        os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
-    
+        status = se.sextractImage(file+'[0]')
+            
     os.system('grep "#" COSMOS-1-F140W_drz.cat > cosmos_old.cat')
     os.system('cat COSMOS-*-F140W_drz.cat |grep -v "#" >> cosmos_old.cat')
+    
+    #### Full mosaic
+    file='COSMOS-F140W_drz.fits'
+    ROOT_GRISM = file.split('_drz.fits')[0]
+    se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+    se.options['WEIGHT_IMAGE']    = file+'[1]'
+    status = se.sextractImage(file+'[0]')
+    
     
     os.chdir('../NEW')
     files=glob.glob('../PREP_FLT/COSMOS-2[678]-F140W_drz.fits')
@@ -99,30 +103,67 @@ def check_COSMOS_stars():
     new = threedhst.sex.mySexCat('cosmos_new.cat')
     
     ######### GOODS-N
-    os.chdir('/3DHST/Spectra/Work/GOODS-N/PREP_FLT')
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26)
+    os.chdir('/3DHST/Spectra/Work/GOODS-N/PREP_FLT/')
+    files=glob.glob('GOODS-N-*-F140W_drz.fits')
+        
+    for file in files:
+        ROOT_GRISM = file.split('_drz.fits')[0]
+        se = threedhst.sex.SExtractor()
+        se.aXeParams()
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+        se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = file+'[1]'
+        se.options['FILTER']    = 'Y'
+        se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
+        se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
+        se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
+        status = se.sextractImage(file+'[0]')
+            
+    os.system('grep "#" GOODS-N-11-F140W_drz.cat > goods-n.cat')
+    os.system('cat GOODS-N-*-F140W_drz.cat |grep -v "#" >> goods-n.cat')
     
+    #### Full mosaic
     file='GOODS-N-F140W_drz.fits'
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=28)
     ROOT_GRISM = file.split('_drz.fits')[0]
-    #iraf.imcopy(file+'[1]',ROOT_GRISM+'_SCI.fits')
-    #iraf.imcopy(file+'[2]',ROOT_GRISM+'_WHT.fits')
-    se = threedhst.sex.SExtractor()
-    se.aXeParams()
-    se.copyConvFile()
-    se.overwrite = True
     se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
     se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
-    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
-    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
     se.options['WEIGHT_IMAGE']    = file+'[1]'
-    se.options['FILTER']    = 'Y'
-    se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
-    se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
-    se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
     status = se.sextractImage(file+'[0]')
-    #os.system('rm '+ROOT_GRISM+'_[SW]?[IT].fits')
     
-    goodsn = threedhst.sex.mySexCat('GOODS-N-F140W_drz.cat')
+    ##### GOODS-S
+    os.chdir('/3DHST/Spectra/Work/GOODS-S/PREP_FLT')
+    
+    files=glob.glob('GOODS-S-*-F140W_drz.fits')
+    for file in files:
+        ROOT_GRISM = os.path.basename(file).split('_drz.fits')[0]
+        se = threedhst.sex.SExtractor()
+        se.aXeParams()
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+        se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = file+'[1]'
+        se.options['FILTER']    = 'Y'
+        se.options['DETECT_THRESH']    = str(threedhst.options['DETECT_THRESH']) 
+        se.options['ANALYSIS_THRESH']  = str(threedhst.options['ANALYSIS_THRESH']) 
+        se.options['MAG_ZEROPOINT'] = str(threedhst.options['MAG_ZEROPOINT'])
+        status = se.sextractImage(file+'[0]')
+    
+    os.system('grep "#" GOODS-S-6-F140W_drz.cat > goods-s.cat')
+    os.system('cat GOODS-S-*-F140W_drz.cat |grep -v "#" >> goods-s.cat')
+    
+    goodss = threedhst.sex.mySexCat('GOODS-N-F140W_drz.cat')
+    
+    
+    
+    ###### Make plots ################
     
     os.chdir('/3DHST/Spectra/Work/COSMOS/NEW/')
     
@@ -296,9 +337,19 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
     
-    # threedhst.gmap.makeImageMap(['GOODS-N-42-F140W_drz.fits', 'GOODS-N-42-G141_drz.fits*3', 'GOODS-N-42-F140W_align.fits[0]*4'], aper_list=[15], polyregions=["GOODS-N-42-F140W_asn.pointing.reg"])
+    #### Refine one set of shifts
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-31-F140W', 
+              ALIGN_IMAGE='GOODS-N-21-F140W_drz.fits', ALIGN_EXTENSION=1,  
+              fitgeometry='shift', clean=True)
+    
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-31-F140W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    threedhst.gmap.makeImageMap(['GOODS-N-21-F140W_drz.fits', 'GOODS-N-21-F140W_align.fits[0]*4','GOODS-N-31-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("GOODS-N-*-F140W_asn.pointing.reg"))
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings
@@ -347,9 +398,16 @@ def GOODSN_mosaic():
     #### Make full alignment mosaic
     threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN), matchImage='GOODS-N-F140W_drz.fits', match_extension=1, output='GOODS-N-F850LP.fits')
     
+    threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits','GOODS-N-F850LP.fits[0]*4'], aper_list=[15], polyregions=glob.glob('GOODS-N-*-F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
+    
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*2', 'GOODS-N-F850LP.fits[0]*6','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]'], aper_list=zooms, tileroot=['F140W', 'G141', 'GOODS-z850','0.5-8keV'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
-        
+    
+    iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-09-08_sci.fits')
+    iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-09-08_wht.fits')
+    # !tar czvf GOODS-N-F140w_11-09-08.tar.gz GOODS-N-*-F140W_shifts.txt GOODS-N-*-F140W_tweak.fits GOODS-N-*-F140W_asn.fits GOODS-N-F140W_shifts.txt GOODS-N-F140W_asn.fits
+    # !mv GOODS-N-F140w_11-09-08* ../MOSAIC
+    
   
 def COSMOS(FORCE=False):
     from threedhst.prep_flt_files import process_3dhst_pair as pair
@@ -373,7 +431,7 @@ def COSMOS(FORCE=False):
     #### Fix shifts for COSMOS-18
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-18-F140W', 
               ALIGN_IMAGE='COSMOS-17-F140W_drz.fits', ALIGN_EXTENSION=1,  
-              fitgeometry='shift', clean=True)
+              fitgeometry='rxyscale', clean=True)
     
     threedhst.prep_flt_files.startMultidrizzle('COSMOS-18-F140W_asn.fits',
                  use_shiftfile=True, skysub=False,
@@ -381,6 +439,8 @@ def COSMOS(FORCE=False):
                  updatewcs=False, clean=True, median=False)
     
     threedhst.gmap.makeImageMap(['COSMOS-12-F140W_drz.fits', 'COSMOS-12-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14,15,16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
+
+    threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
             
     threedhst.gmap.makeImageMap(['COSMOS-28-F140W_drz.fits','/tmp/junk.fits', 'COSMOS-28-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
     
@@ -435,10 +495,10 @@ def COSMOS_mosaic():
     threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits', 'COSMOS-G141_drz.fits', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04'], aper_list=[14], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
     
     ### Temporary release of the direct mosaic
-    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-07-31_sci.fits')
-    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-07-31_wht.fits')
-    #!tar czvf COSMOS-F140w_11-06-17.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
-    #!mv COSMOS-F140w_11-06-17* ../MOSAIC
+    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-09-08_sci.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-09-08_wht.fits')
+    # !tar czvf COSMOS-F140w_11-09-08.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
+    # !mv COSMOS-F140w_11-09-08* ../MOSAIC
         
     zooms = [13,14,15]
     threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-07-31_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=zooms, tileroot=['F140W','ACS','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
@@ -471,10 +531,10 @@ def GOODSS(FORCE=False):
             ALIGN = ALIGN_FILES[2]
         #
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
             
     # test
-    threedhst.gmap.makeImageMap(['GOODS-S-36-F140W_drz.fits', 'GOODS-S-34-F140W_drz.fits', 'GOODS-S-36-F140W_align.fits[0]*4', 'GOODS-S-36-G141_drz.fits'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['GOODS-S-24-F140W_drz.fits','GOODS-S-23-F140W_drz.fits', 'GOODS-S-24-F140W_align.fits[0]*4'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings
@@ -504,9 +564,9 @@ def GOODSS_mosaic():
     threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
-    SCALE = 0.128254
+    SCALE = 0.1
     #SCALE = 0.5
-    PIXFRAC=0.6
+    PIXFRAC=0.8
     NX, NY = int(16210*0.06/SCALE), int(18100*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('GOODS-S-F140W_asn.fits',

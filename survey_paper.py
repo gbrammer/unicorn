@@ -1269,3 +1269,215 @@ def process_signal_to_noise():
         ax.text(11.8,13, r'%.1f < $m_{140}$ < %.1f' %(m0, m1), horizontalalignment='right', verticalalignment='top')
         
     fig.savefig('spec_signal_to_noise.pdf')
+    
+def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True):
+    """
+    1) Run SExtractor on the input image to generate a segmentation map.
+    
+    2) Place `NSIM` empty apertures on the image, avoiding objects and areas with 
+       zero weight as defined in the `WHT_IMAGE`.  
+       
+       The list of aperture radii used are np.arange(`aper_params`).
+    
+    3) Store the results in a FITS file `SCI_IMAGE`_empty.fits.
+    
+    Circular apertures are placed on the science image with the fractional pixel 
+    coverage determined with a polygon approximation, and this can take a while.
+    
+    """
+    
+    from shapely.geometry import Point, Polygon
+    
+    if SCI_EXT == 0:
+        SCI_EXT = 1
+    
+    if WHT_EXT == 0:
+        WHT_EXT = 1
+    
+    ROOT = os.path.basename(SCI_IMAGE).split('.fits')[0]
+    
+    #### Open the science image
+    img = pyfits.open(SCI_IMAGE)
+    img_data = img[SCI_EXT].data
+    img_head = img[SCI_EXT].header
+    img_shape = img_data.shape
+    
+    #### Setup SExtractor and run to generate a segmentation image
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = '%s_empty_.cat' %(SCI_ROOT)
+    se.options['CHECKIMAGE_NAME'] = '%s_empty_seg.fits' %(SCI_ROOT)
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    
+    if WHT_IMAGE is None:
+        se.options['WEIGHT_TYPE']     = 'NONE'
+        img_wht = img_data*0.
+        img_wht[img_data != 0] = 1
+    else:
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT-1)
+        wht = pyfits.open(WHT_IMAGE)
+        img_wht = wht[WHT_EXT].data
+        
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = '1.4'
+    se.options['ANALYSIS_THRESH']  = '1.4'
+    se.options['MAG_ZEROPOINT'] = '%.2f' %(ZP)  ### arbitrary, actual mags don't matter
+    status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT-1))
+    
+    #### Read the Segmentation image
+    segim = pyfits.open('%s_empty_seg.fits' %(SCI_ROOT))
+    seg = segim[0].data
+    segim.close()
+    
+    #### Set up the apertures
+    
+    #NSIM = 1000
+    #apertures = np.arange(1,17,0.5)
+    apertures = np.arange(aper_params[0], aper_params[1], aper_params[2])
+    fluxes = np.zeros((NSIM, len(apertures)))
+    
+    #### Loop throuth the desired apertures and randomly place NSIM of them
+    aper = np.zeros(img_shape)*0.
+    for iap, ap in enumerate(apertures):
+        aper_image = np.zeros(img_shape)
+        icount = 0
+        while icount < NSIM:
+            #### Random coordinate
+            xc = np.random.rand()*(img_shape[1]-4*ap)+2*ap
+            yc = np.random.rand()*(img_shape[0]-4*ap)+2*ap
+            
+            #### Quick test to see if the coordinate is within an object or 
+            #### where weight is zero
+            if (seg[int(yc), int(xc)] != 0) | (wht_data[int(yc), int(xc)] <= 0):
+                continue
+            
+            #### Shapely point + buffer to define the aperture
+            point = Point(xc, yc)
+            buff = point.buffer(ap, resolution=16)
+            
+            #### initialize the aperture
+            aper*=0
+            
+            #### Loop through pixels to compute fractional pixel coverage within
+            #### the circular aperture using the intersection of Shapely polygons
+            for i in range(np.floor(xc-ap),np.ceil(xc+ap)):
+                for j in range(np.floor(yc-ap),np.ceil(yc+ap)):
+                    pix = Polygon(((i+0.5,j+0.5), (i+1.5,j+0.5), (i+1.5,j+1.5), (i+0.5,j+1.5)))
+                    isect = pix.intersection(buff)
+                    aper[j,i] = isect.area
+            
+            #### Only keep the result if the aperture doesn't intersect with an object
+            #### as defined in the segmention image and if all weights within the 
+            #### aperture are greater than zero
+            if ((seg*aper).max() == 0) & ((aper*wht_data).min() > 0):
+                fluxes[icount, iap] = (aper*img_data).sum()
+                aper_image += aper
+                print icount
+                icount += 1
+            else:
+                continue
+    
+    #### Make the output FITS file.  List of aperture radii in extension 1, aperture
+    #### fluxes in extension 2.
+    
+    ap_head = pyfits.Header()
+    ap_head.update('NSIM',NSIM, comment='Number of apertures')
+    ap_head.update('SCI_IMG',SCI_IMAGE, comment='Science image')
+    ap_head.update('SCI_EXT',SCI_EXT, comment='Science extension')
+    ap_head.update('WHT_IMG',WHT_IMAGE, comment='Weight image')
+    ap_head.update('WHT_EXT',WHT_EXT, comment='Weight extension')
+    
+    prim = pyfits.PrimaryHDU(header=ap_head)
+    ap_hdu = pyfits.ImageHDU(data=apertures)
+    fl_hdu = pyfits.ImageHDU(data=fluxes)
+    pyfits.HDUList([prim, ap_hdu, fl_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')
+    
+    if make_plot is True:
+        make_empty_apertures_plot(empty_file='%s_empty.fits' %(ROOT), ZP=ZP)
+        
+def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25, NSIG=5):
+    """
+    Plot the results from the `empty_apertures` routine.
+    """
+    
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from scipy import polyfit, polyval
+
+    import threedhst
+    import unicorn
+    
+    im = pyfits.open(empty_file)
+    apertures = im[1].data
+    fluxes = im[2].data
+    
+    ROOT = empty_file.split('_empty')[0]
+    
+    sigma = apertures*0.
+    means = apertures*0.
+    for iap, ap in enumerate(apertures):
+        sigma[iap] = threedhst.utils.biweight(fluxes[:,iap])
+        means[iap] = threedhst.utils.biweight(fluxes[:,iap], mean=True)
+    
+    #plt.plot(apertures, means/np.pi/apertures**2)
+    #plt.ylim(0,1.5*np.max(means/np.pi/apertures**2))
+    #threedhst.utils.biweight(img_data[(seg == 0) & (img_wht > 0)], both=True)
+
+    fig = unicorn.catalogs.plot_init(xs=6, aspect=0.5, left=0.12)
+    
+    fig.subplots_adjust(wspace=0.24,hspace=0.0,left=0.095,
+                        bottom=0.17,right=0.97,top=0.97)
+    
+    ax = fig.add_subplot(121)
+    
+    ################################## plot sigma vs radius  
+    ax.plot(apertures, sigma, marker='o', linestyle='None', color='black', alpha=0.8, markersize=5)
+    
+    coeffs = polyfit(np.log10(apertures), np.log10(sigma), 1)
+    ax.plot(apertures, 10**polyval(coeffs, np.log10(apertures)), color='red')
+    
+    xint = 1
+    y2 = apertures**2
+    y2 = y2*np.interp(xint,apertures,sigma) / np.interp(xint,apertures,y2)
+    ax.plot(apertures, y2, linestyle='--', color='black', alpha=0.3)         
+    
+    y1 = apertures**1
+    y1 = y1*np.interp(xint,apertures,sigma) / np.interp(xint,apertures,y1)
+    ax.plot(apertures, y1, linestyle='--', color='black', alpha=0.3)         
+    
+    ax.set_xlabel(r'$R_\mathrm{aper}$ [pix]')
+    ax.set_ylabel(r'$\sigma_\mathrm{biw}$')
+    #ax.text(apertures.max(), 0.1*sigma.max(), r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right')
+    ax.text(0.08, 0.85, r'$N_\mathrm{ap}=%d$' %(im[0].header['NSIM']), transform=ax.transAxes)
+    ax.set_ylim(0,1.5*sigma.max())
+    
+    ################################# Plot AB depth
+    ax = fig.add_subplot(122)
+    
+    ax.plot(apertures, ZP-2.5*np.log10(sigma*NSIG), marker='o', linestyle='None', color='black', alpha=0.8, markersize=5)
+    
+    ax.plot(apertures, ZP-2.5*np.log10(10**polyval(coeffs, np.log10(apertures))*NSIG), color='red')
+    
+    ax.plot(apertures, ZP-2.5*np.log10(y2*NSIG), linestyle='--', color='black', alpha=0.3)         
+    
+    ax.plot(apertures, ZP-2.5*np.log10(y1*NSIG), linestyle='--', color='black', alpha=0.3)         
+    
+    ax.set_xlabel(r'$R_\mathrm{aper}$ [pix]')
+    ax.set_ylabel(r'Depth AB mag (%d$\sigma$)' %(NSIG))
+    
+    ax.text(apertures.max(), ZP-2.5*np.log10(sigma.min()*NSIG), ROOT, horizontalalignment='right', verticalalignment='top')
+    
+    ax.text(apertures.max(), ZP-2.5*np.log10(1.7*sigma.min()*NSIG), r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right', verticalalignment='top')
+    
+    ################################## Save the result
+    outfile = ROOT+'_empty.pdf'
+    if USE_PLOT_GUI:
+        fig.savefig(outfile,dpi=100,transparent=False)
+    else:
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_figure(outfile, dpi=100, transparent=False)
+    
+    print ROOT+'_empty.pdf'

@@ -1153,6 +1153,14 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
 def plot_init(square=True, xs=6, aspect=1, left=0.22):
+
+    import unicorn
+    
+    if unicorn.hostname().startswith('uni'):
+        unicorn.catalogs.USE_PLOT_GUI = False
+    else:
+        unicorn.catalogs.USE_PLOT_GUI = True
+
     # plt.rcParams['font.family'] = 'serif'
     # plt.rcParams['font.serif'] = ['Times']
     plt.rcParams['patch.edgecolor'] = 'None'
@@ -1163,16 +1171,23 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22):
         lrbt = np.array([left,0.02,0.11,0.02])*5./xs     
         ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect
         lrbt[[2,3]] /= aspect
-        fig = plt.figure(figsize=(xs,ys), dpi=100)
-        #fig.subplots_adjust(left=0.13,bottom=0.10,right=0.98,top=0.98)
+
+        if USE_PLOT_GUI:
+            fig = plt.figure(figsize=(xs,ys), dpi=100)
+        else:
+            fig = Figure(figsize=(xs,ys), dpi=100)
+            
         fig.subplots_adjust(left=lrbt[0],bottom=lrbt[2],right=1-lrbt[1],top=1-lrbt[3])
-        # plt.plot([0,2])
-        # plt.xlabel('x')
-        # plt.ylabel('y')        
+
     else:
-        fig = plt.figure(figsize=(7,5), dpi=100)
+        if USE_PLOT_GUI:
+            fig = plt.figure(figsize=(7,5), dpi=100)
+        else:
+            fig = Figure(figsize=(7,5), dpi=100)
+            
         fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.10,
                         bottom=0.10,right=0.99,top=0.97)        
+    
     return fig
     
 def make_object_tarfiles(objects, thumbs=False):

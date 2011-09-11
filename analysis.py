@@ -1603,20 +1603,23 @@ class BD_fit():
         self.templates = list
         self.NTEMP = len(self.templates)
         
-    def fit(self, ascii_file='AEGIS-3-G141_00177.dat', chi2_limit=1.5, trim_mtype=True, max_contam=0.05):
+    def fit(self, ascii_file='AEGIS-3-G141_00177.dat', chi2_limit=1.5, trim_mtype=True, max_contam=0.05, xrange=(1.1e4,1.65e4), img_type='png', flux_min=0):
         import threedhst.catIO as catIO
         import numpy as np
         
         spec = catIO.Readfile(ascii_file)
         spec.error /= 2.5
         
+        spec.flux -= spec.contam
+        
         self.spec = spec
+        self.img_type = img_type
         
         chi2 = np.zeros(self.NTEMP)
         types = []
         anorm = chi2*0.
 
-        use = (spec.lam > 1.1e4) & (spec.lam < 1.65e4) & (spec.contam/spec.flux < max_contam) & (np.isfinite(spec.flux)) & (spec.flux > 0)
+        use = (spec.lam > xrange[0]) & (spec.lam < xrange[1]) & (spec.contam/spec.flux < max_contam) & (np.isfinite(spec.flux)) & (spec.flux > flux_min)
         self.use = use
         
         if len(spec.lam[use]) < 50:
@@ -1634,7 +1637,6 @@ class BD_fit():
         types = np.cast[str](types)
         DOF = len(yint)-1
         chi2 /= DOF
-        
         
         min = np.where(chi2 == chi2.min())[0][0]
         
@@ -1709,7 +1711,8 @@ class BD_fit():
         ax.set_xlabel('Type')
         ax.set_ylabel(r'$\chi^2_\nu$')
         
-        outfile = os.path.basename(self.ascii_file.replace('.dat','_BD.png'))
+        outfile = os.path.basename(self.ascii_file.replace('.dat','_BD.%s' %(self.img_type)))
+
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(outfile, dpi=100, transparent=False)
 

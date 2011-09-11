@@ -1379,16 +1379,21 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             
             #### Loop through pixels to compute fractional pixel coverage within
             #### the circular aperture using the intersection of Shapely polygons
-            for i in range(np.floor(xc-ap),np.ceil(xc+ap)):
-                for j in range(np.floor(yc-ap),np.ceil(yc+ap)):
+            smax = 0
+            wmin = 1.e10
+            for i in range(int(np.floor(xc-ap)),int(np.ceil(xc+ap))):
+                for j in range(int(np.floor(yc-ap)),int(np.ceil(yc+ap))):
                     pix = Polygon(((i+0.5,j+0.5), (i+1.5,j+0.5), (i+1.5,j+1.5), (i+0.5,j+1.5)))
                     isect = pix.intersection(buff)
                     aper[j,i] = isect.area
-            
+                    if isect.area > 0:
+                        smax = np.array([smax, seg[j,i]]).max()
+                        wmin = np.array([wmin, img_wht[j,i]]).min()
+                        
             #### Only keep the result if the aperture doesn't intersect with an object
             #### as defined in the segmention image and if all weights within the 
             #### aperture are greater than zero
-            if ((seg*aper).max() == 0) & ((img_wht*aper).min() > 0):
+            if (smax == 0) & (wmin > 0):
                 fluxes[icount, iap] = (aper*img_data).sum()
                 #aper_image += aper
                 print noNewLine+'%d' %(icount)

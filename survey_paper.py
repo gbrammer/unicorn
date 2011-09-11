@@ -1274,6 +1274,8 @@ def run_empty_apertures_fields():
     import unicorn
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/EMPTY_APERTURES/')
     
+    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-1-F140w_drz.fits', SCI_EXT=1, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-1-F140w_drz.fits', WHT_EXT=2, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
+
     unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', SCI_EXT=1, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', WHT_EXT=2, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
     
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
@@ -1365,7 +1367,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             
             #### Quick test to see if the coordinate is within an object or 
             #### where weight is zero
-            if (seg[int(yc), int(xc)] != 0) | (wht_data[int(yc), int(xc)] <= 0):
+            if (seg[int(yc), int(xc)] != 0) | (img_wht[int(yc), int(xc)] <= 0):
                 continue
             
             #### Shapely point + buffer to define the aperture
@@ -1386,7 +1388,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             #### Only keep the result if the aperture doesn't intersect with an object
             #### as defined in the segmention image and if all weights within the 
             #### aperture are greater than zero
-            if ((seg*aper).max() == 0) & ((aper*wht_data).min() > 0):
+            if ((seg*aper).max() == 0) & ((aper*img_wht).min() > 0):
                 fluxes[icount, iap] = (aper*img_data).sum()
                 #aper_image += aper
                 print noNewLine+'%d' %(icount)

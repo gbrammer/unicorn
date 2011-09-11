@@ -1276,7 +1276,7 @@ def run_empty_apertures_fields():
     
     unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_sci.fits', SCI_EXT=0, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/MOSAIC/COSMOS-F140w_11-09-08_wht.fits', WHT_EXT=0, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
     
-def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True):
+def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
     """
     1) Run SExtractor on the input image to generate a segmentation map.
     
@@ -1307,6 +1307,9 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     ROOT = os.path.basename(SCI_IMAGE).split('.fits')[0]
     
     #### Open the science image
+    if verbose:
+        print 'Read images...'
+        
     img = pyfits.open(SCI_IMAGE)
     img_data = img[SCI_EXT].data
     img_head = img[SCI_EXT].header
@@ -1317,8 +1320,8 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     se.aXeParams()
     se.copyConvFile()
     se.overwrite = True
-    se.options['CATALOG_NAME']    = '%s_empty_.cat' %(SCI_ROOT)
-    se.options['CHECKIMAGE_NAME'] = '%s_empty_seg.fits' %(SCI_ROOT)
+    se.options['CATALOG_NAME']    = '%s_empty_.cat' %(ROOT)
+    se.options['CHECKIMAGE_NAME'] = '%s_empty_seg.fits' %(ROOT)
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     
     if WHT_IMAGE is None:
@@ -1338,7 +1341,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT_SEX-1))
     
     #### Read the Segmentation image
-    segim = pyfits.open('%s_empty_seg.fits' %(SCI_ROOT))
+    segim = pyfits.open('%s_empty_seg.fits' %(ROOT))
     seg = segim[0].data
     segim.close()
     

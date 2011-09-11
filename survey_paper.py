@@ -1332,9 +1332,9 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
         img_wht[img_data != 0] = 1
     else:
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-        se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT-1)
+        se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT_SEX-1)
         wht = pyfits.open(WHT_IMAGE)
-        img_wht = wht[WHT_EXT_SEX].data
+        img_wht = wht[WHT_EXT].data
         
     se.options['FILTER']    = 'Y'
     se.options['DETECT_THRESH']    = '1.4'

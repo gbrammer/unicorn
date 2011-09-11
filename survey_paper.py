@@ -1495,9 +1495,9 @@ def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25,
     ax.set_xlabel(r'$R_\mathrm{aper}$ [pix]')
     ax.set_ylabel(r'Depth AB mag (%d$\sigma$)' %(NSIG))
     
-    ax.text(apertures.max(), ZP-2.5*np.log10(sigma.min()*NSIG), ROOT, horizontalalignment='right', verticalalignment='top')
+    ax.text(0.95, 0.9, ROOT, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes)
     
-    ax.text(apertures.max(), ZP-2.5*np.log10(1.7*sigma.min()*NSIG), r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right', verticalalignment='top')
+    ax.text(0.95, 0.8, r'$\beta=%.2f$' %(coeffs[0]), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes)
     
     ax.set_ylim(23, 30)
     

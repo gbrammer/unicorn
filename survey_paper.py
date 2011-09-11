@@ -1271,12 +1271,15 @@ def process_signal_to_noise():
     fig.savefig('spec_signal_to_noise.pdf')
     
 def run_empty_apertures_fields():
+    import glob
     import unicorn
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/EMPTY_APERTURES/')
     
-    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-1-F140w_drz.fits', SCI_EXT=1, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-1-F140w_drz.fits', WHT_EXT=2, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
-
-    unicorn.survey_paper.empty_apertures(SCI_IMAGE= '/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', SCI_EXT=1, WHT_IMAGE='/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-F140w_drz.fits', WHT_EXT=2, aper_params=(1,13,6), NSIM=100, ZP=26.46, make_plot=True)
+    files = glob.glob('/3DHST/Spectra/Work/COSMOS/PREP_FLT/COSMOS-*-F140W_drz.fits')
+    
+    for file in files:
+        unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.46, make_plot=True)
+        
     
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
     """
@@ -1322,7 +1325,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     se.aXeParams()
     se.copyConvFile()
     se.overwrite = True
-    se.options['CATALOG_NAME']    = '%s_empty_.cat' %(ROOT)
+    se.options['CATALOG_NAME']    = '%s_empty.cat' %(ROOT)
     se.options['CHECKIMAGE_NAME'] = '%s_empty_seg.fits' %(ROOT)
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     

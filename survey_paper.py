@@ -1359,7 +1359,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     for iap, ap in enumerate(apertures):
         #aper_image = np.zeros(img_shape)
         icount = 0
-        print 'Aperture radius: %.2f pix' %(ap)
+        print 'Aperture radius: %.2f pix\n' %(ap)
         while icount < NSIM:
             #### Random coordinate
             xc = np.random.rand()*(img_shape[1]-4*ap)+2*ap

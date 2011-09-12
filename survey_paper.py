@@ -1281,7 +1281,6 @@ def run_empty_apertures_fields():
     
     for file in files[1:]:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
-        
     
 def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
     """
@@ -1510,3 +1509,248 @@ def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25,
         canvas.print_figure(outfile, dpi=100, transparent=False)
     
     print ROOT+'_empty.pdf'
+
+def make_star_thumbnails():
+    """ 
+    Extract thumbnails for isolated stars in COSMOS
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/SURVEY_PAPER')
+    
+    ######### Make full COSMOS catalog    
+    file=unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-F140W_drz.fits'
+    ROOT_GRISM = os.path.basename(file).split('_drz.fits')[0]
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = file+'[1]'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = '1.4'
+    se.options['ANALYSIS_THRESH']  = '1.4'
+    se.options['MAG_ZEROPOINT'] = '26.46'
+    status = se.sextractImage(file+'[0]', mode='direct')
+    
+    cat = threedhst.sex.mySexCat('COSMOS-F140W_drz.cat')
+        
+    mag, radius = np.cast[float](cat.MAG_AUTO), np.cast[float](cat.FLUX_RADIUS)
+    xpix, ypix = np.cast[float](cat.X_IMAGE), np.cast[float](cat.Y_IMAGE)
+    ra, dec = np.cast[float](cat.X_WORLD), np.cast[float](cat.Y_WORLD)
+    
+    #### Find isolated point sources
+    points = (mag > 17) & (mag < 22) & (radius < 2.7)
+    # plt.plot(mag, radius, marker='o', linestyle='None', alpha=0.5, color='blue')
+    # plt.plot(mag[points], radius[points], marker='o', linestyle='None', alpha=0.8, color='red')
+    # plt.ylim(0,20)
+    # plt.xlim(14,26)
+    
+    idx = np.arange(len(points))
+    isolated = mag > 1.e10
+    
+    buff = 3 ## buffer, in arcsec
+    dmag = 2.5
+    scale = 0.06
+    
+    for i in idx[points]:
+        dr = np.sqrt((xpix[i]-xpix)**2+(ypix[i]-ypix)**2)*scale
+        near = (dr > 0) & (dr < buff) & (mag < (mag[i]+dmag))
+        if len(near[near]) == 0:
+            isolated[i] = True
+        else:
+            isolated[i] = False
+    
+    #### Make thumbnails
+    img = pyfits.open(unicorn.GRISM_HOME+'COSMOS/PREP_FLT/COSMOS-F140W_drz.fits')
+    img_data = img[1].data
+    img_wht = img[2].data
+    
+    NPIX = int(np.ceil(buff/scale))
+
+    prim = pyfits.PrimaryHDU()
+    list_d = [prim]
+    list_w = [prim]
+    
+    head = img[1].header
+    head['CRPIX1'], head['CRPIX2'] = NPIX, NPIX
+    
+    for i in idx[points & isolated]:
+        print noNewLine+'%d' %(i)
+        id = np.int(cat.NUMBER[i])
+        xi, yi = int(np.round(xpix[i])), int(np.round(ypix[i]))
+        sub_data = img_data[yi-NPIX:yi+NPIX, xi-NPIX: xi+NPIX]
+        sub_wht = img_wht[yi-NPIX:yi+NPIX, xi-NPIX: xi+NPIX]
+        #
+        head['CRVAL1'], head['CRVAL2'] = ra[i], dec[i]
+        head.update('MAG',mag[i])
+        head.update('RADIUS',radius[i])
+        head.update('XCENTER',xpix[i]-xi+NPIX)
+        head.update('YCENTER',ypix[i]-yi+NPIX)
+        #
+        list_d.append(pyfits.ImageHDU(sub_data, header=head))
+        list_w.append(pyfits.ImageHDU(sub_wht, header=head))
+    
+    pyfits.HDUList(list_d).writeto('stars_sci.fits', clobber=True)
+    pyfits.HDUList(list_w).writeto('stars_wht.fits', clobber=True)
+    
+def curve_of_growth():
+    """
+    Some code to evaluate the curve of growth of the F140W PSF, the 
+    optimal aperture taken to be the ratio of the CoG divided by the empty aperture
+    sigmas, and the overall depth within some aperture.
+    """
+    import threedhst
+    import unicorn
+    
+    sci = pyfits.open('stars_sci.fits')
+    wht = pyfits.open('stars_wht.fits')
+    
+    apers = np.arange(1,25,0.5)
+    lstep = np.arange(0, np.log10(25), 0.05)
+    apers = 10**lstep
+        
+    NOBJ = len(sci)-1
+    count = 0
+    average_fluxes = apers*0.
+    stack = sci[1].data*0.
+    
+    for i in range(NOBJ):
+        print noNewLine+'%d' %(i)
+        star = sci[i+1].data
+        yy, xx = np.indices(star.shape)
+        center = (np.abs(xx-50) < 5) & (np.abs(yy-50) < 5)
+        xc = np.sum((star*xx)[center])/np.sum(star[center])
+        yc = np.sum((star*yy)[center])/np.sum(star[center])
+        #xc, yc = sci[i+1].header['XCENTER'], sci[i+1].header['YCENTER']
+        #
+        bg = threedhst.utils.biweight(star, both=True)
+        bg = threedhst.utils.biweight(star[star < (bg[0]+4*bg[1])], both=True)
+        star = star-bg[0]
+        stack = stack + star
+        #        
+        NAP = len(apers)
+        fluxes = np.zeros(apers.shape)
+        for i in range(NAP):
+            #print noNewLine+'%.2f' %(apers[i])
+            fluxes[i] = unicorn.survey_paper.aper_phot(star, xc, yc, apers[i])
+        #
+        pp = plt.plot(apers, fluxes/fluxes[20], alpha=0.2, color='blue')
+        average_fluxes += fluxes/fluxes[20]
+        count = count + 1
+    
+    stack = stack / count
+    stack_fluxes = np.zeros(apers.shape)
+    for i in range(NAP):
+        print noNewLine+'%.2f' %(apers[i])
+        stack_fluxes[i] = unicorn.survey_paper.aper_phot(star, xc, yc, apers[i])
+    
+    plt.xlabel(r'$R_\mathrm{aper}$')
+    plt.ylabel(r'$f/f_{10}$')
+    plt.text(15,0.4,'$N=%d$' %(count))
+    
+    plt.savefig('curve_of_growth.pdf')
+    plt.close()
+    
+    #plt.plot(apers, average_fluxes/count, color='black', linewidth=2)
+    #plt.plot(apers, stack_fluxes/stack_fluxes[20], color='red', linewidth=2)
+    # plt.plot(apers, average_fluxes/count / (stack_fluxes/stack_fluxes[20]))
+    
+    fp = open('curve_of_growth.dat','w')
+    for i in range(len(apers)):
+        fp.write('%.2f %.3f\n' %(apers[i], (average_fluxes/count)[i]))
+    
+    fp.close()
+    
+    #### optimal color aperture:
+    empty = pyfits.open('../../EMPTY_APERTURES/COSMOS-1-F140W_drz_empty.fits')
+    files = glob.glob('../../EMPTY_APERTURES/*empty.fits')
+    for file in files:
+        empty = pyfits.open(file)
+        apertures = empty[1].data
+        fluxes = empty[2].data
+        #
+        sigma = apertures*0.
+        means = apertures*0.
+        for iap, ap in enumerate(apertures):
+            sigma[iap] = threedhst.utils.biweight(fluxes[:,iap])
+            means[iap] = threedhst.utils.biweight(fluxes[:,iap], mean=True)
+        #
+        ycog = np.interp(apertures, apers, (average_fluxes/count))
+        pp = plt.plot(apertures, ycog/(sigma/np.interp(6, apertures, sigma)), alpha=0.5)
+    
+    plt.xlabel(r'$R_\mathrm{aper}$')
+    plt.ylabel(r'CoG / $\sigma$')
+    
+    plt.plot(apertures, ycog/ycog.max(), color='black', linewidth=2)
+    plt.plot(apertures, (sigma/np.interp(6, apertures, sigma))*0.3, color='black', alpha=0.4, linewidth=2)
+    plt.savefig('optimal_aperture.pdf', dpi=100)
+    plt.close()
+    
+    #### Actual calculation of the depth    
+    from scipy import polyfit, polyval
+    
+    APER = 0.5 # arcsec, diameter
+    
+    ycog = average_fluxes/count
+    ycog = ycog / ycog.max()
+    
+    print 'Aperture, D=%.2f"' %(APER)
+    
+    files = glob.glob('../../EMPTY_APERTURES/[CG]*empty.fits')
+    for file in files:
+        empty = pyfits.open(file)
+        apertures = empty[1].data
+        fluxes = empty[2].data
+        #
+        sigma = apertures*0.
+        means = apertures*0.
+        for iap, ap in enumerate(apertures):
+            sigma[iap] = threedhst.utils.biweight(fluxes[:,iap])
+            means[iap] = threedhst.utils.biweight(fluxes[:,iap], mean=True)
+        #
+        #plt.plot(apertures, 26.46-2.5*np.log10(5*sigma), marker='o', color='black', linestyle='None')
+        coeffs = polyfit(np.log10(apertures), np.log10(sigma), 1)
+        yfit = 10**polyval(coeffs, np.log10(apertures))
+        pp = plt.plot(apertures, 26.46-2.5*np.log10(5*yfit), color='red')
+        #
+        apcorr = -2.5*np.log10(np.interp(APER/0.06/2, apers, ycog))
+        #
+        sig_at_aper = 10**polyval(coeffs, np.log10(APER/0.06/2))
+        depth = 26.46-2.5*np.log10(5*sig_at_aper)-apcorr
+        print '%s - %.2f' %(os.path.basename(file).split('-F14')[0], depth)
+        
+    plt.ylim(23,30)
+    
+def aper_phot(array, xc, yc, aper_radius):
+    """
+    Aperture photometry on an array
+    """
+    from shapely.geometry import Point, Polygon
+    
+    point = Point(xc, yc)
+    buff = point.buffer(aper_radius, resolution=16)
+        
+    #### Make the aperture
+    im_aper = array*0.
+    
+    yy, xx = np.indices(array.shape)
+    dr = np.sqrt((xx-xc)**2+(yy-yc)**2)
+    
+    #### these are obviously in the aperture
+    solid = dr < (aper_radius-1.5)
+    im_aper[solid] = 1.
+    
+    #### This is the edge
+    edge = (dr <= (aper_radius+1.5)) & (dr >= (aper_radius-1.5))
+    # for i in range(int(np.floor(xc-aper_radius)),int(np.ceil(xc+aper_radius))):
+    #     for j in range(int(np.floor(yc-aper_radius)),int(np.ceil(yc+aper_radius))):
+    for i, j in zip(xx[edge], yy[edge]):
+        pix = Polygon(((i+0.5,j+0.5), (i+1.5,j+0.5), (i+1.5,j+1.5), (i+0.5,j+1.5)))
+        isect = pix.intersection(buff)
+        im_aper[j,i] = isect.area
+    
+    return np.sum(array*im_aper)
+    
+    

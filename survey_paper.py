@@ -1758,7 +1758,7 @@ def redshift_fit_example():
     Make a big plot showing how the whole redshift fitting works
     """    
     id = 'COSMOS-14-G141_00100'  ### aligned along dispersion axis, weak line
-    #id = 'GOODS-N-33-G141_00946' ### classic spiral
+    id = 'GOODS-N-33-G141_00946' ### classic spiral
     #id = 'GOODS-N-17-G141_00573'
     #id = 'COSMOS-18-G141_00485' ### asymmetric line, spiral
     
@@ -1874,7 +1874,7 @@ def redshift_fit_example():
     ax = fig.add_axes((left+left*0.3*2+dx, 0.49-dx-left*0.3, dx, dx))
 
     profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
-    ax.plot(profile, color='black', alpha=0.4)
+    ax.plot(profile/profile.max(), color='black', alpha=0.4)
 
     size = thumb[0].data.shape
     twod_file = '%s_2D.fits.gz' %(id)
@@ -1885,7 +1885,7 @@ def redshift_fit_example():
     thumb_data *= model2D
     
     profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
-    ax.plot(profile, color='black', alpha=0.8)
+    ax.plot(profile/profile.max(), color='black', alpha=0.8)
     
     ax.set_yticklabels([])
     ax.set_xticklabels([])

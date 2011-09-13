@@ -1753,4 +1753,203 @@ def aper_phot(array, xc, yc, aper_radius):
     
     return np.sum(array*im_aper)
     
+def redshift_fit_example():
+    """ 
+    Make a big plot showing how the whole redshift fitting works
+    """    
+    id = 'COSMOS-14-G141_00100'  ### aligned along dispersion axis, weak line
+    #id = 'GOODS-N-33-G141_00946' ### classic spiral
+    #id = 'GOODS-N-17-G141_00573'
+    #id = 'COSMOS-18-G141_00485' ### asymmetric line, spiral
+    
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EXAMPLE_FITS')
+    
+    #### Get the necessary files from unicorn
+    if not os.path.exists('%s_thumb.fits.gz' %(id)):
+        os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/images/%s_thumb.fits.gz' %(id))
+        os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/images/%s_2D.fits.gz' %(id))
+        os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/ascii/%s.dat' %(id))
+        os.system('rsync -avz --progress $UNICORN:/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/OUTPUT/%s* OUTPUT/ ' %(id))
+        os.system('rsync -avz --progress $UNICORN:/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS/%s* ./ ' %(id))
+    
+    zo = threedhst.catIO.Readfile('OUTPUT/%s.zout' %(id))
+    
+    fig = plt.figure(figsize=(6,6))
+    dsep = 0.05
+    xsep = 0.6
+    left = 0.08
+    bottom = 0.07
+    spec_color = 'purple'
+    dy2d = 0.08
+    #spec_color = 'blue'
+    spec_color = (8/255.,47/255.,101/255.)
+    spec_color = 'red'
+    
+    phot_color = 'orange'
+    #phot_color = (78/255.,97/255.,131/255.)
+    #phot_color = '0.7'
+    
+    ########### Full spectrum
+    
+    ax = fig.add_axes((left, 0.5+bottom+dy2d, 0.98-left-(1-xsep), 0.49-bottom-dy2d))
+
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s' %(id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+    
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=id, OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+    
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    
+    ymax = max(fobs[is_spec & (fobs > 0)])
+        
+    ax.semilogx([1],[1])
+    
+    ## photometry
+    ax.plot(lci[~is_spec], obs_sed[~is_spec], marker='o', color='black', linestyle='None', markersize=6, alpha=0.2)
+    ## best-fit SED
+    ## Spectrum + convolved fit
+    #ax.plot(lci[is_spec], obs_sed[is_spec], color='black', markersize=6, alpha=0.7, linewidth=1)
+    ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=4)
+    ax.plot(lambdaz, temp_sed, color='white', linewidth=3, alpha=0.6)
+    ax.plot(lambdaz, temp_sed, color='black', alpha=0.6)
+    ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
+        
+    ax.set_yticklabels([])
+    ax.set_ylabel(r'$f_\lambda$')
+    ax.set_xlabel(r'$\lambda$')
+    xtick = ax.set_xticks(np.array([0.5, 1., 2, 4])*1.e4)
+    ax.set_xticklabels(np.array([0.5, 1., 2, 4]))
+    #ax.set_xlim(3000,9.e4)
+    ax.set_xlim(3290,2.5e4)
+    ax.set_ylim(-0.1*ymax, 1.2*ymax)
+    
+    ############# Sub spectrum
+    ax = fig.add_axes((left, bottom, 0.98-left, 0.49-bottom))
+    
+    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:7,coeffs['izbest'][0]],coeffs['coeffs'][0:7,0])/(lci/5500.)**2
+    temp_sed_continuum = np.dot(temp_seds['temp_seds'][:,0:7],coeffs['coeffs'][0:7,0])/(1+zo.z_peak[0])**2
+    
+    ymax = max(fobs[is_spec & (fobs > 0)]-obs_sed_continuum[is_spec & (fobs > 0)])
+    #ymin = min(fobs[is_spec & (fobs > 0)])
+    
+    # ax.semilogx([1],[1])
+    
+    ## photometry
+    ax.plot(lci[~is_spec], obs_sed[~is_spec]-obs_sed_continuum[~is_spec], marker='o', color='black', linestyle='None', markersize=6, alpha=0.2)
+    ## best-fit SED
+    ax.plot(lci[is_spec], fobs[is_spec]-obs_sed_continuum[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=5)
+    ax.plot(lambdaz, temp_sed-temp_sed_continuum, color='black', alpha=0.6)
+    ## Spectrum + convolved fit
+    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='white', markersize=6, alpha=0.7, linewidth=4)
+    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='black', markersize=6, alpha=0.7, linewidth=1)
+    #ax.plot(lci[is_spec], obs_sed_continuum[is_spec]-obs_sed_continuum[is_spec], color='black', markersize=6, alpha=0.3, linewidth=2)
+    
+    ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
+    
+    ax.set_yticklabels([])
+    ax.set_ylabel(r'$f_\lambda-\ \mathrm{continuum}$')
+    ax.set_xlabel(r'$\lambda$')
+    xtick = ax.set_xticks(np.array([1.2, 1.4,1.6])*1.e4)
+    ax.set_xticklabels(np.array([1.2, 1.4,1.6]))
+    #ax.set_xlim(3000,9.e4)
+    ax.set_xlim(1.05e4,1.7e4)
+    ax.set_ylim(-0.2*ymax, 1.2*ymax)
+        
+    ########### Thumbnail
+    thumb = pyfits.open('%s_thumb.fits.gz' %(id))
+    thumb_data = thumb[0].data
+    #thumb_data[10,:] = 1000
+    profile = np.sum(thumb_data, axis=1)
+        
+    NSUB = int(np.round(0.5*thumb_data.shape[0]))/2
+    yc = thumb_data.shape[0]/2
+     
+    dx = NSUB*2*22/(ax.get_xlim()[1]-ax.get_xlim()[0])*(0.98-left)
+    ax = fig.add_axes((left+left*0.3, 0.49-dx-left*0.3, dx, dx))
+    #ax.imshow(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.05, vmax=0.5, interpolation='nearest')
+    ax.imshow(0-thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.7, vmax=0.05, interpolation='nearest')
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    ax = fig.add_axes((left+left*0.3*2+dx, 0.49-dx-left*0.3, dx, dx))
+
+    profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
+    ax.plot(profile, color='black', alpha=0.4)
+
+    size = thumb[0].data.shape
+    twod_file = '%s_2D.fits.gz' %(id)
+    twod = pyfits.open(twod_file)
+    model1D = np.matrix(twod[5].data.sum(axis=1))
+    model1D /= np.max(model1D)
+    model2D = np.array(np.dot(np.transpose(model1D),np.ones((1,size[0]))))
+    thumb_data *= model2D
+    
+    profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
+    ax.plot(profile, color='black', alpha=0.8)
+    
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    ########### p(z)
+    ax = fig.add_axes((xsep+left, 0.5+bottom+dy2d, 0.98-left-xsep, 0.49-bottom-dy2d))
+    
+    colors = [spec_color,phot_color,'blue']
+    alpha = [0.5, 0.5, 0.2]
+    zmin = 4
+    zmax = 0
+    ymax = 0
+    for i in range(2):
+        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE='%s' %(id), 
+                          OUTPUT_DIRECTORY='./OUTPUT', 
+                          CACHE_FILE='Same')
+        ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])
+        ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])
+        #
+        if pz.max() > ymax:
+            ymax = pz.max()
+        #
+        if zgrid[pz > 1.e-3].min() < zmin:
+            zmin = zgrid[pz > 1.e-2].min()
+        #
+        if zgrid[pz > 1.e-6].max() > zmax:
+            zmax = zgrid[pz > 1.e-2].max()
+    
+    ax.plot(zo.z_spec[0]*np.array([1,1]),[0,1.e4], color='green', linewidth=1)
+    
+    ax.set_yticklabels([])
+    ax.set_xlabel(r'$z$')
+    ax.set_ylabel(r'$p(z)$')
+    ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(4, prune='both'))
+    
+    ### Plot labels
+    ax.text(0.5, 0.9, '%s' %(id), transform = ax.transAxes, horizontalalignment='center')
+    ax.text(0.95, 0.8, r'$z_\mathrm{phot}=$'+'%5.3f' %(zo.z_peak[1]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+    ax.text(0.95, 0.7, r'$z_\mathrm{gris}=$'+'%5.3f' %(zo.z_peak[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+    if zo.z_spec[0] > 0:
+        ax.text(0.95, 0.6, r'$z_\mathrm{spec}=$'+'%5.3f' %(zo.z_spec[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+        
+    ax.set_xlim(zmin, zmax)
+    #ax.set_xlim(zgrid.min(), zgrid.max())
+    ax.set_ylim(0,1.1*ymax)
+    
+    #################### 2D spectrum
+    ax = fig.add_axes((left, 0.49, 0.98-left, dx))
+    #ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
+    twod_file = '%s_2D.fits.gz' %(id)
+    twod = pyfits.open(twod_file)
+    spec2d = twod[1].data-twod[4].data
+    
+    head = twod[1].header
+    lam_idx = np.arange(head['NAXIS1'])
+    lam = (lam_idx+1-head['CRPIX1'])*head['CDELT1']+head['CRVAL1']
+    lam_mima = np.cast[int](np.round(np.interp(np.array([1.05e4,1.7e4]), lam, lam_idx)))
+    tick_int = np.interp(np.array([1.2,1.4,1.6])*1.e4, lam, lam_idx)-np.interp(1.05e4, lam, lam_idx)
+    
+    spec2d_sub = spec2d[yc-NSUB:yc+NSUB,lam_mima[0]:lam_mima[1]]
+    ax.imshow(0-spec2d_sub, aspect='auto', vmin=-0.1, vmax=0.01, interpolation='nearest')
+    ax.set_yticklabels([]); ax.set_xticklabels([])
+    xtick = ax.set_xticks(tick_int)
+    
+    fig.savefig('%s_example.pdf' %(id))
+    
     

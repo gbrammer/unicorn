@@ -1753,19 +1753,46 @@ def aper_phot(array, xc, yc, aper_radius):
     
     return np.sum(array*im_aper)
     
-def redshift_fit_example():
+def make_examples():
+    import unicorn
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-18-G141_00485')
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-14-G141_00100')
+    unicorn.survey_paper.redshift_fit_example(id='GOODS-N-33-G141_00946')
+    unicorn.survey_paper.redshift_fit_example(id='GOODS-N-17-G141_00573')
+    unicorn.survey_paper.redshift_fit_example(id='GOODS-N-33-G141_01028')
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-1-G141_00252')
+    unicorn.survey_paper.redshift_fit_example(id='AEGIS-4-G141_00266')
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-5-G141_00751')
+
+    unicorn.survey_paper.redshift_fit_example(id='PRIMO-1101-G141_01022')
+    unicorn.survey_paper.redshift_fit_example(id='GOODS-S-24-G141_00029')
+    
+    
+    import unicorn
+    import unicorn.catalogs
+    
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    mat = lines.id == 'COSMOS-14-G141_00100'
+    print lines.id[mat][0], lines.halpha_eqw[mat][0], lines.halpha_eqw_err[mat][0], lines.halpha_flux[mat][0]
+
+    mat = lines.id == 'COSMOS-18-G141_00485'
+    print lines.id[mat][0], lines.halpha_eqw[mat][0], lines.halpha_eqw_err[mat][0], lines.halpha_flux[mat][0]
+    
+def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     """ 
     Make a big plot showing how the whole redshift fitting works
     """    
-    id = 'COSMOS-14-G141_00100'  ### aligned along dispersion axis, weak line
-    id = 'GOODS-N-33-G141_00946' ### classic spiral
+    #id = 'COSMOS-14-G141_00100'  ### aligned along dispersion axis, weak line
+    #id = 'GOODS-N-33-G141_00946' ### classic spiral
     #id = 'GOODS-N-17-G141_00573'
     #id = 'COSMOS-18-G141_00485' ### asymmetric line, spiral
     
     os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EXAMPLE_FITS')
     
     #### Get the necessary files from unicorn
-    if not os.path.exists('%s_thumb.fits.gz' %(id)):
+    if (not os.path.exists('%s_thumb.fits.gz' %(id))) | force:
         os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/images/%s_thumb.fits.gz' %(id))
         os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/images/%s_2D.fits.gz' %(id))
         os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/ascii/%s.dat' %(id))
@@ -1780,14 +1807,17 @@ def redshift_fit_example():
     left = 0.08
     bottom = 0.07
     spec_color = 'purple'
-    dy2d = 0.08
+    dy2d = 0.13
     #spec_color = 'blue'
     spec_color = (8/255.,47/255.,101/255.)
     spec_color = 'red'
-    
     phot_color = 'orange'
     #phot_color = (78/255.,97/255.,131/255.)
     #phot_color = '0.7'
+    
+    spec_color = 'black'
+    phot_color = '0.7'
+    temp_color = (8/255.,47/255.,101/255.)
     
     ########### Full spectrum
     
@@ -1811,7 +1841,7 @@ def redshift_fit_example():
     #ax.plot(lci[is_spec], obs_sed[is_spec], color='black', markersize=6, alpha=0.7, linewidth=1)
     ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=4)
     ax.plot(lambdaz, temp_sed, color='white', linewidth=3, alpha=0.6)
-    ax.plot(lambdaz, temp_sed, color='black', alpha=0.6)
+    ax.plot(lambdaz, temp_sed, color=temp_color, alpha=0.6)
     ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
         
     ax.set_yticklabels([])
@@ -1835,13 +1865,13 @@ def redshift_fit_example():
     # ax.semilogx([1],[1])
     
     ## photometry
-    ax.plot(lci[~is_spec], obs_sed[~is_spec]-obs_sed_continuum[~is_spec], marker='o', color='black', linestyle='None', markersize=6, alpha=0.2)
+    ax.plot(lci[~is_spec], obs_sed[~is_spec]-obs_sed_continuum[~is_spec], marker='o', color='black', linestyle='None', markersize=6, alpha=0.2, zorder=10)
     ## best-fit SED
-    ax.plot(lci[is_spec], fobs[is_spec]-obs_sed_continuum[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=5)
-    ax.plot(lambdaz, temp_sed-temp_sed_continuum, color='black', alpha=0.6)
+    ax.plot(lci[is_spec], fobs[is_spec]-obs_sed_continuum[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=5, zorder=10)
+    ax.plot(lambdaz, temp_sed-temp_sed_continuum, color=temp_color, alpha=0.3, zorder=10)
     ## Spectrum + convolved fit
-    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='white', markersize=6, alpha=0.7, linewidth=4)
-    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='black', markersize=6, alpha=0.7, linewidth=1)
+    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='white', markersize=6, alpha=0.7, linewidth=4, zorder=10)
+    ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color=temp_color, markersize=6, alpha=0.7, linewidth=1, zorder=10)
     #ax.plot(lci[is_spec], obs_sed_continuum[is_spec]-obs_sed_continuum[is_spec], color='black', markersize=6, alpha=0.3, linewidth=2)
     
     ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
@@ -1855,41 +1885,6 @@ def redshift_fit_example():
     ax.set_xlim(1.05e4,1.7e4)
     ax.set_ylim(-0.2*ymax, 1.2*ymax)
         
-    ########### Thumbnail
-    thumb = pyfits.open('%s_thumb.fits.gz' %(id))
-    thumb_data = thumb[0].data
-    #thumb_data[10,:] = 1000
-    profile = np.sum(thumb_data, axis=1)
-        
-    NSUB = int(np.round(0.5*thumb_data.shape[0]))/2
-    yc = thumb_data.shape[0]/2
-     
-    dx = NSUB*2*22/(ax.get_xlim()[1]-ax.get_xlim()[0])*(0.98-left)
-    ax = fig.add_axes((left+left*0.3, 0.49-dx-left*0.3, dx, dx))
-    #ax.imshow(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.05, vmax=0.5, interpolation='nearest')
-    ax.imshow(0-thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.7, vmax=0.05, interpolation='nearest')
-    ax.set_yticklabels([])
-    ax.set_xticklabels([])
-    
-    ax = fig.add_axes((left+left*0.3*2+dx, 0.49-dx-left*0.3, dx, dx))
-
-    profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
-    ax.plot(profile/profile.max(), color='black', alpha=0.4)
-
-    size = thumb[0].data.shape
-    twod_file = '%s_2D.fits.gz' %(id)
-    twod = pyfits.open(twod_file)
-    model1D = np.matrix(twod[5].data.sum(axis=1))
-    model1D /= np.max(model1D)
-    model2D = np.array(np.dot(np.transpose(model1D),np.ones((1,size[0]))))
-    thumb_data *= model2D
-    
-    profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
-    ax.plot(profile/profile.max(), color='black', alpha=0.8)
-    
-    ax.set_yticklabels([])
-    ax.set_xticklabels([])
-    
     ########### p(z)
     ax = fig.add_axes((xsep+left, 0.5+bottom+dy2d, 0.98-left-xsep, 0.49-bottom-dy2d))
     
@@ -1922,7 +1917,7 @@ def redshift_fit_example():
     ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(4, prune='both'))
     
     ### Plot labels
-    ax.text(0.5, 0.9, '%s' %(id), transform = ax.transAxes, horizontalalignment='center')
+    #ax.text(0.5, 0.9, '%s' %(id), transform = ax.transAxes, horizontalalignment='center')
     ax.text(0.95, 0.8, r'$z_\mathrm{phot}=$'+'%5.3f' %(zo.z_peak[1]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
     ax.text(0.95, 0.7, r'$z_\mathrm{gris}=$'+'%5.3f' %(zo.z_peak[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
     if zo.z_spec[0] > 0:
@@ -1933,7 +1928,18 @@ def redshift_fit_example():
     ax.set_ylim(0,1.1*ymax)
     
     #################### 2D spectrum
-    ax = fig.add_axes((left, 0.49, 0.98-left, dx))
+    thumb = pyfits.open('%s_thumb.fits.gz' %(id))
+    thumb_data = thumb[0].data
+    #thumb_data[10,:] = 1000
+    profile = np.sum(thumb_data, axis=1)
+        
+    NSUB = int(np.round(0.5*thumb_data.shape[0]))/2
+    yc = thumb_data.shape[0]/2
+     
+    dx = NSUB*2*22/(ax.get_xlim()[1]-ax.get_xlim()[0])*(0.98-left)
+    dx = dy2d
+
+    ax = fig.add_axes((left, 0.49, 0.98-left, dy2d))
     #ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
     twod_file = '%s_2D.fits.gz' %(id)
     twod = pyfits.open(twod_file)
@@ -1948,8 +1954,128 @@ def redshift_fit_example():
     spec2d_sub = spec2d[yc-NSUB:yc+NSUB,lam_mima[0]:lam_mima[1]]
     ax.imshow(0-spec2d_sub, aspect='auto', vmin=-0.1, vmax=0.01, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
-    xtick = ax.set_xticks(tick_int)
+    xtick = ax.set_xticks(tick_int); ytick = ax.set_yticks([0,2*NSUB])
+    
+    ########### Thumbnail
+    
+    #ax = fig.add_axes((left+left*0.3, 0.49-dx-left*0.3, dx, dx))
+    ax = fig.add_axes((left, 0.49, dx, dx))
+    #ax.imshow(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.05, vmax=0.5, interpolation='nearest')
+    ax.imshow(0-thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], vmin=-0.7, vmax=0.05, interpolation='nearest', zorder=2)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    #ax = fig.add_axes((left+left*0.3*2+dx, 0.49-dx-left*0.3, dx, dx))
+
+    #profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
+    #ax.plot(profile/profile.max(), color='black', alpha=0.4)
+
+    size = thumb[0].data.shape
+    twod_file = '%s_2D.fits.gz' %(id)
+    twod = pyfits.open(twod_file)
+    model1D = np.matrix(twod[5].data.sum(axis=1))
+    model1D /= np.max(model1D)
+    model2D = np.array(np.dot(np.transpose(model1D),np.ones((1,size[0]))))
+    thumb_data *= model2D
+    
+    profile = np.sum(thumb_data[yc-NSUB:yc+NSUB, yc-NSUB:yc+NSUB], axis=0)
+    ax.plot(profile/profile.max()*2*NSUB*0.8, color='black', alpha=0.3, zorder=2)
+    ax.set_xlim(0,2*NSUB); ax.set_ylim(0,2*NSUB)
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
+    
+    xtick = ax.set_xticks([0,2*NSUB]); ytick = ax.set_yticks([0,2*NSUB])
     
     fig.savefig('%s_example.pdf' %(id))
+    
+def equivalent_width_errors():
+    """
+    Compute the limiting equivalent widths as a function of magnitude or mass
+    or something
+    """
+    import unicorn
+    import unicorn.catalogs
+    
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    
+    keep = unicorn.catalogs.run_selection(zmin=0.8, zmax=5.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=8.5, massmax=15, magmin=17, magmax=23.5)
+    keep_22 = unicorn.catalogs.run_selection(zmin=0.8, zmax=5.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=8.5, massmax=15, magmin=21.7, magmax=22.3)
+    
+    halpha_sn = lines.halpha_eqw / lines.halpha_eqw_err
+    #halpha_sn[(halpha_sn > 0) & (halpha_sn < 1)] = 2
+    keep_ha = keep & (halpha_sn[lines.idx] > 0)
+    
+    oiii_sn = lines.oiii_eqw / lines.oiii_eqw_err
+    keep_oiii = keep & (oiii_sn[lines.idx] > 0)
+    
+    #plt.scatter(phot.mag_f1392w[phot.idx][keep], phot.flux_radius[phot.idx][keep], marker='o')
+    marker_size = phot.flux_radius[phot.idx]**1.5
+    colors = 'purple'
+    # colors = (phot.mag_f1392w[phot.idx]-17)
+    # colors[colors < 0] = 0
+    # colors[colors > 5] = 5
+    
+    ##### FLux
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=5/4., left=0.12)
+    fig.subplots_adjust(wspace=0.20,hspace=0.24,left=0.12,
+                        bottom=0.08,right=0.98,top=0.98)
+    
+    plt.rcParams['patch.edgecolor'] = 'k'
+    ax = fig.add_subplot(211)
+
+    ax.scatter(lines.halpha_flux[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
+    ax.scatter(lines.oiii_flux[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
+
+    ## label
+    for si in [2,4,8,16]:
+        ax.scatter(np.array([1,1])*2.e-17, np.array([1,1])*25*si**0.4, s=si**1.5, color='black', alpha=0.2)
+        ax.text(2.e-17*1.3, 25*si**0.4, '%.1f' %(si*0.06), verticalalignment='center')
+    
+    nha = len(lines.halpha_flux[lines.idx][keep_ha])
+    noiii = len(lines.halpha_flux[lines.idx][keep_oiii])
+    ax.text(2.e-17*1.15, 25*(0.5)**0.4, r'$N_\mathrm{H\alpha}=%d$' %(nha), color='purple', horizontalalignment='center')
+    ax.text(2.e-17*1.15, 25*(0.5/3)**0.4, r'$N_\mathrm{O III}=%d$' %(noiii), color='orange', horizontalalignment='center')
+    
+    
+    ax.semilogy()
+    ax.semilogx()
+    ax.set_ylim(1,100)
+    ax.set_xlim(1.e-17,2.e-15)
+    ax.set_yticklabels([1,3,10,30,100])
+    ytick = ax.set_yticks([1,3,10,30,100])
+    ax.set_ylabel('line S / N')
+    ax.set_xlabel(r'line flux $\mathrm{[ergs\ s^{-1}\ cm^{-2}]}$')
+        
+    #### EqW
+    #fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.12)
+    #plt.rcParams['patch.edgecolor'] = 'k'
+    ax = fig.add_subplot(212)
+    
+    marker_size = 10**(-0.4*(18-phot.mag_f1392w[phot.idx]))**0.8
+    
+    ax.scatter(lines.halpha_eqw[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
+    ax.scatter(lines.oiii_eqw[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
+    
+    for si, mag in enumerate([19, 21, 23]):
+        ax.scatter(np.array([1,1])*10, np.array([1,1])*25*(2**(si+1))**0.4, s=10**(-0.4*(18-mag))**0.8, color='black', alpha=0.2)
+        ax.text(10*1.3, 25*(2**(si+1))**0.4, '%d' %(mag), verticalalignment='center')
+    
+    ax.semilogy()
+    ax.semilogx()
+    ax.set_ylim(1,100)
+    ax.set_xlim(5,500)
+    ax.set_yticklabels([1,3,10,30,100])
+    ytick = ax.set_yticks([1,3,10,30,100])
+    ax.set_xticklabels([5,10,100])
+    ytick = ax.set_xticks([5,10,100])
+    ax.set_ylabel('line S / N')
+    ax.set_xlabel(r'Equivalent width $[\AA]$')
+        
+    fig.savefig('equivalent_width_errors.pdf')
+    
+    
     
     

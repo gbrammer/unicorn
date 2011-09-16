@@ -173,7 +173,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7'
+            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
         #
         CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
         ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'

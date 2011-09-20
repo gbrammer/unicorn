@@ -138,12 +138,15 @@ def uds():
     
     #unicorn.candels.make_asn_files()
     
+    os.chdir('/Users/gbrammer/CANDELS/UDS/PREP_FLT')
+    
     list = catIO.Readfile('files.info')
     epoch1 = list.date_obs < '2010-12-15'
     epoch2 = list.date_obs > '2010-12-15'
     
     ALIGN_IMAGE='../UKIDSS/UDS_K.fits'
-    
+    ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f125w_v0.5_drz.fits'
+        
     ########################
     ### Epoch1
     ########################
@@ -156,7 +159,7 @@ def uds():
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                    SCALE=0.128254)
+                    SCALE=0.06, geometry='rxyscale')
     ## Mosaic
     f125w_list = []
     f160w_list = []
@@ -188,7 +191,7 @@ def uds():
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                    SCALE=0.128254)
+                    SCALE=0.06, geometry='rxyscale')
     ## Mosaic
     f125w_list = []
     f160w_list = []

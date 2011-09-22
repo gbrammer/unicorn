@@ -31,6 +31,7 @@ mcat = None
 lines = None
 rest = None
 gfit = None
+zsp = None
 selection_params = None
 
 ## from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
@@ -174,7 +175,13 @@ def read_catalogs(force=False):
     
     gfit.idx = idx_gfit
     unicorn.catalogs.gfit = gfit
-
+    
+    ########################################
+    #### Spectroscopic redshifts
+    ########################################
+    print noNewLine+'Reading Spectroscopic redshifts...'
+    unicorn.catalogs.make_specz_catalog()
+    
 class selectionParams():
     def __init__(self, zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
         self.zmin=1.0
@@ -365,7 +372,7 @@ def select_high_eqw():
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
     
     unicorn.catalogs.read_catalogs()
-    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
     
     keep = unicorn.catalogs.run_selection(zmin=1.1, zmax=2.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=9.5, massmax=15, magmin=0, magmax=25)
     
@@ -386,7 +393,7 @@ def select_high_eqw():
     ha_emline = (lines.halpha_eqw[lines.idx] < 50)  & (sn_ha[lines.idx] > 7)
 
     sn_oiii = lines.oiii_eqw / lines.oiii_eqw_err
-    oiii_emline = (lines.oiii_eqw[lines.idx] > 20)  & (sn_oiii[lines.idx] > 7)
+    oiii_emline = (lines.oiii_eqw[lines.idx] > 50)  & (sn_oiii[lines.idx] > 7)
 
     emline = ha_emline | oiii_emline
     emline = oiii_emline
@@ -394,8 +401,11 @@ def select_high_eqw():
     cat_keep = keep & zspec & ha_emline
     print len(keep[cat_keep])
     
+    #### Point sources
+    point_source = (phot.flux_radius[phot.idx] < 3.5) & (phot.mag_f1392w[phot.idx] < 22)
+    
     #### Run a selection and make a website
-    unicorn.catalogs.make_selection_catalog(near_star & keep_obj, filename='massive_lines.cat', make_html=True)
+    unicorn.catalogs.make_selection_catalog(point_source & emline, filename='massive_lines.cat', make_html=True)
     os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
 
 def make_selection_for_Pieters_paper():
@@ -1663,3 +1673,280 @@ def gen_rgb_colortable(Vbins = range(10), rgb = (1,0,0), reverse=False):
         Vcolors.append((rgb[0]*values[i], rgb[1]*values[i], rgb[2]*values[i]))
     #
     return Vcolors
+
+def make_specz_catalog():
+    """
+    Read specz catalogs and get only the highest quality speczs.
+    """
+    import unicorn
+    import unicorn.catalogs
+    import copy
+    
+    #os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    sproot = unicorn.GRISM_HOME+'/ANALYSIS/SPECTROSCOPIC_REDSHIFTS/'
+    #os.chdir(sproot)
+    
+    zsp = copy.deepcopy(phot)
+    
+    #### Make simple arrays, and *only include good redshifts*
+    zsp.ra = []
+    zsp.dec = []
+    zsp.zspec = []
+    zsp.catqual = []
+    zsp.source = []
+    zsp.catid = []
+    
+    ################### AEGIS
+    #### DEEP2
+    print '\nAEGIS: DEEP2\n'
+    deep2 = pyfits.open(sproot+'DEEP2+3/zcat.dr3.v1_0.uniq.fits.gz')[1].data
+    id = np.cast[float](deep2.field('OBJNO'))
+    ra = np.cast[float](deep2.field('RA'))
+    dec = np.cast[float](deep2.field('DEC'))
+    dq = np.cast[float](deep2.field('ZQUALITY'))
+    z_spec = np.cast[float](deep2.field('Z'))
+    
+    keep = dq >= 3
+    N = len(keep[keep])
+    
+    zsp.ra.extend(ra[keep])
+    zsp.dec.extend(dec[keep])
+    zsp.zspec.extend(z_spec[keep])
+    zsp.catqual.extend(dq[keep])
+    zsp.source.extend(['DEEP2']*N)
+    zsp.catid.extend(id[keep])
+    
+    #### Steidel
+    print '\nSteidel 2003 LBGs\n'
+    stei = unicorn.catalogs.read_steidel(verbose=False)
+    N = len(stei['ra'])
+    
+    zsp.ra.extend(stei['ra'])
+    zsp.dec.extend(stei['dec'])
+    zsp.zspec.extend(stei['zuse'])
+    zsp.catqual.extend([1]*N)
+    zsp.source.extend(['Steidel03']*N)
+    zsp.catid.extend(np.arange(N))
+    
+    ################### COSMOS
+    #### zCOSMOS
+    print '\nCOSMOS: zCOSMOS-bright\n'
+    zc = catIO.Readfile(sproot+'/COSMOS/zCOSMOS_VIMOS_BRIGHT_DR2_TABLE.tab')
+    keep = (np.floor(zc.cc) == 3) | (np.floor(zc.cc) == 4) | (zc.cc == 2.5) | (np.floor(zc.cc) == 13) | (np.floor(zc.cc) == 14) | (np.floor(zc.cc) == 23) | (np.floor(zc.cc) == 24)
+    N = len(keep[keep])
+    
+    zsp.ra.extend(zc.ra[keep])
+    zsp.dec.extend(zc.dec[keep])
+    zsp.zspec.extend(zc.z[keep])
+    zsp.catqual.extend(zc.cc[keep])
+    zsp.source.extend(['zCOSMOS-Bright']*N)
+    zsp.catid.extend(zc.name[keep])
+    
+    #### Brusa AGN compilation
+    print '\nCOSMOS: Brusa\n'
+    br = catIO.Readfile(sproot+'COSMOS/brusa_apj341700t2_mrt.txt')
+    keep = (br.iflag == 1) & (br.zspec > 0) & (br.r_zspec != 5)
+    N = len(keep[keep])
+    
+    zsp.ra.extend(br.ra[keep])
+    zsp.dec.extend(br.dec[keep])
+    zsp.zspec.extend(br.zspec[keep])
+    zsp.catqual.extend(br.obj_class[keep])
+    zsp.source.extend(['Brusa']*N)
+    zsp.catid.extend(br.iid[keep])
+    
+    ################### GOODS-N
+    #### DEEP3
+    print '\nGOODS-N: DEEP3\n'
+    d3 = pyfits.open(sproot+'DEEP2+3/cooper.2011apjs.goodsn.fits.gz')[1].data
+    id = np.cast[float](d3.field('ID'))
+    ra = np.cast[float](d3.field('RA'))
+    dec = np.cast[float](d3.field('DEC'))
+    dq = np.cast[float](d3.field('ZQUALITY'))
+    z_spec = np.cast[float](d3.field('Z'))
+    
+    keep = dq >= 3
+    N = len(keep[keep])
+    
+    zsp.ra.extend(ra[keep])
+    zsp.dec.extend(dec[keep])
+    zsp.zspec.extend(z_spec[keep])
+    zsp.catqual.extend(dq[keep])
+    zsp.source.extend(['DEEP2']*N)
+    zsp.catid.extend(id[keep])
+    
+    #### Barger 2008
+    print '\nGOODS-N: Barger\n'
+    fp = open(sproot+'GOODS-North/table4.dat')
+    lines = fp.readlines()
+    fp.close()
+    for line in lines:
+        flag = line[65]
+        if flag != 's':
+            lspl = line.split()
+            zsp.ra.append(np.float(lspl[0]))
+            zsp.dec.append(np.float(lspl[1]))
+            zsp.zspec.append(np.float(lspl[8]))
+            zsp.catqual.append(1)
+            zsp.source.append('Barger')
+            zsp.catid.append('xx')
+
+    ################### GOODS-S
+    #### Fireworks
+    print '\nGOODS-S: FIREWORKS\n'
+    fw = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_redshift.cat')
+    fw_phot = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_phot.cat')
+    keep = (fw.zsp_qual == 1)
+    N = len(keep[keep])
+    
+    zsp.ra.extend(fw_phot.ra[keep])
+    zsp.dec.extend(fw_phot.dec[keep])
+    zsp.zspec.extend(fw.zsp[keep])
+    zsp.catqual.extend(fw.zsp_qual[keep])
+    zsp.source.extend(['FIREWORKS']*N)
+    zsp.catid.extend(fw.id[keep])
+    
+    #### Ballestra 2010
+    print '\nGOODS-S: Ballestra\n'
+    mr = catIO.Readfile(sproot+'GOODS-South/Ballestra_mrv2.dat')
+    keep = mr.zqual == 'A'
+    N = len(keep[keep])
+    
+    zsp.ra.extend(mr.ra_vim[keep])
+    zsp.dec.extend(mr.dec_vim[keep])
+    zsp.zspec.extend(mr.zspec[keep])
+    zsp.catqual.extend(mr.zqual[keep])
+    zsp.source.extend(['Ballestra-mr']*N)
+    zsp.catid.extend(mr.source_id[keep])
+    
+    lr = catIO.Readfile(sproot+'GOODS-South/Ballestra_lrv2.dat')
+    keep = lr.zqual == 'A'
+    N = len(keep[keep])
+    
+    zsp.ra.extend(lr.ra_vim[keep])
+    zsp.dec.extend(lr.dec_vim[keep])
+    zsp.zspec.extend(lr.zspec[keep])
+    zsp.catqual.extend(lr.zqual[keep])
+    zsp.source.extend(['Ballestra-lr']*N)
+    zsp.catid.extend(lr.source_id[keep])
+    
+    ################### UDS
+    #### UDS website compilation
+    print '\nUDS\n'
+    uds = pyfits.open(sproot+'UDS/UDS_redshifts_18Oct2010.fits')[1].data
+    id = np.cast[str](uds.field('sxdfID'))
+    zspec = np.cast[float](uds.field('z'))
+    zq = np.cast[str](uds.field('quality'))
+    zsou = np.cast[str](uds.field('specRun'))
+    
+    aki = zsou == 'Akiyama_FOCAS'
+    keep = ((aki & (zq == 'A')) | (~aki)) & (zspec > 0)
+    
+    zsp.zspec.extend(zspec[keep])
+    zsp.catqual.extend(list(zq[keep]))
+    zsp.catid.extend(id[keep])
+    
+    idx = np.arange(len(zsou))
+    ra_sxdf = np.cast[str](uds.field('sxdfRA'))
+    dec_sxdf = np.cast[str](uds.field('sxdfDEC'))
+    
+    for ii in idx[keep]:
+        zsp.source.append('UDS-%s' %(zsou[ii]))
+        zsp.ra.append(np.sum(np.cast[float](ra_sxdf[ii].split(':')) * np.array([1.,1./60,1./60**2]))*360./24)
+        zsp.dec.append(-1*np.sum(np.abs(np.cast[float](dec_sxdf[ii].split(':'))) * np.array([1.,1./60,1./60**2])))
+    
+    ##### Done reading
+    zsp.ra, zsp.dec, zsp.zspec = np.array(zsp.ra), np.array(zsp.dec), np.array(zsp.zspec)
+    
+    ##### Now match for each object in the grism catalog and make an 'idx' extension
+    ### Loop through grism objects and find close matches
+    idx_phot = np.arange(len(zout.z_peak[0::3]))
+    idx_zsp = np.arange(len(zsp.zspec))
+    
+    dr = idx_phot*0.
+    mat_idx = idx_phot*0
+    
+    ### Make a column in zsp to flag when multiple matches within 1" have different z
+    bad_matches = zsp.zspec*0
+    
+    for i in idx_phot:
+        print noNewLine+'%d' %(i)
+        cosd = np.cos(phot.y_world[phot.idx][i]/360.*2*np.pi)
+        drs = np.sqrt((phot.x_world[phot.idx][i]-zsp.ra)**2*cosd**2+(phot.y_world[phot.idx][i]-zsp.dec)**2)*3600.
+        drmin = drs.min()
+        dr[i] = drmin
+        mat_idx[i] = idx_zsp[drs == drmin][0]
+        matches = drs < 1
+        NM = len(matches[matches])
+        if NM > 0:
+            if np.std(zsp.zspec[matches]) > 0.1:
+                bad_matches[matches] = 1
+    
+    zsp.dr = dr
+    zsp.mat_idx = mat_idx
+                
+    unicorn.catalogs.zsp = zsp
+            
+def read_steidel(verbose=True):
+    """
+    Read Steidel 2003 LBG catalogs
+    """
+    tables = glob.glob(unicorn.GRISM_HOME+'/ANALYSIS/SPECTROSCOPIC_REDSHIFTS/Steidel03/table*.dat')
+    
+    ra = []
+    dec = []
+    zabs = []
+    zem = []
+    type = []
+    
+    for table in tables[1:]:
+        if verbose:
+            print os.path.basename(table)
+        
+        fp = open(table)
+        lines = fp.readlines()
+        fp.close()
+        
+        for line in lines:
+            lspl = line.split()
+            ra_i = 360./24*(float(lspl[1])+float(lspl[2])/60.+float(lspl[3])/3600.)
+            dec_i = np.abs(float(lspl[4]))+float(lspl[5])/60.+float(lspl[6])/3600.
+            is_neg = float(lspl[4]) < 0
+            if is_neg:
+                dec_i *= -1
+            
+            flags = line[59]+line[68]
+            if ':' in flags:
+                continue
+            
+            zem_i = np.float(line[61:66])
+            zabs_i = np.float(line[70:75])
+            if (zem_i == -1) | (zabs_i == -1):
+                continue
+                
+            type_i = line[77:80]
+            
+            ra.append(ra_i)
+            dec.append(dec_i)
+            zabs.append(zabs_i)
+            zem.append(zem_i)
+            type.append(type_i)
+    
+    zbest = np.cast[float](zem)
+    zbest[zbest <= 0] = np.cast[float](zabs)[zbest <= 0]
+    keep = zbest > 0
+    
+    stru = {}
+    stru['ra'] = np.cast[float](ra)[keep]
+    stru['dec'] = np.cast[float](dec)[keep]
+    stru['zabs'] = np.cast[float](zabs)[keep]
+    stru['zem'] = np.cast[float](zem)[keep]
+    stru['type'] = np.array(type)[keep]
+    stru['zuse'] = zbest[keep]
+    
+    return stru
+    

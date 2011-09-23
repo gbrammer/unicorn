@@ -374,7 +374,7 @@ def select_high_eqw():
     unicorn.catalogs.read_catalogs()
     from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
     
-    keep = unicorn.catalogs.run_selection(zmin=1.1, zmax=2.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=9.5, massmax=15, magmin=0, magmax=25)
+    keep = unicorn.catalogs.run_selection(zmin=0, zmax=3.5, fcontam=0.2, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=9.5, massmax=15, magmin=0, magmax=25)
     
     ##### Find objects near to bright stars
     bright_star = (phot.flux_radius[phot.idx] < 4) & (phot.mag_f1392w[phot.idx] < 16)
@@ -390,10 +390,10 @@ def select_high_eqw():
     
     #### Emission lines
     sn_ha = lines.halpha_eqw / lines.halpha_eqw_err
-    ha_emline = (lines.halpha_eqw[lines.idx] < 50)  & (sn_ha[lines.idx] > 7)
+    ha_emline = (lines.halpha_eqw[lines.idx] < 20)  & (sn_ha[lines.idx] > 5)
 
     sn_oiii = lines.oiii_eqw / lines.oiii_eqw_err
-    oiii_emline = (lines.oiii_eqw[lines.idx] > 50)  & (sn_oiii[lines.idx] > 7)
+    oiii_emline = (lines.oiii_eqw[lines.idx] > 20)  & (sn_oiii[lines.idx] > 5)
 
     emline = ha_emline | oiii_emline
     emline = oiii_emline
@@ -402,10 +402,13 @@ def select_high_eqw():
     print len(keep[cat_keep])
     
     #### Point sources
-    point_source = (phot.flux_radius[phot.idx] < 3.5) & (phot.mag_f1392w[phot.idx] < 22)
+    point_source = (phot.flux_radius[phot.idx] < 5) & (phot.mag_f1392w[phot.idx] < 23)
+    
+    #### large objects
+    large_objects = (phot.flux_radius[phot.idx] > 10) & (zout.z_peak[0::3] > 1)
     
     #### Run a selection and make a website
-    unicorn.catalogs.make_selection_catalog(point_source & emline, filename='massive_lines.cat', make_html=True)
+    unicorn.catalogs.make_selection_catalog(large_objects & emline, filename='massive_lines.cat', make_html=True)
     os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
 
 def make_selection_for_Pieters_paper():

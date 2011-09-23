@@ -2076,6 +2076,127 @@ def equivalent_width_errors():
         
     fig.savefig('equivalent_width_errors.pdf')
     
+def zphot_zspec_plot():
+    
+    import unicorn
+    import unicorn.catalogs
+    import copy
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    if unicorn.catalogs.zsp is None:
+        unicorn.catalogs.make_specz_catalog()
+    
+    zsp = unicorn.catalogs.zsp
+    
+    maglim = 24
+    qzmax = 0.2
+    
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    
+    #### Same selection but nothing on specz
+    keep_nospec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7)
+    keep_hasspec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    
+    print len(keep[keep_hasspec])*1./len(keep[keep_nospec]), len(keep[keep_nospec])
+    
+    #### Only way to get out a few objects where the photometry wasn't found for the fit
+    keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+            
+    fig = unicorn.catalogs.plot_init(left=0.08, xs=4)
+    ax = fig.add_subplot(111)
+    
+    zsplit = 0.7
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), marker='o', linestyle='None', alpha=0.2, color='black', markersize=5)
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), marker='o', linestyle='None', alpha=0.2, color='0.9', markersize=5)
+    
+    ax.plot([0,5],[0,5], color='white', alpha=0.2, linewidth=3)
+    ax.plot([0,5],[0,5], color='black', alpha=0.5, linewidth=1)
+    
+    zz = np.array([0,4])
+    ax.plot(np.log10(1+zz), np.log10(1+zz+0.1*(1+zz)), linestyle='--', color='0.8', alpha=0.5)
+    ax.plot(np.log10(1+zz), np.log10(1+zz-0.1*(1+zz)), linestyle='--', color='0.8', alpha=0.5)
+    
+    ax.set_xticklabels(['0','1','2','3','4'])
+    ax.set_xticks(np.log10(1+np.array([0,1,2,3,4])))
+    ax.set_yticklabels(['0','1','2','3','4'])
+    ax.set_yticks(np.log10(1+np.array([0,1,2,3,4])))
+    ax.set_xlim(np.log10(1),np.log10(4+1))
+    ax.set_ylim(np.log10(1),np.log10(4+1))
+    
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
+    ax.set_ylabel(r'$z_\mathrm{G141+phot}$')
+    
+    dz = (zout.z_peak[0::3] - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
+    clip = np.abs(dz) < 0.1
+    sigma_gt1 = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 1)])
+    sigma_gt1_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 1) & clip])
+    sigma_gt0_biw = threedhst.utils.biweight(dz[keep & (zout.z_spec[0::3] > 0.7)])
+    sigma_gt0 = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 0.7)])
+    sigma_gt0_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 0.7) & clip])
+    NOUT = len(dz[keep & (zout.z_spec[0::3] > 0.7) & ~clip])*1./len(dz[keep & (zout.z_spec[0::3] > 0.7)])
+    
+    print sigma_gt0, sigma_gt0_clip, sigma_gt1, sigma_gt1_clip, NOUT
+    ax.text(0.1,0.9,r'$m_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z >\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=12)
+    ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > 0.7)])), transform=ax.transAxes, fontsize=12)
+    ax.text(0.1,0.72,r'$\sigma_\mathrm{NMAD}=%.4f$' %(sigma_gt0), transform=ax.transAxes, fontsize=12)
+    pct = '\%'
+    ax.text(0.1,0.63,r'$f_\mathrm{>0.1}=%.1f%s$' %(NOUT*100,pct), transform=ax.transAxes, fontsize=12)
+    
+    fig.savefig('zphot_zspec.pdf')
+    
+    ##### Show line misidentifications
+    # zha = np.log10(np.array([1.05e4,1.68e4])/6563.)
+    # ax.plot(zha, zha+np.log10(6563./5007), color='green', alpha=0.5)
+    # ax.plot(zha, zha+np.log10(6563./3727), color='purple', alpha=0.5)
+    # ax.plot(zha, zha+np.log10(6563./4863), color='orange', alpha=0.5)
+    # zhb = np.log10(np.array([1.05e4,1.68e4])/4861.)
+    # ax.plot(zhb, zhb+np.log10(4861./3727), color='blue', alpha=0.5)
+    # zoiii = np.log10(np.array([1.05e4,1.68e4])/3727.)
+    # ax.plot(zoiii, zoiii+np.log10(3727./4861), color='blue', alpha=0.5)
+    
+    # plt.xlim(0,np.log10(1+5))
+    # plt.ylim(0,np.log10(1+5))
+    
+    #### Offset near z=1, appears to be due to the tilted slope of the spectrum being a bit too steep.  If you just use a 0th order offset correction to the spectrum (TILT_ORDER=0), the redshifts for many of these objects become correct
+    #keep = keep & (np.array(zsp.source)[zsp.mat_idx] == 'Barger')
+    
+    if (1==0):
+        dzlog = np.log10(1+zout.z_peak[0::3]) - np.log10(1+zsp.zspec[zsp.mat_idx])
+    
+        bad = (dzlog > 0.027) & (dzlog < 0.047 ) & (np.log10(1+zsp.zspec[zsp.mat_idx]) > 0.2) & keep
+
+        bad = (dzlog > 0.18) & keep
+        bad = (np.abs(dz) > 0.1) & (zsp.zspec[zsp.mat_idx] > 0.7) & keep
+
+        print np.array(zsp.source)[zsp.mat_idx][bad]
+        print phot.id[phot.idx][bad]
+
+        for id in phot.id[phot.idx][bad]:
+            os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/EAZY/%s_eazy.png' %(id))
+
+        fig = unicorn.catalogs.plot_init(left=0.12)
+        ax = fig.add_subplot(111)
+        ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep]), dzlog[keep], marker='o', linestyle='None', alpha=0.5, color='black', markersize=5)
+        ax.set_xlim(0,np.log10(4+1))
+        ax.set_ylim(-1,1)
+
+        #### nearby offset at z~1 ~ 0.035 in log(1+z)
+        offset = 0.036
+        print 6563*10**(-offset), 5007*10**(-offset), 4861*10**(-offset), 3727*10**(-offset)
+    
+def example_objects():
+    
+    ########   AGN/Quasars
+    ### Binary quasar: GOODS-N-42-G141_00388/384
+    ### z=2.2 quasar: COSMOS-1-G141_00206	
+    ### very broad H-a line, z=1.22: PRIMO-1101-G141_00993
+    ### Even more interesting merger/quasar, z=1.778: GOODS-N-36-G141_00991	
+    ### Another mess: COSMOS-3-G141_01156, z=1.34
+    ### Multiple components, z=1.27 GOODS-N-33-G141_01028/1073/1069/1055
     
     
     

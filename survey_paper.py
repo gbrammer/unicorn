@@ -2177,7 +2177,7 @@ def zphot_zspec_plot():
 
         for id in phot.id[phot.idx][bad]:
             os.system('wget http://3dhst:getspecs@unicorn.astro.yale.edu/P/GRISM_v1.6/EAZY/%s_eazy.png' %(id))
-
+        
         fig = unicorn.catalogs.plot_init(left=0.12)
         ax = fig.add_subplot(111)
         ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep]), dzlog[keep], marker='o', linestyle='None', alpha=0.5, color='black', markersize=5)
@@ -2187,6 +2187,50 @@ def zphot_zspec_plot():
         #### nearby offset at z~1 ~ 0.035 in log(1+z)
         offset = 0.036
         print 6563*10**(-offset), 5007*10**(-offset), 4861*10**(-offset), 3727*10**(-offset)
+    
+def find_brown_dwarf():
+    import unicorn
+    import unicorn.catalogs
+    import copy
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    int_lam = np.array([0.77e4, 1.25e4, 2.1e4])
+    
+    
+    fp = open('stars_ijk.dat','w')
+    fp.write('# id ii jj kk\n')
+    
+    ##### Known Brown dwarf
+    object = 'AEGIS-3-G141_00195'
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s' %(object), OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/ANALYSIS/REDSHIFT_FITS_v1.6/OUTPUT/', CACHE_FILE = 'Same')
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    so = np.argsort(lci[~is_spec])
+    yint = np.interp(int_lam, lci[~is_spec][so], fobs[~is_spec][so])/(int_lam/5500.)**2
+    fp.write('%s %.3e %.3e %.3e\n' %(object, yint[0], yint[1], yint[2]))
+    
+    ###### Loop through all point sources
+    stars = (phot.flux_radius[phot.idx] < 3) & (phot.mag_f1392w[phot.idx] < 24) & (mcat.rmatch[mcat.idx] < 0.5)
+    for object in phot.id[phot.idx][stars]:
+        print noNewLine+'%s' %(object)
+        try:
+            lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s' %(object), OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/ANALYSIS/REDSHIFT_FITS_v1.6/OUTPUT/', CACHE_FILE = 'Same')
+        except:
+            pass
+        #
+        dlam_spec = lci[-1]-lci[-2]
+        is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        so = np.argsort(lci[~is_spec])
+        yint = np.interp(int_lam, lci[~is_spec][so], fobs[~is_spec][so])/(int_lam/5500.)**2
+        fp.write('%s %.3e %.3e %.3e\n' %(object, yint[0], yint[1], yint[2]))
+        
+    fp.close()
+    
+    
     
 def example_objects():
     
@@ -2198,5 +2242,8 @@ def example_objects():
     ### Another mess: COSMOS-3-G141_01156, z=1.34
     ### Multiple components, z=1.27 GOODS-N-33-G141_01028/1073/1069/1055
     
+    ######## Brown dwarf
+    ###  AEGIS-3-G141_00195
     
+    pass
     

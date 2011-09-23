@@ -2230,8 +2230,30 @@ def find_brown_dwarf():
         
     fp.close()
     
-    
-    
+    if (1 == 0):
+        ijk = catIO.Readfile('stars_ijk.dat')
+        ij = -2.5*np.log10(ijk.ii/ijk.jj)
+        jk = -2.5*np.log10(ijk.jj/ijk.kk)
+        plt.plot(ij, jk, marker='o', markersize=3, color='black', alpha=0.8, linestyle='None')
+        plt.plot(ij[0], jk[0], marker='o', markersize=8, color='red', alpha=0.5, linestyle='None')
+        
+        mat = ijk.id == 'AEGIS-11-G141_00314'
+        plt.plot(ij[mat], jk[mat], marker='o', markersize=8, color='orange', alpha=0.5, linestyle='None')
+        
+        bd = phot.id[phot.idx] == 'x'
+        for i, obj in enumerate(ijk.id):
+            bd[phot.id[phot.idx] == obj] = (ij[i] > -0.) & (jk[i] < -1.7)
+        
+        #
+        bdf = unicorn.analysis.BD_fit()
+        
+        for obj in phot.id[phot.idx][bd]:
+            bdf.fit('/Users/gbrammer/Sites_GLOBAL/P/GRISM/ascii/%s.dat' %(obj), chi2_limit=100, trim_mtype=False, max_contam=0.8)
+            
+        
+        unicorn.catalogs.make_selection_catalog(bd, filename='massive_lines.cat', make_html=True)
+        os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
+        
 def example_objects():
     
     ########   AGN/Quasars

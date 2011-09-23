@@ -1898,6 +1898,8 @@ def read_steidel(verbose=True):
     """
     Read Steidel 2003 LBG catalogs
     """
+    import unicorn
+    
     tables = glob.glob(unicorn.GRISM_HOME+'/ANALYSIS/SPECTROSCOPIC_REDSHIFTS/Steidel03/table*.dat')
     
     ra = []

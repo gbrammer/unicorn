@@ -197,7 +197,8 @@ class selectionParams():
         self.massmax=15
         self.magmin=0
         self.magmax=30
-        
+        self.additional = ''
+
 def run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
     """
     Run a selection on the 3D-HST catalogs
@@ -317,6 +318,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <br> %.2f < <b>z_gris</b> < %.2f
         <br> <b>fcontam</b> < %.2f
         <br> %.2f < <b>fcover</b> < %.2f
+        <br> %s 
     </p> 
     <h2> N=%d, <a href=./%s>catalog</a> </h2>
     
@@ -334,7 +336,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <th> GALFIT </th> 
     </thead> 
     <tbody> 
-    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, cat.N, catalog_file)
+    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, par.additionsl, cat.N, catalog_file)
     
     lines = [head]
     for i in range(cat.N):
@@ -390,12 +392,15 @@ def select_high_eqw():
     
     #### Emission lines
     sn_ha = lines.halpha_eqw / lines.halpha_eqw_err
-    ha_emline = (lines.halpha_eqw[lines.idx] < 20)  & (sn_ha[lines.idx] > 5)
+    ha_emline = (lines.halpha_eqw[lines.idx] > 30)  & (sn_ha[lines.idx] > 7)
+
+    sn_hb = lines.hbeta_eqw / lines.hbeta_eqw_err
+    hb_emline = (lines.hbeta_eqw[lines.idx] > 30)  & (sn_hb[lines.idx] > 7)
 
     sn_oiii = lines.oiii_eqw / lines.oiii_eqw_err
-    oiii_emline = (lines.oiii_eqw[lines.idx] > 20)  & (sn_oiii[lines.idx] > 5)
+    oiii_emline = (lines.oiii_eqw[lines.idx] > 30)  & (sn_oiii[lines.idx] > 7)
 
-    emline = ha_emline | oiii_emline
+    emline = ha_emline | oiii_emline | hb_emline
     emline = oiii_emline
     
     cat_keep = keep & zspec & ha_emline
@@ -406,11 +411,46 @@ def select_high_eqw():
     
     #### large objects
     large_objects = (phot.flux_radius[phot.idx] > 10) & (zout.z_peak[0::3] > 1)
-    
-    #### Run a selection and make a website
-    unicorn.catalogs.make_selection_catalog(large_objects & emline, filename='massive_lines.cat', make_html=True)
-    os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
 
+    #### Massive galaxies
+    massive = unicorn.catalogs.run_selection(zmin=1.6, zmax=5, fcontam=1., qzmin=0., qzmax=10, dr=1.0, has_zspec=False, fcovermin=0.8, fcovermax=1.0, massmin=10.98, massmax=15, magmin=0, magmax=23)
+    
+    #### highz
+    highz = unicorn.catalogs.run_selection(zmin=3.5, zmax=5, fcontam=1., qzmin=0., qzmax=1, dr=1.0, has_zspec=False, fcovermin=0.8, fcovermax=1.0, massmin=8.98, massmax=15, magmin=0, magmax=25)
+    
+    #### Photometric velocity dispersion
+    sersicn = gfit.n[gfit.idx]
+    sersicn[sersicn > 4] = 4.
+    
+    Kv = 73.32/(10.465+(sersicn-0.94)**2)+0.954
+    Kstar = 0.557*Kv
+    # G = 6.67300 × 10-11 m3 kg-1 s-2
+    G_km_msun = 6.673e-11 * (1./1000)**3 * (2e30)
+    re_km = gfit.r_e_kpc_circ[gfit.idx]*3.1e16
+    sigma = np.sqrt(G_km_msun * 10**mcat.logm[mcat.idx] / Kstar / re_km)
+    sigma[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
+    sigma[mcat.id_f140w[mcat.idx] == 'COSMOS-7-G141_00143']
+    Kstar[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
+    
+    # xx = np.arange(1,4,0.02)
+    # plt.plot(xx,73.32/(10.465+(xx-0.94)**2)+0.954)
+    
+    init = unicorn.catalogs.run_selection(zmin=0, zmax=5, fcontam=0.8, qzmin=0., qzmax=1, dr=1.0, has_zspec=False, fcovermin=0.8, fcovermax=1.0, massmin=9, massmax=15, magmin=0, magmax=24)
+    
+    high_sigma = (sigma > 300) & (mcat.logm[mcat.idx] > 9) & (mcat.rmatch[mcat.idx] < 1) & (zout.q_z[0::3] < 1) & (phot.fcontam[phot.idx] < 0.8) & (gfit.r_e[gfit.idx] > 0.1)
+    high_sigma = (sigma > 300) & (gfit.r_e[gfit.idx] > 0.1) & init
+    
+    par = unicorn.catalogs.selectionParams()
+    par.additional='&sigma;[inf] > 300 km/s, r_e > 0.1 pix'
+    
+    high_sigma[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
+    (high_sigma & emline)[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
+    len(high_sigma[high_sigma & emline])
+
+    #### Run a selection and make a website
+    unicorn.catalogs.make_selection_catalog(high_sigma & emline, filename='massive_lines.cat', make_html=True)
+    os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
+    
 def make_selection_for_Pieters_paper():
     import unicorn
     import unicorn.catalogs

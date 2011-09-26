@@ -426,7 +426,7 @@ def select_high_eqw():
     
     Kv = 73.32/(10.465+(sersicn-0.94)**2)+0.954
     Kstar = 0.557*Kv
-    # G = 6.67300 × 10-11 m3 kg-1 s-2
+    # G = 6.67300 x 10-11 m3 kg-1 s-2
     G_km_msun = 6.673e-11 * (1./1000)**3 * (2e30)
     re_km = gfit.r_e_kpc_circ[gfit.idx]*3.1e16
     sigma = np.sqrt(G_km_msun * 10**mcat.logm[mcat.idx] / Kstar / re_km)

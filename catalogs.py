@@ -184,24 +184,26 @@ def read_catalogs(force=False):
     
 class selectionParams():
     def __init__(self, zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
-        self.zmin=1.0
-        self.zmax=1.5
-        self.fcontam=0.2
-        self.qzmin=0.
-        self.qzmax=0.4
-        self.dr=1.0
-        self.has_zspec=False
-        self.fcovermin=0.9
-        self.fcovermax=1.0
-        self.massmin=11
-        self.massmax=15
-        self.magmin=0
-        self.magmax=30
+        self.zmin=zmin
+        self.zmax=zmax
+        self.fcontam=fcontam
+        self.qzmin=qzmin
+        self.qzmax=qzmax
+        self.dr=dr
+        self.has_zspec=has_zspec
+        self.fcovermin=fcovermin
+        self.fcovermax=fcovermax
+        self.massmin=massmin
+        self.massmax=massmax
+        self.magmin=magmin
+        self.magmax=magmax
         self.additional = ''
 
 def run_selection(zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
     """
     Run a selection on the 3D-HST catalogs
+    
+    zmin=1.0; zmax=1.5; fcontam=0.2; qzmin=0.; qzmax=0.4; dr=1.0; has_zspec=False; fcovermin=0.9; fcovermax=1.0; massmin=7; massmax=15; magmin=0; magmax=30
     """
     import unicorn.catalogs
     from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
@@ -336,7 +338,7 @@ def make_selection_html(catalog_file='selection.cat'):
         <th> GALFIT </th> 
     </thead> 
     <tbody> 
-    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, par.additionsl, cat.N, catalog_file)
+    """ %(par.magmin, par.magmax, par.massmin, par.massmax, par.zmin, par.zmax, par.fcontam, par.fcovermin, par.fcovermax, par.additional, cat.N, catalog_file)
     
     lines = [head]
     for i in range(cat.N):
@@ -435,9 +437,9 @@ def select_high_eqw():
     # xx = np.arange(1,4,0.02)
     # plt.plot(xx,73.32/(10.465+(xx-0.94)**2)+0.954)
     
-    init = unicorn.catalogs.run_selection(zmin=0, zmax=5, fcontam=0.8, qzmin=0., qzmax=1, dr=1.0, has_zspec=False, fcovermin=0.8, fcovermax=1.0, massmin=9, massmax=15, magmin=0, magmax=24)
+    init = unicorn.catalogs.run_selection(zmin=0, zmax=5, fcontam=0.8, qzmin=0., qzmax=1, dr=1.0, has_zspec=False, fcovermin=0.7, fcovermax=1.0, massmin=9, massmax=15, magmin=0, magmax=24)
     
-    high_sigma = (sigma > 300) & (mcat.logm[mcat.idx] > 9) & (mcat.rmatch[mcat.idx] < 1) & (zout.q_z[0::3] < 1) & (phot.fcontam[phot.idx] < 0.8) & (gfit.r_e[gfit.idx] > 0.1)
+    #high_sigma = (sigma > 300) & (mcat.logm[mcat.idx] > 9) & (mcat.rmatch[mcat.idx] < 1) & (zout.q_z[0::3] < 1) & (phot.fcontam[phot.idx] < 0.8) & (gfit.r_e[gfit.idx] > 0.1)
     high_sigma = (sigma > 300) & (gfit.r_e[gfit.idx] > 0.1) & init
     
     par = unicorn.catalogs.selectionParams()

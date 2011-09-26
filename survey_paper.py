@@ -2099,7 +2099,17 @@ def zphot_zspec_plot():
     
     #### Same selection but nothing on specz
     keep_nospec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7)
+    
+    keep_nospec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
+    
     keep_hasspec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+
+    keep_hasspec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
+    
+    #### Spectroscopic redshift ratio by field
+    for field in ['GOODS-N', 'GOODS-S', 'COSMOS', 'AEGIS']:
+        print '%s %.2f' %(field, len(keep[keep_hasspec & (phot.field[phot.idx] == field)])*1. / len(keep[keep_nospec & (phot.field[phot.idx] == field)]))
+        
     
     print len(keep[keep_hasspec])*1./len(keep[keep_nospec]), len(keep[keep_nospec])
     
@@ -2253,19 +2263,4 @@ def find_brown_dwarf():
         
         unicorn.catalogs.make_selection_catalog(bd, filename='massive_lines.cat', make_html=True)
         os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
-        
-def example_objects():
-    
-    ########   AGN/Quasars
-    ### Binary quasar: GOODS-N-42-G141_00388/384
-    ### z=2.2 quasar: COSMOS-1-G141_00206	
-    ### very broad H-a line, z=1.22: PRIMO-1101-G141_00993
-    ### Even more interesting merger/quasar, z=1.778: GOODS-N-36-G141_00991	
-    ### Another mess: COSMOS-3-G141_01156, z=1.34
-    ### Multiple components, z=1.27 GOODS-N-33-G141_01028/1073/1069/1055
-    
-    ######## Brown dwarf
-    ###  AEGIS-3-G141_00195
-    
-    pass
-    
+            

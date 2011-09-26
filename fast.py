@@ -1,3 +1,29 @@
+
+import os
+import pyfits
+import numpy as np
+import glob
+import shutil
+import time
+
+import matplotlib.pyplot as plt
+
+USE_PLOT_GUI=False
+
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib.ticker as mticker
+
+from pyraf import iraf
+from iraf import iraf
+
+import threedhst
+import threedhst.eazyPy as eazy
+import threedhst.catIO as catIO
+import unicorn
+
+import cosmocalc
+
 def go_all():
     import glob
     
@@ -8,7 +34,7 @@ def go_all():
         if (not os.path.exists(object+'_fast.png')) | force:
             check_fast(object=object)
         
-def check_fast(object='AEGIS-1-G141_00497'):
+def check_fast(object='AEGIS-1-G141_00497', wmin=2000, wmax=2.4e4, logx=False, image_type='png'):
 
     if object.startswith('GOODS-S') | object.startswith('WFC3') | object.startswith('GEORGE') | object.startswith('PRIMO'):
         abzp=23.86
@@ -42,8 +68,9 @@ def check_fast(object='AEGIS-1-G141_00497'):
     wfast, tfast = np.loadtxt('FAST_OUTPUT/BEST_FITS/%s_threedhst_2.fit' %(object), skiprows=1, unpack=True)
     plt.plot(wfast, tfast, color='purple', alpha=0.5)
     
-    #plt.semilogx()
-    plt.xlim(2000,2.3e4)
+    if logx:
+        plt.semilogx()
+    plt.xlim(wmin,wmax)
 
     ymax = np.max(obs_sed.fnu*obs_convert)
     plt.ylim(-0.1*ymax,1.3*ymax)
@@ -67,5 +94,5 @@ def check_fast(object='AEGIS-1-G141_00497'):
     
     plt.text(xtext,0.0*ymax,r'log Age: $%.1f^{\ %.1f}_{\ %.1f}$    $%.1f^{\ %.1f}_{\ %.1f}$' %(fout.lage[0], fout.u68_lage[0], fout.l68_lage[0], fout.lage[1], fout.u68_lage[1], fout.l68_lage[1]), horizontalalignment=xal)
     
-    fig.savefig(object+'_fast.png')
+    fig.savefig(object+'_fast.'+image_type)
     plt.close()

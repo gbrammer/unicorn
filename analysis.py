@@ -3244,13 +3244,22 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     fobs = tempfilt['fnu'][:,0]/(lci/5500.)**2
     efobs = tempfilt['efnu'][:,0]/(lci/5500.)**2
     
-    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:6,coeffs['izbest'][0]],coeffs['coeffs'][0:6,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    idx_ha, idx_hb, idx_oiii = 6,7,8
+    for i,temp in enumerate(eazy_param.templates):
+        if temp == 'templates/single_lines/OIII_5006.dat':
+            idx_oiii = i
+        if temp == 'templates/single_lines/Hb_4861.dat':
+            idx_hb = i
+        if temp == 'templates/single_lines/Ha_6562.dat':
+            idx_ha = i
+        
+    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:idx_ha,coeffs['izbest'][0]],coeffs['coeffs'][0:idx_ha,0])/(lci/5500.)**2*(1+zpeak_i)**2
     
-    obs_sed_ha = np.dot(tempfilt['tempfilt'][:,6,coeffs['izbest'][0]],coeffs['coeffs'][6,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    obs_sed_ha = np.dot(tempfilt['tempfilt'][:,idx_ha,coeffs['izbest'][0]],coeffs['coeffs'][idx_ha,0])/(lci/5500.)**2*(1+zpeak_i)**2
     
-    obs_sed_oiii = np.dot(tempfilt['tempfilt'][:,7,coeffs['izbest'][0]],coeffs['coeffs'][7,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    obs_sed_oiii = np.dot(tempfilt['tempfilt'][:,idx_oiii,coeffs['izbest'][0]],coeffs['coeffs'][idx_oiii,0])/(lci/5500.)**2*(1+zpeak_i)**2
     
-    obs_sed_hb = np.dot(tempfilt['tempfilt'][:,8,coeffs['izbest'][0]],coeffs['coeffs'][8,0])/(lci/5500.)**2*(1+zpeak_i)**2
+    obs_sed_hb = np.dot(tempfilt['tempfilt'][:,idx_hb,coeffs['izbest'][0]],coeffs['coeffs'][idx_hb,0])/(lci/5500.)**2*(1+zpeak_i)**2
     
     # obs_sed_ha /= obs_sed_ha.max()
     # obs_sed_oiii /= obs_sed_oiii.max()
@@ -3317,10 +3326,10 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
         
     """
     
-    halpha = temp_seds['temp_seds'][:,6]*coeffs['coeffs'][6,0]
+    halpha = temp_seds['temp_seds'][:,idx_ha]*coeffs['coeffs'][idx_ha,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
-    halpha_flux = coeffs['coeffs'][6,0]/coeffs['tnorm'][6]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    halpha_flux = coeffs['coeffs'][idx_ha,0]/coeffs['tnorm'][idx_ha]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     halpha_err = halpha_eqw*relerr[1]
     if perror[1] == 0:
         halpha_err = -1.
@@ -3329,18 +3338,18 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     # halpha_lum = halpha_flux*cc['DL_cm']**2*4*np.pi
     # halpha_sfr = 7.9e-42*halpha_lum
     
-    oiii = temp_seds['temp_seds'][:,7]*coeffs['coeffs'][7,0]
+    oiii = temp_seds['temp_seds'][:,idx_oiii]*coeffs['coeffs'][idx_oiii,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0
     oiii_eqw = -np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
-    oiii_flux = coeffs['coeffs'][7,0]/coeffs['tnorm'][7]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(5007.*(1+zout.z_peak[0]))**2*(5007.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    oiii_flux = coeffs['coeffs'][idx_oiii,0]/coeffs['tnorm'][idx_oiii]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(5007.*(1+zout.z_peak[0]))**2*(5007.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     oiii_err = oiii_eqw*relerr[2]
     if perror[2] == 0:
         oiii_err = -1.
     
-    hbeta =  temp_seds['temp_seds'][:,8]*coeffs['coeffs'][8,0]
+    hbeta =  temp_seds['temp_seds'][:,idx_hb]*coeffs['coeffs'][idx_hb,0]
     hbeta[hbeta < 1.e-8*hbeta.max()] = 0
     hbeta_eqw = -np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
-    hbeta_flux = coeffs['coeffs'][8,0]/coeffs['tnorm'][8]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(4861.*(1+zout.z_peak[0]))**2*(4861.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
+    hbeta_flux = coeffs['coeffs'][idx_hb,0]/coeffs['tnorm'][idx_hb]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(4861.*(1+zout.z_peak[0]))**2*(4861.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     hbeta_err = hbeta_eqw*relerr[3]
     if perror[3] == 0:
         hbeta_err = -1.

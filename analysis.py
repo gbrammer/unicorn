@@ -3343,9 +3343,23 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     halpha = temp_seds['temp_seds'][:,idx_ha]*coeffs['coeffs'][idx_ha,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
-    halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
+    halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]*(1+zpeak_i))
     
+    # fp = open('../EQW_FOR_MATTIA/test_temp.dat','w')
+    # fp.write('# lam continuum line\n')
+    # for i in range(1,len(temp_seds['templam'])):
+    #     fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
+    # fp.close()    
     ## test: eqw = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
+    # use = is_spec & (obs_sed_ha > 1.e-8*obs_sed_ha.max())
+    # eqw = -np.trapz((-(tempfilt['fnu'][:,0]/(lci/5500.)**2-obs_sed_continuum)/obs_sed_continuum)[use], lci[use])
+    # 
+    # idx = np.arange(len(obs_sed_continuum))
+    # fp = open('../EQW_FOR_MATTIA/test_obs.dat','w')
+    # fp.write('# lam fnu continuum line\n')
+    # for i in idx[is_spec]:
+    #     fp.write('%.6e %.3e %.3e %.3e\n' %(lci[i], tempfilt['fnu'][i,0], obs_sed_continuum[i], obs_sed_ha[i]))
+    # fp.close()
     
     halpha_flux = coeffs['coeffs'][idx_ha,0]/coeffs['tnorm'][idx_ha]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     halpha_err = halpha_eqw*relerr[1]
@@ -3358,7 +3372,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     oiii = temp_seds['temp_seds'][:,idx_oiii]*coeffs['coeffs'][idx_oiii,0]
     oiii[oiii < 1.e-8*oiii.max()] = 0
-    oiii_eqw = -np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1])
+    oiii_eqw = -np.trapz((-oiii/continuum)[1:-1], temp_seds['templam'][1:-1]*(1+zpeak_i))
     oiii_flux = coeffs['coeffs'][idx_oiii,0]/coeffs['tnorm'][idx_oiii]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(5007.*(1+zout.z_peak[0]))**2*(5007.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     oiii_err = oiii_eqw*relerr[2]
     if perror[2] == 0:
@@ -3366,7 +3380,7 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     
     hbeta =  temp_seds['temp_seds'][:,idx_hb]*coeffs['coeffs'][idx_hb,0]
     hbeta[hbeta < 1.e-8*hbeta.max()] = 0
-    hbeta_eqw = -np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1])
+    hbeta_eqw = -np.trapz((-hbeta/continuum)[1:-1], temp_seds['templam'][1:-1]*(1+zpeak_i))
     hbeta_flux = coeffs['coeffs'][idx_hb,0]/coeffs['tnorm'][idx_hb]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(4861.*(1+zout.z_peak[0]))**2*(4861.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     hbeta_err = hbeta_eqw*relerr[3]
     if perror[3] == 0:
@@ -3481,7 +3495,7 @@ def test_equivalent_widths():
     idx = np.arange(len(obs_sed.lc))
     fp = open('junk.txt','w')
     for i in idx[is_spec]:
-        fp.write('%.1f %.3e\n' %(obs_sed.lc[i], obs_sed.obs_sed[i]*(5500./obs_sed.lc[i])**2 ))
+        fp.write('%.1f %.3e\n' %(obs_sed.lc[i], obs_sed.fnu[i]*(5500./obs_sed.lc[i])**2 ))
     fp.close()
     
     temp_sed = catIO.Readfile(object+'_temp_sed.dat')
@@ -3494,6 +3508,29 @@ def test_equivalent_widths():
     
     plt.plot(lci[is_spec], obs_sed.fnu[is_spec]*(5500./lci[is_spec])**2, color='black')
     plt.plot(lci[is_spec], obs_sed.obs_sed[is_spec]*(5500./lci[is_spec])**2, color='red')
+    plt.plot(lci[is_spec], obs_sed.continuum[is_spec]*(5500./lci[is_spec])**2, color='blue')
+    plt.plot(temp_sed.lam, temp_sed.fnu_temp*(5500./temp_sed.lam)**2, color='blue')
+    plt.plot(temp_sed.lam, temp_sed.continuum*(5500./temp_sed.lam)**2, color='blue')
+    
+    tt = catIO.Readfile('test_temp.dat')
+    plt.plot(tt.lam, tt.continuum, color='green')
+    plt.plot(tt.lam, tt.line, color='green')
+    
+    oo = catIO.Readfile('test_obs.dat')
+    plt.plot(oo.lam, oo.fnu/(oo.lam/5500.)**2, color='orange')
+    plt.plot(oo.lam, oo.continuum, color='purple')
+    
+    plt.xlim(1.1e4,1.7e4)
+    plt.ylim(0,100)
+    
+    np.trapz(-(obs_sed.line/obs_sed.continuum)[is_spec], obs_sed.lc[is_spec])
+    keep = (temp_sed.lam > 1.2e4) & (temp_sed.lam < 1.3e4)
+    np.trapz(-(temp_sed.line/temp_sed.continuum)[keep], temp_sed.lam[keep])
+    
+    keep = (tt.lam > 1.2e4) & (tt.lam < 1.3e4)
+    keep = (tt.lam > 0.6e4) & (tt.lam < 0.7e4)
+    np.trapz(-(tt.line/tt.continuum)[keep], tt.lam[keep]*(1+0.9341))
+    
     
 def find_brown_dwarfs():
     import glob

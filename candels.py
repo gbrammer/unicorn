@@ -75,39 +75,23 @@ def egs():
     #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
     ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
     ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits'
-    
+    ALIGN_IMAGE = '/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits'
+
     files=glob.glob('EGS-V*asn.fits')
     for file in files:
         if not os.path.exists(file.replace('asn','drz')):
             unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
-            
-    #### Refine F125W shifts, using F160W images as reference
-    files=glob.glob('EGS-V*F125W_asn.fits')
-    for file in files:
-        root = file.split('_asn')[0]
-        try:
-            threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
-              ALIGN_IMAGE=root.replace('F125W','F160W')+'_drz.fits',
-              fitgeometry='shift', clean=True,
-              ALIGN_EXTENSION=1)
-        except:
-            # continue
-            pass
-        #
-        threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
-             use_shiftfile=True, skysub=False,
-             final_scale=0.06, pixfrac=0.8, driz_cr=False,
-             updatewcs=False, clean=True, median=False)
-        #
-        threedhst.gmap.makeImageMap([root+'_drz.fits', root+'_align.fits[0]'], aper_list=[16], tileroot=[root,'F814W'], polyregions=glob.glob('EGS*F125W*reg'))
-
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=2,
+                SCALE=0.06, geometry='rxyscale,shift')
+    
     # V0T-F125 71/1I-F160Wsatellite trail, V54-125 - bad shift
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='EGS-V54-F125W',
-      ALIGN_IMAGE='EGS-V0R-F125W_drz.fits',
+    root = 'EGS-V72-F125W'
+
+    threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
+      ALIGN_IMAGE=ALIGN_IMAGE,
       fitgeometry='shift', clean=True,
-      ALIGN_EXTENSION=1)
+      ALIGN_EXTENSION=0)
     #
     threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
          use_shiftfile=True, skysub=False,
@@ -117,11 +101,10 @@ def egs():
     
     for filt in ['F125W', 'F160W']:
         files=glob.glob('EGS-V*-'+filt+'_asn.fits')
-        threedhst.utils.combine_asn_shifts(files, out_root='EGS-epoch2-'+filt,
-                       path_to_FLT='./', run_multidrizzle=False)
+        threedhst.utils.combine_asn_shifts(files, out_root='EGS-'+filt, path_to_FLT='./', run_multidrizzle=False)
         #
         SCALE = 0.06
-        threedhst.prep_flt_files.startMultidrizzle( 'EGS-epoch2-'+filt+'_asn.fits',
+        threedhst.prep_flt_files.startMultidrizzle( 'EGS-'+filt+'_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
@@ -159,7 +142,19 @@ def uds():
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                    SCALE=0.06, geometry='rxyscale')
+                    SCALE=0.06, geometry='rxyscale,shift')
+    #
+    root='UDS-V4Z-F160W'
+    threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
+      ALIGN_IMAGE=ALIGN_IMAGE,
+      fitgeometry='shift', clean=False,
+      ALIGN_EXTENSION=0)
+    
+    threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
+         use_shiftfile=True, skysub=False,
+         final_scale=0.06, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False)
+    
     ## Mosaic
     f125w_list = []
     f160w_list = []
@@ -171,13 +166,13 @@ def uds():
     threedhst.utils.combine_asn_shifts(f160w_list,out_root='UDS-epoch1-F160W', path_to_FLT='./', run_multidrizzle=False)
     
     for filt in ['F125W', 'F160W']:
-        SCALE = 0.128254
+        SCALE = 0.06
         ra, dec, nx, ny = 34.4081405556, -5.20018201235, 10422, 4349
         threedhst.prep_flt_files.startMultidrizzle( 'UDS-epoch1-'+filt+'_asn.fits',
              use_shiftfile=True, skysub=False,
-             final_scale=SCALE, pixfrac=1.0, driz_cr=False,
+             final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
+             ra=ra, dec=dec, final_outnx=nx*0.128254/SCALE, final_outny=ny*0.128254/SCALE)
              
     ########################
     ### Epoch2
@@ -191,7 +186,7 @@ def uds():
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                    SCALE=0.06, geometry='rxyscale')
+                    SCALE=0.06, geometry='rxyscale,shift')
     ## Mosaic
     f125w_list = []
     f160w_list = []
@@ -203,13 +198,13 @@ def uds():
     threedhst.utils.combine_asn_shifts(f160w_list,out_root='UDS-epoch2-F160W', path_to_FLT='./', run_multidrizzle=False)
     
     for filt in ['F125W', 'F160W']:
-        SCALE = 0.128254
+        SCALE = 0.06
         ra, dec, nx, ny = 34.4081405556, -5.20018201235, 10422, 4349
         threedhst.prep_flt_files.startMultidrizzle( 'UDS-epoch2-'+filt+'_asn.fits',
              use_shiftfile=True, skysub=False,
-             final_scale=SCALE, pixfrac=1.0, driz_cr=False,
+             final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
+             ra=ra, dec=dec, final_outnx=nx*0.128254/SCALE, final_outny=ny*0.128254/SCALE)
 
     ########################
     ### Full Mosaic
@@ -220,17 +215,19 @@ def uds():
     threedhst.utils.combine_asn_shifts(f160w_list,out_root='UDS-F160W', path_to_FLT='./', run_multidrizzle=False)
     
     for filt in ['F125W', 'F160W']:
-        SCALE = 0.128254
+        SCALE = 0.06
         ra, dec, nx, ny = 34.4081405556, -5.20018201235, 10422, 4349
         threedhst.prep_flt_files.startMultidrizzle( 'UDS-'+filt+'_asn.fits',
              use_shiftfile=True, skysub=False,
-             final_scale=SCALE, pixfrac=1.0, driz_cr=False,
+             final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
+             ra=ra, dec=dec, final_outnx=nx*0.128254/SCALE, final_outny=ny*0.128254/SCALE)
 
 def cdfs():
     import unicorn.candels
 
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT')
+    
     unicorn.candels.make_asn_files()
     
     list = catIO.Readfile('files.info')
@@ -249,7 +246,7 @@ def cdfs():
     wide1 = list.group == 'GOODS-W1'
     wide2 = list.group == 'GOODS-W2'
 
-    ALIGN_IMAGE='../ACS/h_sz*drz*fits'
+    ALIGN_IMAGE='/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz*fits'
     #ALIGN_IMAGE='../PREP_FLT/goods-s_f160w_drz.fits'
     
     ########################
@@ -257,19 +254,17 @@ def cdfs():
     ########################
     epochs = [epoch1, epoch2, epoch3, epoch4]
     
-    for i,epoch in enumerate(epochs[1:]):
-        e=i+2
-        #e=i+1
-        visits = np.unique(list.targname[epoch])
-        for visit in visits:
-            filters = np.unique(list.filter[list.targname == visit])
-            for filter in filters:
-                file = visit+'-'+filter+'_asn.fits'
-                if not os.path.exists(file.replace('asn','drz')):
-                    unicorn.candels.prep_candels(asn_file=file, 
-                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                        GET_SHIFT=False, DIRECT_HIGHER_ORDER=2,
-                        SCALE=0.128254)
+    visits = np.unique(list.targname)
+    for visit in visits:
+        filters = np.unique(list.filter[list.targname == visit])
+        for filter in filters:
+            file = visit+'-'+filter+'_asn.fits'
+            if not os.path.exists(file.replace('asn','drz')):
+                unicorn.candels.prep_candels(asn_file=file, 
+                    ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                    SCALE=0.06, geometry='rxyscale,shift')
+
         ## Mosaic
         f125w_list = []
         f160w_list = []
@@ -295,19 +290,60 @@ def cdfs():
         os.remove(file)
         
     #### Full deep mosaic
+    f105w_list = glob.glob('GOODS-S*F105W_asn.fits')
     f125w_list = glob.glob('GOODS-S*F125W_asn.fits')
     f160w_list = glob.glob('GOODS-S*F160W_asn.fits')
+    threedhst.utils.combine_asn_shifts(f105w_list,out_root='GOODS-deep-F105W', path_to_FLT='./', run_multidrizzle=False)
     threedhst.utils.combine_asn_shifts(f125w_list,out_root='GOODS-deep-F125W', path_to_FLT='./', run_multidrizzle=False)
     threedhst.utils.combine_asn_shifts(f160w_list,out_root='GOODS-deep-F160W', path_to_FLT='./', run_multidrizzle=False)
 
-    SCALE = 0.128254
+    SCALE = 0.06
     ra, dec, nx, ny = 53.127353, -27.798616, int(5670*0.128254/SCALE), int(5220*0.128254/SCALE)
-    for filt in ['F125W', 'F160W']:
+    for filt in ['F105W','F125W', 'F160W']:
         threedhst.prep_flt_files.startMultidrizzle('GOODS-deep-'+filt+ '_asn.fits',
         use_shiftfile=True, skysub=False,
-        final_scale=SCALE, pixfrac=1.0, driz_cr=False,
+        final_scale=SCALE, pixfrac=0.8, driz_cr=False,
         updatewcs=False, clean=True, median=False,
         ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
+    
+    #### Full wide mosaic
+    f105w_list = glob.glob('GOODS-W*F105W_asn.fits')
+    f125w_list = glob.glob('GOODS-W*F125W_asn.fits')
+    f160w_list = glob.glob('GOODS-W*F160W_asn.fits')
+    threedhst.utils.combine_asn_shifts(f105w_list,out_root='GOODS-wide-F105W', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(f125w_list,out_root='GOODS-wide-F125W', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(f160w_list,out_root='GOODS-wide-F160W', path_to_FLT='./', run_multidrizzle=False)
+
+    SCALE = 0.06
+    ra, dec, nx, ny = 53.166591, -27.898528, int(11320*0.06/SCALE), int(7900*0.06/SCALE)
+    for filt in ['F105W','F125W', 'F160W']:
+        threedhst.prep_flt_files.startMultidrizzle('GOODS-wide-'+filt+ '_asn.fits',
+        use_shiftfile=True, skysub=False,
+        final_scale=SCALE, pixfrac=0.8, driz_cr=False,
+        updatewcs=False, clean=True, median=False, ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
+    
+    #### Check PSF
+    files=glob.glob('GOODS-[wd]???*drz.fits')
+    for file in files[3:]:
+        unicorn.candels.easy_sextractor(drz_file=file)
+    
+    d105 = threedhst.sex.mySexCat('GOODS-deep-F105W_drz.cat')
+    d125 = threedhst.sex.mySexCat('GOODS-deep-F125W_drz.cat')
+    d160 = threedhst.sex.mySexCat('GOODS-deep-F160W_drz.cat')
+    
+    w105 = threedhst.sex.mySexCat('GOODS-wide-F105W_drz.cat')
+    w125 = threedhst.sex.mySexCat('GOODS-wide-F125W_drz.cat')
+    w160 = threedhst.sex.mySexCat('GOODS-wide-F160W_drz.cat')
+    
+    #plt.plot(d105['MAG_AUTO'], d105['FLUX_RADIUS'], marker='o', linestyle='None', color='blue', alpha=0.1)
+    plt.plot(d125['MAG_AUTO'], d125['FLUX_RADIUS'], marker='o', linestyle='None', color='blue', alpha=0.1)
+    plt.plot(d160['MAG_AUTO'], d160['FLUX_RADIUS'], marker='o', linestyle='None', color='red', alpha=0.1)
+
+    plt.plot(w125['MAG_AUTO'], w125['FLUX_RADIUS'], marker='o', linestyle='None', color='purple', alpha=0.2)
+    plt.plot(w160['MAG_AUTO'], w160['FLUX_RADIUS'], marker='o', linestyle='None', color='orange', alpha=0.2)
+    
+    plt.xlim(16,27)
+    plt.ylim(0,20)
     
     ########################
     ### Wide epochs
@@ -452,7 +488,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                        DIRECT_HIGHER_ORDER=2,
                        SCALE=0.06,
                        bg_skip=False,
-                       geometry='rxyscale'):
+                       geometry='rxyscale,shift'):
     
     import threedhst
     import threedhst.prep_flt_files
@@ -556,6 +592,38 @@ def make_test_catalog():
     
     plt.close()
 
+def easy_sextractor(drz_file='UDS-F125W_drz.fits', threshold=3, zeropoint=26.25, auto_zp=True, mode='direct'):
+    
+    header = pyfits.getheader(drz_file, 0)
+    filter = header['FILTER']
+
+    if auto_zp:
+        if filter == 'F105W':
+            zeropoint = 26.27
+        if filter == 'F140W':
+            zeropoint = 26.46
+        if filter == 'F125W':
+            zeropoint = 26.25
+        if filter == 'F160W':
+            zeropoint = 25.96
+    
+    ROOT_GRISM = drz_file.split('_drz.fits')[0]
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = ROOT_GRISM+'_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = ROOT_GRISM+'_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = drz_file+'[1]'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = '%.2f' %(threshold) 
+    se.options['ANALYSIS_THRESH']  = '%.2f' %(threshold) 
+    se.options['MAG_ZEROPOINT'] = '%.2f' %(zeropoint)
+    
+    status = se.sextractImage(drz_file+'[0]', mode=mode)
+    
 def star_stacks():
     """ 
     Make stacks of the images and weights around stars, 3DHST and CANDELS
@@ -640,4 +708,43 @@ def star_stacks():
     pyfits.writeto('star_drz_3d.fits', data=drz_125/count, clobber=True)
     pyfits.writeto('star_wht_3d.fits', data=wht_125/count, clobber=True)
     
+def check_drz_dq():
+    import time
+    import threedhst.dq
+    fp = open('dq_check.txt','a')
+    fp.write('# %s\n' %(time.ctime()))
+    
+    files=glob.glob('*drz.fits')
+    ds9 = threedhst.dq.myDS9()
+    
+    for file in files:
+        im= pyfits.open(file)
+        ds9.view(im[1])
+        ds9.scale(-0.02,0.05)
+        ds9.set('zoom to fit')
+        im.close()
+        #
+        inp = raw_input('%s 1/[0]: ' %(file))
+        if inp != '':
+            fp.write(file+'\n')
+    
+    fp.close()
+    
+def flag_dq_problems():
+    import threedhst.dq
+    bad_images = np.unique(np.loadtxt('dq_check.txt', dtype=np.str))
+    for bad in bad_images:
+        asn = bad.replace('_drz','_asn')
+        threedhst.dq.checkDQ(asn_direct_file=asn, asn_grism_file=asn, path_to_flt='../RAW/')
+    
+def redo_processing_for_bad_dq():
+    import threedhst.dq
+    bad_images = np.unique(np.loadtxt('dq_check.txt', dtype=np.str))
+    for bad in bad_images:
+        asn = bad.replace('_drz','_asn')
+        unicorn.candels.prep_candels(asn_file=asn, 
+            ALIGN_IMAGE = None, ALIGN_EXTENSION=0,
+            GET_SHIFT=False, DIRECT_HIGHER_ORDER=2,
+            SCALE=0.06, geometry='rxyscale,shift')
+        
     

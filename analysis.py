@@ -2895,15 +2895,24 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
         
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
     
+    eazy_param = eazy.EazyParam(FIT_DIR+'OUTPUT/%s.param' %(object))
+    for continuum_i, temp in enumerate(eazy_param.templates):
+        if 'single_lines' in temp:
+            break
+            
     #### Photometry + spectrum
     fp = open(savepath+object+'_obs_sed.dat','w')
-    fp.write('# lc fnu efnu obs_sed \n')
+    fp.write('# lc fnu efnu obs_sed continuum line\n')
 
     obs_sed = np.dot(tempfilt['tempfilt'][:,:,coeffs['izbest'][0]],\
                      coeffs['coeffs'][:,0])# /(lci/5500.)**2
     
+    #
+    obs_sed_cont = np.dot(tempfilt['tempfilt'][0:continuum_i,:,coeffs['izbest'][0]], coeffs['coeffs'][0:continuum_i,0])# /(lci/5500.)**2
+    obs_sed_line = np.dot(tempfilt['tempfilt'][continuum_i:,:,coeffs['izbest'][0]], coeffs['coeffs'][continuum_i:,0])# /(lci/5500.)**2
+    
     for i in range(tempfilt['NFILT']):
-        fp.write(' %10.6e %8.4e %8.4e  %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i]))
+        fp.write(' %10.6e %8.3e %8.3e  %8.3e  %8.3e  %8.3e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i], obs_sed_cont[i], obs_sed_line[i]))
     
     fp.close()
         
@@ -2912,11 +2921,17 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
     lambdaz = temp_seds['templam']*(1+zi)
     temp_sed = np.dot(temp_seds['temp_seds'],coeffs['coeffs'][:,0])
     temp_sed *= (lambdaz/5500.)**2/(1+zi)**2
+
+    temp_sed_cont = np.dot(temp_seds['temp_seds'][:,0:continuum_i],coeffs['coeffs'][0:continuum_i,0])
+    temp_sed_cont *= (lambdaz/5500.)**2/(1+zi)**2
+
+    temp_sed_line = np.dot(temp_seds['temp_seds'][:,continuum_i:],coeffs['coeffs'][continuum_i:,0])
+    temp_sed_line *= (lambdaz/5500.)**2/(1+zi)**2
     
     fp = open(savepath+object+'_temp_sed.dat','w')
-    fp.write('# lam fnu_temp\n')
+    fp.write('# lam fnu_temp continuum line\n')
     for i in range(temp_seds['NTEMPL']):
-        fp.write(' %10.6e %8.4e\n' %(lambdaz[i], temp_sed[i]))
+        fp.write(' %10.6e %8.3e %8.2e %8.2e\n' %(lambdaz[i], temp_sed[i], temp_sed_cont[i], temp_sed_line[i]))
     fp.close()
     
     #### p(z)

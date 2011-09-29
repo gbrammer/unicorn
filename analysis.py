@@ -2895,7 +2895,7 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
         
     tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
     
-    eazy_param = eazy.EazyParam(FIT_DIR+'OUTPUT/%s.param' %(object))
+    eazy_param = eazy.EazyParam('%s/%s.param' %(eazy_output, object))
     for continuum_i, temp in enumerate(eazy_param.templates):
         if 'single_lines' in temp:
             break

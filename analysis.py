@@ -2903,7 +2903,7 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
                      coeffs['coeffs'][:,0])# /(lci/5500.)**2
     
     for i in range(tempfilt['NFILT']):
-        fp.write(' %8.4e %8.4e %8.4e  %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i]))
+        fp.write(' %10.6e %8.4e %8.4e  %8.4e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i]))
     
     fp.close()
         
@@ -2916,7 +2916,7 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
     fp = open(savepath+object+'_temp_sed.dat','w')
     fp.write('# lam fnu_temp\n')
     for i in range(temp_seds['NTEMPL']):
-        fp.write(' %8.4e %8.4e\n' %(lambdaz[i], temp_sed[i]))
+        fp.write(' %10.6e %8.4e\n' %(lambdaz[i], temp_sed[i]))
     fp.close()
     
     #### p(z)
@@ -3329,6 +3329,9 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha = temp_seds['temp_seds'][:,idx_ha]*coeffs['coeffs'][idx_ha,0]
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1])
+    
+    ## test: eqw = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
+    
     halpha_flux = coeffs['coeffs'][idx_ha,0]/coeffs['tnorm'][idx_ha]*10**(-0.4*(eazy_param.params['PRIOR_ABZP']+48.6))*3.e18/(6563.*(1+zout.z_peak[0]))**2*(6563.*(1+zout.z_peak[0])/5500.)**2*(1+zout.z_peak[0])
     halpha_err = halpha_eqw*relerr[1]
     if perror[1] == 0:
@@ -3434,6 +3437,48 @@ def make_line_templates():
     fp = open('templates/fit_lines.spectra.param','w')
     fp.writelines(spec_list)
     fp.close()
+    
+def test_equivalent_widths():
+    """
+    Mattia pointed out that he gets equivalent widths somewhat larger than the catalog values when he measures them with his own code.  
+    """
+    
+    object = 'COSMOS-3-G141_00765'
+    ### EW(Matt) =75.043951 \pm 3.8351794, EW(Gabe) = 47.080000 \pm 2.4630000
+    unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7, TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.7, zmax=1.2, id=int(object.split('_')[1]), force_zrange=True, COMPUTE_TILT=True)
+    
+    unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='../EQW_FOR_MATTIA/')
+    
+    obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=object.split('_')[0], id=int(object.split('_')[1]))
+    
+    os.chdir('../REDSHIFT_FITS_v1.6')
+    unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='../EQW_FOR_MATTIA/')
+    
+    obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=object.split('_')[0], id=int(object.split('_')[1]))
+    
+    ### Plot:
+    obs_sed = catIO.Readfile(object+'_obs_sed.dat')
+    
+    lci = obs_sed.lc
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+
+    idx = np.arange(len(obs_sed.lc))
+    fp = open('junk.txt','w')
+    for i in idx[is_spec]:
+        fp.write('%.1f %.3e\n' %(obs_sed.lc[i], obs_sed.obs_sed[i]*(5500./obs_sed.lc[i])**2 ))
+    fp.close()
+    
+    temp_sed = catIO.Readfile(object+'_temp_sed.dat')
+    idx = np.arange(len(temp_sed.lam))
+    keep = (temp_sed.lam > 1.e4) & (temp_sed.lam < 1.6e4)
+    fp = open('temp.txt','w')
+    for i in idx[keep]:
+        fp.write('%.3f %.3e\n' %(temp_sed.lam[i], temp_sed.fnu_temp[i]*(5500./temp_sed.lam[i])**2 ))
+    fp.close()
+    
+    plt.plot(lci[is_spec], obs_sed.fnu[is_spec]*(5500./lci[is_spec])**2, color='black')
+    plt.plot(lci[is_spec], obs_sed.obs_sed[is_spec]*(5500./lci[is_spec])**2, color='red')
     
 def find_brown_dwarfs():
     import glob

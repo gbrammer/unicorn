@@ -2908,8 +2908,8 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
                      coeffs['coeffs'][:,0])# /(lci/5500.)**2
     
     #
-    obs_sed_cont = np.dot(tempfilt['tempfilt'][0:continuum_i,:,coeffs['izbest'][0]], coeffs['coeffs'][0:continuum_i,0])# /(lci/5500.)**2
-    obs_sed_line = np.dot(tempfilt['tempfilt'][continuum_i:,:,coeffs['izbest'][0]], coeffs['coeffs'][continuum_i:,0])# /(lci/5500.)**2
+    obs_sed_cont = np.dot(tempfilt['tempfilt'][:,0:continuum_i,coeffs['izbest'][0]], coeffs['coeffs'][0:continuum_i,0])# /(lci/5500.)**2
+    obs_sed_line = np.dot(tempfilt['tempfilt'][:,continuum_i:,coeffs['izbest'][0]], coeffs['coeffs'][continuum_i:,0])# /(lci/5500.)**2
     
     for i in range(tempfilt['NFILT']):
         fp.write(' %10.6e %8.3e %8.3e  %8.3e  %8.3e  %8.3e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i], obs_sed_cont[i], obs_sed_line[i]))

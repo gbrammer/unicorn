@@ -183,7 +183,7 @@ def read_catalogs(force=False):
     unicorn.catalogs.make_specz_catalog()
     
 class selectionParams():
-    def __init__(self, zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30):
+    def __init__(self, zmin=1.0, zmax=1.5, fcontam=0.2, qzmin=0., qzmax=0.4, dr=1.0, has_zspec=False, fcovermin=0.9, fcovermax=1.0, massmin=7, massmax=15, magmin=0, magmax=30, additional=''):
         self.zmin=zmin
         self.zmax=zmax
         self.fcontam=fcontam
@@ -403,7 +403,7 @@ def select_high_eqw():
     oiii_emline = (lines.oiii_eqw[lines.idx] > 30)  & (sn_oiii[lines.idx] > 7)
 
     emline = ha_emline | oiii_emline | hb_emline
-    emline = oiii_emline
+    # emline = oiii_emline
     
     cat_keep = keep & zspec & ha_emline
     print len(keep[cat_keep])
@@ -422,7 +422,7 @@ def select_high_eqw():
     
     #### Photometric velocity dispersion
     sersicn = gfit.n[gfit.idx]
-    sersicn[sersicn > 4] = 4.
+    sersicn[sersicn > 4] = 10.
     
     Kv = 73.32/(10.465+(sersicn-0.94)**2)+0.954
     Kstar = 0.557*Kv
@@ -434,24 +434,49 @@ def select_high_eqw():
     sigma[mcat.id_f140w[mcat.idx] == 'COSMOS-7-G141_00143']
     Kstar[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
     
+    # test_id = 'GOODS-N-33-G141_00727'
+    test_id = 'COSMOS-12-G141_01114'
+    test_id = 'COSMOS-12-G141_01119'
+    test_id = 'COSMOS-1-G141_00206'
+    test_id = 'COSMOS-21-G141_01072'
+    sigma[mcat.id_f140w[mcat.idx] == test_id]
+    lines.oiii_eqw[lines.id == test_id], sn_oiii[lines.id == test_id]
+    lines.hbeta_eqw[lines.id == test_id], sn_hb[lines.id == test_id]
+    lines.halpha_eqw[lines.id == test_id], sn_ha[lines.id == test_id]
+    mcat.logm[mcat.id_f140w == test_id]
+     
     # xx = np.arange(1,4,0.02)
     # plt.plot(xx,73.32/(10.465+(xx-0.94)**2)+0.954)
     
-    init = unicorn.catalogs.run_selection(zmin=0, zmax=5, fcontam=0.8, qzmin=0., qzmax=1, dr=1.0, has_zspec=False, fcovermin=0.7, fcovermax=1.0, massmin=9, massmax=15, magmin=0, magmax=24)
+    init = unicorn.catalogs.run_selection(zmin=0, zmax=5, fcontam=0.9, qzmin=-1, qzmax=0.5, dr=1.0, has_zspec=False, fcovermin=0.7, fcovermax=1.0, massmin=8, massmax=15, magmin=0, magmax=25)
     
     #high_sigma = (sigma > 300) & (mcat.logm[mcat.idx] > 9) & (mcat.rmatch[mcat.idx] < 1) & (zout.q_z[0::3] < 1) & (phot.fcontam[phot.idx] < 0.8) & (gfit.r_e[gfit.idx] > 0.1)
-    high_sigma = (sigma > 300) & (gfit.r_e[gfit.idx] > 0.1) & init
+    high_sigma = (sigma > 280) & (gfit.r_e[gfit.idx] > 0.1) & init 
     
-    par = unicorn.catalogs.selectionParams()
-    par.additional='&sigma;[inf] > 300 km/s, r_e > 0.1 pix'
+    jj = [1.15e4,1.37e4]
+    hh = [1.48e4,1.825e4]
+    kk = [2.0e4,2.4e4]
+    test_lines = [3727,5007,6563.]
+    zz = zout.z_peak[0::3]
+    redshift_intervals = (zz > 0) & (zz < 0)
+    
+    for test_line in test_lines:
+        redshift_intervals = redshift_intervals | ((zz > (jj[0]/test_line-1)) & (zz < (jj[1]/test_line-1)))
+        redshift_intervals = redshift_intervals | ((zz > (hh[0]/test_line-1)) & (zz < (hh[1]/test_line-1)))
+        redshift_intervals = redshift_intervals | ((zz > (kk[0]/test_line-1)) & (zz < (kk[1]/test_line-1)))
+
+    observable = redshift_intervals & ((phot.field[phot.idx] == 'COSMOS') | (phot.field[phot.idx] == 'GOODS-S') | (phot.field[phot.idx] == 'MARSHALL')) & (zout.z_peak[0::3] > 1.4)
+    
+    par = unicorn.catalogs.selection_params
+    par.additional='&sigma;[inf] > 300 km/s, r_e > 0.1 pix, EQW > 30, line S/N > 7, observable'
     
     high_sigma[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
     (high_sigma & emline)[mcat.id_f140w[mcat.idx] == 'AEGIS-9-G141_00154']
-    len(high_sigma[high_sigma & emline])
+    len(high_sigma[high_sigma & emline & observable])
 
     #### Run a selection and make a website
-    unicorn.catalogs.make_selection_catalog(high_sigma & emline, filename='massive_lines.cat', make_html=True)
-    os.system('rsync -avz massive_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
+    unicorn.catalogs.make_selection_catalog(high_sigma & emline & observable, filename='high_dispersion_lines.cat', make_html=True)
+    os.system('rsync -avz high_dispersion_lines* ~/Sites_GLOBAL/P/GRISM_v1.6/ANALYSIS/')
     
 def make_selection_for_Pieters_paper():
     import unicorn

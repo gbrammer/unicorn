@@ -3345,11 +3345,11 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]*(1+zpeak_i))
     
-    # fp = open('../EQW_FOR_MATTIA/test_temp.dat','w')
-    # fp.write('# lam continuum line\n')
-    # for i in range(1,len(temp_seds['templam'])):
-    #     fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
-    # fp.close()    
+    fp = open('../EQW_FOR_MATTIA/test_temp.dat','w')
+    fp.write('# lam continuum line\n')
+    for i in range(1,len(temp_seds['templam'])):
+        fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
+    fp.close()    
     ## test: eqw = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
     # use = is_spec & (obs_sed_ha > 1.e-8*obs_sed_ha.max())
     # eqw = -np.trapz((-(tempfilt['fnu'][:,0]/(lci/5500.)**2-obs_sed_continuum)/obs_sed_continuum)[use], lci[use])
@@ -3495,7 +3495,7 @@ def test_equivalent_widths():
     idx = np.arange(len(obs_sed.lc))
     fp = open('junk.txt','w')
     for i in idx[is_spec]:
-        fp.write('%.1f %.3e\n' %(obs_sed.lc[i], obs_sed.fnu[i]*(5500./obs_sed.lc[i])**2 ))
+        fp.write('%.1f %.3e\n' %(obs_sed.lc[i], obs_sed.obs_sed[i]*(5500./obs_sed.lc[i])**2 ))
     fp.close()
     
     temp_sed = catIO.Readfile(object+'_temp_sed.dat')

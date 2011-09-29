@@ -2150,7 +2150,7 @@ def zphot_zspec_plot():
     NOUT = len(dz[keep & (zout.z_spec[0::3] > 0.7) & ~clip])*1./len(dz[keep & (zout.z_spec[0::3] > 0.7)])
     
     print sigma_gt0, sigma_gt0_clip, sigma_gt1, sigma_gt1_clip, NOUT
-    ax.text(0.1,0.9,r'$m_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z >\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=12)
+    ax.text(0.1,0.9,r'$m_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z <\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=12)
     ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > 0.7)])), transform=ax.transAxes, fontsize=12)
     ax.text(0.1,0.72,r'$\sigma_\mathrm{NMAD}=%.4f$' %(sigma_gt0), transform=ax.transAxes, fontsize=12)
     pct = '\%'

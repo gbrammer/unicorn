@@ -3267,7 +3267,9 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
             idx_hb = i
         if temp == 'templates/single_lines/Ha_6562.dat':
             idx_ha = i
-        
+    
+    print 'IDX: ',idx_ha, idx_hb, idx_oiii, tempfilt['NTEMP']
+    
     obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:idx_ha,coeffs['izbest'][0]],coeffs['coeffs'][0:idx_ha,0])/(lci/5500.)**2*(1+zpeak_i)**2
     
     obs_sed_ha = np.dot(tempfilt['tempfilt'][:,idx_ha,coeffs['izbest'][0]],coeffs['coeffs'][idx_ha,0])/(lci/5500.)**2*(1+zpeak_i)**2
@@ -3350,9 +3352,13 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     for i in range(1,len(temp_seds['templam'])):
         fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
     fp.close()    
-    ## test: eqw = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
-    # use = is_spec & (obs_sed_ha > 1.e-8*obs_sed_ha.max())
-    # eqw = -np.trapz((-(tempfilt['fnu'][:,0]/(lci/5500.)**2-obs_sed_continuum)/obs_sed_continuum)[use], lci[use])
+    
+    ## test different ways of measuring the equivalenth width from the convolved template and from the spectrum itself
+    halpha_eqw_smooth = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
+    use = is_spec & (obs_sed_ha > 1.e-5*obs_sed_ha.max())
+    halpha_eqw_data = -np.trapz((-(tempfilt['fnu'][:,0]/(lci/5500.)**2-obs_sed_continuum)/obs_sed_continuum)[use], lci[use])
+    halpha_eqw = (halpha_eqw, halpha_eqw_smooth, halpha_eqw_data)
+    
     # 
     # idx = np.arange(len(obs_sed_continuum))
     # fp = open('../EQW_FOR_MATTIA/test_obs.dat','w')
@@ -3531,7 +3537,174 @@ def test_equivalent_widths():
     keep = (tt.lam > 0.6e4) & (tt.lam < 0.7e4)
     np.trapz(-(tt.line/tt.continuum)[keep], tt.lam[keep]*(1+0.9341))
     
+    ############ Mattia's list synced from the v1.6 redshift fits
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
     
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/EQW_FOR_MATTIA')
+    ew = catIO.Readfile('list_for_gabe.dat')
+    
+    new_fits = np.zeros((3, len(ew.id)))
+    z_fit = np.zeros(len(ew.id))
+    
+    for i, object in enumerate(ew.id):
+        print object
+        try:
+            obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=object.split('_')[0], id=int(object.split('_')[1]))
+            z_fit[i] = z_grism
+        except:
+            continue
+        #        
+        new_fits[:,i] = np.array(halpha_eqw)
+    
+    #### Run splot to measure them by hand
+    import iraf
+    from iraf import onedspec
+    for i, object in enumerate(ew.id[8:]):
+        try:
+            lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
+            obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=object.split('_')[0], id=int(object.split('_')[1]))
+        except:
+            continue
+        #
+        #
+        dlam_spec = lci[-1]-lci[-2]
+        is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+        fpf = open('SPLOT/%s_specfit.txt' %(object),'w')
+        fpf.write('%s\n' %object)
+        fpf.write('%d 5100.\n' %(len(lci[is_spec])))
+        #
+        fpd = open('SPLOT/%s_data.txt' %(object),'w')
+        fpm = open('SPLOT/%s_model.txt' %(object),'w')
+        for lam, flux, model, flux_err in zip(lci[is_spec], fobs[is_spec], obs_sed[is_spec], efobs[is_spec]):
+            fpf.write('%.6e %.2e %.2e\n' %(lam/(1+z_grism), flux, flux_err))
+            fpd.write('%.6e %.2e\n' %(lam, flux))
+            fpm.write('%.6e %.2e\n' %(lam, model))
+        fpf.close()
+        fpd.close()
+        fpm.close()
+        #
+        iraf.rspectext('SPLOT/%s_data.txt' %(object),'SPLOT/%s_data.fits' %(object), dtype="interp", crval1=11000.0, cdelt1 = 22)
+        iraf.rspectext('SPLOT/%s_model.txt' %(object),'SPLOT/%s_model.fits' %(object), dtype="interp", crval1=11000.0, cdelt1 = 22)
+        #
+        print 'z=%.3f, Ha=%.1f' %(z_grism, 6563*(1+z_grism))
+        print halpha_eqw, ew.ew_matt[i]
+        #
+        iraf.splot('SPLOT/%s_data.fits' %(object), save_file='splot.log')
+        iraf.splot('SPLOT/%s_model.fits' %(object), save_file='splot.log')
+    
+    splot_k_data = ew.ew_gabe*0.
+    splot_e_data = ew.ew_gabe*0.
+    splot_k_model = ew.ew_gabe*0.
+    splot_e_model = ew.ew_gabe*0.
+    fp = open('splot.log.save')
+    lines = fp.readlines()
+    N = len(lines)/12
+    for i in range(N):
+        group = lines[i*12:i*12+12]
+        object = group[1].split('DATA/')[1].split('_data')[0]
+        splot_k_data[ew.id == object] = -float(group[3].split()[3])
+        splot_e_data[ew.id == object] = -float(group[5].split()[3])
+        splot_k_model[ew.id == object] = -float(group[9].split()[3])
+        splot_e_model[ew.id == object] = -float(group[11].split()[3])
+        
+    plt.plot(ew.ew_matt, ew.ew_gabe, marker='o', linestyle='None', color='black', alpha=0.3)
+    plt.plot(ew.ew_matt, new_fits[0,:], marker='o', linestyle='None', color='red', alpha=0.3)
+    plt.plot(ew.ew_matt, new_fits[1,:], marker='o', linestyle='None', color='blue', alpha=0.3)
+    plt.plot(ew.ew_matt, new_fits[2,:], marker='o', linestyle='None', color='green', alpha=0.3)
+    
+    #plt.plot(splot_k_data, splot_k_model, marker='o', linestyle='None', color='black', alpha=0.8)
+    plt.plot(splot_k_data, splot_k_model, marker='o', linestyle='None', color='black', alpha=0.8)
+    plt.plot(splot_k_data, ew.ew_gabe, marker='o', linestyle='None', color='black', alpha=0.8)
+    plt.plot(splot_e_data, splot_e_model, marker='o', linestyle='None', color='black', alpha=0.8)
+    # plt.plot(splot_e_data, new_fits[0,:]/1.07, marker='o', linestyle='None', color='orange', alpha=0.8)
+    
+    #plt.plot(splot_e_model, splot_e_data, marker='o', linestyle='None', color='black', alpha=0.8)
+    
+    #plt.plot(splot_e_data, new_fits[2,:], marker='o', linestyle='None', color='red', alpha=0.8)
+
+    #plt.plot(splot_e_data, splot_k_data, marker='o', linestyle='None', color='black', alpha=0.8, ms=10)
+
+    fig = unicorn.catalogs.plot_init(square=True, aspect=1./3, left=0.12, xs=12)
+        
+    ax = fig.add_subplot(131)
+    
+    #plt.plot(splot_e_data, new_fits[1,:] , marker='o', linestyle='None', color='black', alpha=0.8, ms=10)
+    plt.plot(splot_e_data, ew.ew_gabe*(1+z_fit), marker='o', linestyle='None', color='blue', alpha=0.8, ms=6)
+    #plt.plot(splot_e_data, new_fits[2,:] , marker='o', linestyle='None', color='black', alpha=0.8, ms=10)
+    plt.plot(splot_e_data, ew.ew_matt, marker='o', linestyle='None', color='red', alpha=0.8, ms=6)
+    
+    plt.plot([1,400],[1,400], color='orange')
+    plt.semilogy()
+    plt.semilogx()
+    plt.xlim(10,600)
+    plt.ylim(10,600)
+    plt.xlabel('EQW data, splot "e"')
+    plt.ylabel('EQW meas, Mattia [red], Gabe/old*(1+z) [blue]')
+    
+    ax = fig.add_subplot(132)
+    
+    plt.plot(splot_e_data, new_fits[1,:] , marker='o', linestyle='None', color='black', alpha=0.8, ms=6)
+    #plt.plot(splot_e_data, ew.ew_gabe*(1.9), marker='o', linestyle='None', color='blue', alpha=0.8, ms=10)
+    #plt.plot(splot_e_data, new_fits[2,:] , marker='o', linestyle='None', color='black', alpha=0.8, ms=10)
+    plt.plot(splot_e_data, ew.ew_matt, marker='o', linestyle='None', color='red', alpha=0.8, ms=6)
+    
+    plt.plot([1,400],[1,400], color='orange')
+    plt.semilogy()
+    plt.semilogx()
+    plt.xlim(10,600)
+    plt.ylim(10,600)
+    plt.xlabel('EQW data, splot "e"')
+    plt.ylabel('EQW meas, Mattia [red], Gabe/fixed [black]')
+    
+    ax = fig.add_subplot(133)
+    plt.plot(new_fits[0,:], new_fits[1,:] , marker='o', linestyle='None', color='black', alpha=0.8, ms=6)
+    plt.plot([1,400],[1,400], color='orange')
+    plt.semilogy()
+    plt.semilogx()
+    plt.xlim(10,600)
+    plt.ylim(10,600)
+    plt.xlabel('EQW, full template')
+    plt.ylabel('EQW, convolved')
+    
+    #fig.savefig('eqw_comparison_old.pdf')
+    
+    fp = open('gabe_updated.dat','w')
+    fp.write('# id z   eqw_matt eqw_gabe  splot_e splot_k  eqw_full eqw_conv\n')
+    for i in range(len(ew.id)):
+        fp.write('%-20s  %.3f %7.2f %7.2f  %7.2f %7.2f  %7.2f %7.2f\n' %(ew.id[i], z_fit[i],  ew.ew_matt[i], ew.ew_gabe[i], splot_e_data[i], splot_k_data[i], new_fits[0,i], new_fits[1,i]))
+    fp.close()
+    
+    ##### Scatter between measurements
+    fig = unicorn.catalogs.plot_init(square=True, aspect=1./2, left=0.12, xs=12*2./3)
+        
+    ax = fig.add_subplot(121)
+    
+    #plt.plot(splot_e_data, ew.ew_gabe*(1+z_fit), marker='o', linestyle='None', color='blue', alpha=0.8, ms=6)
+    plt.plot(new_fits[1,:], ew.ew_matt, marker='o', linestyle='None', color='black', alpha=0.8, ms=6)
+    
+    plt.plot([1,400],[1,400], color='orange')
+    plt.semilogy()
+    plt.semilogx()
+    plt.xlim(10,600)
+    plt.ylim(10,600)
+    plt.xlabel('EQW, Gabe / fixed')
+    plt.ylabel('EQW, Mattia')
+    
+    ax = fig.add_subplot(122)
+    
+    delta = np.log10(new_fits[1,:]/ew.ew_matt)
+    keep = np.isfinite(delta)
+    ax.hist(delta, bins=25, range=(-1,1))
+    ax.set_xlabel(r'log EW(GABE)/EW(Mattia)')
+    ax.set_ylabel(r'N')
+    
+    biw = threedhst.utils.biweight(delta[keep], both=True)
+    nm = threedhst.utils.nmad(delta[keep])
+    ax.text(-0.8,14,r'$(\mu,\ \sigma) = %.2f,\ %.2f$' %(biw[0], biw[1]))
+    
+    fig.savefig('eqw_scatter.pdf')
+
 def find_brown_dwarfs():
     import glob
     import threedhst.catIO as catIO

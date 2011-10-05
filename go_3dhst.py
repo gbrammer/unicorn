@@ -8,6 +8,7 @@ for dir in ${dirs}; do
     cd ${THREEDHST}
     cd ${dir}
     echo ${PWD}
+    rm HTML/images/*tar.gz
     make_3dhst_tarfiles.sh
 done
 
@@ -15,7 +16,9 @@ dirs="SN-MARSHALL SN-GEORGE GOODS-S AEGIS COSMOS GOODS-N"
 for dir in ${dirs}; do 
     cd ${THREEDHST}/${dir}
     echo ${dir}
-    rsync -az HTML/ ~/Sites_GLOBAL/P/GRISM_v1.5/
+    # ls -l HTML/images/*tar.gz
+    # mv HTML/images/*tar.gz ~/Sites_GLOBAL/P/GRISM_v1.6/tarfiles/
+    cp HTML/ascii/*tar.gz ~/Sites_GLOBAL/P/GRISM_v1.6/tarfiles/
 done
 
 """

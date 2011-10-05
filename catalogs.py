@@ -1273,7 +1273,7 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
-def plot_init(square=True, xs=6, aspect=1, left=0.22):
+def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02):
 
     import unicorn
     
@@ -1289,7 +1289,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22):
 
     if square:
         #xs=5
-        lrbt = np.array([left,0.02,0.11,0.02])*5./xs     
+        lrbt = np.array([left,right,bottom,top])*5./xs     
         ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect
         lrbt[[2,3]] /= aspect
 

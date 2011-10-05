@@ -2197,6 +2197,231 @@ def zphot_zspec_plot():
         #### nearby offset at z~1 ~ 0.035 in log(1+z)
         offset = 0.036
         print 6563*10**(-offset), 5007*10**(-offset), 4861*10**(-offset), 3727*10**(-offset)
+
+def compute_SFR_limits():
+    import cosmocalc as cc
+    
+    limiting_flux = 4.e-17
+    ### z=1, H-alpha
+    cosmo = cc.cosmocalc(z=1.0)
+    SFR_ha = 7.9e-42 * limiting_flux * 4 * np.pi * cosmo['DL_cm']**2
+    
+    ### z=2, OII
+    cosmo = cc.cosmocalc(z=2.0)
+    SFR_oii = 1.4e-41 * limiting_flux * 4 * np.pi * cosmo['DL_cm']**2
+    
+    print SFR_ha, SFR_oii
+    
+def number_counts():
+    import unicorn
+    import unicorn.catalogs
+    import copy
+        
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+        
+    keep = unicorn.catalogs.run_selection(zmin=0, zmax=8, fcontam=1, qzmin=0., qzmax=10, dr=1.0, has_zspec=False, fcovermin=0.5, fcovermax=1.0, massmin=0, massmax=15, magmin=12, magmax=27)
+    
+    fields = (phot.field[phot.idx] == 'AEGIS') | (phot.field[phot.idx] == 'COSMOS') | (phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-S')
+    
+    #fields = (phot.field[phot.idx] == 'COSMOS') | (phot.field[phot.idx] == 'AEGIS') | (phot.field[phot.idx] == 'GOODS-S')
+
+    #fields = (phot.field[phot.idx] == 'COSMOS') | (phot.field[phot.idx] == 'AEGIS')
+    
+    #fields = (phot.field[phot.idx] == 'GOODS-N')
+    
+    fields = fields & (phot.fcover[phot.idx] > 0.5)
+    
+    pointings = []
+    for field, pointing in zip(phot.field, phot.pointing):
+        pointings.append('%s-%d' %(field, pointing))
+    pointings = np.array(pointings)
+    NPOINT = len(np.unique(pointings[phot.idx][fields]))
+    
+    xrange = (12,25)
+    nbin = np.int(np.round((xrange[1]-xrange[0])*10.))
+    binwidth = (xrange[1]-xrange[0])*1./nbin
+    
+    normal = 1./binwidth/NPOINT
+    
+    cumul = True
+    normal = 1./NPOINT
+    
+    #normal = 1./NPOINT*148
+    
+    #### Full histogram
+    y_full, x_full = np.histogram(phot.mag_f1392w[phot.idx][fields], bins=nbin, range=xrange)
+    x_full = (x_full[1:]+x_full[:-1])/2.
+    if cumul:
+        y_full = np.cumsum(y_full)
+    
+    y_full, x_full = np.histogram(phot.mag_f1392w[phot.idx][fields], bins=nbin, range=xrange)
+    x_full = (x_full[1:]+x_full[:-1])/2.
+    if cumul:
+        y_full = np.cumsum(y_full)
+    
+    #### Matched in photometric catalogs
+    matched = mcat.rmatch[mcat.idx] < 1.
+    y_matched, x_matched = np.histogram(phot.mag_f1392w[phot.idx][fields & matched], bins=nbin, range=xrange)
+    x_matched = (x_matched[1:]+x_matched[:-1])/2.
+    if cumul:
+        y_matched = np.cumsum(y_matched)
+    
+    #### point sources
+    xpoint, ypoint = np.array([14,18,23]), np.array([4,3.18, 2.8])
+    ypoint_int = np.interp(phot.mag_f1392w, xpoint, ypoint)
+    points = (phot.flux_radius[phot.idx] < ypoint_int[phot.idx]) & (phot.mag_f1392w[phot.idx] < 23)
+    
+    y_points, x_points = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & points], bins=nbin, range=xrange)
+    x_points = (x_points[1:]+x_points[:-1])/2.
+    if cumul:
+        y_points = np.cumsum(y_points)
+    
+    #### Low contamination
+    contam = phot.fcontam[phot.idx] < 0.1
+    y_contam, x_contam = np.histogram(phot.mag_f1392w[phot.idx][fields & contam & matched], bins=nbin, range=xrange)
+    x_contam = (x_contam[1:]+x_contam[:-1])/2.
+    if cumul:
+        y_contam = np.cumsum(y_contam)
+    
+    #### z > 1
+    z1 = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 0.5) #& ~points
+    y_z1, x_z1 = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z1], bins=nbin, range=xrange)
+    x_z1 = (x_z1[1:]+x_z1[:-1])/2.
+    if cumul:
+        y_z1 = np.cumsum(y_z1)
+    
+    #### No cut on Q_z
+    z1q = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 100)  #& ~points
+    y_z1q, x_z1q = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z1q], bins=nbin, range=xrange)
+    x_z1q = (x_z1q[1:]+x_z1q[:-1])/2.
+    if cumul:
+        y_z1q = np.cumsum(y_z1q)
+    
+    #### Total number at z>1
+    print 'NPOINT: %d' %(NPOINT)
+    
+    #z1q_mag = unicorn.catalogs.run_selection(zmin=1, zmax=5.5, fcontam=1, qzmin=0., qzmax=100, dr=1.0, has_zspec=False, fcovermin=0.5, fcovermax=1.0, massmin=0, massmax=15, magmin=0, magmax=23)
+    
+    z1q_mag = z1q & fields & (phot.mag_f1392w[phot.idx] <= 23.)  #& ~points
+    N_z1_total = len(z1q_mag[z1q_mag])*1./NPOINT*149.
+    N_total = len(z1q_mag[matched & fields & (phot.mag_f1392w[phot.idx] <= 23.)])*1./NPOINT*149.
+    print 'N (z>1, m<23) = %d, N_total = %d' %(N_z1_total, N_total)
+    
+    #### z > 2
+    z2 = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 0.5)  #& ~points
+    y_z2, x_z2 = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z2], bins=nbin, range=xrange)
+    x_z2 = (x_z2[1:]+x_z2[:-1])/2.
+    if cumul:
+        y_z2 = np.cumsum(y_z2)
+    
+    #### No cut on Q_z
+    z2q = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 100)
+    y_z2q, x_z2q = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z2q], bins=nbin, range=xrange)
+    x_z2q = (x_z2q[1:]+x_z2q[:-1])/2.
+    if cumul:
+        y_z2q = np.cumsum(y_z2q)
+        
+    #### NMBS comparison
+    cat_nmbs, zout_nmbs, fout_nmbs = unicorn.analysis.read_catalogs(root='COSMOS-1')
+    #nmbs_hmag = 25-2.5*np.log10(cat_nmbs.H1*cat_nmbs.Ktot/cat_nmbs.K)
+    #nmbs_hmag = 25-2.5*np.log10((cat_nmbs.H1+cat_nmbs.J3+cat_nmbs.J2+cat_nmbs.H2)/4.*cat_nmbs.Ktot/cat_nmbs.K)
+    nmbs_hmag = 25-2.5*np.log10((cat_nmbs.H1+cat_nmbs.J3)/2.*cat_nmbs.Ktot/cat_nmbs.K)
+    keep_nmbs = (cat_nmbs.wmin > 0.3)
+    
+    y_nmbs, x_nmbs = np.histogram(nmbs_hmag[keep_nmbs], bins=nbin, range=xrange)
+    x_nmbs = (x_nmbs[1:]+x_nmbs[:-1])/2.
+    if cumul:
+        y_nmbs = np.cumsum(y_nmbs)
+    
+    y_nmbs *= 1./(0.21*2*3600.)*4*NPOINT
+    
+    z1_nmbs = (zout_nmbs.z_peak > 1) & (cat_nmbs.star_flag == 0)
+    
+    y_nmbs_z1, x_nmbs_z1 = np.histogram(nmbs_hmag[keep_nmbs & z1_nmbs], bins=nbin, range=xrange)
+    x_nmbs_z1 = (x_nmbs_z1[1:]+x_nmbs_z1[:-1])/2.
+    if cumul:
+        y_nmbs_z1 = np.cumsum(y_nmbs_z1)
+    
+    y_nmbs_z1 *= 1./(0.21*2*3600)*4*NPOINT
+    
+    z2_nmbs = (zout_nmbs.z_peak > 2) & (cat_nmbs.star_flag == 0)
+    
+    y_nmbs_z2, x_nmbs_z2 = np.histogram(nmbs_hmag[keep_nmbs & z2_nmbs], bins=nbin, range=xrange)
+    x_nmbs_z2 = (x_nmbs_z2[1:]+x_nmbs_z2[:-1])/2.
+    if cumul:
+        y_nmbs_z2 = np.cumsum(y_nmbs_z2)
+    
+    y_nmbs_z2 *= 1./(0.21*2*3600)*4*NPOINT
+    
+    #
+    nmbs_stars = (cat_nmbs.star_flag == 1)
+    
+    y_nmbs_stars, x_nmbs_stars = np.histogram(nmbs_hmag[keep_nmbs & nmbs_stars], bins=nbin, range=xrange)
+    x_nmbs_stars = (x_nmbs_stars[1:]+x_nmbs_stars[:-1])/2.
+    if cumul:
+        y_nmbs_stars = np.cumsum(y_nmbs_stars)
+    
+    y_nmbs_stars *= 1./(0.21*2*3600)*4*NPOINT
+    
+    #### Make the plot
+    fig = unicorn.catalogs.plot_init(left=0.11, bottom=0.08, xs=3.8, right=0.09, top=0.01)
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    ax = fig.add_subplot(111)
+    
+    ax.plot(x_full, y_full*normal, color='black')
+    ax.plot(x_matched, y_matched*normal, color='blue',alpha=0.8)
+    ax.plot(x_contam, y_contam*normal, color='green',alpha=0.8)
+    ax.plot(x_points[x_points <= 23], y_points[x_points < 23]*normal, color='purple',alpha=0.8)
+    ax.plot(x_z1, y_z1*normal, color='orange',alpha=0.8)
+    ax.plot(x_z1q, y_z1q*normal, color='orange',alpha=0.8, linestyle='--')
+    ax.plot(x_z2, y_z2*normal, color='red',alpha=0.8)
+    ax.plot(x_z2q, y_z2q*normal, color='red',alpha=0.8, linestyle='--')
+
+    ax.plot(x_nmbs, y_nmbs*normal, color='black',alpha=0.8, linewidth=3, alpha=0.2)
+    ax.plot(x_nmbs_z1, y_nmbs_z1*normal, color='orange',alpha=0.8, linewidth=3, alpha=0.2)
+    ax.plot(x_nmbs_z2, y_nmbs_z2*normal, color='red',alpha=0.8, linewidth=3, alpha=0.2)
+    ax.plot(x_nmbs_stars, y_nmbs_stars*normal, color='purple',alpha=0.8, linewidth=3, alpha=0.2)
+    
+    #ax.text(0.05,0.92,r'%s ($N=%d$)' %(', '.join(np.unique(phot.field[phot.idx][fields])), NPOINT), color='black', transform=ax.transAxes)
+    ax.text(0.05,0.92,r'Total, from $N=%d$ pointings' %(NPOINT), color='black', transform=ax.transAxes)
+    ax.text(0.05,0.87,r'matched', color='blue', transform=ax.transAxes)
+    ax.text(0.05,0.82,r'$f_\mathrm{contam} < 10\%$', color='green', transform=ax.transAxes)
+    ax.text(0.05,0.77,r'point sources', color='purple', transform=ax.transAxes)
+    ax.text(0.05,0.72,r'$z > 1$', color='orange', transform=ax.transAxes)
+    ax.text(0.05,0.67,r'$z > 2$', color='red', transform=ax.transAxes)
+
+    ax.set_xlabel('MAG\_AUTO (F140W $\sim$ $H$)')
+    if cumul:
+        ax.set_ylabel('N($<m$) per WFC3 pointing')
+    else:
+        ax.set_ylabel('N / pointing / mag')
+    ax.semilogy()
+    
+    yticks = [r'$0.01$',r'$0.1$',r'$1$',r'$10$',r'$10^{2}$']
+    ax.set_yticklabels(yticks)
+    ytick = ax.set_yticks([0.01,0.1,1,10,100])
+    
+    ax.set_xlim(xrange[0], xrange[1])
+    ax.set_ylim(0.01, 500)
+    
+    ax2 = ax.twinx()
+    ax2.semilogy()
+    yticks = [r'$10$',r'$10^{2}$',r'$10^{3}$',r'$10^{4}$']
+    ax2.set_yticklabels(yticks)
+    ytick = ax2.set_yticks([10,100,1000,1.e4])
+
+    ax2.set_ylim(0.01*149, 500*149)
+
+    ax2.set_ylabel('N($<m$), full survey')
+    ax2.set_xlim(xrange[0], xrange[1])
+
+    fig.savefig('number_counts.pdf')
+    plt.rcParams['text.usetex'] = False
     
 def find_brown_dwarf():
     import unicorn

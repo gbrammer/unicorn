@@ -411,8 +411,8 @@ def GOODSN_mosaic():
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*2', 'GOODS-N-F850LP.fits[0]*6','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]'], aper_list=zooms, tileroot=['F140W', 'G141', 'GOODS-z850','0.5-8keV'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
     
-    iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-09-08_sci.fits')
-    iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-09-08_wht.fits')
+    iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-10-06_sci.fits')
+    iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-10-06_wht.fits')
     # !tar czvf GOODS-N-F140w_11-09-08.tar.gz GOODS-N-*-F140W_shifts.txt GOODS-N-*-F140W_tweak.fits GOODS-N-*-F140W_asn.fits GOODS-N-F140W_shifts.txt GOODS-N-F140W_asn.fits
     # !mv GOODS-N-F140w_11-09-08* ../MOSAIC
     
@@ -517,8 +517,8 @@ def COSMOS_mosaic():
     threedhst.shifts.plot_shifts('COSMOS-F140W', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits', skip_swarp=False)
     
     ### Temporary release of the direct mosaic
-    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-09-08_sci.fits')
-    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-09-08_wht.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-10-06_sci.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-10-06_wht.fits')
     # !tar czvf COSMOS-F140w_11-09-08.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
     # !mv COSMOS-F140w_11-09-08* ../MOSAIC
         
@@ -909,6 +909,40 @@ def UDS(FORCE=False):
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='UDS-*-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)
+
+def UDS_mosaic():
+    import threedhst.prep_flt_files
+    
+    os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
+    
+    #### Direct mosaic
+    direct_files = glob.glob('UDS-*-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-F140W',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    #### Direct mosaic
+    direct_files = glob.glob('UDS-*-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-G141',
+                       path_to_FLT='./', run_multidrizzle=False)
+    
+    #### Make the image
+    PIXFRAC=0.8
+    SCALE = 0.06
+    ra, dec, nx, ny = 34.4081405556, -5.20018201235, int(10422*0.128254/SCALE), int(4349*0.128254/SCALE)
+    
+    threedhst.prep_flt_files.startMultidrizzle('UDS-F140W_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=ra, dec=dec,
+             final_outnx = nx, final_outny=ny)
+    
+    threedhst.prep_flt_files.startMultidrizzle('UDS-G141_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=ra, dec=dec,
+             final_outnx = nx, final_outny=ny)
 
 def SN_GEORGE():
     ####********************************************####

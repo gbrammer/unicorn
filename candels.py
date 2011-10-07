@@ -224,7 +224,7 @@ def uds():
              final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=ra, dec=dec, final_outnx=nx*0.128254/SCALE, final_outny=ny*0.128254/SCALE)
-    #
+    
     #### Check pointings
     threedhst.shifts.plot_shifts('UDS-F125W', ALIGN_IMAGE, skip_swarp=False)
     

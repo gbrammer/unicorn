@@ -106,7 +106,11 @@ def orbit_structure():
     
     os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
     
-    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.12)
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=4.4, aspect=1, left=0.09, bottom=0.08)
     ax = fig.add_subplot(111)
     
     a11 = 0.1355
@@ -200,6 +204,8 @@ def orbit_structure():
     ax.yaxis.grid(alpha=0.2, zorder=1, which='minor')
         
     fig.savefig('dither_box.pdf')
+    
+    plt.rcParams['text.usetex'] = False
     
 def exptimes():
     """
@@ -1199,8 +1205,12 @@ def process_signal_to_noise():
     ms = 5
     
     ##### S/N vs mag.
-    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.12)
-    fig.subplots_adjust(wspace=0.2,hspace=0.24,left=0.12, bottom=0.09,right=0.975,top=0.99)
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=1, left=0.10)
+    fig.subplots_adjust(wspace=0.2,hspace=0.24,left=0.09, bottom=0.08,right=0.975,top=0.99)
     
     ax = fig.add_subplot(211)
     
@@ -1260,15 +1270,16 @@ def process_signal_to_noise():
     ax.set_xlim(1.5,12)
     ax.set_yticklabels(['3','5','10']) #; ax.set_xticklabels([])
     ytick = ax.set_yticks([3,5,10]) #; xtick = ax.set_xticks([0,NX]); 
-    ax.set_xlabel(r'R$_{50}$ [0.06$^{\prime\prime}$ pix]')
+    ax.set_xlabel(r'R$_{50}$ [$0.06^{\prime\prime}$ pix]')
     
     ax.set_ylabel('S / N')
     if plt.rcParams['text.usetex']:
-        ax.text(11.8,13, r'$%.1f < m_{140} < %.1f$' %(m0, m1), horizontalalignment='right', verticalalignment='top')
+        ax.text(11.8,13, r'$%.1f < H_{140} < %.1f$' %(m0, m1), horizontalalignment='right', verticalalignment='top')
     else:
         ax.text(11.8,13, r'%.1f < $m_{140}$ < %.1f' %(m0, m1), horizontalalignment='right', verticalalignment='top')
         
     fig.savefig('spec_signal_to_noise.pdf')
+    plt.rcParams['text.usetex'] = False
     
 def run_empty_apertures_fields():
     import glob
@@ -2019,13 +2030,17 @@ def equivalent_width_errors():
     # colors[colors > 5] = 5
     
     ##### FLux
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=5/4., left=0.12)
     fig.subplots_adjust(wspace=0.20,hspace=0.24,left=0.12,
                         bottom=0.08,right=0.98,top=0.98)
     
     plt.rcParams['patch.edgecolor'] = 'k'
     ax = fig.add_subplot(211)
-
+        
     ax.scatter(lines.halpha_flux[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
     ax.scatter(lines.oiii_flux[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
 
@@ -2056,8 +2071,11 @@ def equivalent_width_errors():
     
     marker_size = 10**(-0.4*(18-phot.mag_f1392w[phot.idx]))**0.8
     
-    ax.scatter(lines.halpha_eqw[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
-    ax.scatter(lines.oiii_eqw[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
+    zz = lines.z_grism[lines.idx]*0
+    zz = lines.z_grism[lines.idx]
+    
+    ax.scatter(lines.halpha_eqw[lines.idx][keep_ha]*(1+zz[keep_ha]), halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
+    ax.scatter(lines.oiii_eqw[lines.idx][keep_oiii]*(1+zz[keep_oiii]), oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
     
     for si, mag in enumerate([19, 21, 23]):
         ax.scatter(np.array([1,1])*10, np.array([1,1])*25*(2**(si+1))**0.4, s=10**(-0.4*(18-mag))**0.8, color='black', alpha=0.2)
@@ -2066,16 +2084,20 @@ def equivalent_width_errors():
     ax.semilogy()
     ax.semilogx()
     ax.set_ylim(1,100)
-    ax.set_xlim(5,500)
+    ax.set_xlim(5,1000)
     ax.set_yticklabels([1,3,10,30,100])
     ytick = ax.set_yticks([1,3,10,30,100])
-    ax.set_xticklabels([5,10,100])
-    ytick = ax.set_xticks([5,10,100])
+    ax.set_xticklabels([5,10,100,500])
+    xtick = ax.set_xticks([5,10,100, 500])
     ax.set_ylabel('line S / N')
-    ax.set_xlabel(r'Equivalent width $[\AA]$')
+    if plt.rcParams['text.usetex']:
+        ax.set_xlabel(r'Equivalent width [\AA]')
+    else:
+        ax.set_xlabel(r'Equivalent width [$\AA$]')
         
     fig.savefig('equivalent_width_errors.pdf')
-    
+    plt.rcParams['text.usetex'] = False
+
 def zphot_zspec_plot():
     
     import unicorn
@@ -2115,16 +2137,22 @@ def zphot_zspec_plot():
     
     #### Only way to get out a few objects where the photometry wasn't found for the fit
     keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
             
-    fig = unicorn.catalogs.plot_init(left=0.08, xs=4)
+    fig = unicorn.catalogs.plot_init(left=0.07, xs=3, bottom=0.07)
     ax = fig.add_subplot(111)
     
     zsplit = 0.7
-    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), marker='o', linestyle='None', alpha=0.2, color='black', markersize=5)
-    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), marker='o', linestyle='None', alpha=0.2, color='0.9', markersize=5)
+    ms=2
+    
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), marker='o', linestyle='None', alpha=0.2, color='black', markersize=ms)
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), marker='o', linestyle='None', alpha=0.2, color='0.9', markersize=ms)
     
     ax.plot([0,5],[0,5], color='white', alpha=0.2, linewidth=3)
-    ax.plot([0,5],[0,5], color='black', alpha=0.5, linewidth=1)
+    #ax.plot([0,5],[0,5], color='black', alpha=0.3, linewidth=1)
     
     zz = np.array([0,4])
     ax.plot(np.log10(1+zz), np.log10(1+zz+0.1*(1+zz)), linestyle='--', color='0.8', alpha=0.5)
@@ -2149,14 +2177,18 @@ def zphot_zspec_plot():
     sigma_gt0_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 0.7) & clip])
     NOUT = len(dz[keep & (zout.z_spec[0::3] > 0.7) & ~clip])*1./len(dz[keep & (zout.z_spec[0::3] > 0.7)])
     
+    fs = 9
+    
     print sigma_gt0, sigma_gt0_clip, sigma_gt1, sigma_gt1_clip, NOUT
-    ax.text(0.1,0.9,r'$m_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z <\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=12)
-    ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > 0.7)])), transform=ax.transAxes, fontsize=12)
-    ax.text(0.1,0.72,r'$\sigma_\mathrm{NMAD}=%.4f$' %(sigma_gt0), transform=ax.transAxes, fontsize=12)
+    ax.text(0.1,0.9,r'$H_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z <\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=fs)
+    ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > 0.7)])), transform=ax.transAxes, fontsize=fs)
+    ax.text(0.1,0.72,r'$\sigma_\mathrm{NMAD}=%.4f$' %(sigma_gt0), transform=ax.transAxes, fontsize=fs)
     pct = '\%'
-    ax.text(0.1,0.63,r'$f_\mathrm{>0.1}=%.1f%s$' %(NOUT*100,pct), transform=ax.transAxes, fontsize=12)
+    ax.text(0.1,0.63,r'$f_\mathrm{>0.1}=%.1f%s$' %(NOUT*100,pct), transform=ax.transAxes, fontsize=fs)
     
     fig.savefig('zphot_zspec.pdf')
+    plt.rcParams['text.usetex'] = False
+    
     
     ##### Show line misidentifications
     # zha = np.log10(np.array([1.05e4,1.68e4])/6563.)

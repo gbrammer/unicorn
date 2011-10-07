@@ -501,6 +501,9 @@ def COSMOS_mosaic():
              ra=150.12634, dec=2.3336697,
              final_outnx = NX, final_outny=NY, ivar_weights=False)
     
+    #
+    threedhst.shifts.plot_shifts('COSMOS-F140W', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits', clean=True, verbose=True, ALIGN_EXTENSION=0, skip_swarp=True, threshold=10)
+    
     threedhst.prep_flt_files.startMultidrizzle('COSMOS-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,

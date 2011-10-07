@@ -337,17 +337,19 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-31-F140W', 
-              ALIGN_IMAGE='GOODS-N-21-F140W_drz.fits', ALIGN_EXTENSION=1,  
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-11-F140W', 
+              ALIGN_IMAGE=ALIGN, ALIGN_EXTENSION=0,  
               fitgeometry='shift', clean=True)
     
-    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-31-F140W_asn.fits',
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-11-F140W_asn.fits',
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
+    
+    threedhst.shifts.plot_shifts('GOODS-N-12-F140W', '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
     
     threedhst.gmap.makeImageMap(['GOODS-N-21-F140W_drz.fits', 'GOODS-N-21-F140W_align.fits[0]*4','GOODS-N-31-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("GOODS-N-*-F140W_asn.pointing.reg"))
     
@@ -389,6 +391,8 @@ def GOODSN_mosaic():
              ra=189.17736, dec=62.23892,
              final_outnx = NX, final_outny=NY, ivar_weights=False)
              
+    #
+    threedhst.shifts.plot_shifts('GOODS-N-F140W', '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=False)
     
     threedhst.prep_flt_files.startMultidrizzle('GOODS-N-G141_asn.fits',
              use_shiftfile=True, skysub=False,
@@ -426,12 +430,21 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
     
     #### Fix shifts for COSMOS-18
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 
+              ALIGN_IMAGE=ALIGN, ALIGN_EXTENSION=0,  
+              fitgeometry='shift', clean=True)
+    #
+    threedhst.prep_flt_files.startMultidrizzle('COSMOS-1-F140W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-18-F140W', 
               ALIGN_IMAGE='COSMOS-17-F140W_drz.fits', ALIGN_EXTENSION=1,  
-              fitgeometry='rxyscale', clean=True)
+              fitgeometry='rotate', clean=True)
     
     threedhst.prep_flt_files.startMultidrizzle('COSMOS-18-F140W_asn.fits',
                  use_shiftfile=True, skysub=False,
@@ -494,6 +507,8 @@ def COSMOS_mosaic():
     ### Check the mosaic
     threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits', 'COSMOS-G141_drz.fits', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04'], aper_list=[14], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
     
+    threedhst.shifts.plot_shifts('COSMOS-F140W', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits', skip_swarp=False)
+    
     ### Temporary release of the direct mosaic
     iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-09-08_sci.fits')
     iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-09-08_wht.fits')
@@ -531,7 +546,7 @@ def GOODSS(FORCE=False):
             ALIGN = ALIGN_FILES[2]
         #
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
             
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-24-F140W_drz.fits','GOODS-S-23-F140W_drz.fits', 'GOODS-S-24-F140W_align.fits[0]*4'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
@@ -600,7 +615,7 @@ def UDF():
     for file in files:
         threedhst.shifts.refine_shifts(ROOT_DIRECT=file.split('_asn')[0], 
               ALIGN_IMAGE='GOODS-S-34-F140W_drz.fits', ALIGN_EXTENSION=1,  
-              fitgeometry='rxyscale', clean=True)
+              fitgeometry='rotate', clean=True)
         #
         threedhst.prep_flt_files.startMultidrizzle(file,
                  use_shiftfile=True, skysub=False,
@@ -714,7 +729,7 @@ def UDF():
                     unicorn.candels.prep_candels(asn_file=visit+'-'+filter+'_asn.fits', 
                         ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
                         GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                        SCALE=0.06, geometry='rxyscale')
+                        SCALE=0.06, geometry='rotate,shift')
                 except:
                     pass
     #
@@ -728,7 +743,7 @@ def UDF():
                 unicorn.candels.prep_candels(asn_file=bad+'-'+filter+'_asn.fits', 
                     ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
-                    SCALE=0.06, geometry='rxyscale')
+                    SCALE=0.06, geometry='rotate,shift')
             except:
                 pass
     
@@ -860,6 +875,7 @@ def UDS(FORCE=False):
 
     os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits'
+    ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -867,7 +883,7 @@ def UDS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rxyscale')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=1, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Check
     threedhst.gmap.makeImageMap(['UDS-23-F140W_drz.fits', 'UDS-23-F140W_align.fits[0]','UDS-23-G141_drz.fits'], aper_list=[14,15,16],  polyregions=glob.glob('UDS-*-F140W_asn.pointing.reg'))

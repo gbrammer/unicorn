@@ -340,17 +340,21 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-11-F140W', 
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
               ALIGN_IMAGE=ALIGN, ALIGN_EXTENSION=0,  
               fitgeometry='shift', clean=True)
     
-    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-11-F140W_asn.fits',
+    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-28-F140W_asn.fits',
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
     
-    threedhst.shifts.plot_shifts('GOODS-N-12-F140W', '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
+    threedhst.shifts.plot_shifts('GOODS-N-28-F140W', '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
     
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        threedhst.shifts.plot_shifts(pointing.split('_asn')[0], '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
+        
     threedhst.gmap.makeImageMap(['GOODS-N-21-F140W_drz.fits', 'GOODS-N-21-F140W_align.fits[0]*4','GOODS-N-31-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("GOODS-N-*-F140W_asn.pointing.reg"))
     
     #### Make direct image for each pointing that also include 

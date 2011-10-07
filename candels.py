@@ -111,6 +111,8 @@ def egs():
              ra=214.92061, dec=52.878457, final_outnx=7547, 
              final_outny=31900, final_rot=42)
     #
+    threedhst.shifts.plot_shifts('EGS-F125W', ALIGN_IMAGE, skip_swarp=False)
+    
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*2','EGS-epoch2-F125W_drz.fits', 'EGS-epoch2-F160W_drz.fits'], aper_list=[14], tileroot=['F814W','F125W','F160W'], polyregions=glob.glob('*F125W_asn.pointing.reg'))
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
@@ -322,6 +324,12 @@ def cdfs():
         final_scale=SCALE, pixfrac=0.8, driz_cr=False,
         updatewcs=False, clean=True, median=False, ra=ra, dec=dec, final_outnx=nx, final_outny=ny)
     
+    #### Check pointings
+    threedhst.shifts.plot_shifts('GOODS-deep-F125W', ALIGN_IMAGE, skip_swarp=False)
+    threedhst.shifts.plot_shifts('/3DHST/Ancillary/GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits', 'GOODS-deep-F125W_align.fits', WEIGHT_IMAGE='/3DHST/Ancillary/GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_wht.fits', drz=False, skip_swarp=False)
+
+    threedhst.shifts.plot_shifts('GOODS-wide-F125W', ALIGN_IMAGE, skip_swarp=False)
+    
     #### Check PSF
     files=glob.glob('GOODS-[wd]???*drz.fits')
     for file in files[3:]:
@@ -338,7 +346,6 @@ def cdfs():
     #plt.plot(d105['MAG_AUTO'], d105['FLUX_RADIUS'], marker='o', linestyle='None', color='blue', alpha=0.1)
     plt.plot(d125['MAG_AUTO'], d125['FLUX_RADIUS'], marker='o', linestyle='None', color='blue', alpha=0.1)
     plt.plot(d160['MAG_AUTO'], d160['FLUX_RADIUS'], marker='o', linestyle='None', color='red', alpha=0.1)
-
     plt.plot(w125['MAG_AUTO'], w125['FLUX_RADIUS'], marker='o', linestyle='None', color='purple', alpha=0.2)
     plt.plot(w160['MAG_AUTO'], w160['FLUX_RADIUS'], marker='o', linestyle='None', color='orange', alpha=0.2)
     

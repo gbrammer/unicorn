@@ -371,8 +371,27 @@ def all_pointings_width():
     pointings(ROOT='AEGIS', width=7, corner='ll')
     pointings(ROOT='UDS', width=9, corner='lr')
     pointings(ROOT='GOODS-N', width=6, corner='ur')
-        
-def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
+
+def pointings_with_status():
+    """
+    Highlight pointings that have been observed (status == 'Archived') 
+    """
+    from unicorn.survey_paper import pointings
+    
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', use_status=True)
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', use_status=True, show_acs=False)
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', use_status=True, show_wfc3=False)
+    pointings(ROOT='COSMOS', width=6, corner='lr', use_status=True)
+    pointings(ROOT='COSMOS', width=6, corner='lr', use_status=True, show_acs=False)
+    pointings(ROOT='COSMOS', width=6, corner='lr', use_status=True, show_wfc3=False)
+    pointings(ROOT='AEGIS', width=7, corner='ll', use_status=True)
+    pointings(ROOT='AEGIS', width=7, corner='ll', use_status=True, show_acs=False)
+    pointings(ROOT='AEGIS', width=7, corner='ll', use_status=True, show_wfc3=False)
+    pointings(ROOT='UDS', width=9, corner='lr', use_status=True)
+    pointings(ROOT='UDS', width=9, corner='lr', use_status=True, show_acs=False)
+    pointings(ROOT='UDS', width=9, corner='lr', use_status=True, show_wfc3=False)
+            
+def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, show_acs=True, show_wfc3=True):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files
     """
@@ -391,7 +410,12 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     candels_alpha = 0.3
     candels_color = '0.1'
     
-    
+    if use_status:
+        pointing_list, pointing_status = np.loadtxt('/research/HST/GRISM/3DHST/REGIONS/pointing_status.dat', dtype=np.str, unpack=True)
+        pointing_list, pointing_status = np.array(pointing_list), np.array(pointing_status)
+    else:
+        pointing_list, pointing_status = np.array([]), np.array([])
+        
     #### GOODS-S
     if ROOT=='GOODS-SOUTH':
         x0, x1 = 53.314005633802822,  52.886197183098595
@@ -489,6 +513,17 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     wfc3_polys = []
     for file in files:
         #
+        base = os.path.basename(file.split('.reg')[0])
+        print base, base in pointing_list
+        
+        if base in pointing_list:
+            status = pointing_status[pointing_list == base][0] == 'Archived'
+        else:
+            status = False
+        
+        if not use_status:
+            status = True
+            
         field = re.split('-[0-9]', file)[0]
         pointing = file.split(field+'-')[1].split('.reg')[0]
         fp = open(file)
@@ -498,16 +533,28 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
         wfc3_polys.append(sup.polysplit(lines[1], get_shapely=True)) 
         #
         wfcx, wfcy = sup.polysplit(lines[1])
-        fi = ax.fill(wfcx, wfcy, alpha=0.2, color=wfc3_color)
+        if show_wfc3:
+            if status:
+                fi = ax.fill(wfcx, wfcy, alpha=0.2, color=wfc3_color)
+            else:
+                fi = ax.fill(wfcx, wfcy, alpha=0.05, color=wfc3_color)
+                fi = ax.plot(wfcx, wfcy, alpha=0.8, color=wfc3_color)
         #
         if acs_color is not None:
             acsx1, acsy1 = sup.polysplit(lines[2])
             acsx2, acsy2 = sup.polysplit(lines[3])
             #
-            fi = ax.fill(acsx1, acsy1, alpha=0.05, color=acs_color)
-            fi = ax.fill(acsx2, acsy2, alpha=0.05, color=acs_color)
-            pl = ax.plot(acsx1, acsy1, alpha=0.1, color=acs_color)
-            pl = ax.plot(acsx2, acsy2, alpha=0.1, color=acs_color)
+            if show_acs:
+                if status:
+                    fi = ax.fill(acsx1, acsy1, alpha=0.05, color=acs_color)
+                    fi = ax.fill(acsx2, acsy2, alpha=0.05, color=acs_color)
+                    #
+                    pl = ax.plot(acsx1, acsy1, alpha=0.1, color=acs_color)
+                    pl = ax.plot(acsx2, acsy2, alpha=0.1, color=acs_color)
+                else:
+                    pl = ax.plot(acsx1, acsy1, alpha=0.3, color=acs_color)
+                    pl = ax.plot(acsx2, acsy2, alpha=0.3, color=acs_color)
+                
         #
         xoff, yoff = 0.0, 0.0
         if ROOT=='GOODS-SOUTH':
@@ -519,7 +566,8 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
             if pointing == '38':
                 xoff, yoff = 0.007,-0.007
         #    
-        te = ax.text(np.mean(wfcx[:-1])+xoff, np.mean(wfcy[:-1])+yoff, pointing, va='center', ha='center', fontsize=13)
+        if show_wfc3:
+            te = ax.text(np.mean(wfcx[:-1])+xoff, np.mean(wfcy[:-1])+yoff, pointing, va='center', ha='center', fontsize=13)
     
     #### Get field area from full WFC3 polygons
     un = wfc3_polys[0]
@@ -591,8 +639,17 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr'):
     print 'Dec - ', hexagesimal(yavg, hours=False)
     print 'Area: %.1f\n' %(total_area*3600.)
     
-    plt.savefig('%s_pointings.pdf' %(ROOT))
-
+    tag = ''
+    if not show_acs:
+        tag += '_noacs'
+    if not show_wfc3:
+        tag += '_nowfc3'
+        
+    if use_status:
+        plt.savefig('%s_pointings_status%s.pdf' %(ROOT, tag))
+    else:
+        plt.savefig('%s_pointings%s.pdf' %(ROOT, tag))
+        
 def get_UDF_center():
     file='/research/HST/GRISM/3DHST/REGIONS/GOODS-SOUTH-38.reg'
     field = re.split('-[0-9]', file)[0]

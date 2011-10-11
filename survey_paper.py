@@ -390,8 +390,11 @@ def pointings_with_status():
     pointings(ROOT='UDS', width=9, corner='lr', use_status=True)
     pointings(ROOT='UDS', width=9, corner='lr', use_status=True, show_acs=False)
     pointings(ROOT='UDS', width=9, corner='lr', use_status=True, show_wfc3=False)
-            
-def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, show_acs=True, show_wfc3=True):
+
+    pointings(ROOT='UDS', width=9, corner='lr', show_sn_fields=True, use_status=True)
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', show_sn_fields=True, use_status=True)
+           
+def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, show_acs=True, show_wfc3=True, show_sn_fields=False):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files
     """
@@ -510,9 +513,14 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         ax.fill(x,y, alpha=0.1, color='0.7')
     
     files=glob.glob(unicorn.GRISM_HOME+'REGIONS/'+ROOT+'-[0-9]*reg')
+    
+    if show_sn_fields:
+        files.extend(glob.glob(unicorn.GRISM_HOME+'REGIONS/SN*reg'))
+        files.extend(glob.glob(unicorn.GRISM_HOME+'REGIONS/ERS*reg'))
+        
     wfc3_polys = []
     for file in files:
-        #
+        #            
         base = os.path.basename(file.split('.reg')[0])
         print base, base in pointing_list
         
@@ -529,6 +537,13 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         fp = open(file)
         lines = fp.readlines()
         fp.close()
+        
+        if base.startswith('SN') | base.startswith('ERS'):
+            wfc3_color = 'purple'
+            acs_color = None
+            pointing = os.path.basename(field)
+            status = True
+            
         #
         wfc3_polys.append(sup.polysplit(lines[1], get_shapely=True)) 
         #
@@ -545,15 +560,20 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
             acsx2, acsy2 = sup.polysplit(lines[3])
             #
             if show_acs:
-                if status:
-                    fi = ax.fill(acsx1, acsy1, alpha=0.05, color=acs_color)
-                    fi = ax.fill(acsx2, acsy2, alpha=0.05, color=acs_color)
-                    #
-                    pl = ax.plot(acsx1, acsy1, alpha=0.1, color=acs_color)
-                    pl = ax.plot(acsx2, acsy2, alpha=0.1, color=acs_color)
+                if show_wfc3:
+                    afact = 1
                 else:
-                    pl = ax.plot(acsx1, acsy1, alpha=0.3, color=acs_color)
-                    pl = ax.plot(acsx2, acsy2, alpha=0.3, color=acs_color)
+                    afact = 3
+                    
+                if status:
+                    fi = ax.fill(acsx1, acsy1, alpha=0.05*afact, color=acs_color)
+                    fi = ax.fill(acsx2, acsy2, alpha=0.05*afact, color=acs_color)
+                    #
+                    pl = ax.plot(acsx1, acsy1, alpha=0.1*afact, color=acs_color)
+                    pl = ax.plot(acsx2, acsy2, alpha=0.1*afact, color=acs_color)
+                else:
+                    pl = ax.plot(acsx1, acsy1, alpha=0.3*afact, color=acs_color)
+                    pl = ax.plot(acsx2, acsy2, alpha=0.3*afact, color=acs_color)
                 
         #
         xoff, yoff = 0.0, 0.0
@@ -644,6 +664,8 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         tag += '_noacs'
     if not show_wfc3:
         tag += '_nowfc3'
+    if show_sn_fields:
+        tag += '_sn'
         
     if use_status:
         plt.savefig('%s_pointings_status%s.pdf' %(ROOT, tag))
@@ -2173,8 +2195,9 @@ def zphot_zspec_plot():
     
     maglim = 24
     qzmax = 0.2
+    contam_max = 0.05
     
-    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
     
     #### Same selection but nothing on specz
     keep_nospec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7)
@@ -2260,6 +2283,54 @@ def zphot_zspec_plot():
     # plt.xlim(0,np.log10(1+5))
     # plt.ylim(0,np.log10(1+5))
     
+    #### Show dz as a function of parameters
+    if 1 == 0:
+        """
+        Make plots to see how the redshift residuals depend on things like mag, 
+        contamination fraction, Qz.
+        """
+        keep = (phot.mag_f1392w[phot.idx] < 25) & (phot.fcontam[phot.idx] < 1) & (zout.q_z[0::3] < 1000) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0.7) & (zsp.dr < 1)
+        
+        keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+        
+        dz = (zout.z_peak[0::3] - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
+        
+        yr = (-0.5,0.5)
+        alpha, ms, color = 0.5, 2,'black'
+        
+        fig = unicorn.catalogs.plot_init(xs=8,aspect=0.7,left=0.12)
+        
+        #### Mag
+        ax = fig.add_subplot(221)
+        ax.plot(phot.mag_f1392w[phot.idx][keep], dz[keep], marker='o', alpha=alpha, linestyle='None', ms=ms, color=color)
+        xm, ym, ys, ns = threedhst.utils.runmed(phot.mag_f1392w[phot.idx][keep], dz[keep], NBIN=20)
+        ax.plot(xm, ys*10, color='red', linewidth=2)
+        
+        ax.set_ylim(yr[0], yr[1])
+        ax.set_xlim(19,25)
+        ax.set_xlabel(r'$H_{140}$')
+        
+        #### Contam
+        ax = fig.add_subplot(222)
+        ax.plot(phot.fcontam[phot.idx][keep], dz[keep], marker='o', alpha=alpha, linestyle='None', ms=ms, color=color)
+        xm, ym, ys, ns = threedhst.utils.runmed(phot.fcontam[phot.idx][keep], dz[keep], NBIN=20)
+        ax.plot(xm, ys*10, color='red', linewidth=2)
+        ax.semilogx()
+        ax.set_ylim(yr[0], yr[1])
+        ax.set_xlim(0.01,1)
+        ax.set_xlabel(r'$f_\mathrm{cont}\ \mathrm{at}\ 1.4\ \mu m$')
+
+        #### Q_z
+        ax = fig.add_subplot(223)
+        ax.plot(zout.q_z[0::3][keep], dz[keep], marker='o', alpha=alpha, linestyle='None', ms=ms, color=color)
+        xm, ym, ys, ns = threedhst.utils.runmed(zout.q_z[0::3][keep], dz[keep], NBIN=20)
+        ax.plot(xm, ys*10, color='red', linewidth=2)
+        ax.semilogx()
+        ax.set_ylim(yr[0], yr[1])
+        ax.set_xlim(0.001,10)
+        ax.set_xlabel(r'$Q_z$')
+        
+        
     #### Offset near z=1, appears to be due to the tilted slope of the spectrum being a bit too steep.  If you just use a 0th order offset correction to the spectrum (TILT_ORDER=0), the redshifts for many of these objects become correct
     #keep = keep & (np.array(zsp.source)[zsp.mat_idx] == 'Barger')
     

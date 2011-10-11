@@ -96,3 +96,24 @@ def check_fast(object='AEGIS-1-G141_00497', wmin=2000, wmax=2.4e4, logx=False, i
     
     fig.savefig(object+'_fast.'+image_type)
     plt.close()
+
+def make_masked_FAST_errfunc():
+    """
+    Make a template error function for FAST that is very large near emission lines to 
+    apply an effective mask.
+    """
+    temperr = '/usr/local/share/FAST/FAST_v0.9b/Template_error/TEMPLATE_ERROR.fast.v0.2'
+
+    w,t = np.loadtxt(temperr, unpack=True)
+    
+    lines = [4861, 5007, 6563.]
+    for line in lines:
+        mask = np.abs(w-line) < 250
+        t[mask] = 1000
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/FAST')
+    fp = open(os.path.basename(temperr)+'_linemask','w')
+    for i in range(len(w)):
+        fp.write('%f %f\n' %(w[i], t[i]))
+    
+    fp.close()

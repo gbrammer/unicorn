@@ -104,7 +104,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         cdfs=True
     
     aegis_wirds=False
-    if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-'):
+    if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-') | root.startswith('AEGIS-6-'):
         aegis=False
         aegis_wirds=True
     
@@ -2558,7 +2558,9 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
         relerr, perror = mp.relerr, mp.perror
     except:
         relerr, perror = np.zeros(4)-1, np.zeros(4)-1
-        
+      
+    #print 'relerr', relerr, perror
+      
     #mp.relerr, mp.params, mp.perror
     
     #### for testing
@@ -2606,17 +2608,16 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha[halpha < 1.e-8*halpha.max()] = 0
     halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]*(1+zpeak_i))
     
-    fp = open('../EQW_FOR_MATTIA/test_temp.dat','w')
-    fp.write('# lam continuum line\n')
-    for i in range(1,len(temp_seds['templam'])):
-        fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
-    fp.close()    
+    # fp = open('../EQW_FOR_MATTIA/test_temp.dat','w')
+    # fp.write('# lam continuum line\n')
+    # for i in range(1,len(temp_seds['templam'])):
+    #     fp.write('%.6e %.3e %.3e\n' %(temp_seds['templam'][i], continuum[i], halpha[i]))
+    # fp.close()    
     
     ## test different ways of measuring the equivalenth width from the convolved template and from the spectrum itself
     halpha_eqw_smooth = -np.trapz((-obs_sed_ha/obs_sed_continuum)[is_spec], lci[is_spec])
     use = is_spec & (obs_sed_ha > 1.e-5*obs_sed_ha.max())
     halpha_eqw_data = -np.trapz((-(tempfilt['fnu'][:,0]/(lci/5500.)**2-obs_sed_continuum)/obs_sed_continuum)[use], lci[use])
-    halpha_eqw = (halpha_eqw, halpha_eqw_smooth, halpha_eqw_data)
     
     # 
     # idx = np.arange(len(obs_sed_continuum))
@@ -2630,7 +2631,11 @@ def equivalent_width(root='GOODS-S-24-G141', id=29):
     halpha_err = halpha_eqw*relerr[1]
     if perror[1] == 0:
         halpha_err = -1.
-        
+    
+    #print 'relerr:' %relerr
+    #print 'EQW, FLUX, ERR: %.3f %.3f %.3f' %(halpha_eqw, halpha_err, halpha_flux)
+    halpha_eqw = (halpha_eqw, halpha_eqw_smooth, halpha_eqw_data)
+    
     # cc = cosmocalc.cosmocalc(zout.z_peak[0], H0=71, WM=0.27, WV=1-0.27)
     # halpha_lum = halpha_flux*cc['DL_cm']**2*4*np.pi
     # halpha_sfr = 7.9e-42*halpha_lum
@@ -2803,6 +2808,22 @@ def test_equivalent_widths():
     os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/EQW_FOR_MATTIA')
     ew = catIO.Readfile('list_for_gabe.dat')
     
+    fp = open('ASCII/gabe_eqw.dat','w')
+    fp.write('# id z_grism halpha_eqw halpha_eqw_err\n')
+    
+    for i, object in enumerate(ew.id):
+        try:
+            obj, z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = unicorn.analysis.equivalent_width(root=object.split('_')[0], id=int(object.split('_')[1]))
+        except:
+            print 'xx %s xx' %(object)
+            pass
+        #
+        fp.write('%s %.3f %.3f\n' %(object, halpha_eqw[0], halpha_err))
+        #
+        unicorn.analysis.make_eazy_asciifiles(object=object, savepath='ASCII')
+    
+    fp.close()
+        
     new_fits = np.zeros((3, len(ew.id)))
     z_fit = np.zeros(len(ew.id))
     

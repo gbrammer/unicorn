@@ -7,6 +7,7 @@ import time
 
 import matplotlib.pyplot as plt
 
+# testing by Britt
 USE_PLOT_GUI=False
 
 from matplotlib.figure import Figure

@@ -23,6 +23,7 @@ import galfit
 import catalogs
 import survey_paper
 import go_acs
+import fast
 
 from socket import gethostname as hostname
 

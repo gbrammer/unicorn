@@ -105,7 +105,7 @@ def check_fast(object='AEGIS-1-G141_00497', wmin=2000, wmax=2.4e4, logx=False, i
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(outfile, dpi=100, transparent=False)
     
-    fig.close()
+    plt.close()
 
 def make_masked_FAST_errfunc():
     """

@@ -21,6 +21,9 @@ def go_all():
     unicorn.go_acs.test(root='jbhm32')
     unicorn.go_acs.test(root='jbhm51')
     unicorn.go_acs.test(root='jbhm54')
+
+    #### For Danilo
+    unicorn.go_acs.test(root='jbhm39')
     
 def test(root='jbhm51'):
     """
@@ -90,7 +93,7 @@ def test(root='jbhm51'):
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
     
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS')
-    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=27)
+    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=25)
 
     threedhst.process_grism.set_ACS_G800L()
     

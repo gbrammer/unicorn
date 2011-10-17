@@ -815,9 +815,9 @@ def AEGIS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False)
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
-    threedhst.gmap.makeImageMap(['AEGIS-28-F140W_drz.fits', 'AEGIS-28-F140W_align.fits[0]*0.04', 'AEGIS-28-G141_drz.fits', 'AEGIS-9-G141_drz.fits'][0:], aper_list=[13, 14,15], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['AEGIS-6-F140W_drz.fits', 'AEGIS-6-F140W_align.fits[0]*4', 'AEGIS-6-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings, not coded yet but need to regenerate the original 

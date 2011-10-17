@@ -2315,7 +2315,7 @@ def zphot_zspec_plot():
         ax.plot(phot.fcontam[phot.idx][keep], dz[keep], marker='o', alpha=alpha, linestyle='None', ms=ms, color=color)
         xm, ym, ys, ns = threedhst.utils.runmed(phot.fcontam[phot.idx][keep], dz[keep], NBIN=20)
         ax.plot(xm, ys*10, color='red', linewidth=2)
-        ax.semilogx()
+        #ax.semilogx()
         ax.set_ylim(yr[0], yr[1])
         ax.set_xlim(0.01,1)
         ax.set_xlabel(r'$f_\mathrm{cont}\ \mathrm{at}\ 1.4\ \mu m$')

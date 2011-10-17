@@ -1960,7 +1960,32 @@ def make_specz_catalog():
     zsp.mat_idx = mat_idx
                 
     unicorn.catalogs.zsp = zsp
-            
+    
+def print_zsp_catalog():
+    """ 
+    Make an ASCII catalog with the better z_spec list
+    """
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    zspec = zsp.zspec[zsp.mat_idx]*1.
+    zspec[zsp.dr > 0.7] = -1.0
+    zspec[mcat.rmatch[mcat.idx] > 0.5] = -1.0
+    zspID = zsp.id[zsp.idx]
+    zspDR = zsp.dr
+    PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
+    
+    fp = open(PATH_TO_CAT+'full_zspec.cat','w')
+    fp.write('# id z_spec dr_spec\n')
+    fp.write('# v1.6\n')
+    
+    for i in range(len(zsp.dr)):
+        print noNewLine+'%d' %(i)
+        fp.write('%s %9.5f %8.2f\n' %(zspID[i], zspec[i], zspDR[i]))
+    
+    fp.close()
+    
+    
 def read_steidel(verbose=True):
     """
     Read Steidel 2003 LBG catalogs

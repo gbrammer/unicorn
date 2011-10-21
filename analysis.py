@@ -2210,15 +2210,29 @@ def make_all_asciifiles():
     Make the ascii files for release v1.6
     """
     
-    
     unicorn.catalogs.read_catalogs()
     from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
     
     os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS_v1.6')
-
-    for object in zout.id[0::3]:
-        unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')
-        
+    
+    fields = np.unique(phot.field)
+    for field in fields:
+        try:
+            os.mkdir('ASCII/%s' %(field))
+        except:
+            pass
+            
+    fp = open('ASCII/failed.log','w')
+    for i in range(len(zout.z_peak[0::3])):
+        object = zout.id[0::3][i]
+        field = phot.field[phot.idx][i]
+        print noNewLine+object
+        try:
+            unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/%s' %(field))
+        except:
+            fp.write(object+'\n')
+    #
+    fp.close()
         
 def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', savepath='./ASCII/'):
     """

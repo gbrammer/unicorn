@@ -2210,11 +2210,12 @@ def make_all_asciifiles():
     Make the ascii files for release v1.6
     """
     
-    os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS_v1.6')
     
     unicorn.catalogs.read_catalogs()
     from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
     
+    os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS_v1.6')
+
     for object in zout.id[0::3]:
         unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')
         

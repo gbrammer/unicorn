@@ -2190,14 +2190,36 @@ def check_eazy_fits():
     
     ##### Redo fits that were overwritten
     log = catIO.Readfile('param_log')
-    redo = log.temp_file != 'templates/o2_fit_lines.spectra.param'
+    redo = (log.temp_file != 'templates/o2_fit_lines.spectra.param')
     
     for object in log.object[redo]:
+        if object.startswith('UDF'):
+            continue
+        #
+        object = object.split('.param')[0]
         pointing = object.split('-G141')[0]+'-G141'
-        id = int(object.split('_')[1].split('.')[0])
+        id = int(object.split('_')[1])
         result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.7, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log', OLD_RES = 'FILTER.RES.v9.R300', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param')
+        os.system('cat OUTPUT/%s.zout' %(object))
+        print '\n ------ \n'
+        os.system('grep %s ../FIRST_PAPER/GRISM_v1.6/full_redshift.cat' %(object))
+        os.system('mv OUTPUT/%s* ../REDSHIFT_FITS_v1.6/OUTPUT/' %(object))
+    
+def make_all_asciifiles():
+    """ 
+    Make the ascii files for release v1.6
+    """
+    
+    os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS_v1.6')
+    
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    for object in zout.id[0::3]:
+        unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')
         
-def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', savepath='./OUTPUT/'):
+        
+def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', savepath='./ASCII/'):
     """
     Make ascii files with the best-fit eazy templates and p(z) for the 3D-HST fit.
     
@@ -2218,8 +2240,12 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
             
     #### Photometry + spectrum
     fp = open(savepath+object+'_obs_sed.dat','w')
-    fp.write('# lc fnu efnu obs_sed continuum line\n')
-
+    fp.write('# lc fnu efnu obs_sed continuum line is_spec\n')
+    
+    lci = tempfilt['lc']
+    dlam_spec = lci[-1]-lci[-2]
+    is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)*1
+    
     obs_sed = np.dot(tempfilt['tempfilt'][:,:,coeffs['izbest'][0]],\
                      coeffs['coeffs'][:,0])# /(lci/5500.)**2
     
@@ -2228,7 +2254,7 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
     obs_sed_line = np.dot(tempfilt['tempfilt'][:,continuum_i:,coeffs['izbest'][0]], coeffs['coeffs'][continuum_i:,0])# /(lci/5500.)**2
     
     for i in range(tempfilt['NFILT']):
-        fp.write(' %10.6e %8.3e %8.3e  %8.3e  %8.3e  %8.3e\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i], obs_sed_cont[i], obs_sed_line[i]))
+        fp.write(' %10.6e %8.3e %8.3e  %8.3e  %8.3e  %8.3e %d\n' %(tempfilt['lc'][i], tempfilt['fnu'][i,0], tempfilt['efnu'][i,0], obs_sed[i], obs_sed_cont[i], obs_sed_line[i], ))
     
     fp.close()
         

@@ -158,28 +158,28 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'kstot'
         MAGS = True
     
-    # if goodsn:
-    #     GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
-    #     CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-    #     if unicorn.hostname().startswith('uni'):
-    #         CAT_PATH = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/'
-    #     #
-    #     CAT_FILE = CAT_PATH+'mods.cat'
-    #     ZOUT_FILE = CAT_PATH+'../EAZY/OUTPUT/photz.zout'
-    #     FOUT_FILE = CAT_PATH+'mods.bc03.fout'
-    #     KTOT_COL = 'ks_ap'
-    
-    ##### Use Ros' new catalog (v1.7)
     if goodsn:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/'
         #
-        CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
-        ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
-        FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
-        KTOT_COL = 'f_Ks'
+        CAT_FILE = CAT_PATH+'mods.cat'
+        ZOUT_FILE = CAT_PATH+'../EAZY/OUTPUT/photz.zout'
+        FOUT_FILE = CAT_PATH+'mods.bc03.fout'
+        KTOT_COL = 'ks_ap'
+    
+    # ##### Use Ros' new catalog (v1.7)
+    # if goodsn:
+    #     GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
+    #     CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
+    #     if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
+    #         CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
+    #     #
+    #     CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
+    #     ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
+    #     FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
+    #     KTOT_COL = 'f_Ks'
       
     if cdfs:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
@@ -2162,6 +2162,41 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     
     return True
 #
+
+def check_eazy_fits():
+    """
+    Check how many templates were run in the eazy fit in the v1.6 directory to
+    assess how many objects were overwritten from the original eazy run that 
+    generated the catalog redshifts.
+    """
+    import threedhst.eazyPy as eazy
+    
+    os.chdir('/3DHST/Spectra/Work/ANALYSIS/REDSHIFT_FITS_v1.6')
+    
+    os.system('ls OUTPUT |grep param > /tmp/param_files')
+    fp = open('/tmp/param_files')
+    param_files = fp.readlines()
+    fp.close()
+    
+    fp = open('param_log','w')
+    fp.write('# object NTEMP zmin zmax temp_file\n')
+    
+    for file in param_files:
+        print noNewLine+file[:-1]
+        param = eazy.EazyParam('OUTPUT/%s' %(file[:-1]))
+        fp.write('%-30s %2d %6.2f %6.2f %s\n' %(file[:-1], len(param.templates), param['Z_MIN'], param['Z_MAX'], param['TEMPLATES_FILE']))
+        
+    fp.close()
+    
+    ##### Redo fits that were overwritten
+    log = catIO.Readfile('param_log')
+    redo = log.temp_file != 'templates/o2_fit_lines.spectra.param'
+    
+    for object in log.object[redo]:
+        pointing = object.split('-G141')[0]+'-G141'
+        id = int(object.split('_')[1].split('.')[0])
+        result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=0.7, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=' > log', OLD_RES = 'FILTER.RES.v9.R300', TEMPLATES_FILE='templates/o2_fit_lines.spectra.param')
+        
 def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', savepath='./OUTPUT/'):
     """
     Make ascii files with the best-fit eazy templates and p(z) for the 3D-HST fit.

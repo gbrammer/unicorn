@@ -434,7 +434,7 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
     
     #### Fix shifts for COSMOS-18
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 
@@ -543,17 +543,20 @@ def GOODSS(FORCE=False):
     #### Main preparation loop
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
-    for i in range(len(direct)):
+    
+    loop_list = range(len(direct))
+    #loop_list = [3] #6,7,13,14]  ### Oct 21 2011
+    for i in loop_list:
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         ALIGN = ALIGN_FILES[0]
         if pointing.startswith('GOODS-S-28'):
             ALIGN = ALIGN_FILES[1]
         #
-        if pointing.startswith('GOODS-S-1'):
+        if pointing.startswith('GOODS-S-1-'):
             ALIGN = ALIGN_FILES[2]
         #
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
             
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-24-F140W_drz.fits','GOODS-S-23-F140W_drz.fits', 'GOODS-S-24-F140W_align.fits[0]*4'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))

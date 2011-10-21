@@ -123,7 +123,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'cosmos-1.v4.6.zout'
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/cosmos-1.deblend.redshifts/cosmos-1.deblend.v5.1.zout'
@@ -137,7 +137,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
         FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
@@ -147,7 +147,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if aegis_wirds:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/WIRDS/FAST/'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/AEGIS/WIRDS/Photometry/FAST/'
         #
         ZOUT_FILE = CAT_PATH + '../EAZY/OUTPUT/egs_candels.zout'
@@ -173,7 +173,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if goodsn:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
         #
         CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
@@ -184,7 +184,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if cdfs:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
         CAT_PATH = GRISM_PATH+'FIREWORKS/'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
         #
         CAT_FILE = CAT_PATH+'fireworks.cat'
@@ -192,7 +192,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH + 'fireworks.fout'
         KTOT_COL = 'Ks_totf'
     #
-    if udf and unicorn.hostname().startswith('uni'):
+    if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):
         GRISM_PATH=unicorn.GRISM_HOME+'UDF/'
         CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
 
@@ -204,7 +204,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if uds:
         GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
         #
         CAT_FILE = CAT_PATH+'uds.cat'
@@ -1280,7 +1280,7 @@ def generate_rf_color_inputs(FILTERS_RES='FILTER.RES.v8.R300', rf_filter_ids=ran
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
-    if unicorn.hostname().startswith('uni'):
+    if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
         eazy_binary = '/usr/local/bin/eazy_latest'
     else:
         eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'
@@ -1894,7 +1894,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
     if (eazy_binary is None):
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             eazy_binary = '/usr/local/bin/eazy_latest'
         else:
             eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy'

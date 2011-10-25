@@ -1361,6 +1361,7 @@ def process_signal_to_noise():
     plt.rcParams['text.usetex'] = False
     
 def clash_empty_apertures():
+    
     for cluster in ['a2261','a383','macs1149','macs1206','macs2129']:
         os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
         images = glob.glob('*drz.fits')
@@ -1368,7 +1369,7 @@ def clash_empty_apertures():
             wht = image.replace('drz','wht')
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(7.69/4.,7.69*4+1,7.69/4.), ZP=zp, make_plot=False, NSIM=1000)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.5/0.065,0.5/0.065+1,2), ZP=zp, make_plot=False, NSIM=1000)
         
 def run_empty_apertures_fields():
     import glob
@@ -1457,6 +1458,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     #apertures = np.arange(1,17,0.5)
     apertures = np.arange(aper_params[0], aper_params[1], aper_params[2])
     fluxes = np.zeros((NSIM, len(apertures)))
+    centers = np.zeros((NSIM, len(apertures), 2))
     
     #### Loop throuth the desired apertures and randomly place NSIM of them
     aper = np.zeros(img_shape, dtype=np.float)
@@ -1499,6 +1501,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             #### aperture are greater than zero
             if (smax == 0) & (wmin > 0):
                 fluxes[icount, iap] = (aper*img_data).sum()
+                centers[icount, iap, : ]  = np.array([xc, yc])
                 #aper_image += aper
                 print noNewLine+'%d' %(icount)
                 icount += 1
@@ -1519,7 +1522,8 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     prim = pyfits.PrimaryHDU(header=ap_head)
     ap_hdu = pyfits.ImageHDU(data=apertures)
     fl_hdu = pyfits.ImageHDU(data=fluxes)
-    pyfits.HDUList([prim, ap_hdu, fl_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')
+    ce_hdu = pyfits.ImageHDU(data=centers)
+    pyfits.HDUList([prim, ap_hdu, fl_hdu, cd_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')
     
     if make_plot is True:
         make_empty_apertures_plot(empty_file='%s_empty.fits' %(ROOT), ZP=ZP)

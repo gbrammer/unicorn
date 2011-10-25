@@ -1369,7 +1369,7 @@ def clash_empty_apertures():
             wht = image.replace('drz','wht')
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.5/0.065,0.5/0.065+1,2), ZP=zp, make_plot=False, NSIM=100)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.4/0.065,0.4/0.065+1,2), ZP=zp, make_plot=False, NSIM=100)
         
 def run_empty_apertures_fields():
     import glob
@@ -1523,7 +1523,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     ap_hdu = pyfits.ImageHDU(data=apertures)
     fl_hdu = pyfits.ImageHDU(data=fluxes)
     ce_hdu = pyfits.ImageHDU(data=centers)
-    pyfits.HDUList([prim, ap_hdu, fl_hdu, cd_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')
+    pyfits.HDUList([prim, ap_hdu, fl_hdu, ce_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')
     
     if make_plot is True:
         make_empty_apertures_plot(empty_file='%s_empty.fits' %(ROOT), ZP=ZP)

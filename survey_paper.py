@@ -1360,6 +1360,16 @@ def process_signal_to_noise():
     fig.savefig('spec_signal_to_noise.pdf')
     plt.rcParams['text.usetex'] = False
     
+def clash_empty_apertures():
+    for cluster in ['a2261','a383','macs1149','macs1206','macs2129']:
+        os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
+        images = glob.glob('*drz.fits')
+        for image in images:
+            wht = image.replace('drz','wht')
+            head = pyfits.getheader(image)
+            zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(7.69/4.,7.69*4+1,7.69/4.), ZP=zp, make_plot=False, NSIM=1000)
+        
 def run_empty_apertures_fields():
     import glob
     import os
@@ -1461,7 +1471,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             
             #### Quick test to see if the coordinate is within an object or 
             #### where weight is zero
-            if (seg[int(yc), int(xc)] != 0) | (img_wht[int(yc), int(xc)] <= 0):
+            if (seg[int(yc), int(xc)] != 0) | (img_wht[int(yc), int(xc)] <= 0) | (img_data[int(yc), int(xc)] == 0):
                 continue
             
             #### Shapely point + buffer to define the aperture

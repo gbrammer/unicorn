@@ -331,13 +331,17 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     #### Use ACS alignment images
     ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'
     
+    #### The ASN files are generated from elsewhere to account for the fact that many of 
+    #### the visits with the worst sky background levels and earth-glow were redone in early
+    #### 2011.  I can't find the code where I generated the ASN files, however....
+    
     #### Process direct + grism pairs
     direct=glob.glob('GOODS-N-*-F140W_asn.fits')
     grism = glob.glob('GOODS-N-*-G141_asn.fits')
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
     threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
@@ -589,7 +593,7 @@ def GOODSS_mosaic():
     threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
-    SCALE = 0.1
+    SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
     NX, NY = int(16210*0.06/SCALE), int(18100*0.06/SCALE)
@@ -810,7 +814,7 @@ def AEGIS(FORCE=False):
 
     os.chdir(unicorn.GRISM_HOME+'AEGIS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1*drz.fits'
-    ALIGN = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
+    # ALIGN = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -853,25 +857,25 @@ def AEGIS_mosaic():
                        path_to_FLT='./', run_multidrizzle=False)
     
     ## some changes
-    
-    SCALE = 0.128254
+        
+    SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
-    NX, NY = int(18000*0.06/SCALE), int(19000*0.06/SCALE)
+    NX, NY = int(7547*0.06/SCALE), int(31900*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=214.88705, dec=52.85442,
-             final_outnx = NX, final_outny=NY)
+             ra=214.92061, dec=52.878457,
+             final_outnx = NX, final_outny=NY, final_rot=42)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=214.88705, dec=52.85442,
-             final_outnx = NX, final_outny=NY)
+             ra=214.92061, dec=52.878457,
+             final_outnx = NX, final_outny=NY, final_rot=42)
     #
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))

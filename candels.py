@@ -756,5 +756,227 @@ def redo_processing_for_bad_dq():
             ALIGN_IMAGE = None, ALIGN_EXTENSION=0,
             GET_SHIFT=False, DIRECT_HIGHER_ORDER=2,
             SCALE=0.06, geometry='rxyscale,shift')
+
+#########################  
+########## Things for the CLASH survey
+#########################
+
+def clash_make_rms_map(image='hlsp_clash_hst_wfc3ir_macs1206_total_v1_wht.fits', include_poisson=False):
+    """
+    Make an RMS image by simply taking the inverse of an inverse variance image.
+    """
+    wht = pyfits.open(image)
+    out = image.replace('wht','rms')
+    rms = 1./np.sqrt(wht[0].data)
+    if include_poisson:
+        drz = pyfits.open(image.replace('wht','drz'))
+        texp = drz[0].header['EXPTIME']
+        var = rms**2*texp**2 + drz[0].data*texp
+        rms = np.sqrt(var)/texp
+    
+    wht[0].data = rms
+    wht.writeto(out, clobber=True)
+
+#
+def clash_all_clusters():
+    import unicorn
+    
+    #unicorn.candels.clash_run_SExtractor(cluster='a2261')
+    #unicorn.candels.clash_run_SExtractor(cluster='a383')
+    unicorn.candels.clash_run_SExtractor(cluster='macs1149')
+    unicorn.candels.clash_run_SExtractor(cluster='macs1206')
+    unicorn.candels.clash_run_SExtractor(cluster='macs2129')
+
+def clash_run_SExtractor(cluster='macs2129'):
+    
+    import threedhst
+    
+    try:
+        os.mkdir('/Users/gbrammer/CLASH/%s/CAT' %(cluster))
+    except:
+        pass
+        
+    os.chdir('/Users/gbrammer/CLASH/%s/CAT' %(cluster))
+    
+    #### Run SExtractor on the direct image, with the WHT 
+    #### extension as a weight image
+    threedhst.sex.USE_CONVFILE = 'gauss_2.0_5x5.conv'
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+
+    #cluster = 'macs2129'
+    
+    detect_image = glob.glob('../hlsp*hst_wfc3ir*%s*total*drz.fits' %(cluster))[-1]
+        
+    se.overwrite = True
+    #se.options['CATALOG_TYPE'] = 'FITS_1.0'
+    
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = '2.5'
+    se.options['ANALYSIS_THRESH']  = '2.5' 
+    
+    se.options['DETECT_MINAREA']    = '8'
+    se.options['DEBLEND_NTHRESH']    = '64'
+    se.options['DEBLEND_MINCONT']    = '0.00001'
+    se.options['DEBLEND_MINCONT']    = '0.000002'
+    se.options['GAIN']    = '1.0'
+    
+    se.options['MEMORY_OBJSTACK'] = '8000'
+    se.options['MEMORY_PIXSTACK'] = '800000'
+    
+    scale = 0.065
+    apertures = np.array([0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,1.75,2,2.5,3])/scale
+    pix = '%.2f' %(apertures[0])
+    for ap in apertures[1:]:
+        pix += ',%.2f' %(ap)
+        
+    se.options['PHOT_APERTURES'] = pix
+    #### Run SExtractor
+    se.options['MAG_ZEROPOINT'] = '25'
+    se.options['CATALOG_NAME']    = cluster+'_total_drz.cat'
+    se.options['CHECKIMAGE_NAME'] = cluster+'_total_seg.fits'
+    # se.options['WEIGHT_IMAGE']    = detect_image.replace('drz','wht')
+    # se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    
+    if not os.path.exists(detect_image.replace('drz','rms')):
+        unicorn.candels.clash_make_rms_map(image=detect_image.replace('drz','wht'), include_poisson=False)
+    se.options['WEIGHT_IMAGE']    = detect_image.replace('drz','rms')
+    se.options['WEIGHT_TYPE']     = 'MAP_RMS'
+    se.options['WEIGHT_GAIN']     = 'N'
+    
+    status = se.sextractImage(detect_image, mode='direct')
+    #threedhst.sex.sexcatRegions(cluster+'_total_drz_xx.cat', cluster+'_total_drz_xx.reg', format=2)
+    
+    
+    all_bands = glob.glob('../*drz.fits')
+    for band in all_bands:
+        se.options['CATALOG_NAME'] = os.path.basename(band).replace('fits','cat')
+        se.options['WEIGHT_IMAGE']= '%s,%s' %(detect_image.replace('drz','rms'), band.replace('drz','wht'))
+        se.options['WEIGHT_TYPE']     = 'MAP_RMS,MAP_WEIGHT'
+        #
+        fp = open('auto.sex','w')
+        fp.write(se._makeOptionStr())
+        fp.close()
+        os.system('sex %s %s -c auto.sex' %(detect_image, band))
+    #
+    base = os.path.basename(detect_image).split('.fits')[0]
+    threedhst.sex.sexcatRegions(base+'.cat', base+'.reg', format=2)
+    
+    unicorn.candels.clash_make_catalog()
+    
+def clash_make_catalog():
+    
+    files=glob.glob('*_f*_*cat')
+    NFILT = len(files)
+    filters = []
+    fluxes = []
+    errors = []
+    
+    flux_column = 'APER3' # 0.4" diameter 
+    
+    total_file = glob.glob('*_wfc3ir*total*cat')[0]
+    tcat = threedhst.sex.mySexCat(total_file)
+    ftot = tcat['FLUX_AUTO']/tcat['FLUX_'+flux_column]
+    
+    for file in files:
+        cat = threedhst.sex.mySexCat(file)
+        filters.append(file.split('_')[5])
+        #
+        head = pyfits.getheader('../%s' %(file.replace('cat','fits')))
+        zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921
+        #
+        flux = np.cast[float](cat['FLUX_'+flux_column])*10**(-0.4*(zp-25))*ftot
+        if os.path.exists('../%s_empty.fits' %(file.replace('.cat',''))):
+            empty = pyfits.open('../%s_empty.fits' %(file.replace('.cat','')))
+            texp = head['EXPTIME']
+            error_color2 = threedhst.utils.biweight(empty[2].data)**2*texp**2+np.cast[float](cat['FLUX_'+flux_column])*texp
+            error = np.sqrt(error_color2)/texp*10**(-0.4*(zp-25))*ftot
+            depth = ' %.2f' %(zp-2.5*np.log10(5*threedhst.utils.biweight(empty[2].data)))
+        else:
+            error = np.cast[float](cat['FLUXERR_'+flux_column])*10**(-0.4*(zp-25))*ftot
+            depth = ''
+        #
+        fluxes.append(flux)
+        errors.append(error)
+        print noNewLine+file+depth
+        
+    fluxes = np.array(fluxes)
+    errors = np.array(errors)
+    
+    bad = fluxes == 0
+    fluxes[bad] = -99
+    errors[bad] = -99
+    
+    bad = (ftot < 0) #| (ftot > 20)
+    fluxes[:,bad] = -99
+    errors[:,bad] = -99
+    
+    NFILT, NOBJ = fluxes.shape
+    for i in range(NOBJ):
+        sn = fluxes[:,i]/errors[:,i]
+        ok = sn > 1
+        if len(ok[ok]) < 3:
+            fluxes[:,i] = -99
+    
+    #### Write the ascii catalog
+    id, ra, dec = tcat['NUMBER'], tcat['X_WORLD'], tcat['Y_WORLD']
+    
+    header = '# id ra dec'
+    for filt in filters:
+        header = '%s f_%s e_%s' %(header, filt, filt)
+    
+    
+    fp = open(total_file.split('_total')[0]+'_eazy.cat','w')
+    fp.write(header+'\n')
+    for i in range(NOBJ):
+        print noNewLine+'%d' %(i)
+        flux = fluxes[:,i]
+        error = errors[:,i]
+        line = '%-6d %.6f %.6f' %(id[i], ra[i], dec[i])
+        for j in range(NFILT):
+            line = '%s %.3e %.3e' %(line, flux[j], error[j])
+        #    
+        fp.write(line+'\n')
+    
+    fp.close()
+    
+    if (1 == 0):
+        for filt in filters:
+            print 'f_%-6s Fxx' %(filt)
+            print 'e_%-6s Exx' %(filt)
+        #
+        cat = catIO.Readfile(glob.glob('*eazy.cat')[0])
+        zout = catIO.Readfile('OUTPUT/photz.zout')
+        hmag = 25-2.5*np.log10(cat.f_f160w)
+        
+        hlim = 25
+        plt.rcParams['text.usetex'] = False
+        plt.hist(zout.z_peak[(hmag < hlim) & (zout.q_z < 5)], range=(0,5), bins=400)
+        
+        test = (hmag < hlim) & (zout.z_peak > 1.5) & (zout.q_z < 5)
+        idx = np.arange(len(hmag))
+        for i in idx[test]:
+            print '%-6d %.3f %.2f %.6f %.6f' %(cat.id[i], zout.z_peak[i], hmag[i], cat.ra[i], cat.dec[i])
+            
+            
+def clash_red_galaxies():
+    import threedhst
+    jcat = threedhst.sex.mySexCat('hlsp_clash_hst_wfc3ir_macs2129_f125w_v1_drz.cat')
+    hcat = threedhst.sex.mySexCat('hlsp_clash_hst_wfc3ir_macs2129_f160w_v1_drz.cat')
+    
+    jflux = jcat['FLUX_APER4']*10**(-0.4*(25-26.25))
+    hflux = hcat['FLUX_APER4']*10**(-0.4*(25-25.96))
+    
+    jhmag = -2.5*np.log10(jflux/hflux)
+    
+    plt.plot(hcat['MAG_AUTO'], jhmag, marker='o', linestyle='none', color='blue',alpha=0.5)
+    plt.xlim(20,30)
+    plt.ylim(-0.4,3)
+    
+    #
+    drz = pyfits.open('../hlsp_clash_hst_wfc3ir_macs2129_f125w_v1_drz.fits')
+    zp=-2.5*np.log10(drz[0].header['PHOTFLAM']) - 21.10 - 5 *np.log10(drz[0].header['PHOTPLAM']) + 18.6921
         
     

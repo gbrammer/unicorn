@@ -1371,12 +1371,15 @@ def clash_empty_apertures():
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
             unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=1000)
     
-    files = glob.glob('*empty.fits')
-    for file in files:
-        head = pyfits.getheader(file.replace('_empty',''))
-        zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-        em = pyfits.open(file)
-        print file, zp-2.5*np.log10(5*np.std(em[2].data))
+    for cluster in ['a2261','a383','macs1149','macs1206','macs2129'][:-1]:
+        os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
+        files = glob.glob('*empty.fits')
+        print '\n--------------\n%s\n--------------\n' %(cluster.center(14))
+        for file in files:
+            head = pyfits.getheader(file.replace('_empty',''))
+            zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
+            em = pyfits.open(file)
+            print '%-7s %.2f' %(file.split('_')[5], zp-2.5*np.log10(5*np.std(em[2].data)))
         
 def run_empty_apertures_fields():
     import glob
@@ -1430,6 +1433,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     img_shape = img_data.shape
     
     #### Setup SExtractor and run to generate a segmentation image
+    threedhst.sex.USE_CONVFILE = 'gauss_4.0_7x7.conv'
     se = threedhst.sex.SExtractor()
     se.aXeParams()
     se.copyConvFile()
@@ -1447,10 +1451,14 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
         se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT_SEX-1)
         wht = pyfits.open(WHT_IMAGE)
         img_wht = wht[WHT_EXT].data
-        
+    
+    ##### Needed for very faint limits
+    se.options['MEMORY_OBJSTACK'] = '8000'
+    se.options['MEMORY_PIXSTACK'] = '800000'
+    
     se.options['FILTER']    = 'Y'
-    se.options['DETECT_THRESH']    = '1.4'
-    se.options['ANALYSIS_THRESH']  = '1.4'
+    se.options['DETECT_THRESH']    = '0.3'
+    se.options['ANALYSIS_THRESH']  = '0.3'
     se.options['MAG_ZEROPOINT'] = '%.2f' %(ZP)  ### arbitrary, actual mags don't matter
     status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT_SEX-1))
     

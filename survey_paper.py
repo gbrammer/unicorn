@@ -1369,7 +1369,7 @@ def clash_empty_apertures():
             wht = image.replace('drz','wht')
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.5/0.065,0.5/0.065+1,2), ZP=zp, make_plot=False, NSIM=1000)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.5/0.065,0.5/0.065+1,2), ZP=zp, make_plot=False, NSIM=100)
         
 def run_empty_apertures_fields():
     import glob

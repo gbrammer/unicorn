@@ -1369,7 +1369,7 @@ def clash_empty_apertures():
             wht = image.replace('drz','wht')
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=1000)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=25)
     
     for cluster in ['a2261','a383','macs1149','macs1206','macs2129'][:-1]:
         os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
@@ -1457,8 +1457,8 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     se.options['MEMORY_PIXSTACK'] = '800000'
     
     se.options['FILTER']    = 'Y'
-    se.options['DETECT_THRESH']    = '0.3'
-    se.options['ANALYSIS_THRESH']  = '0.3'
+    se.options['DETECT_THRESH']    = '1.5'
+    se.options['ANALYSIS_THRESH']  = '1.5'
     se.options['MAG_ZEROPOINT'] = '%.2f' %(ZP)  ### arbitrary, actual mags don't matter
     status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT_SEX-1))
     

@@ -1369,7 +1369,8 @@ def clash_empty_apertures():
             wht = image.replace('drz','wht')
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht, WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=25)
+            unicorn.candels.clash_make_rms_map(image=wht, include_poisson=False)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht.replace('wht','rms'), WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=25, MAP_TYPE='MAP_RMS')
     
     for cluster in ['a2261','a383','macs1149','macs1206','macs2129'][:-1]:
         os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
@@ -1393,7 +1394,7 @@ def run_empty_apertures_fields():
     for file in files[1:]:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
     
-def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True):
+def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True, MAP_TYPE='MAP_WEIGHT'):
     """
     1) Run SExtractor on the input image to generate a segmentation map.
     
@@ -1447,7 +1448,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
         img_wht = img_data*0.
         img_wht[img_data != 0] = 1
     else:
-        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_TYPE']     = MAP_TYPE
         se.options['WEIGHT_IMAGE']    = '%s[%d]' %(WHT_IMAGE, WHT_EXT_SEX-1)
         wht = pyfits.open(WHT_IMAGE)
         img_wht = wht[WHT_EXT].data

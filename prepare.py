@@ -341,7 +341,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
     threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
@@ -438,7 +438,7 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
     
     #### Fix shifts for COSMOS-18
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 
@@ -560,7 +560,7 @@ def GOODSS(FORCE=False):
             ALIGN = ALIGN_FILES[2]
         #
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
             
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-24-F140W_drz.fits','GOODS-S-23-F140W_drz.fits', 'GOODS-S-24-F140W_align.fits[0]*4'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
@@ -822,7 +822,7 @@ def AEGIS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
     
     threedhst.gmap.makeImageMap(['AEGIS-6-F140W_drz.fits', 'AEGIS-6-F140W_align.fits[0]*4', 'AEGIS-6-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
     

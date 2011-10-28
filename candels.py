@@ -781,12 +781,17 @@ def clash_make_rms_map(image='hlsp_clash_hst_wfc3ir_macs1206_total_v1_wht.fits',
 def clash_all_clusters():
     import unicorn
     
-    #unicorn.candels.clash_run_SExtractor(cluster='a2261')
-    #unicorn.candels.clash_run_SExtractor(cluster='a383')
+    unicorn.candels.clash_run_SExtractor(cluster='a2261')
+    unicorn.candels.clash_run_SExtractor(cluster='a383')
     unicorn.candels.clash_run_SExtractor(cluster='macs1149')
     unicorn.candels.clash_run_SExtractor(cluster='macs1206')
     unicorn.candels.clash_run_SExtractor(cluster='macs2129')
-
+    
+    ### Redo catalogs
+    for cluster in ['a2261','a383','macs1149','macs1206','macs2129']:
+        os.chdir('/Users/gbrammer/CLASH/%s/CAT/' %(cluster))
+        unicorn.candels.clash_make_catalog()
+        
 def clash_run_SExtractor(cluster='macs2129'):
     
     import threedhst
@@ -891,9 +896,9 @@ def clash_make_catalog():
         if os.path.exists('../%s_empty.fits' %(file.replace('.cat',''))):
             empty = pyfits.open('../%s_empty.fits' %(file.replace('.cat','')))
             texp = head['EXPTIME']
-            error_color2 = threedhst.utils.biweight(empty[2].data)**2*texp**2+np.cast[float](cat['FLUX_'+flux_column])*texp
+            error_color2 = threedhst.utils.biweight(empty[2].data[:,0])**2*texp**2+np.cast[float](cat['FLUX_'+flux_column])*texp
             error = np.sqrt(error_color2)/texp*10**(-0.4*(zp-25))*ftot
-            depth = ' %.2f' %(zp-2.5*np.log10(5*threedhst.utils.biweight(empty[2].data)))
+            depth = ' %.2f' %(zp-2.5*np.log10(5*threedhst.utils.biweight(empty[2].data[:,0])))
         else:
             error = np.cast[float](cat['FLUXERR_'+flux_column])*10**(-0.4*(zp-25))*ftot
             depth = ''

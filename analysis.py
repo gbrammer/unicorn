@@ -2294,8 +2294,8 @@ def make_eazy_asciifiles(object='COSMOS-8-G141_00498', eazy_output='./OUTPUT/', 
     #### p(z)
     
     zgrid, pz0 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
-    zgrid, pz1 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
-    zgrid, pz2 = eazy.getEazyPz(0, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    zgrid, pz1 = eazy.getEazyPz(1, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
+    zgrid, pz2 = eazy.getEazyPz(2, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY=eazy_output, CACHE_FILE = 'Same')
     
     fp = open(savepath+object+'_pz.dat','w')
     fp.write('#  z pz_both pz_phot pz_spec\n')

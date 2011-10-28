@@ -1370,7 +1370,19 @@ def clash_empty_apertures():
             head = pyfits.getheader(image)
             zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
             unicorn.candels.clash_make_rms_map(image=wht, include_poisson=False)
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht.replace('wht','rms'), WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=25, MAP_TYPE='MAP_RMS')
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht.replace('wht','rms'), WHT_EXT=0, aper_params=(0.4/0.065/2.,0.4/0.065/2.+1,2), ZP=zp, make_plot=False, NSIM=1000, MAP_TYPE='MAP_RMS')
+            
+    #### Sequence of apertures for measuring Beta
+    for cluster in ['a2261','a383','macs1149','macs1206','macs2129']:
+        os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))
+        images = glob.glob('*_f160w*_drz.fits')
+        for image in images:
+            wht = image.replace('drz','wht')
+            head = pyfits.getheader(image)
+            zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921 
+            #unicorn.candels.clash_make_rms_map(image=wht, include_poisson=False)
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, SCI_EXT=0, WHT_IMAGE=wht.replace('wht','rms'), WHT_EXT=0, aper_params=(0.2/0.065,3.05/0.065,0.2/0.065), ZP=zp, make_plot=False, NSIM=500, MAP_TYPE='MAP_RMS')
+    
     
     for cluster in ['a2261','a383','macs1149','macs1206','macs2129'][:-1]:
         os.chdir('/Users/gbrammer/CLASH/%s' %(cluster))

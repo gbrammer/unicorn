@@ -871,6 +871,13 @@ def clash_run_SExtractor(cluster='macs2129'):
     
     unicorn.candels.clash_make_catalog()
     
+def clash_get_coords():
+    for cluster in ['a2261','a383','macs1149','macs1206','macs2129']:
+        os.chdir('/Users/gbrammer/CLASH/%s/CAT/' %(cluster))
+        catfile = glob.glob('*eazy.cat')[-1]
+        cat = catIO.Readfile(catfile)
+        print '%s %.6f %.6f' %(cluster, np.mean(cat.ra), np.mean(cat.dec))
+        
 def clash_make_catalog():
     
     files=glob.glob('*_f*_*cat')
@@ -885,9 +892,27 @@ def clash_make_catalog():
     tcat = threedhst.sex.mySexCat(total_file)
     ftot = tcat['FLUX_AUTO']/tcat['FLUX_'+flux_column]
     
+    cluster = os.getcwd().split('/')[-2]
+    ebv = {}
+    ebv['a2261'] = 0.0430
+    ebv['a383'] = 0.0309
+    ebv['macs1149'] = 0.0227
+    ebv['macs1206'] = 0.0616
+    ebv['macs2129'] = 0.0793
+    
+    RES = os.getenv('EAZY')+'/filters/FILTER.RES.latest'
+    
     for file in files:
         cat = threedhst.sex.mySexCat(file)
-        filters.append(file.split('_')[5])
+        filter=file.split('_')[5]
+        filters.append(filter)
+        #
+        idx = RES.search(filter)[-1]
+        try:
+            dered = RES.filters[idx].extinction_correction(ebv[cluster], mag=False)
+        except:
+            print '\n Problem with extinction correction, %s' %(filter)
+            dered = 1.0
         #
         head = pyfits.getheader('../%s' %(file.replace('cat','fits')))
         zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921
@@ -903,8 +928,8 @@ def clash_make_catalog():
             error = np.cast[float](cat['FLUXERR_'+flux_column])*10**(-0.4*(zp-25))*ftot
             depth = ''
         #
-        fluxes.append(flux)
-        errors.append(error)
+        fluxes.append(flux*dered)
+        errors.append(error*dered)
         print noNewLine+file+depth
         
     fluxes = np.array(fluxes)

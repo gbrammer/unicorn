@@ -904,18 +904,23 @@ def clash_make_catalog():
     
     RES = eazy.FilterFile('/usr/local/share/EAZY/eazy-photoz/filters/FILTER.RES.latest')
     
+    dered_str = '# E(B-V) = %.4f\n' %(ebv[cluster])
+    
     for file in files:
         cat = threedhst.sex.mySexCat(file)
         filter=file.split('_')[5]
         filters.append(filter)
         #
-        idx = RES.search(filter)[-1]
+        idx = RES.search(filter, verbose=False)[-1]
         try:
             dered = RES.filters[idx].extinction_correction(ebv[cluster], mag=False)
+            dered_mag = RES.filters[idx].extinction_correction(ebv[cluster], mag=True)
         except:
             print '\n Problem with extinction correction, %s' %(filter)
             dered = 1.0
+            dered_mag = -1
         #
+        dered_str += '# %s %.3f\n' %(filter, dered_mag)
         head = pyfits.getheader('../%s' %(file.replace('cat','fits')))
         zp=-2.5*np.log10(head['PHOTFLAM']) - 21.10 - 5 *np.log10(head['PHOTPLAM']) + 18.6921
         #
@@ -962,6 +967,7 @@ def clash_make_catalog():
     
     fp = open(total_file.split('_total')[0]+'_eazy.cat','w')
     fp.write(header+'\n')
+    fp.write(dered_str)
     for i in range(NOBJ):
         print noNewLine+'%d' %(i)
         flux = fluxes[:,i]

@@ -18,6 +18,8 @@ yes = iraf.yes
 import threedhst
 import threedhst.prep_flt_files
 import threedhst.catIO as catIO
+import threedhst.eazyPy as eazy
+
 import unicorn
 
 noNewLine = '\x1b[1A\x1b[1M'
@@ -900,7 +902,7 @@ def clash_make_catalog():
     ebv['macs1206'] = 0.0616
     ebv['macs2129'] = 0.0793
     
-    RES = os.getenv('EAZY')+'/filters/FILTER.RES.latest'
+    RES = eazy.FilterFile('/usr/local/share/EAZY/eazy-photoz/filters/FILTER.RES.latest')
     
     for file in files:
         cat = threedhst.sex.mySexCat(file)

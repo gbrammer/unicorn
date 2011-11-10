@@ -25,6 +25,8 @@ import cosmocalc
 
 noNewLine = '\x1b[1A\x1b[1M'
 
+PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
+
 zout = None
 phot = None
 mcat = None
@@ -46,9 +48,7 @@ def read_catalogs(force=False):
     if (unicorn.catalogs.rest is not None) & (not force):
         print 'Looks like catalogs already read in.  To redo, use `read_catalogs(force=True)`.'
         return True
-        
-    PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
-        
+            
     ######################################
     #### Redshifts, master ID list
     ######################################
@@ -130,50 +130,56 @@ def read_catalogs(force=False):
     #### Rest-frame colors
     ######################################
     
-    print noNewLine+'Reading Rest-frame colors...'
-    
-    rest = catIO.Readfile(PATH_TO_CAT+'full_rf_fluxes.cat.partial')
-    if not os.path.exists(PATH_TO_CAT+'rest.npz'):
-        found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
-        np.savez(PATH_TO_CAT+'rest.npz', found=found_rest, idx=idx_rest)
+    if os.path.exists(PATH_TO_CAT+'full_rf_fluxes.cat.partial'):
+        print noNewLine+'Reading Rest-frame colors...'
+        rest = catIO.Readfile(PATH_TO_CAT+'full_rf_fluxes.cat.partial')
+        if not os.path.exists(PATH_TO_CAT+'rest.npz'):
+            found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
+            np.savez(PATH_TO_CAT+'rest.npz', found=found_rest, idx=idx_rest)
+        else:
+            npz = np.load(PATH_TO_CAT+'rest.npz')
+            found_rest, idx_rest = npz['found'], npz['idx']
+        #
+        rest.idx = idx_rest
     else:
-        npz = np.load(PATH_TO_CAT+'rest.npz')
-        found_rest, idx_rest = npz['found'], npz['idx']
-    
-    rest.idx = idx_rest
+        rest = None
+        
     unicorn.catalogs.rest = rest
     
     ##################################### 
     #### Galfit
     #####################################
-    
-    print noNewLine+'Reading GALFIT...'
-    
-    gfit = catIO.Readfile(PATH_TO_CAT+'full_galfit.cat')
-    if not os.path.exists(PATH_TO_CAT+'gfit.npz'):
-        found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
-        found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
-        np.savez(PATH_TO_CAT+'gfit.npz', found=found_gfit, idx=idx_gfit, found_rev=found_gfit_rev, idx_rev=idx_gfit_rev)
-    else:
-        npz = np.load(PATH_TO_CAT+'gfit.npz')
-        found_gfit, idx_gfit, found_gfit_rev, idx_gfit_rev = npz['found'], npz['idx'], npz['found_rev'], npz['idx_rev']
+        
+    if os.path.exists(PATH_TO_CAT+'full_galfit.cat'):
+        print noNewLine+'Reading GALFIT...'
+        gfit = catIO.Readfile(PATH_TO_CAT+'full_galfit.cat')
+        if not os.path.exists(PATH_TO_CAT+'gfit.npz'):
+            found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
+            found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
+            np.savez(PATH_TO_CAT+'gfit.npz', found=found_gfit, idx=idx_gfit, found_rev=found_gfit_rev, idx_rev=idx_gfit_rev)
+        else:
+            npz = np.load(PATH_TO_CAT+'gfit.npz')
+            found_gfit, idx_gfit, found_gfit_rev, idx_gfit_rev = npz['found'], npz['idx'], npz['found_rev'], npz['idx_rev']
 
-    # found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
-    # found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
-    
-    #### Make a grid of redshifts to compute the plate scale and then interpolate it.
-    zgrid = np.arange(100)/100.*4+1./100
-    scale = zgrid*0.
-    for i in range(100):
-        cc = cosmocalc.cosmocalc(zgrid[i])
-        scale[i] = cc['PS_kpc']
-    
-    gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
-    gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
-    gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(np.abs(gfit.ba)) 
-    gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(np.abs(gfit.ba)) 
-    
-    gfit.idx = idx_gfit
+        # found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
+        # found_gfit, idx_gfit = match_string_arrays(zout.id[0::3], gfit.id)
+
+        #### Make a grid of redshifts to compute the plate scale and then interpolate it.
+        zgrid = np.arange(100)/100.*4+1./100
+        scale = zgrid*0.
+        for i in range(100):
+            cc = cosmocalc.cosmocalc(zgrid[i])
+            scale[i] = cc['PS_kpc']
+
+        gfit.r_e_kpc = gfit.r_e*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+        gfit.r_e_kpc_err = gfit.r_e_err*0.06*np.interp(zout.z_peak[0::3][idx_gfit_rev], zgrid, scale)
+        gfit.r_e_kpc_circ = gfit.r_e_kpc * np.sqrt(np.abs(gfit.ba)) 
+        gfit.r_e_kpc_circ_err = gfit.r_e_kpc_err * np.sqrt(np.abs(gfit.ba)) 
+
+        gfit.idx = idx_gfit
+    else:
+        gfit = None
+        
     unicorn.catalogs.gfit = gfit
     
     ########################################
@@ -1273,7 +1279,7 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
-def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02):
+def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, fontsize=10):
 
     import unicorn
     
@@ -1285,7 +1291,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
     # plt.rcParams['font.family'] = 'serif'
     # plt.rcParams['font.serif'] = ['Times']
     plt.rcParams['patch.edgecolor'] = 'None'
-    plt.rcParams['font.size'] = 10
+    plt.rcParams['font.size'] = fontsize
 
     if square:
         #xs=5
@@ -1371,6 +1377,7 @@ def make_object_tarfiles(objects, thumbs=False):
     
 def combine_sextractor_catalogs():
     os.chdir('/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/')
+    #os.chdir('/Users/gbrammer/Sites_GLOBAL/P/UDF/')
 
     files=glob.glob('*drz.cat')
     
@@ -1411,7 +1418,7 @@ def combine_sextractor_catalogs():
                 number = int(line.split()[0])
                 out_lines.append('%s-G141_%05d %s %3s ' %(pointing, number, field, pointing_number)+line)
     
-    fp = open('ANALYSIS/full_sextractor.cat','w')
+    fp = open('full_sextractor.cat','w')
     fp.write(header)
     fp.writelines(out_lines)
     fp.close()
@@ -1519,6 +1526,7 @@ def combine_matched_catalogs():
     """
     
     os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    #os.chdir('/Library/WebServer/Documents/P/UDF/SED')
     files = glob.glob('../SED/*match.cat')
     fp = open(files[0])
     full_lines = fp.readlines()[0:2]
@@ -1567,7 +1575,7 @@ def eqw_catalog():
             print '\n\nFail!\n\n'
             z_grism, halpha_eqw, halpha_err, halpha_flux, oiii_eqw, oiii_err, oiii_flux, hbeta_eqw, hbeta_err, hbeta_flux = -1,-1,-1,-1,-1,-1,-1,-1,-1,-1
         #
-        lines.append('%s %8.3f %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e\n' %(object, z_grism,halpha_eqw,halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
+        lines.append('%s %8.3f %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e %16.3e %11.3e %11.3e\n' %(object, z_grism,halpha_eqw[0],halpha_err,halpha_flux,oiii_eqw,oiii_err,oiii_flux,hbeta_eqw,hbeta_err,hbeta_flux))
     
     fp = open('full_emission_lines.cat','w')
     fp.writelines(lines)
@@ -1973,7 +1981,6 @@ def print_zsp_catalog():
     zspec[mcat.rmatch[mcat.idx] > 0.5] = -1.0
     zspID = zsp.id[zsp.idx]
     zspDR = zsp.dr
-    PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
     
     fp = open(PATH_TO_CAT+'full_zspec.cat','w')
     fp.write('# id z_spec dr_spec\n')

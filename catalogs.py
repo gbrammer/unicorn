@@ -45,7 +45,7 @@ def read_catalogs(force=False):
     import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays
     
-    if (unicorn.catalogs.rest is not None) & (not force):
+    if (unicorn.catalogs.zout is not None) & (not force):
         print 'Looks like catalogs already read in.  To redo, use `read_catalogs(force=True)`.'
         return True
             

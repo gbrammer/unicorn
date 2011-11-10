@@ -2776,9 +2776,9 @@ def make_o2_templates():
     print "\n\nManually make a copy of 'fit_lines.spectra.param'\n\n"
     
 def make_line_templates():
-    line_wavelengths = [[6562.800], [5006.843, 4958.911], [4862.68], [3727.0], [1216.], [9068.6, 9530.6], [2799.117], [1549.48], [2326.0], [4341.68], [3889.0]]
-    line_ratios = [[1], [2.98, 1], [1], [1], [1], [1, 2.44], [1], [1], [1], [1], [1]]
-    line_names = ['Ha', 'OIII', 'Hb', 'OII', 'Lya', 'SIII', 'MgII', 'CIV', 'CII','Hg','HeI']
+    line_wavelengths = [[6562.800], [5006.843, 4958.911], [4862.68], [3727.0], [6718.29, 6732.67][1216.], [9068.6, 9530.6], [2799.117], [1549.48], [2326.0], [4341.68], [3889.0]]
+    line_ratios = [[1], [2.98, 1], [1], [1], [1, 1], [1], [1, 2.44], [1], [1], [1], [1], [1]]
+    line_names = ['Ha', 'OIII', 'Hb', 'OII', 'SII', 'Lya', 'SIII', 'MgII', 'CIV', 'CII','Hg','HeI']
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     

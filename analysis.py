@@ -180,7 +180,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #     ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
     #     FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
     #     KTOT_COL = 'f_Ks'
-      
+    
+    # #### Force UDF to use FIREWORKS
+    # if udf:
+    #     cdfs = True
+    #     udf = False
+          
     if cdfs:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
         CAT_PATH = GRISM_PATH+'FIREWORKS/'

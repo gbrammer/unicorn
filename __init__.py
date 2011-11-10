@@ -12,6 +12,17 @@ $Date$
 """
 __version__ = "$Rev$"
 
+from socket import gethostname as hostname
+
+if hostname().startswith('uni'):
+    GRISM_HOME = '/3DHST/Spectra/Work/'
+else:
+    GRISM_HOME = '/research/HST/GRISM/3DHST/'
+
+if hostname().startswith('850dhcp8'):
+    GRISM_HOME = '/3DHST/Spectra/Work/'
+    #threedhst.sex.RUN_MODE='direct'
+    
 import threedhst
 
 import prepare
@@ -25,13 +36,3 @@ import survey_paper
 import go_acs
 import fast
 
-from socket import gethostname as hostname
-
-if hostname().startswith('uni'):
-    GRISM_HOME = '/3DHST/Spectra/Work/'
-else:
-    GRISM_HOME = '/research/HST/GRISM/3DHST/'
-
-if hostname().startswith('850dhcp8'):
-    GRISM_HOME = '/3DHST/Spectra/Work/'
-    #threedhst.sex.RUN_MODE='direct'

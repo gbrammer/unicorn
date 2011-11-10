@@ -202,7 +202,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         CAT_PATH = '/3DHST/Ancillary/GOODS-S/HUDF09/CAT/'
 
         CAT_FILE = CAT_PATH+'hudf09.cat'
-        ZOUT_FILE = CAT_PATH+'hudf09.zout'
+        ZOUT_FILE = CAT_PATH+'hudf09_noU.zout'
         FOUT_FILE = CAT_PATH + 'hudf09.fout'
         KTOT_COL = 'f_kv2_tot'
        

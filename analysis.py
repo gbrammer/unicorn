@@ -1935,12 +1935,12 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
             eazy_param.params['Z_STEP'] = 0.002
-            
+                        
             if force_zrange:
-                eazy_param.params['Z_MIN'] = zmin
+                eazy_param.params['Z_MIN'] = np.max([zmin,0])
                 eazy_param.params['Z_MAX'] = zmax                
             else:
-                eazy_param.params['Z_MIN'] = ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1])
+                eazy_param.params['Z_MIN'] = np.max([ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1]),0])
                 eazy_param.params['Z_MAX'] = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
                 print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
 

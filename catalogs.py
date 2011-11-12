@@ -1473,12 +1473,16 @@ def make_full_redshift_catalog():
     import copy
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS/')
-    files = glob.glob('OUTPUT/*G141*zout')
+    files = glob.glob('OUTPUT/*G141*[0-9].zout')
     if len(files) == 0:
-        os.system("ls OUTPUT/ |grep G141 |grep zout |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
+        os.system("ls OUTPUT/ |grep G141 |grep \"[0-9].zout\" |awk '{print \"x\" $1 }' |sed \"s/x/OUTPUT\//\" > files.list")
         files = np.loadtxt('files.list', dtype=np.str)
         
-    fp = open(files[0])
+    if os.path.exists(files[0].replace('.zout','_refine.zout')):
+        fp = open(files[0].replace('.zout','_refine.zout'))
+    else:
+        fp = open(files[0])
+
     lines = fp.readlines()
     lines[0]+='# '+time.ctime()+'\n'
     
@@ -1489,7 +1493,10 @@ def make_full_redshift_catalog():
     fp.close()
     for file in files[1:]:
         print noNewLine+file
-        fp = open(file)
+        if os.path.exists(file.replace('.zout','_refine.zout')):
+            fp = open(file.replace('.zout','_refine.zout'))
+        else:
+            fp = open(file)
         flines = fp.readlines()[2:]
         if len(flines) == 3:
             lines.extend(flines)

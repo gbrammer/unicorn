@@ -2003,7 +2003,6 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         ####### 99% confidence interval is not resolved with z_step.  Shrink the step
         resolve_factor = (ztmp.u68[0]-ztmp.l68[0])/zstep_i
         while (resolve_factor <= 9.99) & (resolve_factor != 0):
-            resolve_factor = (ztmp.u68[0]-ztmp.l68[0])/zstep_i
             eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*10
             eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*10
             eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d_refine' %(root, id)
@@ -2017,6 +2016,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
             ztmp = catIO.Readfile('OUTPUT/%s_%05d_refine.zout' %(root, id))
+            resolve_factor = (ztmp.u68[0]-ztmp.l68[0])/zstep_i
             
             SHOW_ZOUT_FILE = 'OUTPUT/%s_%05d_refine.zout' %(root, id)
             

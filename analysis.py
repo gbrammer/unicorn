@@ -1552,6 +1552,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         fobs = fobs*0-999
         efobs = fobs
         print 'No photometry!'
+        print TILT_COEFFS
         unicorn.analysis.HAS_PHOTOMETRY = False
         unicorn.analysis.PHOTOMETRY_ID = None
         

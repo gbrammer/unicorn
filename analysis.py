@@ -1923,17 +1923,19 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             return False
         
         ########################## Now run
-        #### If fitting with photometry, first run with eazy line templates 
-        #### and coarse sampling
+        #### If fitting with photometry
         if unicorn.analysis.HAS_PHOTOMETRY:
+            ### first run with eazy line templates 
+            ### and coarse sampling, broaden the compression to hopefully catch a line
             unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=3, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory)
             
-            os.system('grep Z_ %s_%05d.eazy.param' %(root, id))
+            #os.system('grep Z_ %s_%05d.eazy.param' %(root, id))
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
-            
+            ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+
+            ### Remake the input files for the desired compression
             unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory)
             
-            ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
@@ -1941,9 +1943,11 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             eazy_param.params['Z_STEP_TYPE'] = 0
                         
             if force_zrange:
+                #### z range set by hand
                 eazy_param.params['Z_MIN'] = np.max([zmin,0])
                 eazy_param.params['Z_MAX'] = zmax                
             else:
+                #### z range set from 99 % confidence interval of first coarse fit
                 zmi = np.max([ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1]),0])
                 zma = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
                 #### some very blue SEDs have zmin < 0, zmax~0.  Fit the full range to 
@@ -1997,14 +2001,14 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         SHOW_ZOUT_FILE = 'OUTPUT/%s_%05d.zout' %(root, id)
         
         ####### 99% confidence interval is not resolved with z_step.  Shrink the step
-        while (ztmp.u99[0]-ztmp.l99[0])/zstep_i <= 9.99:
-            resolve_factor = (ztmp.u99[0]-ztmp.l99[0])/zstep_i
+        while (ztmp.u68[0]-ztmp.l68[0])/zstep_i <= 9.99:
+            resolve_factor = (ztmp.u68[0]-ztmp.l68[0])/zstep_i
             eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*10
             eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*10
             eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d_refine' %(root, id)
             eazy_param.params['CACHE_FILE'] = '%s_%05d_refine.tempfilt' %(root, id)
                            
-            zstep_i = (ztmp.u99[0]-ztmp.l99[0])/10.
+            zstep_i = (ztmp.u68[0]-ztmp.l68[0])/10.
             eazy_param.params['Z_STEP'] = zstep_i
             print 'N=%d, Shrink Z_STEP: %f, [%f, %f]\n' %(resolve_factor, zstep_i, eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
             

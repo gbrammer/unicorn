@@ -1937,7 +1937,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
             eazy_param.params['Z_STEP'] = zstep
-            eazy_param.params['Z_STEP_TYPE'] = 1
+            eazy_param.params['Z_STEP_TYPE'] = 0
                         
             if force_zrange:
                 eazy_param.params['Z_MIN'] = np.max([zmin,0])

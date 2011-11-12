@@ -1997,7 +1997,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*3                
             zstep_i = (ztmp.u99[0]-ztmp.l99[0])/10.
             eazy_param.params['Z_STEP'] = zstep_i
-            print 'Shrink Z_STEP: %f\n' %(zstep_i)
+            print 'Shrink Z_STEP: %f, [%f, %.f]\n' %(zstep_i, eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
             #
             eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             #

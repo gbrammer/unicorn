@@ -1946,7 +1946,8 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                 eazy_param.params['Z_MIN'] = np.max([ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1]),0])
                 #
                 zma = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
-                #### some very blue SEDs have zmin < 0, zmax~0.  Fit the full range
+                #### some very blue SEDs have zmin < 0, zmax~0.  Fit the full range to 
+                #### allow LBG fit
                 if zma < 0.2:
                     zma = 3
                 #   
@@ -2003,9 +2004,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                            
             zstep_i = (ztmp.u99[0]-ztmp.l99[0])/10.
             eazy_param.params['Z_STEP'] = zstep_i
-            print 'N=%f, Shrink Z_STEP: %f, [%f, %f]\n' %(resolve_factor, zstep_i, eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
+            print 'N=%d, Shrink Z_STEP: %f, [%f, %f]\n' %(resolve_factor, zstep_i, eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
             
-            eazy_param.write(file='%s_%05d_refine' %(root, id) + '.eazy.param')
+            eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
             
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
             ztmp = catIO.Readfile('OUTPUT/%s_%05d_refine.zout' %(root, id))

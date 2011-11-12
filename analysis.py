@@ -1885,7 +1885,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, zstep=0.001, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
@@ -1936,7 +1936,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
-            eazy_param.params['Z_STEP'] = 0.001
+            eazy_param.params['Z_STEP'] = zstep
                         
             if force_zrange:
                 eazy_param.params['Z_MIN'] = np.max([zmin,0])

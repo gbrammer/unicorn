@@ -2054,9 +2054,9 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     else:
         tnorm = time.time()
         tfit = time.time()
-                    
+                        
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = \
-        eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), \
+        eazy.getEazySED(0, MAIN_OUTPUT_FILE=os.path.basename(SHOW_ZOUT_FILE).replace('.zout',''), \
                           OUTPUT_DIRECTORY='OUTPUT', \
                           CACHE_FILE = 'Same')
     
@@ -2148,12 +2148,12 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     
     colors = ['purple','orange','blue']
     alpha = [0.5, 0.5, 0.2]
-    zo = threedhst.catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+    zo = threedhst.catIO.Readfile(SHOW_ZOUT_FILE)
     zmin = 4
     zmax = 0
     ymax = 0
     for i in range(3):
-        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), 
+        zgrid, pz = eazy.getEazyPz(i, MAIN_OUTPUT_FILE= os.path.basename(SHOW_ZOUT_FILE).replace('.zout',''), 
                           OUTPUT_DIRECTORY='./OUTPUT', 
                           CACHE_FILE='Same')
         ax.fill_between(zgrid, pz, pz*0., color=colors[i], alpha=alpha[i], edgecolor=colors[i])

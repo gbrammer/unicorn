@@ -1926,7 +1926,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         #### If fitting with photometry, first run with eazy line templates 
         #### and coarse sampling
         if unicorn.analysis.HAS_PHOTOMETRY:
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.01, compress=1.5, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.01, compress=1.5, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory)
             
             os.system('grep Z_ %s_%05d.eazy.param' %(root, id))
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
@@ -1944,14 +1944,14 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                 eazy_param.params['Z_MIN'] = np.max([zmin,0])
                 eazy_param.params['Z_MAX'] = zmax                
             else:
-                eazy_param.params['Z_MIN'] = np.max([ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1]),0])
-                #
+                zmi = np.max([ztmp.l99[1]-1*0.05*(1+ztmp.z_peak[1]),0])
                 zma = ztmp.u99[1]+1*0.05*(1+ztmp.z_peak[1])
                 #### some very blue SEDs have zmin < 0, zmax~0.  Fit the full range to 
                 #### allow LBG fit
                 if zma < 0.2:
                     zma = 3
                 #   
+                eazy_param.params['Z_MIN'] = zmi
                 eazy_param.params['Z_MAX'] = zma
                 print 'Refit, fine sampling: [%.2f, %.2f]' %(eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
 

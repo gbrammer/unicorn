@@ -1992,18 +1992,25 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         
         ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
         zstep_i = zstep
+        SHOW_ZOUT_FILE = 'OUTPUT/%s_%05d.zout' %(root, id)
+        
+        ####### 99% confidence interval is not resolved with z_step.  Shrink the step
         while (ztmp.u99[0]-ztmp.l99[0])/zstep_i <= 9.99:
             resolve_factor = (ztmp.u99[0]-ztmp.l99[0])/zstep_i
-            eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*3
-            eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*3                
+            eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*10
+            eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*10
+            eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d_refine' %(root, id)
+                           
             zstep_i = (ztmp.u99[0]-ztmp.l99[0])/10.
             eazy_param.params['Z_STEP'] = zstep_i
             print 'N=%f, Shrink Z_STEP: %f, [%f, %f]\n' %(resolve_factor, zstep_i, eazy_param.params['Z_MIN'], eazy_param.params['Z_MAX'])
-            #
-            eazy_param.write(file='%s_%05d' %(root, id) + '.eazy.param')
-            #
+            
+            eazy_param.write(file='%s_%05d_refine' %(root, id) + '.eazy.param')
+            
             status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
-            ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
+            ztmp = catIO.Readfile('OUTPUT/%s_%05d_refine.zout' %(root, id))
+            
+            SHOW_ZOUT_FILE = 'OUTPUT/%s_%05d_refine.zout' %(root, id)
             
         if tilt is False:
             tilt = [0,1]
@@ -2032,7 +2039,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             
         #### Show the results
         try:
-            status = os.system('head -3 OUTPUT/%s_%05d.zout |tail -1' %(root, id))
+            status = os.system('head -3 %s |tail -1' %(SHOW_ZOUT_FILE))
         except:
             pass
     else:

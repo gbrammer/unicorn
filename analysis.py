@@ -395,14 +395,13 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     yint = np.interp(xint, lambdaz, temp_sed_sm)
     
     #### Original units
-    yint = temp_sed/np.sum(temp_sed)
-    dl = lambdaz[1]-lambdaz[0]
-    #### Convolve with a gaussian
-    xgauss = np.arange(10*50/dl)*dl-5*50
-    ygauss = np.exp(-1*xgauss**2/2/((50/dl)**2))
-    ygauss /= np.sum(ygauss)
-    yintc = conv(yint, ygauss, mode='same')
-
+    # yint = temp_sed/np.sum(temp_sed)
+    # dl = lambdaz[1]-lambdaz[0]
+    # #### Convolve with a gaussian
+    # xgauss = np.arange(10*50/dl)*dl-5*50
+    # ygauss = np.exp(-1*xgauss**2/2/((50/dl)**2))
+    # ygauss /= np.sum(ygauss)
+    # yintc = conv(yint, ygauss, mode='same')
     
     #### Convolve with a gaussian
     xgauss = np.arange(20)*DLAM-10*DLAM
@@ -1221,6 +1220,8 @@ def eazy_lists():
     
     keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
     keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep])
     
 def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log'):
     """

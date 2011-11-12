@@ -1240,7 +1240,7 @@ def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
             if (object+'\n' not in log_lines) & (os.path.exists(unicorn.GRISM_HOME+field+'/HTML/ascii/'+object+'.dat')):
                 result = True
                 #try:
-                result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=compress, zmin=0.02, zmax=4, TILT_ORDER=1, pipe=pipe)
+                result = unicorn.analysis.run_eazy_fit(root=pointing, id=id, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=1, pipe=pipe, force_zrange=True, COMPUTE_TILT=True, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param')
                 #except:
                 #    pass
                 #    

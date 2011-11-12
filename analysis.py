@@ -2002,6 +2002,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*10
             eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*10
             eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d_refine' %(root, id)
+            eazy_param.params['CACHE_FILE'] = '%s_%05d_refine.tempfilt' %(root, id)
                            
             zstep_i = (ztmp.u99[0]-ztmp.l99[0])/10.
             eazy_param.params['Z_STEP'] = zstep_i

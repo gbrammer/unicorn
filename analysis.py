@@ -1968,6 +1968,11 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             ##### found, fit full redshift range.
             spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
             
+            eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
+            eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
+            eazy_param.params['Z_STEP'] = zstep
+            eazy_param.params['Z_STEP_TYPE'] = 0
+            
             found_lines = threedhst.spec1d.findLines(spec, trim_abs=True)
             if found_lines is None:
                 return False

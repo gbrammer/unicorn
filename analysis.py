@@ -1992,7 +1992,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
         
         ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
         zstep_i = zstep
-        while (ztmp.u99[0]-ztmp.l99[0])/zstep_i < 10:
+        while (ztmp.u99[0]-ztmp.l99[0])/zstep_i <= 9.99:
             resolve_factor = (ztmp.u99[0]-ztmp.l99[0])/zstep_i
             eazy_param.params['Z_MIN'] = ztmp.l99[0]-zstep_i*3
             eazy_param.params['Z_MAX'] = ztmp.u99[0]+zstep_i*3                

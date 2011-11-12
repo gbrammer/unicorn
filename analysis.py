@@ -394,6 +394,16 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     
     yint = np.interp(xint, lambdaz, temp_sed_sm)
     
+    #### Original units
+    yint = temp_sed/np.sum(temp_sed)
+    dl = lambdaz[1]-lambdaz[0]
+    #### Convolve with a gaussian
+    xgauss = np.arange(10*50/dl)*dl-5*50
+    ygauss = np.exp(-1*xgauss**2/2/((50/dl)**2))
+    ygauss /= np.sum(ygauss)
+    yintc = conv(yint, ygauss, mode='same')
+
+    
     #### Convolve with a gaussian
     xgauss = np.arange(20)*DLAM-10*DLAM
     ygauss = np.exp(-1*xgauss**2/2/50**2)
@@ -1197,7 +1207,33 @@ def show_triple_zphot_zspec(zout='massive.zout', zmin=0, zmax=4):
         canvas.print_figure(outfile+'.png', dpi=100, transparent=False)
         canvas.print_figure(outfile+'.pdf', dpi=100, transparent=False)
     
-
+def eazy_lists():
+    """
+    Various sublists to re-run eazy
+    """
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    #### Objects with spec-z
+    maglim = 24
+    qzmax = 0.2
+    contam_max = 0.05
+    
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    
+def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log'):
+    """
+    Run the eazy redshift code on a list of objects with id name like:
+    [POINTING]-G141_[000ID].
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
+    
+    for id in ids:
+        pointing = id.split('G141')[0]+'G141'
+        number = int(id.split('G141_')[1])
+        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=1, pipe=pipe, force_zrange=True, COMPUTE_TILT=True, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', zstep=0.025)
+        
 def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')

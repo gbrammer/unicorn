@@ -394,18 +394,19 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     
     yint = np.interp(xint, lambdaz, temp_sed_sm)
     
-    #### Original units
+    # #### Original units
     # yint = temp_sed/np.sum(temp_sed)
     # dl = lambdaz[1]-lambdaz[0]
     # #### Convolve with a gaussian
-    # xgauss = np.arange(10*50/dl)*dl-5*50
-    # ygauss = np.exp(-1*xgauss**2/2/((50/dl)**2))
+    # xgauss = np.arange(30*46/dl)*dl-15*46
+    # ygauss = np.exp(-1*xgauss**2/2/((30/dl)**2))
     # ygauss /= np.sum(ygauss)
     # yintc = conv(yint, ygauss, mode='same')
+    #### Idea: convolve to the size of the gaussian, don't need whole profile!
     
     #### Convolve with a gaussian
     xgauss = np.arange(20)*DLAM-10*DLAM
-    ygauss = np.exp(-1*xgauss**2/2/50**2)
+    ygauss = np.exp(-1*xgauss**2/2/35**2)
     ygauss /= np.sum(ygauss)
     yint = conv(yint, ygauss, mode='same')
     

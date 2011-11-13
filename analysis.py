@@ -1750,7 +1750,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
     eazy_param.params['FILTERS_RES'] = '%s_%05d' %(root, id) + '.FILT.RES'
     eazy_param.params['OUTPUT_DIRECTORY'] = 'OUTPUT'
-    eazy_param.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
+    #eazy_param.params['WAVELENGTH_FILE'] = 'templates/EAZY_v1.1_lines/lambda_v1.1.def'
+    eazy_param.params['WAVELENGTH_FILE'] = 'templates/dobos11/lambda_sdss.def'
     eazy_param.params['CATALOG_FILE'] = '%s_%05d' %(root, id) + '_threedhst.cat'
     eazy_param.params['MAIN_OUTPUT_FILE'] = '%s_%05d' %(root, id)
     eazy_param.params['CACHE_FILE'] = '%s_%05d.tempfilt' %(root, id)

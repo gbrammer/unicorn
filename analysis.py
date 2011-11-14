@@ -422,6 +422,8 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     canvas = FigureCanvasAgg(fig)
     canvas.print_figure('/tmp/profile.png', dpi=100, transparent=False)
     
+    return x_full, full_profile
+    
     #### Idea: convolve to the size of the gaussian, don't need whole spectrum!
     
     #### Convolve with a gaussian

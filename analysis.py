@@ -416,11 +416,13 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
         
     x_full -= x_full.mean()
     
-    fig = Figure(figsize=[6,4], dpi=100)
+    fig = Figure(figsize=[3,2], dpi=100)
     ax = fig.add_subplot(111)
     ax.plot(xgauss, ygauss, color='blue')
     ax.plot(x_full, full_profile, color='red')
     ax.plot(xprof_int-xprof_int.mean(), prof_int, color='orange')
+    ax.title('%s-G141_%05d' %(SPC.filename.split('-G141')[0]), id)
+    ax.set_xlabel(r'$\Delta\lambda$')
     canvas = FigureCanvasAgg(fig)
     canvas.print_figure('/tmp/profile.png', dpi=100, transparent=False)
     

@@ -418,7 +418,7 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     
     plt.rcParams['font.size'] = 9
     
-    fig = Figure(figsize=[3,2], dpi=100)
+    fig = Figure(figsize=[4,3], dpi=100)
     ax = fig.add_subplot(111)
     ax.plot(xgauss, ygauss, color='blue')
     ax.plot(x_full, full_profile, color='red')

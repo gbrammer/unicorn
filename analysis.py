@@ -413,7 +413,8 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     ax = fig.add_subplot(111)
     ax.plot(xgauss, ygauss, color='blue')
     ax.plot(xgauss, full_profile, color='red')
-    fig.savefig('/tmp/profile.png')
+    canvas = FigureCanvasAgg(fig)
+    canvas.print_figure('/tmp/profile.png', dpi=100, transparent=False)
     
     #### Idea: convolve to the size of the gaussian, don't need whole spectrum!
     

@@ -1253,7 +1253,7 @@ def eazy_lists():
     
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep])
     
-def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log'):
+def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True):
     """
     Run the eazy redshift code on a list of objects with id name like:
     [POINTING]-G141_[000ID].
@@ -1263,7 +1263,7 @@ def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eaz
     for id in ids:
         pointing = id.split('G141')[0]+'G141'
         number = int(id.split('G141_')[1])
-        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=1, pipe=pipe, force_zrange=True, COMPUTE_TILT=True, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', zstep=0.025)
+        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=1, pipe=pipe, force_zrange=True, COMPUTE_TILT=COMPUTE_TILT, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', zstep=0.025)
         
 def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
     

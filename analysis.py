@@ -399,12 +399,12 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     dl = lambdaz[1]-lambdaz[0]
     #### Convolve with a gaussian
     xgauss = np.arange(30*46/dl)*dl-15*46
-    ygauss = np.exp(-1*xgauss**2/2/((30/dl)**2))
+    ygauss = np.exp(-1*xgauss**2/2/((35/dl)**2))
     ygauss /= np.sum(ygauss)
     yintc = conv(yint_x, ygauss, mode='same')
     
-    xprof = np.arange(0,len(profile))
-    xprof_int = np.arange(0,len(profile),dl)
+    xprof = np.arange(0,len(profile))*21.75
+    xprof_int = np.arange(0,len(profile)*21.75,dl)
     prof_int = np.interp(xprof_int, xprof, profile)
     prof_int /= np.sum(prof_int)
     full_profile = conv(yintc, prof_int, mode='same')

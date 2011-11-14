@@ -1661,7 +1661,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         
     #### Take a wavelength bin and convolve it with the thumbnail
     dlam = (lam[use][1]-lam[use][0])*bin_spec
-    NBIN = 100
+    NBIN = 50
     DX = 100
     xarr = (np.arange(NBIN*2)-NBIN)*1./NBIN*3*dlam
     yarr = xarr*0
@@ -1670,8 +1670,8 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     os.chdir(PATH)
     lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0], yarr, SPC, verbose=False)
     #### Recenter the convolved response
-    xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
-    print 'XOFF: %f %f' %(xoff, lam[use][0])
+    #xoff = lam[use][0]-np.trapz(lsm, ysm*lsm)/np.trapz(lsm, ysm)
+    #print 'XOFF: %f %f' %(xoff, lam[use][0])
     #lsm, ysm = unicorn.analysis.convolveWithThumb(id, xarr+lam[use][0]+xoff, yarr, SPC, verbose=False)
     #lsm += xoff
     keep = ysm > (1.e-4*np.max(ysm))

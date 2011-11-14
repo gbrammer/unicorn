@@ -1661,7 +1661,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         
     #### Take a wavelength bin and convolve it with the thumbnail
     dlam = (lam[use][1]-lam[use][0])*bin_spec
-    NBIN = 50
+    NBIN = 30
     DX = 100
     xarr = (np.arange(NBIN*2)-NBIN)*1./NBIN*3*dlam
     yarr = xarr*0

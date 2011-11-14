@@ -395,14 +395,27 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     yint = np.interp(xint, lambdaz, temp_sed_sm)
     
     # #### Original units
-    # yint = temp_sed/np.sum(temp_sed)
-    # dl = lambdaz[1]-lambdaz[0]
-    # #### Convolve with a gaussian
-    # xgauss = np.arange(30*46/dl)*dl-15*46
-    # ygauss = np.exp(-1*xgauss**2/2/((30/dl)**2))
-    # ygauss /= np.sum(ygauss)
-    # yintc = conv(yint, ygauss, mode='same')
-    #### Idea: convolve to the size of the gaussian, don't need whole profile!
+    yint = temp_sed/np.sum(temp_sed)
+    dl = lambdaz[1]-lambdaz[0]
+    #### Convolve with a gaussian
+    xgauss = np.arange(30*46/dl)*dl-15*46
+    ygauss = np.exp(-1*xgauss**2/2/((30/dl)**2))
+    ygauss /= np.sum(ygauss)
+    yintc = conv(yint, ygauss, mode='same')
+    
+    xprof = np.arange(0,len(profile))
+    xprof_int = np.arange(0,len(profile),dl)
+    prof_int = np.interp(xprof_int, xprof, profile)
+    prof_int /= np.sum(prof_int)
+    full_profile = conv(yintc, prof_int, mode='same')
+    
+    fig = Figure(figsize=[xs,ys], dpi=100)
+    ax = fig.add_subplot(111)
+    ax.plot(xgauss, ygauss, color='blue')
+    ax.plot(xgauss, full_profile, color='red')
+    fig.savefig('/tmp/profile.png')
+    
+    #### Idea: convolve to the size of the gaussian, don't need whole spectrum!
     
     #### Convolve with a gaussian
     xgauss = np.arange(20)*DLAM-10*DLAM

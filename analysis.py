@@ -409,10 +409,15 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     prof_int /= np.sum(prof_int)
     full_profile = conv(yintc, prof_int, mode='same')
     
+    if len(full_profile) == len(xgauss):
+        x_full = xgauss
+    else:
+        x_full = xprof_int
+        
     fig = Figure(figsize=[6,4], dpi=100)
     ax = fig.add_subplot(111)
     ax.plot(xgauss, ygauss, color='blue')
-    ax.plot(xprof_int-xprof_int.mean(), full_profile, color='red')
+    ax.plot(xfull-xfull.mean(), full_profile, color='red')
     ax.plot(xprof_int-xprof_int.mean(), prof_int, color='orange')
     canvas = FigureCanvasAgg(fig)
     canvas.print_figure('/tmp/profile.png', dpi=100, transparent=False)

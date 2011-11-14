@@ -398,7 +398,7 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     yint_x = temp_sed/np.sum(temp_sed)
     dl = lambdaz[1]-lambdaz[0]
     #### Convolve with a gaussian
-    xgauss = np.arange(18*46/dl)*dl-9*46
+    xgauss = np.arange(10*46/dl)*dl-5*46
     ygauss = np.exp(-1*xgauss**2/2/((35/dl)**2))
     ygauss /= np.sum(ygauss)
     yintc = conv(yint_x, ygauss, mode='same')

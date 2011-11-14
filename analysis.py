@@ -407,7 +407,7 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     xprof_int = np.arange(0,len(profile)*21.75,dl)
     prof_int = np.interp(xprof_int, xprof, profile)
     prof_int /= np.sum(prof_int)
-    full_profile = conv(yintc, prof_int, mode='same')
+    full_profile = conv(yintc, prof_int[::-1], mode='same')
     
     if len(full_profile) == len(xgauss):
         x_full = xgauss

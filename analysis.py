@@ -398,7 +398,7 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
     yint_x = temp_sed/np.sum(temp_sed)
     dl = lambdaz[1]-lambdaz[0]
     #### Convolve with a gaussian
-    xgauss = np.arange(10*46/dl)*dl-5*46
+    xgauss = np.arange(8*46/dl)*dl-4*46
     ygauss = np.exp(-1*xgauss**2/2/((35/dl)**2))
     ygauss /= np.sum(ygauss)
     yintc = conv(yint_x, ygauss, mode='same')
@@ -415,6 +415,8 @@ def convolveWithThumb(id, lambdaz, temp_sed, SPC, oned=True, xint=None, verbose=
         x_full = xprof_int
         
     x_full -= x_full.mean()
+    
+    plt.rcParams['font.size'] = 9
     
     fig = Figure(figsize=[3,2], dpi=100)
     ax = fig.add_subplot(111)

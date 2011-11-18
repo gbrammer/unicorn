@@ -64,14 +64,22 @@ def UDF():
     os.chdir('../')
     
     ### UDF
-    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26.5)
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=25)
     
-    threedhst.options['OTHER_BANDS'] = [['../PREP_FLT/udf-candels-f125w.fits', 'F125W' , 1248.6, 26.25], ['../PREP_FLT/udf-candels-f160w.fits', 'F160W' , 1537.6, 25.96]]
+    #### Run various test combinations (Nov 9, 2011)
+    files = glob.glob('PREP_FLT/UDF*F140W_drz.fits')
+    for file in files:
+        threedhst.options['PREFAB_DIRECT_IMAGE'] = '../'+file
+        proc.reduction_script(asn_grism_file= os.path.basename(file).replace('F140W_drz', 'G141_asn'))
+        unicorn.analysis.make_SED_plots(grism_root=os.path.basename(file).replace('F140W_drz.fits','G141'))
+        go.clean_up()
+        
+    #threedhst.options['OTHER_BANDS'] = [['../PREP_FLT/udf-candels-f125w.fits', 'F125W' , 1248.6, 26.25], ['../PREP_FLT/udf-candels-f160w.fits', 'F160W' , 1537.6, 25.96]]
     
     #### Use a detection image that has the candels imaging filling in the perimeter
     #### of the 3D-HST pointing
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-fill-F140W_drz.fits'
     
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDF-fill-F140W_drz.fits'
     proc.reduction_script(asn_grism_file='UDF-G141_asn.fits')
     unicorn.analysis.make_SED_plots(grism_root='UDF-G141')
     go.clean_up()

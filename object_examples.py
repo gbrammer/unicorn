@@ -18,6 +18,7 @@ import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
+import unicorn.brown_dwarf
 
 import re
 
@@ -31,11 +32,14 @@ dy2d = 0.67
 aspect = 0.65
 temp_color = (8/255.,47/255.,101/255.)
 lrange = np.array([1.05e4,1.68e4])
-spec_linewidth=4
+spec_linewidth=2
+pad_linewidth=2
 
 import unicorn
 unicorn.catalogs.read_catalogs()
 from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+
+USE_TEX = True
 
 def run_all():
     import unicorn.object_examples
@@ -78,6 +82,11 @@ def agn_group():
     spec2d = twod[1].data
     y0, y1 = 24, 79
     
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
     #### Twod
@@ -118,8 +127,8 @@ def agn_group():
     
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.7)
     
     ## Secondary
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='GOODS-N-36-G141_01005', OUTPUT_DIRECTORY='DATA', CACHE_FILE = 'Same')
@@ -130,8 +139,8 @@ def agn_group():
     
     #ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='orange', linewidth=1, alpha=0.5)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='orange', linewidth=1, alpha=0.7)
     
     #### 
     zspec = 1.773
@@ -140,7 +149,7 @@ def agn_group():
     
     lines = [4102, 4341, 4862, 4980*1.08]
     y0 = [0.7, 0.7, 1, 1.5]
-    labels = [r'H$\delta$',r'H$\gamma$', r'H$\beta$','O III 4959+5007']
+    labels = [r'H$\delta$',r'H$\gamma$', r'H$\beta$','[OIII]4959+5007']
     for i in range(len(lines)):
         ax.text(lines[i]*(1+zspec), 3*y0[i], labels[i], horizontalalignment='center')
         
@@ -148,7 +157,7 @@ def agn_group():
     ax.set_ylim(-0.1,ymax*1.1)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     
     print 'Savefig'
     print os.getcwd()
@@ -194,6 +203,11 @@ def z4_quasar():
     spec2d = twod[1].data
     y0, y1 = 10,32
     
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
     #### Twod
@@ -234,8 +248,8 @@ def z4_quasar():
     
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.7)
         
     #### 
     zspec = 4.656
@@ -252,7 +266,7 @@ def z4_quasar():
     ax.set_ylim(-0.1,ymax*1.1)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     
     ytick = ax.set_yticks([0,1,2])
     
@@ -276,6 +290,11 @@ def big_dead_galaxy():
     spec2d = twod[1].data-twod[4].data
     y0, y1 = 24, 60
     
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
     #### Twod
@@ -291,7 +310,7 @@ def big_dead_galaxy():
     plot_aspect = (bottom+dy2d)/(0.99-bottom-dy2d)/aspect
     pix_aspect = (lam_mima[1]-lam_mima[0])*1./(y1-y0)
     
-    spec2d_sub = spec2d[y0:y1,lam_mima[0]:lam_mima[1]]
+    spec2d_sub = spec2d[y0+1:y1+1,lam_mima[0]:lam_mima[1]]
     ax.imshow(0-spec2d_sub, aspect='auto', vmin=-0.1*1.2, vmax=0.0125*1.2, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
     xtick = ax.set_xticks(tick_int); ytick = ax.set_yticks([0,y1-y0])
@@ -318,8 +337,8 @@ def big_dead_galaxy():
     
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.7)
         
     #### 
     zspec = 2.0832
@@ -335,7 +354,7 @@ def big_dead_galaxy():
     ax.set_ylim(-0.1,ymax*1.2)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     ytick = ax.set_yticks([0,1,2,3])
     
     #### Inset full sed
@@ -386,7 +405,12 @@ def high_signal_to_noise_galaxy():
     thumb = pyfits.open('DATA/PRIMO-1101-G141_01022_thumb.fits.gz')
     twod = pyfits.open('DATA/PRIMO-1101-G141_01022_2d.fits.gz')
     spec2d = twod[1].data-twod[4].data
-    y0, y1 = 30, 55
+    y0, y1 = 31, 56
+    
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
     
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
@@ -430,13 +454,13 @@ def high_signal_to_noise_galaxy():
     
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+    ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.7)
         
     #### 
     zspec = 1.905
     mag = phot.mag_f1392w[phot.id == 'PRIMO-1101-G141_01022'][0]
-    mass = mcat.lmas
+    #mass = mcat.lmass
     ax.text(0.05,0.8,r'$d)\ z=%.3f,\ m_{140}=%.1f$' %(zspec, mag), transform=ax.transAxes, fontsize=11)
     
     # lines = [4102, 4341, 4862, 4980]
@@ -448,7 +472,7 @@ def high_signal_to_noise_galaxy():
     ax.set_ylim(-0.1*ymax,ymax*1.3)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-19}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-19}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     ytick = ax.set_yticks([0,1,2,3,4,5])
     
     #### Inset full sed
@@ -503,6 +527,11 @@ def l_dwarf():
     spec2d = twod[1].data-twod[4].data
     y0, y1 = 10, 30
     
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
     #### Twod
@@ -546,7 +575,7 @@ def l_dwarf():
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
     
-    bd = unicorn.analysis.BD_fit()
+    bd = unicorn.brown_dwarf.BD_fit()
     type = ['L4']
     ii = 0
     colors = ['green','blue','red','orange']
@@ -563,7 +592,7 @@ def l_dwarf():
             ax.text(0.9-ii*0.08, 0.83, temp.type, color=colors[ii % 4], transform=ax.transAxes)
             ii = ii + 1
             
-    #ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
+    #ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
     #ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
         
     #### 
@@ -580,7 +609,7 @@ def l_dwarf():
     ax.set_ylim(-0.1*ymax,ymax*1.3)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-19}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-19}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     ytick = ax.set_yticks([0,5,10,15])
     
     
@@ -619,6 +648,11 @@ def t_dwarf():
     spec2d = twod[1].data-twod[4].data
     y0, y1 = 10, 30
     
+    if USE_TEX:
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+    
     fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
     
     #### Twod
@@ -642,7 +676,7 @@ def t_dwarf():
     #### Thumb
     ax = fig.add_axes((left, bottom+dy2d, (0.99-bottom-dy2d)*aspect, 0.99-bottom-dy2d))
 
-    ax.imshow(0-thumb[0].data[y0:y1, y0:y1], vmin=-1.4, vmax=0.15, interpolation='nearest', zorder=2, aspect='auto')
+    ax.imshow(0-thumb[0].data[y0-1:y1-1, y0-1:y1-1], vmin=-1.4, vmax=0.15, interpolation='nearest', zorder=2, aspect='auto')
     ax.set_yticklabels([])
     ax.set_xticklabels([])
     xtick = ax.set_xticks([0,y1-y0]); ytick = ax.set_yticks([0,y1-y0])
@@ -662,7 +696,7 @@ def t_dwarf():
     ymax = max(fobs[is_spec & (fobs > 0)])
     ax.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
     
-    bd = unicorn.analysis.BD_fit()
+    bd = unicorn.brown_dwarf.BD_fit()
     type = ['T6','T5']
     ii = 0
     colors = ['green','blue','red','orange']
@@ -679,7 +713,7 @@ def t_dwarf():
             ax.text(0.9-ii*0.05, 0.83, temp.type, color=colors[ii % 4], transform=ax.transAxes, fontsize=11)
             ii = ii + 1
             
-    #ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
+    #ax.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
     #ax.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
         
     #### 
@@ -696,7 +730,7 @@ def t_dwarf():
     ax.set_ylim(-0.1*ymax,ymax*1.3)
     ax.set_xlim(lrange[0], lrange[1])
     ax.set_xlabel(r'$\lambda$')
-    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_ylabel(r'$f_\lambda\ [10^{-18}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
     ytick = ax.set_yticks([0,1,2])
     
     
@@ -796,8 +830,8 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     ymax = max(fobs[is_spec & (fobs > 0)])
     axSpec.plot(lci[is_spec],fobs[is_spec], color='black', linewidth=spec_linewidth)
     if show_Fit:
-        axSpec.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=3)
-        axSpec.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.5)
+        axSpec.plot(lci[is_spec],obs_sed[is_spec], color='white', alpha=0.8, linewidth=pad_linewidth)
+        axSpec.plot(lci[is_spec],obs_sed[is_spec], color='red', linewidth=1, alpha=0.7)
         
     #### 
     zspec = 2.0832
@@ -822,7 +856,7 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     axSpec.set_ylim(plot_min,plot_max)
     axSpec.set_xlim(lrange[0], lrange[1])
     axSpec.set_xlabel(r'$\lambda\ [\AA]$')
-    axSpec.set_ylabel(r'$f_\lambda\ [10^{%0d}\ \mathrm{ergs\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$' %(flam_norm))
+    axSpec.set_ylabel(r'$f_\lambda\ [10^{%0d}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$' %(flam_norm))
     if yticks is not None:
         ytick = axSpec.set_yticks(yticks)
     

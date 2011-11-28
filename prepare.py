@@ -563,7 +563,7 @@ def GOODSS(FORCE=False):
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
             
     # test
-    threedhst.gmap.makeImageMap(['GOODS-S-24-F140W_drz.fits','GOODS-S-23-F140W_drz.fits', 'GOODS-S-24-F140W_align.fits[0]*4'], aper_list=[16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+    threedhst.gmap.makeImageMap(['GOODS-S-31-F140W_drz.fits','GOODS-S-31-F140W_align.fits[0]*4', 'GOODS-S-31-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings
@@ -622,14 +622,44 @@ def UDF():
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/PREP_FLT')
+    os.chdir(unicorn.GRISM_HOME+'UDF/PREP_FLT')
 
-    #### Take GOODS-S-34 as the reference and align the other pointings
-    files = glob.glob('GOODS-S-3[6-8]-F140W*asn.fits')
+    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    
+    direct_files = glob.glob('GOODS-S-3?-F140W*asn.fits')
+    grism_files = glob.glob('GOODS-S-3?-G141*asn.fits')
+    for direct, grism in zip(direct_files, grism_files):
+        pair(direct, grism, ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+    
+    #### Combinations for noise tests
+    #direct_files = glob.glob('GOODS-S-3[4678]-F140W_asn.fits')
+    asn_files = glob.glob('GOODS-S*asn.fits')
+    for file in asn_files:
+        threedhst.utils.combine_asn_shifts([file], out_root=file.replace('GOODS-S','UDF').replace('_asn.fits',''), path_to_FLT='./', run_multidrizzle=False)
+    #
+    threedhst.utils.combine_asn_shifts(asn_files[0:4:2], out_root='UDF-A-F140W', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(asn_files[1:4:2], out_root='UDF-A-G141', path_to_FLT='./', run_multidrizzle=False)
+
+    threedhst.utils.combine_asn_shifts(asn_files[4::2], out_root='UDF-B-F140W', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(asn_files[5::2], out_root='UDF-B-G141', path_to_FLT='./', run_multidrizzle=False)
+    
+    threedhst.utils.combine_asn_shifts(asn_files[0::2], out_root='UDF-Full-F140W', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(asn_files[1::2], out_root='UDF-Full-G141', path_to_FLT='./', run_multidrizzle=False)
+    
+    direct_images = glob.glob('UDF*F140W_asn.fits')
+    for direct in direct_images:
+        threedhst.prep_flt_files.startMultidrizzle(direct,
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+    ######## From here down was for the original quick analysis I did with the UDF 
+    threedhst.gmap.makeImageMap(['GOODS-S-34-F140W_drz.fits', 'GOODS-S-34-F140W_align.fits[0]*4'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'), zmin=-0.1, zmax=1)
+    
     for file in files:
         threedhst.shifts.refine_shifts(ROOT_DIRECT=file.split('_asn')[0], 
               ALIGN_IMAGE='GOODS-S-34-F140W_drz.fits', ALIGN_EXTENSION=1,  
-              fitgeometry='rotate', clean=True)
+              fitgeometry='shift', clean=True)
         #
         threedhst.prep_flt_files.startMultidrizzle(file,
                  use_shiftfile=True, skysub=False,
@@ -819,12 +849,13 @@ def AEGIS(FORCE=False):
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
+    
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
-    threedhst.gmap.makeImageMap(['AEGIS-6-F140W_drz.fits', 'AEGIS-6-F140W_align.fits[0]*4', 'AEGIS-6-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
+    threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*4', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings, not coded yet but need to regenerate the original 

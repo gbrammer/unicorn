@@ -1293,6 +1293,9 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
     plt.rcParams['patch.edgecolor'] = 'None'
     plt.rcParams['font.size'] = fontsize
 
+    plt.rcParams['image.origin'] = 'lower'
+    plt.rcParams['image.interpolation'] = 'nearest'
+
     if square:
         #xs=5
         lrbt = np.array([left,right,bottom,top])*5./xs     

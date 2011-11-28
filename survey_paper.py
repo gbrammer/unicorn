@@ -33,71 +33,83 @@ def throughput():
     xf814, yf814 = np.loadtxt('f814w.dat', unpack=True)
     xg800l, yg800l = np.loadtxt('g800l.dat', unpack=True)
 
-    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.12)
-    
-    plt.plot(xg141, yg141, color='black', linewidth=2, alpha=0.5)
-    plt.fill(xg141, yg141, color='red', linewidth=2, alpha=0.1)
-    plt.plot(xf140, yf140, color='black', linewidth=2, alpha=0.7)
-    
-    plt.plot(xg800l, yg800l, color='black', linewidth=2, alpha=0.5)
-    plt.fill(xg800l, yg800l, color='blue', linewidth=2, alpha=0.1)
-    plt.plot(xf814, yf814, color='black', linewidth=2, alpha=0.7)
-    
-    
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
 
-    em_lines = [3727, 4861, 5007, 6563.]
-    offset = np.array([0,-0.05,0,0])
-    offset = 0.25+np.array([-0.15,-0.1,0.02,-0.1])
-
-    em_names = ['[OII]',r'H$\beta$','[OIII]',r'H$\alpha$']
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.105, bottom=0.08, top=0.01, right=0.01)
     
-    dlam = 25
+    ax = fig.add_subplot(111)
+    
+    ax.plot(xg141, yg141, color='black', linewidth=2, alpha=0.5)
+    ax.fill(xg141, yg141, color='red', linewidth=2, alpha=0.1)
+    ax.plot(xf140, yf140, color='black', linewidth=2, alpha=0.7)
+    
+    ax.plot(xg800l, yg800l, color='black', linewidth=2, alpha=0.5)
+    ax.fill(xg800l, yg800l, color='blue', linewidth=2, alpha=0.1)
+    ax.plot(xf814, yf814, color='black', linewidth=2, alpha=0.7)
+    
+    em_lines = [3727, 4861, 4959, 5007, 6563.]
+    offset = np.array([0,-0.05,0,0,0])
+    offset = 0.25+np.array([-0.2,-0.05,0,-0.01,-0.1])
+    xoffset = np.array([0,-120,200,150,0])
+    line_scale = np.array([1,1,1./2.98,1,1])
+    
+    em_names = ['[OII]',r'H$\beta$','','[OIII]',r'H$\alpha$']
+    
+    dlam = 30
     zi = 1
     
-    show_spectra = False
+    show_spectra = True
     colors=['blue','green','red']    
     if show_spectra:
       for zi in [1,2,3]:
         sedx, sedy = np.loadtxt('templates/EAZY_v1.0_lines/eazy_v1.0_sed4_nolines.dat', unpack=True)
         sedy *= 1.*sedy.max()
         dl = dlam/(1+zi)
-        for em_line in em_lines:
+        #dl = dlam
+        for i,em_line in enumerate(em_lines):
             em_gauss = 1./np.sqrt(2*np.pi*dl**2)*np.exp(-1*(sedx-em_line)**2/2/dl**2)
-            sedy += em_gauss/em_gauss.max()*0.6
+            sedy += em_gauss/em_gauss.max()*0.6*line_scale[i]
 
-        plt.plot(sedx*(1+zi), sedy*0.4+0.5, color=colors[zi-1], alpha=0.7, linewidth=2)
-        plt.text(5500.,1.18-zi*0.13,r'$z=%d$' %(zi), color=colors[zi-1], fontsize=11)
+        ax.plot(sedx*(1+zi), sedy*0.4+0.5, color=colors[zi-1], alpha=0.7, linewidth=2)
+        ax.text(5500.,1.18-zi*0.13,r'$z=%d$' %(zi), color=colors[zi-1], fontsize=11)
         
-      for i in range(4):
-        plt.text(em_lines[i]*(1+1), 1+offset[i], em_names[i], horizontalalignment='center', fontsize=10)
+      for i in range(len(em_lines)):
+        ax.text(em_lines[i]*(1+1)+xoffset[i], 1+offset[i], em_names[i], horizontalalignment='center', fontsize=10)
     
-    show_continuous = True
+    show_continuous = False
     if show_continuous:
         em_lines = [3727, 5007, 6563.]
         zgrid = np.arange(1000)/1000.*4
         for line in em_lines:
-            plt.plot(line*(1+zgrid), zgrid/4.*0.8+0.5, linewidth=2, alpha=0.5, color='black')
+            ax.plot(line*(1+zgrid), zgrid/4.*0.8+0.5, linewidth=2, alpha=0.5, color='black')
         for zi in [0,1,2,3]:
-            plt.plot([0.1,2.e4],np.array([zi,zi])/4.*0.8+0.5, linestyle='--', color='black', alpha=0.2)
+            ax.plot([0.1,2.e4],np.array([zi,zi])/4.*0.8+0.5, linestyle='--', color='black', alpha=0.2)
             
     
-    plt.text(5800, 0.08,'G800L',rotation=33., color='black', alpha=0.7)
-    plt.text(5800, 0.08,'G800L',rotation=33., color='blue', alpha=0.4)
+    ax.text(5800, 0.08,'G800L',rotation=33., color='black', alpha=0.7)
+    ax.text(5800, 0.08,'G800L',rotation=33., color='blue', alpha=0.4)
 
-    plt.text(7100, 0.03,'F814W',rotation=80., color='black', alpha=0.9)
+    ax.text(7100, 0.03,'F814W',rotation=80., color='black', alpha=0.9)
 
-    plt.text(1.115e4, 0.17,'G141',rotation=15., color='black', alpha=0.7)
-    plt.text(1.115e4, 0.17,'G141',rotation=15., color='red', alpha=0.4)
+    ax.text(1.115e4, 0.17,'G141',rotation=15., color='black', alpha=0.7)
+    ax.text(1.115e4, 0.17,'G141',rotation=15., color='red', alpha=0.4)
 
-    plt.text(1.21e4, 0.03,'F140W',rotation=88., color='black', alpha=0.9)
+    ax.text(1.21e4, 0.03,'F140W',rotation=88., color='black', alpha=0.9)
 
     
-    plt.xlim(4500, 1.79e4)
-    plt.ylim(0,1.4)
-    plt.xlabel(r'$\lambda$')
-    plt.ylabel('throughput')
+    ax.set_xlim(4500, 1.79e4)
+    ax.set_ylim(0,1.4)
+    ax.set_xlabel(r'$\lambda$ [\AA]')
+    ax.set_ylabel('throughput')
+    
+    #ax.set_yticklabels([]); 
+    ytick = ax.set_yticks([0,0.25,0.5,0.75,1.0])
     
     fig.savefig('throughput.pdf')
+    
+    plt.rcParams['text.usetex'] = False
     
 def orbit_structure():
     """
@@ -109,6 +121,9 @@ def orbit_structure():
     plt.rcParams['text.usetex'] = True
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = 'Times'
+    
+    wfc3_color, acs_color = 'red','blue'
+    wfc3_color, acs_color = 'blue','green'
     
     fig = unicorn.catalogs.plot_init(square=True, xs=4.4, aspect=1, left=0.09, bottom=0.08)
     ax = fig.add_subplot(111)
@@ -125,7 +140,7 @@ def orbit_structure():
     xoff = xpostarg/a11
     yoff = ypostarg/b10
         
-    ax.plot(xoff, yoff, marker='o', markersize=10, color='red', alpha=0.8, zorder=10)
+    ax.plot(xoff, yoff, marker='o', markersize=10, color=wfc3_color, alpha=0.8, zorder=10)
     
     if 1 == 1:
         for i in range(4):
@@ -143,7 +158,7 @@ def orbit_structure():
     ax.plot(np.array([0.5,0.5])*scale+x0, np.array([0,1])*scale+y0, color='black', alpha=0.2, zorder=12)
     ax.plot(np.array([0,1])*scale+x0, np.array([0.5,0.5])*scale+y0, color='black', alpha=0.2, zorder=12)
     
-    ax.plot(np.abs(xoff-np.cast[int](xoff))*scale+x0, np.abs(yoff-np.cast[int](yoff))*scale+y0, marker='o', markersize=10, color='red', alpha=0.8, zorder=13)
+    ax.plot(np.abs(xoff-np.cast[int](xoff))*scale+x0, np.abs(yoff-np.cast[int](yoff))*scale+y0, marker='o', markersize=10, color=wfc3_color, alpha=0.8, zorder=13)
     ax.text(x0+scale/2., y0-1, 'WFC3 Primary', horizontalalignment='center')
     
     #plt.xlim(-5,11)
@@ -173,9 +188,9 @@ def orbit_structure():
     ax.plot(np.array([0.5,0.5])*scale+x0, np.array([0,1])*scale+y0, color='black', alpha=0.2, zorder=12)
     ax.plot(np.array([0,1])*scale+x0, np.array([0.5,0.5])*scale+y0, color='black', alpha=0.2, zorder=12)
 
-    ax.plot(np.abs(xpix_acs-np.cast[int](xpix_acs))*scale+x0, np.abs(ypix_acs-np.cast[int](ypix_acs))*scale+y0, marker='o', markersize=10, color='blue', alpha=0.8, zorder=13)
-    #ax.plot(np.array([0,0.5,1,0.5])*scale+x0, np.array([0,0.5,0.5,1])*scale+y0, marker='o', marker='None', color='blue', linestyle='--', alpha=0.6, zorder=13)
-    ax.plot(np.array([0,0.5,0.5,1])*scale+x0, np.array([0,1,0.5,0.5])*scale+y0, marker='o', marker='None', color='blue', linestyle='--', alpha=0.6, zorder=13)
+    ax.plot(np.abs(xpix_acs-np.cast[int](xpix_acs))*scale+x0, np.abs(ypix_acs-np.cast[int](ypix_acs))*scale+y0, marker='o', markersize=10, color=acs_color, alpha=0.8, zorder=13)
+    #ax.plot(np.array([0,0.5,1,0.5])*scale+x0, np.array([0,0.5,0.5,1])*scale+y0, marker='o', marker='None', color=acs_color, linestyle='--', alpha=0.6, zorder=13)
+    ax.plot(np.array([0,0.5,0.5,1])*scale+x0, np.array([0,1,0.5,0.5])*scale+y0, marker='o', marker='None', color=acs_color, linestyle='--', alpha=0.6, zorder=13)
     
     ax.text(x0+scale/2., y0-1, 'ACS Parallel', horizontalalignment='center')
     
@@ -266,15 +281,14 @@ def aXe_model():
     os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
     
     dir = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-F140W_drz.fits')
-    gri = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-G141_drz.fits.gz')
-    mod = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-FC-G141CONT_drz.fits.gz')
+    gri = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-FC-G141_drz.fits')
+    mod = pyfits.open('/research/HST/GRISM/3DHST/GOODS-S/PREP_FLT/UDF-FC-G141CONT_drz.fits')
 
     #### rotate all the images so that dispersion axis is along X
     angle = gri[1].header['PA_APER']#+180
     direct = nd.rotate(dir[1].data, angle, reshape=False)
     grism = nd.rotate(gri[1].data, angle, reshape=False)
     model = nd.rotate(mod[1].data, angle, reshape=False)
-    
     
     xc, yc = 1877, 2175
     NX, NY = 1270, 365
@@ -288,20 +302,26 @@ def aXe_model():
     plt.gray()
     
     plt.rcParams['lines.linewidth'] = 2
-    
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+
     fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=aspect, left=0.12)
     
     fig.subplots_adjust(wspace=0.0,hspace=0.0,left=0.01,
-                        bottom=0.015,right=0.99,top=0.985)
+                        bottom=0.005,right=0.99,top=0.995)
     
-    fs1 = 15 ### Font size of label
-    xlab, ylab = 0.04*NX/3., NY-0.02*NY
+    fs1 = 12 ### Font size of label
+    xlab, ylab = 0.04*NX/3., NY-0.02*NY-0.02*NY
+    
+    xd, yd = 65, 412 ### my direct images don't line up any more (deleted old ones?)
+    xd, yd = 412, 65*2
     
     ax = fig.add_subplot(221)
-    ax.imshow(0-direct[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.2, vmax=0.02, interpolation='nearest')
+    ax.imshow(0-direct[yc-NY/2+yd:yc+NY/2+yd, xc-NX/2+xd:xc+NX/2+xd], vmin=-0.2, vmax=0.02, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
     xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
-    ax.text(xlab, ylab, 'a) Direct F140W', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    ax.text(xlab, ylab, 'a) Direct F140W', fontsize=fs1, verticalalignment='top')
 
     #ax.text(xlab, ylab, r'$%d\times\ $$%d^{\prime\prime}$' %(NX*0.06, NY*0.06), fontsize=18, backgroundcolor='white', verticalalignment='top')
     
@@ -309,35 +329,40 @@ def aXe_model():
     ax.imshow(0-grism[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.04, vmax=0.004, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
     xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
-    ax.text(xlab, ylab, 'b) Grism G141', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    ax.text(xlab, ylab, 'b) Grism G141', fontsize=fs1, verticalalignment='top')
 
-    ax = fig.add_subplot(223)
+    ax = fig.add_subplot(224)
     diff = grism-model
         
     ### Flag em lines and 0th order
     dy0 = 20
     
     emx, emy = [223, 272, 487, 754, 520, 850, 565, 558, 51, 834, 345, 495], [122, 189, 83, 240, 148, 124, 336, 418, 338, 225, 197, 268]
-    ax.plot(np.array(emx)+(xc-1731), np.array(emy)-dy0+(yc-977), marker='^', markersize=5, linestyle='None', color='green', alpha=0.9)
+    ax.plot(np.array(emx)+(xc-1731), np.array(emy)-dy0+(yc-977), marker='^', markersize=6, linestyle='None', color='blue', alpha=0.9)
     
     zx, zy = [301, 393, 648], [183, 321, 446]
-    ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='^', markersize=5, linestyle='None', color='red', alpha=0.9)
-
-    ax.text(0.04*NX/3., 0.02*NY, 'Em.', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='green')
-    ax.text(0.3*NX/3., 0.02*NY, r'0th', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='red')
+    ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='^', markersize=6, linestyle='None', markeredgecolor='black', markerfacecolor='None', alpha=0.9, markeredgewidth=1.2)
+    
+    import matplotlib
+    fonts = matplotlib.font_manager.FontProperties()
+    fonts.set_size(9)
+    ax.legend(['Emission',r'0th order'], numpoints=1, prop=fonts, handletextpad=0.001, borderaxespad=0.001)
+    # ax.text(0.04*NX/3., 0.02*NY, 'Em.', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='green')
+    # ax.text(0.3*NX/3., 0.02*NY, r'0th', fontsize=fs1*0.8, backgroundcolor='white', verticalalignment='bottom', color='red')
     
     ax.imshow(0-diff[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.02, vmax=0.002, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
     xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
-    ax.text(xlab, ylab, r'd) Grism$-$model', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    ax.text(xlab, ylab, r'd) Model-subtracted grism', fontsize=fs1, verticalalignment='top')
     
-    ax = fig.add_subplot(224)
+    ax = fig.add_subplot(223)
     ax.imshow(0-model[yc-NY/2:yc+NY/2, xc-NX/2:xc+NX/2], vmin=-0.04, vmax=0.004, interpolation='nearest')
     ax.set_yticklabels([]); ax.set_xticklabels([])
     xtick = ax.set_xticks([0,NX]); ytick = ax.set_yticks([0,NY])
-    ax.text(xlab, ylab, r'c) aXe Model', fontsize=fs1, backgroundcolor='white', verticalalignment='top')
+    ax.text(xlab, ylab, r'c) aXe Model', fontsize=fs1, verticalalignment='top')
     
     fig.savefig('grism_model.pdf')
+    plt.rcParams['text.usetex'] = False
     
 def sync():
     pass
@@ -364,14 +389,23 @@ def all_pointings():
     pointings(ROOT='GOODS-N')
 
 def all_pointings_width():
+    """
+    This is the mosaic figure from the paper.  The individual fields are combined 
+    manually with Adobe Illustrator.
+    """
     from unicorn.survey_paper import pointings
     
-    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll')
-    pointings(ROOT='COSMOS', width=6, corner='lr')
-    pointings(ROOT='AEGIS', width=7, corner='ll')
-    pointings(ROOT='UDS', width=9, corner='lr')
-    pointings(ROOT='GOODS-N', width=6, corner='ur')
-
+    fs, left = 10, 0.22
+    fs, left = 12, 0.25
+    fs, left = 14, 0.28
+    fs, left = 16, 0.32
+    
+    pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', fontsize=fs, left=left)
+    pointings(ROOT='COSMOS', width=6, corner='lr', fontsize=fs, left=left, right=0.03, bottom=0.115)
+    pointings(ROOT='AEGIS', width=7, corner='ll', fontsize=fs, left=left, right=0.045)
+    pointings(ROOT='UDS', width=9, corner='lr', fontsize=fs, left=left-0.02, right=0.04, top=0.02)
+    pointings(ROOT='GOODS-N', width=6, corner='ur', fontsize=fs, left=left, bottom=0.115)
+    
 def pointings_with_status():
     """
     Highlight pointings that have been observed (status == 'Archived') 
@@ -394,7 +428,7 @@ def pointings_with_status():
     pointings(ROOT='UDS', width=9, corner='lr', show_sn_fields=True, use_status=True)
     pointings(ROOT='GOODS-SOUTH', width=7, corner='ll', show_sn_fields=True, use_status=True)
            
-def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, show_acs=True, show_wfc3=True, show_sn_fields=False):
+def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, show_acs=True, show_wfc3=True, show_sn_fields=False, fontsize=10, left=22, right=0.02, top=0.01, bottom=0.11):
     """ 
     Make a figure showing the 3D-HST pointing poisitions, read from region files
     """
@@ -445,6 +479,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         x1, x0 = 214.49707154104345, 215.12704734584406
         y0, y1 = 52.680946433013482, 53.01597137966467
         xticklab = [r'$18^\mathrm{m}00^\mathrm{s}$', r'$14^\mathrm{h}19^\mathrm{m}00^\mathrm{s}$', r'$20^\mathrm{m}00^\mathrm{s}$']
+        xticklab = [r'$18^\mathrm{m}$', r'$14^\mathrm{h}19^\mathrm{m}$', r'$20^\mathrm{m}$']
         xtickv = [degrees(14,18,00, hours=True), degrees(14,19,00, hours=True), degrees(14,20,00, hours=True)]
         yticklab = [r'$+52^\circ45^\prime00^{\prime\prime}$', r'$50^\prime00^{\prime\prime}$', r'$55^\prime00^{\prime\prime}$']
         ytickv = [degrees(52, 45, 00, hours=False), degrees(52, 50, 00, hours=False), degrees(52, 55, 00, hours=False)]
@@ -482,7 +517,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
     
     print '%s: plot width = %.2f\n' %(ROOT, width)
         
-    fig = unicorn.catalogs.plot_init(square=True, xs=width, aspect=dy/dx)
+    fig = unicorn.catalogs.plot_init(square=True, xs=width, aspect=dy/dx, fontsize=fontsize, left=left, right=right, top=top, bottom=bottom)
     #fig = unicorn.catalogs.plot_init(square=True)
     
     ax = fig.add_subplot(111)
@@ -514,6 +549,10 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
     
     files=glob.glob(unicorn.GRISM_HOME+'REGIONS/'+ROOT+'-[0-9]*reg')
     
+    if ROOT == 'UDS':
+        p18 = files.pop(9)
+        print '\n\nPOP %s\n\n' %(p18)
+        
     if show_sn_fields:
         files.extend(glob.glob(unicorn.GRISM_HOME+'REGIONS/SN*reg'))
         files.extend(glob.glob(unicorn.GRISM_HOME+'REGIONS/ERS*reg'))
@@ -551,6 +590,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         if show_wfc3:
             if status:
                 fi = ax.fill(wfcx, wfcy, alpha=0.2, color=wfc3_color)
+                fi = ax.plot(wfcx, wfcy, alpha=0.8, color=wfc3_color)
             else:
                 fi = ax.fill(wfcx, wfcy, alpha=0.05, color=wfc3_color)
                 fi = ax.plot(wfcx, wfcy, alpha=0.8, color=wfc3_color)
@@ -561,7 +601,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
             #
             if show_acs:
                 if show_wfc3:
-                    afact = 1
+                    afact = 3
                 else:
                     afact = 3
                     
@@ -840,7 +880,7 @@ def demo_background_subtract(root='COSMOS-13'):
     
     os.system('mv %s-G141_drz.fits %s-G141_drz_final.fits' %(root, root))
     
-    make_plot(root=root)
+    make_background_demo(root=root)
     
 def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.02)):
     import unicorn.survey_paper as sup
@@ -925,7 +965,7 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     #ax = fig.add_subplot(143)
     ax = fig.add_axes(((x0+(dx+x0)*0), y0, dx, 0.5-top_panel-y0))
     ax.imshow(0-(sky[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
-    sup.axis_imshow(ax, text='c)\ Sky')
+    sup.axis_imshow(ax, text='c)\ Background')
     #show_limits(ax, -vmax+med, -vmin+med)
     
     #### Show profiles
@@ -935,7 +975,7 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
         #ax.plot(sup.sky_prof[i])
         pp += sup.sky_prof[i]
     ax.plot(pp/4., color='black')
-    sup.axis_profile(ax, yrange=range1, text='c)\ Sky')
+    sup.axis_profile(ax, yrange=range1, text='c)\ Background')
     
     #ax = fig.add_subplot(144)
     ax = fig.add_axes(((x0+(dx+x0)*1), y0, dx, 0.5-top_panel-y0))
@@ -1063,6 +1103,51 @@ def compare_sky():
     canvas = FigureCanvasAgg(fig)
     canvas.print_figure('sky_backgrounds.pdf', dpi=100, transparent=False)
 
+def axeFlat(flat_file='/research/HST/GRISM/3DHST/CONF/WFC3.IR.G141.flat.2.fits', wave=1.4e4):
+    """
+    Compute the aXe flat-field image at a specified wavelength.
+    """
+    flat = pyfits.open(flat_file)
+    
+    wmin = flat[0].header['WMIN']
+    wmax = flat[0].header['WMAX']
+
+    x = (wave-wmin)/(wmax-wmin)
+    img = np.zeros((1014,1014), dtype='float')
+    for i in range(len(flat)):
+        img += flat[i].data*x**i
+    
+    return img
+    
+def get_flat_function(x=507, y=507, wave=np.arange(1.1e4,1.6e4,500), flat_file='/research/HST/GRISM/3DHST/CONF/WFC3.IR.G141.flat.2.fits'):
+    
+    #wave = np.arange(1.1e4, 1.6e4, .5e3)
+    
+    flat = pyfits.open(flat_file)
+    
+    wmin = flat[0].header['WMIN']
+    wmax = flat[0].header['WMAX']
+
+    xx = (wave-wmin)/(wmax-wmin)
+    flat_func = xx*0.
+    
+    for i in range(len(flat)):
+        flat_func += flat[i].data[y,x]*xx**i
+    
+    return flat_func    
+    
+def show_flat_function():
+    
+    wave = np.arange(1.05e4, 1.7e4, 250.)
+    color='blue'
+    for xi in range(50,951,50):
+        print noNewLine+'%d' %(xi)
+        for yi in range(50,951,50):
+            ffunc = unicorn.survey_paper.get_flat_function(x=xi, y=yi, wave=wave)
+            ffunc /= np.interp(1.4e4, wave, ffunc)
+            p = plt.plot(wave, ffunc , alpha=0.05, color=color)
+        
+        
 def grism_flat_dependence():
     """
     Compute the higher order terms for the grism flat-field
@@ -1089,30 +1174,53 @@ def grism_flat_dependence():
     f105 = pyfits.open(os.getenv('iref')+'/uc72113oi_pfl.fits')[1].data[5:-5,5:-5]
     #f105 = pyfits.open(os.getenv('iref')+'/uc72113ni_pfl.fits')[1].data[5:-5,5:-5] # F098M
     f140 = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')[1].data[5:-5,5:-5]
-    ref = 'F140W'
+    yi, xi= np.indices(f140.shape)
+    death_star = (f140 < 0.65) & (xi < 390) & (yi < 80) & (xi > 330) & (yi > 30)
+    REF = 'F140W'
     f160 = pyfits.open(os.getenv('iref')+'/uc721145i_pfl.fits')[1].data[5:-5,5:-5]
     
     #### Narrow bands
-    f140 = pyfits.open(os.getenv('iref')+'/PFL/uc72113si_pfl.fits')[1].data[5:-5,5:-5]
-    REF = 'F127M'
+    #f140 = pyfits.open(os.getenv('iref')+'/PFL/uc72113si_pfl.fits')[1].data[5:-5,5:-5]
+    #REF = 'F127M'
     
     #f140 = pyfits.open(os.getenv('iref')+'/PFL/uc721140i_pfl.fits')[1].data[5:-5,5:-5]
     #f160 = pyfits.open(os.getenv('iref')+'/PFL/uc721146i_pfl.fits')[1].data[5:-5,5:-5]
+    
+    plt.rcParams['patch.edgecolor'] = 'None'
+    #plt.rcParams['font.size'] = 12
+
+    plt.rcParams['image.origin'] = 'lower'
+    plt.rcParams['image.interpolation'] = 'nearest'
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
     
     xs = 8
     fig = plt.figure(figsize=(xs,xs/3.), dpi=100)
     fig.subplots_adjust(wspace=0.01,hspace=0.01,left=0.01, bottom=0.01,right=0.99,top=0.99)        
     
     vmin, vmax = 0.95, 1.05
+    #vmin, vmax = 0.9, 1.1
     ### put scale within the box
     NX = 100
     y0, y1 = 1014-1.5*NX, 1014-1*NX
     y0 -= NX; y1 -= NX
     
     ### F140W flat
+    
+    textbbox = dict(facecolor='white', alpha=0.6, edgecolor='white')
+    
+    ## correct for pixel area map
+    PIXEL_AREA = True
+    if PIXEL_AREA:
+        pam = pyfits.open(os.getenv('iref')+'/ir_wfc3_map.fits')[1].data
+    else:
+        pam = np.ones((1014,1014),dtype='float')
+    
     ax = fig.add_subplot(131)
-    ax.imshow(f140, vmin=0.95, vmax=1.05, interpolation='nearest')
-    ax.text(50,950, REF, verticalalignment='top', fontsize=14, backgroundcolor='white')
+    ax.imshow(f140/pam, vmin=vmin, vmax=vmax, interpolation='nearest')
+    ax.text(50,950, REF, verticalalignment='top', fontsize=14, bbox=textbbox)
+    #ax.text(50,950, REF, verticalalignment='top', fontsize=14)
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])
@@ -1120,25 +1228,45 @@ def grism_flat_dependence():
     
     ### F105W/F140W, with label
     ratio = f105/f140
+    label = 'F105W / ' + REF
+    
+    ratio = unicorn.survey_paper.axeFlat(wave=1.1e4)/unicorn.survey_paper.axeFlat(wave=1.6e4)
+    label = r'aXe 1.1 $\mu$m / 1.6 $\mu$m'
+    
+    ratio[death_star] = 0.
+    #### Color bar for label
     x0 = 300
-    ratio[y0:y1,x0-2.5*NX:x0-1.5*NX] = vmin
-    ratio[y0:y1,x0-1.5*NX:x0-0.5*NX] = (vmin+1)/2.
-    ratio[y0:y1,x0-0.5*NX:x0+0.5*NX] = 1.
-    ratio[y0:y1,x0+0.5*NX:x0+1.5*NX] = (vmax+1)/2.
-    ratio[y0:y1,x0+1.5*NX:x0+2.5*NX] = vmax
-    xbox = np.array([0,1,1,0,0])*NX
+    # ratio[y0:y1,x0-2.5*NX:x0-1.5*NX] = vmin
+    # ratio[y0:y1,x0-1.5*NX:x0-0.5*NX] = (vmin+1)/2.
+    # ratio[y0:y1,x0-0.5*NX:x0+0.5*NX] = 1.
+    # ratio[y0:y1,x0+0.5*NX:x0+1.5*NX] = (vmax+1)/2.
+    # ratio[y0:y1,x0+1.5*NX:x0+2.5*NX] = vmax
+    
+    NSPLIT = 5
+    NXi = NX*2./NSPLIT
+    for i in range(1,NSPLIT+1):
+        #print i,NXi, 1+(vmin-1)*i/NSPLIT, x0-(i-0.5)*NXi
+        ratio[y0:y1,x0-(i+0.5)*NXi:x0-(i-0.5)*NXi] = 1+(vmin-1)*i/NSPLIT
+    #
+    ratio[y0:y1,x0-0.5*NXi:x0+0.5*NXi] = 1
+    
+    for i in range(1,NSPLIT+1):
+        #print i,NXi, 1+(vmin-1)*i/NSPLIT, x0-(i-0.5)*NXi
+        ratio[y0:y1,x0+(i-0.5)*NXi:x0+(i+0.5)*NXi] = 1+(vmax-1)*i/NSPLIT
+    
+    xbox = np.array([0,1,1,0,0])*NXi
     ybox = np.array([0,0,1,1,0])*NX/2
     
     ax = fig.add_subplot(132)
-    ax.imshow(ratio, vmin=0.95, vmax=1.05, interpolation='nearest')
-    ax.plot(xbox+x0-0.5*NX, ybox+y1-0.5*NX, color='0.6', alpha=0.1)
+    ax.imshow(ratio, vmin=vmin, vmax=vmax, interpolation='nearest')
+    ax.plot(xbox+x0-0.5*NXi, ybox+y1-0.5*NX, color='0.6', alpha=0.1)
     
     fs = 9
     ax.text(x0-2*NX, y0-0.5*NX, '%.2f' %(vmin), horizontalalignment='center', verticalalignment='center', fontsize=fs)
     ax.text(x0-0*NX, y0-0.5*NX, '%.2f' %(1), horizontalalignment='center', verticalalignment='center', fontsize=fs)
     ax.text(x0+2*NX, y0-0.5*NX, '%.2f' %(vmax), horizontalalignment='center', verticalalignment='center', fontsize=fs)
 
-    ax.text(50,950, 'F105W / '+REF, verticalalignment='top', fontsize=14)
+    ax.text(50,950, label, verticalalignment='top', fontsize=14, bbox=textbbox)
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])
@@ -1146,14 +1274,25 @@ def grism_flat_dependence():
         
     ### F160W/F140W
     ax = fig.add_subplot(133)
-    ax.imshow(f160/f140, vmin=0.95, vmax=1.05, interpolation='nearest')
-    ax.text(50,950, 'F160W / '+REF, verticalalignment='top', fontsize=14)
+    
+    ratio = f160/f140
+    label = 'F160W / '+REF
+
+    ratio = f105/f160
+    label = 'F105W / F160W'
+
+    # ratio = unicorn.survey_paper.axeFlat(wave=1.0552e4)/unicorn.survey_paper.axeFlat(wave=1.392e4)
+    
+    ratio[death_star] = 0.
+    
+    ax.imshow(ratio, vmin=vmin, vmax=vmax, interpolation='nearest')
+    ax.text(50,950, label, verticalalignment='top', fontsize=14,bbox=textbbox)
     ax.set_xlim(0,1014)
     ax.set_ylim(0,1014)
     ax.set_yticklabels([])
     ax.set_xticklabels([])
     
-    fig.savefig('compare_flats.pdf')
+    fig.savefig('compare_flats_v2.pdf')
 
 def process_sky_background():
     import threedhst.catIO as catIO
@@ -1887,8 +2026,6 @@ def aper_phot(array, xc, yc, aper_radius):
     
 def make_examples():
     import unicorn
-    unicorn.survey_paper.redshift_fit_example(id='COSMOS-18-G141_00485')
-    unicorn.survey_paper.redshift_fit_example(id='COSMOS-14-G141_00100')
     unicorn.survey_paper.redshift_fit_example(id='GOODS-N-33-G141_00946')
     unicorn.survey_paper.redshift_fit_example(id='GOODS-N-17-G141_00573')
     unicorn.survey_paper.redshift_fit_example(id='GOODS-N-33-G141_01028')
@@ -1898,6 +2035,10 @@ def make_examples():
 
     unicorn.survey_paper.redshift_fit_example(id='PRIMO-1101-G141_01022')
     unicorn.survey_paper.redshift_fit_example(id='GOODS-S-24-G141_00029')
+    
+    #### Examples
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-14-G141_00100')
+    unicorn.survey_paper.redshift_fit_example(id='COSMOS-18-G141_00485')
     
     
     import unicorn
@@ -1933,10 +2074,14 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     
     zo = threedhst.catIO.Readfile('OUTPUT/%s.zout' %(id))
     
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
     fig = plt.figure(figsize=(6,6))
     dsep = 0.05
     xsep = 0.6
-    left = 0.08
+    left = 0.085
     bottom = 0.07
     spec_color = 'purple'
     dy2d = 0.13
@@ -1950,10 +2095,11 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     spec_color = 'black'
     phot_color = '0.7'
     temp_color = (8/255.,47/255.,101/255.)
+    temp_color = 'red'
     
     ########### Full spectrum
     
-    ax = fig.add_axes((left, 0.5+bottom+dy2d, 0.98-left-(1-xsep), 0.49-bottom-dy2d))
+    ax = fig.add_axes((left, 0.5+bottom+dy2d, 0.99-left-(1-xsep), 0.49-bottom-dy2d))
 
     lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s' %(id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
     
@@ -1961,6 +2107,9 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
+    obs_convert = 10**(-0.4*(25+48.6))*3.e18/lci**2/10.**-19*(lci/5500.)**2
+    temp_convert = 10**(-0.4*(25+48.6))*3.e18/lambdaz**2/10.**-19*(lambdaz/5500.)**2
+    fobs, efobs, obs_sed, temp_sed = fobs*obs_convert, efobs*obs_convert, obs_sed*obs_convert, temp_sed*temp_convert
     
     ymax = max(fobs[is_spec & (fobs > 0)])
         
@@ -1971,7 +2120,7 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     ## best-fit SED
     ## Spectrum + convolved fit
     #ax.plot(lci[is_spec], obs_sed[is_spec], color='black', markersize=6, alpha=0.7, linewidth=1)
-    ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=4)
+    ax.plot(lci[is_spec], fobs[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=2)
     ax.plot(lambdaz, temp_sed, color='white', linewidth=3, alpha=0.6)
     ax.plot(lambdaz, temp_sed, color=temp_color, alpha=0.6)
     ax.errorbar(lci[~is_spec], fobs[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
@@ -1986,10 +2135,11 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     ax.set_ylim(-0.1*ymax, 1.2*ymax)
     
     ############# Sub spectrum
-    ax = fig.add_axes((left, bottom, 0.98-left, 0.49-bottom))
+    ax = fig.add_axes((left, bottom, 0.99-left, 0.49-bottom))
     
-    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:7,coeffs['izbest'][0]],coeffs['coeffs'][0:7,0])/(lci/5500.)**2
-    temp_sed_continuum = np.dot(temp_seds['temp_seds'][:,0:7],coeffs['coeffs'][0:7,0])/(1+zo.z_peak[0])**2
+    obs_sed_continuum = np.dot(tempfilt['tempfilt'][:,0:7,coeffs['izbest'][0]],coeffs['coeffs'][0:7,0])/(lci/5500.)**2*obs_convert
+    
+    temp_sed_continuum = np.dot(temp_seds['temp_seds'][:,0:7],coeffs['coeffs'][0:7,0])/(1+zo.z_peak[0])**2*temp_convert
     
     ymax = max(fobs[is_spec & (fobs > 0)]-obs_sed_continuum[is_spec & (fobs > 0)])
     #ymin = min(fobs[is_spec & (fobs > 0)])
@@ -1999,7 +2149,7 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     ## photometry
     ax.plot(lci[~is_spec], obs_sed[~is_spec]-obs_sed_continuum[~is_spec], marker='o', color='black', linestyle='None', markersize=6, alpha=0.2, zorder=10)
     ## best-fit SED
-    ax.plot(lci[is_spec], fobs[is_spec]-obs_sed_continuum[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=5, zorder=10)
+    ax.plot(lci[is_spec], fobs[is_spec]-obs_sed_continuum[is_spec], marker='None', alpha=0.8, color=spec_color, linewidth=2, zorder=10)
     ax.plot(lambdaz, temp_sed-temp_sed_continuum, color=temp_color, alpha=0.3, zorder=10)
     ## Spectrum + convolved fit
     ax.plot(lci[is_spec], obs_sed[is_spec]-obs_sed_continuum[is_spec], color='white', markersize=6, alpha=0.7, linewidth=4, zorder=10)
@@ -2008,9 +2158,10 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     
     ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
     
-    ax.set_yticklabels([])
-    ax.set_ylabel(r'$f_\lambda-\ \mathrm{continuum}$')
-    ax.set_xlabel(r'$\lambda$')
+    #ax.set_yticklabels([])
+    #ax.set_ylabel(r'$f_\lambda-\ \mathrm{continuum}$')
+    ax.set_ylabel(r'$f_\lambda - f_{\lambda,\ \mathrm{cont.}}\ [10^{-19}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$')
+    ax.set_xlabel(r'$\lambda\ [\mu\mathrm{m}]$')
     xtick = ax.set_xticks(np.array([1.2, 1.4,1.6])*1.e4)
     ax.set_xticklabels(np.array([1.2, 1.4,1.6]))
     #ax.set_xlim(3000,9.e4)
@@ -2018,7 +2169,7 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     ax.set_ylim(-0.2*ymax, 1.2*ymax)
         
     ########### p(z)
-    ax = fig.add_axes((xsep+left, 0.5+bottom+dy2d, 0.98-left-xsep, 0.49-bottom-dy2d))
+    ax = fig.add_axes((xsep+left, 0.5+bottom+dy2d, 0.99-left-xsep, 0.49-bottom-dy2d))
     
     colors = [spec_color,phot_color,'blue']
     alpha = [0.5, 0.5, 0.2]
@@ -2050,10 +2201,16 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     
     ### Plot labels
     #ax.text(0.5, 0.9, '%s' %(id), transform = ax.transAxes, horizontalalignment='center')
-    ax.text(0.95, 0.8, r'$z_\mathrm{phot}=$'+'%5.3f' %(zo.z_peak[1]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
-    ax.text(0.95, 0.7, r'$z_\mathrm{gris}=$'+'%5.3f' %(zo.z_peak[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+    xtxt, align = 0.95,'right'
+    xtxt, align = 0.5,'right'
+    
+    fs, dyt = 9, 0.1
+    fs, dyt = 10,0.13
+    
+    ax.text(xtxt, 0.8, r'$z_\mathrm{phot}=$'+'%5.3f' %(zo.z_peak[1]), transform = ax.transAxes, horizontalalignment=align, fontsize=fs)
+    ax.text(xtxt, 0.8-dyt, r'$z_\mathrm{gris}=$'+'%5.3f' %(zo.z_peak[0]), transform = ax.transAxes, horizontalalignment=align, fontsize=fs)
     if zo.z_spec[0] > 0:
-        ax.text(0.95, 0.6, r'$z_\mathrm{spec}=$'+'%5.3f' %(zo.z_spec[0]), transform = ax.transAxes, horizontalalignment='right', fontsize=9)
+        ax.text(xtxt, 0.8-2*dyt, r'$z_\mathrm{spec}=$'+'%5.3f' %(zo.z_spec[0]), transform = ax.transAxes, horizontalalignment=align, fontsize=fs)
         
     ax.set_xlim(zmin, zmax)
     #ax.set_xlim(zgrid.min(), zgrid.max())
@@ -2071,7 +2228,7 @@ def redshift_fit_example(id='COSMOS-18-G141_00485', force=False):
     dx = NSUB*2*22/(ax.get_xlim()[1]-ax.get_xlim()[0])*(0.98-left)
     dx = dy2d
 
-    ax = fig.add_axes((left, 0.49, 0.98-left, dy2d))
+    ax = fig.add_axes((left, 0.49, 0.99-left, dy2d))
     #ax.errorbar(lci[~is_spec], fobs[~is_spec]-obs_sed_continuum[~is_spec], efobs[~is_spec], marker='o', linestyle='None', alpha=0.6, color=phot_color, markersize=10)
     twod_file = '%s_2D.fits.gz' %(id)
     twod = pyfits.open(twod_file)
@@ -2164,7 +2321,14 @@ def equivalent_width_errors():
         
     ax.scatter(lines.halpha_flux[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
     ax.scatter(lines.oiii_flux[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
-
+    
+    xm, ym, ys, ns = threedhst.utils.runmed(lines.halpha_flux[lines.idx][keep_ha], halpha_sn[lines.idx][keep_ha], NBIN=20, median=True)
+    ax.plot(xm, ym, color='white', alpha=0.6, linewidth=4)
+    ax.plot(xm, ym, color='purple', alpha=0.8, linewidth=3)
+    xm, ym, ys, ns = threedhst.utils.runmed(lines.oiii_flux[lines.idx][keep_oiii], oiii_sn[lines.idx][keep_oiii], NBIN=20, median=True)
+    ax.plot(xm[:-1], ym[:-1], color='white', alpha=0.6, linewidth=4)
+    ax.plot(xm[:-1], ym[:-1], color='orange', alpha=0.8, linewidth=3)
+    
     ## label
     for si in [2,4,8,16]:
         ax.scatter(np.array([1,1])*2.e-17, np.array([1,1])*25*si**0.4, s=si**1.5, color='black', alpha=0.2)
@@ -2197,6 +2361,13 @@ def equivalent_width_errors():
     
     ax.scatter(lines.halpha_eqw[lines.idx][keep_ha]*(1+zz[keep_ha]), halpha_sn[lines.idx][keep_ha], marker='o', c='purple', alpha=0.1, s=marker_size[keep_ha])
     ax.scatter(lines.oiii_eqw[lines.idx][keep_oiii]*(1+zz[keep_oiii]), oiii_sn[lines.idx][keep_oiii], marker='o', c='orange', alpha=0.1, s=marker_size[keep_oiii])
+    
+    xm, ym, ys, ns = threedhst.utils.runmed(lines.halpha_eqw[lines.idx][keep_ha]*(1+zz[keep_ha]), halpha_sn[lines.idx][keep_ha], NBIN=20, median=False)
+    ax.plot(xm, ym, color='white', alpha=0.6, linewidth=4)
+    ax.plot(xm, ym, color='purple', alpha=0.8, linewidth=3)    
+    xm, ym, ys, ns = threedhst.utils.runmed(lines.oiii_eqw[lines.idx][keep_oiii]*(1+zz[keep_oiii]), oiii_sn[lines.idx][keep_oiii], NBIN=20, median=True)
+    ax.plot(xm, ym, color='white', alpha=0.6, linewidth=4)
+    ax.plot(xm, ym, color='orange', alpha=0.8, linewidth=3)
     
     for si, mag in enumerate([19, 21, 23]):
         ax.scatter(np.array([1,1])*10, np.array([1,1])*25*(2**(si+1))**0.4, s=10**(-0.4*(18-mag))**0.8, color='black', alpha=0.2)
@@ -2400,6 +2571,147 @@ def zphot_zspec_plot():
         offset = 0.036
         print 6563*10**(-offset), 5007*10**(-offset), 4861*10**(-offset), 3727*10**(-offset)
 
+def zphot_zspec_lines():
+    """ 
+    Investigate how the redshfit errors depend on the emission line signal to noise.
+    """
+    
+    import unicorn
+    import unicorn.catalogs
+    import copy
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    if unicorn.catalogs.zsp is None:
+        unicorn.catalogs.make_specz_catalog()
+    
+    zsp = unicorn.catalogs.zsp
+    
+    zphot = zout.z_peak[0::3]
+    
+    ##### Refit redshifts gets rid of the offset
+    zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_fixed_centering.cat')
+    refit = zout.id[0::3] == 'x'
+    refit_idx = zout.z_peak[0::3]*0.
+    for i in range(len(zout.id[0::3])):
+        print noNewLine+'%d' %(i)
+        if zout.id[i*3] in zout_new.id:
+            refit[i] = True
+            refit_idx[i] = np.where(zout_new.id[0::3] == zout.id[i*3])[0][0]
+    refit_idx = np.cast[int](refit_idx)
+    
+    zphot = zout_new.z_peak[0::3][refit_idx]
+    
+    maglim = 24
+    qzmax = 0.2
+    contam_max = 0.05
+    
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    
+    keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    
+    lmin, lmax = 1.2e4, 1.6e4
+    z_ha = (zsp.zspec[zsp.mat_idx] > (lmin/6563.-1)) & (zsp.zspec[zsp.mat_idx] < (lmax/6563.-1))
+    z_oiii = (zsp.zspec[zsp.mat_idx] > (lmin/5007.-1)) & (zsp.zspec[zsp.mat_idx] < (lmax/5007.-1))
+    
+    dz = (zphot - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
+    
+    halpha_eqw = lines.halpha_eqw*1.
+    oiii_eqw = lines.oiii_eqw*1.
+
+    eqw_min = 0.5
+    rnd_halpha = np.random.rand(len(halpha_eqw))*2+1
+    rnd_oiii = np.random.rand(len(oiii_eqw))*2+1
+    
+    halpha_eqw[halpha_eqw < eqw_min] = eqw_min*rnd_halpha[halpha_eqw < eqw_min]
+    oiii_eqw[oiii_eqw < eqw_min] = eqw_min*rnd_oiii[oiii_eqw < eqw_min]
+    
+    ha_color, oiii_color = 'black', 'orange'
+    
+    
+    fig = unicorn.catalogs.plot_init(left=0.15, bottom=0.075, xs=4, right=0.01, top=0.01, square=True)
+    
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
+    fig.subplots_adjust(wspace=0.0)
+    
+    ################   Ha eqw
+    # ax = fig.add_subplot(122)
+    # unicorn.survey_paper.dz_trend(halpha_eqw[lines.idx][keep & z_ha], dz[keep & z_ha], xrange=[0.8*eqw_min,1000], yrange=[-0.015, 0.02], xlog=True, ax=ax, xlabel=r'EQW H$\alpha$')
+    # yticks = [r'$0.01$',r'$0.1$',r'$1$',r'$10$',r'$10^{2}$']
+    # ax.set_yticklabels([])
+    # xtick = ax.set_xticks([1,10,100,1000])
+    # ax.set_xticklabels([1,10,100,1000])
+    halpha_sn = lines.halpha_eqw / lines.halpha_eqw_err
+    sn_min = 0.2
+    rnd_halpha = np.random.rand(len(halpha_sn))*2+1
+    
+    halpha_sn[halpha_sn < sn_min] = sn_min*rnd_halpha[halpha_sn < sn_min]
+    
+    ax = fig.add_subplot(122)
+    unicorn.survey_paper.dz_trend(halpha_sn[lines.idx][keep & z_ha], dz[keep & z_ha], xrange=[0.1,300], yrange=[-0.015, 0.015], xlog=True, ax=ax, xlabel=r'H$\alpha$ S/N')
+    yticks = [r'$0.01$',r'$0.1$',r'$1$',r'$10$',r'$10^{2}$']
+    ax.set_yticklabels([])
+    xtick = ax.set_xticks([1,10,100])
+    ax.set_xticklabels([1,10,100])
+    
+    ################   Mag F140W
+    ax = fig.add_subplot(121)
+    unicorn.survey_paper.dz_trend(phot.mag_f1392w[phot.idx][keep & z_ha], dz[keep & z_ha], xrange=[19,24], yrange=[-0.015, 0.015], ax=ax, xlabel=r'$m_{140}$')
+
+    ax.text(0.08,0.9,r'H$\alpha$, $%.1f < z < %.1f$' %((lmin/6563.-1), (lmax/6563.-1)), color='black', transform=ax.transAxes, fontsize=12)
+    ax.text(0.08,0.83,r'$N=%d$' %(len(z_ha[keep & z_ha])), color='black', transform=ax.transAxes, fontsize=12)
+
+    ax.text(0.08,0.12,r'$\sigma_\mathrm{NMAD}=0.0025$', color='black', transform=ax.transAxes, alpha=0.8)
+    ax.text(0.08,0.12,r'$\sigma_\mathrm{NMAD}=0.0025$', color='orange', transform=ax.transAxes, alpha=0.8)
+    ax.text(0.08,0.07,r'$\sigma_\mathrm{NMAD}=0.0050$', color='red', transform=ax.transAxes)
+
+    # ################   z 
+    # ax = fig.add_subplot(131)
+    # unicorn.survey_paper.dz_trend(zsp.zspec[zsp.mat_idx][keep & z_ha], dz[keep & z_ha], xrange=[0.7,1.5], yrange=[-0.015, 0.02], ax=ax)
+    
+    fig.savefig('zphot_zspec_lines.pdf')
+    
+def dz_trend(xin, yin, xrange=[0.7,1.5], yrange=[-0.015, 0.015], xlabel=r'$z_\mathrm{spec}$', xlog=False, ax=None, ms=3):
+    
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        
+    ax.plot(xin, yin, linestyle='None', marker='o', alpha=0.2, color='white', zorder=200, ms=ms)
+    ax.plot(xin, yin, linestyle='None', marker='o', alpha=0.2, color='black', zorder=201, ms=ms)
+    
+    xm, ym, ys, ns = threedhst.utils.runmed(xin, yin, NBIN=12, use_nmad=True)
+    xm_, ym_, ys_, ns_ = threedhst.utils.runmed(xin, yin, NBIN=10, use_nmad=True)
+    xm[0], ym[0], ys[0], ns[0] = xrange[0]*0.8, ym_[0], ys_[0], ns_[0]
+    xm[1:11], ym[1:11], ys[1:11], ns[1:11] = xm_, ym_, ys_, ns_
+    xm[-1], ym[-1], ys[-1], ns[-1] = xrange[1]*1.2, ym_[-1], ys_[-1], ns_[-1]
+
+    ax.plot(xm, ym, color='black', alpha=0.9, zorder=101, marker='o', linewidth=3)
+    ax.fill_between(xm, ym+ys, ym-ys, color='black', alpha=0.4, zorder=100)
+    yx = ys*0+0.0025
+    ax.plot(xm, ym+yx, color='orange', alpha=0.9, zorder=101, linewidth=3)
+    ax.plot(xm, ym-yx, color='orange', alpha=0.9, zorder=101, linewidth=3)
+    yx = ys*0+0.005
+    ax.plot(xm, ym+yx, color='red', alpha=0.9, zorder=101, linewidth=3)
+    ax.plot(xm, ym-yx, color='red', alpha=0.9, zorder=101, linewidth=3)
+
+    ax.plot(xm, ym*0, color='white', alpha=0.8, zorder=301, linewidth=3, linestyle='--')
+    ax.plot(xm, ym*0, color='black', alpha=0.8, zorder=302, linewidth=3, linestyle='--')
+    
+    if xlog:
+        ax.semilogx()
+        
+    ax.set_xlim(xrange[0],xrange[1])
+    ax.set_ylim(yrange[0],yrange[1])
+    ax.set_ylabel(r'$\Delta z / (1+z)$')
+    ax.set_xlabel(xlabel)
+    
 def compute_SFR_limits():
     import cosmocalc as cc
     
@@ -2453,51 +2765,69 @@ def number_counts():
     
     #normal = 1./NPOINT*148
     
+    ##### OFFSET TO TOTAL!
+    m140 = phot.mag_f1392w - 0.22
+    
     #### Full histogram
-    y_full, x_full = np.histogram(phot.mag_f1392w[phot.idx][fields], bins=nbin, range=xrange)
+    y_full, x_full = np.histogram(m140[phot.idx][fields], bins=nbin, range=xrange)
     x_full = (x_full[1:]+x_full[:-1])/2.
     if cumul:
         y_full = np.cumsum(y_full)
     
-    y_full, x_full = np.histogram(phot.mag_f1392w[phot.idx][fields], bins=nbin, range=xrange)
+    y_full, x_full = np.histogram(m140[phot.idx][fields], bins=nbin, range=xrange)
     x_full = (x_full[1:]+x_full[:-1])/2.
     if cumul:
         y_full = np.cumsum(y_full)
+    
+    lo_full, hi_full = threedhst.utils.gehrels(y_full)
     
     #### Matched in photometric catalogs
     matched = mcat.rmatch[mcat.idx] < 1.
-    y_matched, x_matched = np.histogram(phot.mag_f1392w[phot.idx][fields & matched], bins=nbin, range=xrange)
+    matched = zout.z_peak[0::3] != zout.z_peak[2::3]
+    
+    y_matched, x_matched = np.histogram(m140[phot.idx][fields & matched], bins=nbin, range=xrange)
     x_matched = (x_matched[1:]+x_matched[:-1])/2.
     if cumul:
         y_matched = np.cumsum(y_matched)
     
     #### point sources
-    xpoint, ypoint = np.array([14,18,23]), np.array([4,3.18, 2.8])
-    ypoint_int = np.interp(phot.mag_f1392w, xpoint, ypoint)
-    points = (phot.flux_radius[phot.idx] < ypoint_int[phot.idx]) & (phot.mag_f1392w[phot.idx] < 23)
+    xpoint, ypoint = np.array([14,18,23]), np.array([6,3.18, 2.8])
+    ypoint_int = np.interp(m140, xpoint, ypoint)
+    points = (phot.flux_radius[phot.idx] < ypoint_int[phot.idx]) #& (m140[phot.idx] < 23)
     
-    y_points, x_points = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & points], bins=nbin, range=xrange)
+    y_points, x_points = np.histogram(m140[phot.idx][fields & matched & points], bins=nbin, range=xrange)
     x_points = (x_points[1:]+x_points[:-1])/2.
     if cumul:
         y_points = np.cumsum(y_points)
     
     #### Low contamination
     contam = phot.fcontam[phot.idx] < 0.1
-    y_contam, x_contam = np.histogram(phot.mag_f1392w[phot.idx][fields & contam & matched], bins=nbin, range=xrange)
+    y_contam, x_contam = np.histogram(m140[phot.idx][fields & contam & matched], bins=nbin, range=xrange)
     x_contam = (x_contam[1:]+x_contam[:-1])/2.
     if cumul:
         y_contam = np.cumsum(y_contam)
     
     #### z > 1
-    z1 = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 0.5) #& ~points
-    y_z1, x_z1 = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z1], bins=nbin, range=xrange)
+    z1 = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 50.5) & ~points
+    y_z1, x_z1 = np.histogram(m140[phot.idx][fields & matched & z1], bins=nbin, range=xrange)
     x_z1 = (x_z1[1:]+x_z1[:-1])/2.
     if cumul:
         y_z1 = np.cumsum(y_z1)
     
+    lo_z1, hi_z1 = threedhst.utils.gehrels(y_z1)
+    #wx, wy = np.loadtxt('whitaker_completeness.dat', unpack=True)
+    #wscale = np.interp(x_z1, wx, wy)
+    wscale = y_matched*1. / y_full
+    wscale[~np.isfinite(wscale)] = 1
+    wscale[wscale > 1] = 1
+    wscale[wscale == 0] = 1
+    hi_z1 /= wscale
+    # lo_z1 /= wscale
+    # y_z1 /= wscale
+    
     #### No cut on Q_z
-    z1q = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 100)  #& ~points
-    y_z1q, x_z1q = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z1q], bins=nbin, range=xrange)
+    z1q = (zout.z_peak[0::3] > 1) & (zout.q_z[0::3] < 100)  & ~points
+    y_z1q, x_z1q = np.histogram(m140[phot.idx][fields & matched & z1q], bins=nbin, range=xrange)
     x_z1q = (x_z1q[1:]+x_z1q[:-1])/2.
     if cumul:
         y_z1q = np.cumsum(y_z1q)
@@ -2507,21 +2837,28 @@ def number_counts():
     
     #z1q_mag = unicorn.catalogs.run_selection(zmin=1, zmax=5.5, fcontam=1, qzmin=0., qzmax=100, dr=1.0, has_zspec=False, fcovermin=0.5, fcovermax=1.0, massmin=0, massmax=15, magmin=0, magmax=23)
     
-    z1q_mag = z1q & fields & (phot.mag_f1392w[phot.idx] <= 23.)  #& ~points
+    z1q_mag = z1q & fields & (m140[phot.idx] <= 23.)  & ~points
     N_z1_total = len(z1q_mag[z1q_mag])*1./NPOINT*149.
-    N_total = len(z1q_mag[matched & fields & (phot.mag_f1392w[phot.idx] <= 23.)])*1./NPOINT*149.
+    N_total = len(z1q_mag[matched & fields & (m140[phot.idx] <= 23.)])*1./NPOINT*149.
     print 'N (z>1, m<23) = %d, N_total = %d' %(N_z1_total, N_total)
     
     #### z > 2
-    z2 = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 0.5)  #& ~points
-    y_z2, x_z2 = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z2], bins=nbin, range=xrange)
+    z2 = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 50.5)  & ~points
+    y_z2, x_z2 = np.histogram(m140[phot.idx][fields & matched & z2], bins=nbin, range=xrange)
     x_z2 = (x_z2[1:]+x_z2[:-1])/2.
     if cumul:
         y_z2 = np.cumsum(y_z2)
     
+    lo_z2, hi_z2 = threedhst.utils.gehrels(y_z2)
+    hi_z2 /= wscale
+    
+    #### Tail of bright objects in the z>2 set
+    tail = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 50.5)  & ~points & fields & matched & (m140[phot.idx] < 21)
+    print 'z2 tail:', zout.id[0::3][tail], mcat.rmatch[mcat.idx][tail], phot.flux_radius[phot.idx][tail], np.interp(m140[phot.idx][tail], xpoint, ypoint)
+    
     #### No cut on Q_z
-    z2q = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 100)
-    y_z2q, x_z2q = np.histogram(phot.mag_f1392w[phot.idx][fields & matched & z2q], bins=nbin, range=xrange)
+    z2q = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 100) & ~points
+    y_z2q, x_z2q = np.histogram(m140[phot.idx][fields & matched & z2q], bins=nbin, range=xrange)
     x_z2q = (x_z2q[1:]+x_z2q[:-1])/2.
     if cumul:
         y_z2q = np.cumsum(y_z2q)
@@ -2576,18 +2913,25 @@ def number_counts():
     ax = fig.add_subplot(111)
     
     ax.plot(x_full, y_full*normal, color='black')
+    ax.fill_between(x_full,lo_full*normal, hi_full*normal, color='black', alpha=0.4)
+
     ax.plot(x_matched, y_matched*normal, color='blue',alpha=0.8)
     ax.plot(x_contam, y_contam*normal, color='green',alpha=0.8)
     ax.plot(x_points[x_points <= 23], y_points[x_points < 23]*normal, color='purple',alpha=0.8)
-    ax.plot(x_z1, y_z1*normal, color='orange',alpha=0.8)
-    ax.plot(x_z1q, y_z1q*normal, color='orange',alpha=0.8, linestyle='--')
-    ax.plot(x_z2, y_z2*normal, color='red',alpha=0.8)
-    ax.plot(x_z2q, y_z2q*normal, color='red',alpha=0.8, linestyle='--')
+    ax.plot(x_points[x_points >= 23], y_points[x_points >= 23]*normal, color='purple',alpha=0.8, linestyle=':')
+    
+    ax.plot(x_z1, y_z1*normal, color='orange',alpha=0.7)
+    ax.fill_between(x_z1,lo_z1*normal, hi_z1*normal, color='orange', alpha=0.4)
+    ax.plot(x_z1q, y_z1q*normal, color='orange',alpha=0.7, linestyle='--')
+    
+    ax.plot(x_z2, y_z2*normal, color='red',alpha=0.7)
+    ax.fill_between(x_z2,lo_z2*normal, hi_z2*normal, color='red', alpha=0.4)
+    ax.plot(x_z2q, y_z2q*normal, color='red',alpha=0.7, linestyle='--')
 
-    ax.plot(x_nmbs, y_nmbs*normal, color='black',alpha=0.8, linewidth=3, alpha=0.2)
-    ax.plot(x_nmbs_z1, y_nmbs_z1*normal, color='orange',alpha=0.8, linewidth=3, alpha=0.2)
-    ax.plot(x_nmbs_z2, y_nmbs_z2*normal, color='red',alpha=0.8, linewidth=3, alpha=0.2)
-    ax.plot(x_nmbs_stars, y_nmbs_stars*normal, color='purple',alpha=0.8, linewidth=3, alpha=0.2)
+    # ax.plot(x_nmbs, y_nmbs*normal, color='black',alpha=0.8, linewidth=3, alpha=0.2)
+    # ax.plot(x_nmbs_z1, y_nmbs_z1*normal, color='orange',alpha=0.8, linewidth=3, alpha=0.2)
+    # ax.plot(x_nmbs_z2, y_nmbs_z2*normal, color='red',alpha=0.8, linewidth=3, alpha=0.2)
+    # ax.plot(x_nmbs_stars, y_nmbs_stars*normal, color='purple',alpha=0.8, linewidth=3, alpha=0.2)
     
     #ax.text(0.05,0.92,r'%s ($N=%d$)' %(', '.join(np.unique(phot.field[phot.idx][fields])), NPOINT), color='black', transform=ax.transAxes)
     ax.text(0.05,0.92,r'Total, from $N=%d$ pointings' %(NPOINT), color='black', transform=ax.transAxes)
@@ -2608,6 +2952,10 @@ def number_counts():
     ax.set_yticklabels(yticks)
     ytick = ax.set_yticks([0.01,0.1,1,10,100])
     
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    minorLocator   = MultipleLocator(1)
+    ax.xaxis.set_minor_locator(minorLocator)
+        
     ax.set_xlim(xrange[0], xrange[1])
     ax.set_ylim(0.01, 500)
     
@@ -2621,9 +2969,248 @@ def number_counts():
 
     ax2.set_ylabel('N($<m$), full survey')
     ax2.set_xlim(xrange[0], xrange[1])
-
+    ax2.xaxis.set_minor_locator(minorLocator)
+    
+    ### Grid
+    ax.xaxis.grid(alpha=0.35, zorder=1, which='major')
+    ax.xaxis.grid(alpha=0.2, zorder=1, which='minor')
+    ax2.yaxis.grid(alpha=0.35, zorder=1, which='major')
+    
     fig.savefig('number_counts.pdf')
     plt.rcParams['text.usetex'] = False
+
+def get_iband_mags():
+    """ 
+    On Unicorn, loop through the ascii spectra to retrieve the iband mags, should all be ZP=25.
+    """
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/')
+    
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    ids = zout.id[0::3]
+    fields = phot.field[phot.idx]
+    
+    iflux = zout.z_peak[0::3]*0.-1
+    imod = iflux*1.
+    lc_i = iflux*1.
+    hflux = iflux*1
+    hmod = iflux*1.
+    lc_h = iflux*1
+    
+    count = 0
+    for id, field in zip(ids, fields):
+        path = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS_v1.6/ASCII/%s/%s_obs_sed.dat' %(field, id)
+        if os.path.exists(path):
+            print noNewLine+id
+            obs = catIO.Readfile(path)
+            dlam_spec = obs.lc[-1]-obs.lc[-2]
+            is_spec = np.append(np.abs(1-np.abs(obs.lc[1:]-obs.lc[0:-1])/dlam_spec) < 0.05,True)
+            dl_i = np.abs(obs.lc-7688.1)
+            dl_h = np.abs(obs.lc[~is_spec]-1.6315e4)
+            ix_i = np.where(dl_i == dl_i.min())[0][0]
+            ix_h = np.where(dl_h == dl_h.min())[0][0]
+            iflux[count] = obs.fnu[ix_i]
+            imod[count] = obs.obs_sed[ix_i]
+            lc_i[count] = obs.lc[ix_i]
+            hflux[count] = obs.fnu[ix_h]
+            hmod[count] = obs.obs_sed[ix_h]
+            lc_h[count] = obs.lc[ix_h]
+        #    
+        count = count+1
+    
+    fp = open('full_imag_hmag.dat','w')
+    fp.write('# id iflux imodel lc_i hflux hmodel lc_h\n')
+    for i in range(len(ids)):
+        fp.write('%s %.5e %.5e %.1f %.5e %.5e %.1f\n' %(ids[i], iflux[i], imod[i], lc_i[i], hflux[i], hmod[i], lc_h[i]))
+    fp.close()
+    
+def zspec_colors():
+    """ 
+    Show as a function if H / (i-H) where the galaxies with zspec fall
+    """
+    import unicorn
+    import unicorn.catalogs
+    import copy
+    
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    if unicorn.catalogs.zsp is None:
+        unicorn.catalogs.make_specz_catalog()
+    
+    zsp = unicorn.catalogs.zsp
+    
+    maglim = 25
+    qzmax = 200
+    contam_max = 0.5
+    
+    
+    ###### Selection criteria
+    
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) #& (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    
+    has_specz = (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    
+    #mag, radius = np.cast[float](cat.MAG_AUTO), np.cast[float](cat.FLUX_RADIUS)
+    #### Find isolated point sources
+    points = (phot.flux_radius[phot.idx] < 2.7)
+    keep = keep & (~points)
+    
+    zphot = zout.z_peak[0::3]
+    
+    ##### H mags from F140W and matches
+    icat = catIO.Readfile('full_imag_hmag.dat')
+    IH = -2.5*np.log10(icat.iflux / icat.hflux)
+    
+    phot_zp = zphot*0.+25
+    phot_zp[(phot.field[phot.idx] == 'GOODS-S') | (phot.field[phot.idx] == 'PRIMO') | (phot.field[phot.idx] == 'WFC3-ERSII-G01') | (phot.field[phot.idx] == 'GEORGE')] = 23.86
+    m140 = phot.mag_f1392w[phot.idx]-0.22  #### Offset to total in catalogs!
+    hmag = phot_zp-2.5*np.log10(icat.hflux)
+    
+    fin = np.isfinite(hmag) & (icat.iflux > 0) & (mcat.rmatch[mcat.idx] < 1)
+    #### Few wierd objects with very discrepant H mags in GOODS-N
+    bad = (zout.z_peak[0::3] < 1) & (IH > 3.5)
+    fin  = fin & (~bad)
+    
+    ######### Compare h mags    
+    # use = fin
+    # 
+    # use = (phot.field[phot.idx] == 'GOODS-S') | (phot.field[phot.idx] == 'PRIMO') | (phot.field[phot.idx] == 'WFC3-ERSII-G01') | (phot.field[phot.idx] == 'GEORGE')
+    # use = phot.field[phot.idx] == 'GOODS-N'
+    # 
+    # dmag = m140-hmag
+    # plt.plot(m140[use & fin], dmag[use & fin], marker='o', linestyle='None', alpha=0.5)
+    # plt.plot([0,30],[0,0], color='black', alpha=0.5)
+    # plt.xlim(15,25)
+    # plt.ylim(-2,2)
+    # 
+    # plt.plot(phot.kron_radius[phot.idx][use & fin], dmag[use & fin], marker='o', linestyle='None', alpha=0.2)
+    # xm, ym, ys, ns = threedhst.utils.runmed(phot.kron_radius[phot.idx][use & fin & (m140 < 23)], dmag[use & fin & (m140 < 23)], NBIN=30)
+    # plt.plot(xm, ym, color='orange', linewidth=2)
+    # 
+    # plt.xlim(3,8)
+    # plt.ylim(-2,2)
+    # 
+    # 
+    # plt.plot(phot.kron_radius[phot.idx][use & fin], m140[use & fin], marker='o', linestyle='None', alpha=0.2)
+    # plt.xlim(3,8)
+    # plt.ylim(16,25)
+    
+    ########## H vs I-H
+    field = phot.field[phot.idx] != 'xx'
+    
+    fields = {'COSMOS': ['COSMOS'], 'AEGIS': ['AEGIS'], 'GOODS-N':['GOODS-N'], 'GOODS-S':['GOODS-S','PRIMO','WFC3-ERSII-G01','GEORGE']}
+    
+    field_use = 'COSMOS'
+    
+    ix = 220
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./2, left=0.1, right=0.12, bottom=0.10, top=0.01, fontsize=10)
+    fig.subplots_adjust(wspace=0.01,hspace=0.02,  left=0.05, right=0.94, bottom=0.10, top=0.98)
+    
+    #ax = fig.add_subplot(111)
+    
+    for field_use in ['AEGIS','COSMOS','GOODS-N','GOODS-S']:
+        
+        ix += 1
+        ax = fig.add_subplot(ix)
+        
+        field = phot.field[phot.idx] == 'xx'
+        print field_use
+        for mat in fields[field_use]:
+            field = field | (phot.field[phot.idx] == mat)
+
+        ms = 6
+        
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = 'Times'
+
+        ax2 = ax.twinx()
+
+        ax.plot(m140[fin & keep & ~has_specz & field], IH[fin & keep & ~has_specz & field], marker='.', linestyle='None', color='black', alpha=0.1, ms=ms)
+        ax.plot(m140[fin & keep & has_specz & field], IH[fin & keep & has_specz & field], marker='.', linestyle='None', color='green', alpha=0.5, ms=ms)
+        #ax.plot(m140[fin & keep & field & (zout.z_peak[0::3] > 1)], IH[fin & keep & field & (zout.z_peak[0::3] > 1)], marker='o', linestyle='None', color='orange', alpha=0.5, ms=ms)
+        ax.plot(np.array([10,30]), 22.5-np.array([10,30]), color='black', alpha=0.5, linewidth=3, linestyle='--')
+        #ax.plot(np.array([10,30]), 24-np.array([10,30]), color='orange', alpha=0.5, linewidth=3)
+        ax.plot(np.array([10,30]), [2.25, 2.25], color='purple', alpha=0.8, linewidth=3)
+
+        #### Fraction histograms
+        z1_red = IH > 2.25
+        yh_a, xh_a = np.histogram(m140[fin & keep & field & ~z1_red], range=(16,25), bins=18)
+        yh_z, xh_z = np.histogram(m140[fin & keep & field & has_specz & ~z1_red], range=(16,25), bins=18)
+        show = yh_a > 0
+        ax2.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='white', linewidth=4, alpha=0.7, linestyle='steps-mid')
+        ax2.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='blue', linewidth=3, alpha=0.8, linestyle='steps-mid')
+
+        yh_a, xh_a = np.histogram(m140[fin & keep & field & z1_red], range=(16,25), bins=18)
+        yh_z, xh_z = np.histogram(m140[fin & keep & field & has_specz & z1_red], range=(16,25), bins=18)
+        show = yh_a > 0
+        ax2.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='white', linewidth=4, alpha=0.7, linestyle='steps-mid')
+        ax2.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='red', linewidth=3, alpha=0.8, linestyle='steps-mid')
+
+        ax.text(0.95, 0.88, field_use, transform=ax.transAxes, fontsize=12, backgroundcolor='white', horizontalalignment='right')
+        if field_use == 'AEGIS':
+            ax.text(19,3.5, r'$i=22.5$', horizontalalignment='center', verticalalignment='bottom', rotation=-30)
+        
+        if field_use == 'GOODS-N':
+            ax.text(17.5,2.4, r'$\uparrow\ z > 1$, red $\uparrow$', horizontalalignment='left', verticalalignment='bottom')
+            
+        minorLocator   = MultipleLocator(1)
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.set_xlim(17,24.5)
+        ax.set_ylim(-0.5,5.2)
+
+        minorLocator   = MultipleLocator(0.1)
+        ax2.yaxis.set_minor_locator(minorLocator)
+        ax2.set_xlim(17.1,24.5)
+        ax2.set_ylim(-0.1,1.1)
+        
+        if field_use in ['AEGIS','COSMOS']:
+            ax.set_xticklabels([])
+        else:
+            ax.set_xlabel(r'$m_{140}\ \sim\ H$')
+            
+        if field_use in ['COSMOS','GOODS-S']:
+            ax.set_yticklabels([])
+        else:
+            ax.set_ylabel(r'$(i-H)$')
+            
+        #
+        if field_use in ['AEGIS','GOODS-N']:
+            ax2.set_yticklabels([])
+        else:
+            ax2.set_ylabel(r'$f(z_\mathrm{spec})$')
+        
+        #fig.savefig('zspec_fraction_%s.pdf' %(field_use))
+    
+    fig.savefig('zspec_fraction_all.pdf')
+    
+    #plt.plot(zout.z_peak[0::3][fin], IH[fin], marker='o', linestyle='None', color='black', alpha=0.1, ms=4)
+    # plt.plot(zout.z_peak[0::3][fin & keep & field], IH[fin & keep & field], marker='o', linestyle='None', color='black', alpha=0.1, ms=ms)
+    # plt.plot(zout.z_peak[0::3][fin & keep & has_specz & field], IH[fin & keep & has_specz & field], marker='o', linestyle='None', color='blue', alpha=0.5, ms=ms)
+    # plt.plot(np.array([0,30]), [2.25, 2.25], color='red', alpha=0.8, linewidth=3)
+    # 
+    # 
+    # z1_red = IH > 2.25
+    # yh_a, xh_a = np.histogram(zout.z_peak[0::3][fin & keep & field & ~z1_red], range=(0,4), bins=8)
+    # yh_z, xh_z = np.histogram(zout.z_peak[0::3][fin & keep & field & has_specz & ~z1_red], range=(0,4), bins=8)
+    # show = yh_a > 0
+    # plt.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='blue', linewidth=3, alpha=0.8)
+    # 
+    # yh_a, xh_a = np.histogram(zout.z_peak[0::3][fin & keep & field & z1_red], range=(0,4), bins=8)
+    # yh_z, xh_z = np.histogram(zout.z_peak[0::3][fin & keep & field & has_specz & z1_red], range=(0,4), bins=8)
+    # show = yh_a > 0
+    # plt.plot((xh_a[1:]+xh_a[:-1])[show]/2., (yh_z*1./yh_a)[show], color='red', linewidth=3, alpha=0.8)
+    # 
+    # plt.xlim(0,4)
+    # plt.ylim(-0.5,5)
     
 def find_brown_dwarf():
     import unicorn

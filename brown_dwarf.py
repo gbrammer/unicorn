@@ -91,6 +91,9 @@ class BD_fit():
     def read_bd_templates(self):
         import glob
         temps = glob.glob(self.template_path+'/spex*txt')
+        if len(temps) == 0:
+            threedhst.showMessage('No BD templates found in %s' %(self.template_path), warn=True)
+            
         list = []
         for temp in temps:
             list.append(BD_template(temp))

@@ -2899,12 +2899,13 @@ def make_line_templates():
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
     NLINE = len(line_names)
-    fp = open('templates/EAZY_v1.1_lines/lambda_v1.1.def')
+    #fp = open('templates/EAZY_v1.1_lines/lambda_v1.1.def')
+    fp = open('templates/dobos11/lambda_sdss.def')
     xspec = np.cast[float](fp.readlines())
     fp.close()
     
     NDEF = len(xspec)
-    vel_width = 300 # km/s
+    vel_width = 150 # km/s
     
     fp = open('templates/eazy_v1.0_nolines.spectra.param')
     spec_list = fp.readlines()

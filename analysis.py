@@ -1251,7 +1251,8 @@ def eazy_lists():
     keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
     keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
     
-    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param')
+    #### Original templates, individual lines, no tilt
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
 def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param'):
     """
@@ -1263,7 +1264,7 @@ def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eaz
     for id in ids:
         pointing = id.split('G141')[0]+'G141'
         number = int(id.split('G141_')[1])
-        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=TILT_ORDER, pipe=pipe, force_zrange=True, COMPUTE_TILT=COMPUTE_TILT, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', zstep=0.025)
+        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=TILT_ORDER, pipe=pipe, force_zrange=True, COMPUTE_TILT=COMPUTE_TILT, TEMPLATES_FILE=TEMPLATES_FILE, zstep=0.025)
         
 def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
     

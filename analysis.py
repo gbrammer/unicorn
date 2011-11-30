@@ -1251,9 +1251,9 @@ def eazy_lists():
     keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
     keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
     
-    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep])
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param')
     
-def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1):
+def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param'):
     """
     Run the eazy redshift code on a list of objects with id name like:
     [POINTING]-G141_[000ID].
@@ -2900,7 +2900,7 @@ def make_line_templates():
     
     NLINE = len(line_names)
     #fp = open('templates/EAZY_v1.1_lines/lambda_v1.1.def')
-    fp = open('templates/dobos11/lambda_sdss.def')
+    fp = open('templates/dobos11/lambda_sdss.def')  ### higher resolution
     xspec = np.cast[float](fp.readlines())
     fp.close()
     

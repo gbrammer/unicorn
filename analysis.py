@@ -1640,7 +1640,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     err_scale[lam <= x0] = 1
     err_scale = err_scale*3+1
     #plt.plot(lam, err_scale)
-    sperr*=err_scale
+    sperr*=3
     
     #### allow additional normalization term
     spflux *= spec_norm

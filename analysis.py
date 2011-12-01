@@ -1257,10 +1257,10 @@ def eazy_lists():
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
     ### single
-    ii = keep & (zout.id[0::3] == 'GOODS-N-25-G141_00220')
+    ii = keep & (zout.id[0::3] == 'GOODS-N-44-G141_01088')
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][ii], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
-def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param'):
+def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', SCALE_SPEC_ERROR=1):
     """
     Run the eazy redshift code on a list of objects with id name like:
     [POINTING]-G141_[000ID].
@@ -1270,7 +1270,7 @@ def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eaz
     for id in ids:
         pointing = id.split('G141')[0]+'G141'
         number = int(id.split('G141_')[1])
-        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=TILT_ORDER, pipe=pipe, force_zrange=True, COMPUTE_TILT=COMPUTE_TILT, TEMPLATES_FILE=TEMPLATES_FILE, zstep=0.025)
+        result = unicorn.analysis.run_eazy_fit(root=pointing, id=number, compress=compress, zmin=0.1, zmax=4, TILT_ORDER=TILT_ORDER, pipe=pipe, force_zrange=True, COMPUTE_TILT=COMPUTE_TILT, TEMPLATES_FILE=TEMPLATES_FILE, zstep=0.025, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR)
         
 def run_eazy_on_all_objects(field='ERS', pipe=' > eazy.log', compress=0.75):
     
@@ -1546,7 +1546,7 @@ def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True,
         
     return zfit, DM, obs_sed_rf, zp_rf.filters
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1], eazy_working_directory=None):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1], eazy_working_directory=None, SCALE_SPEC_ERR=1):
     
     import unicorn.analysis
     
@@ -1635,12 +1635,12 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     #### Scale the errors of the spectrum
     #sperr *= 5
     x0, sig = 1.1e4, 1000
-    err_scale = np.exp(-(lam-x0)**2/2/sig**2)
-    err_scale /= err_scale.max()
-    err_scale[lam <= x0] = 1
-    err_scale = err_scale*3+1
+    # err_scale = np.exp(-(lam-x0)**2/2/sig**2)
+    # err_scale /= err_scale.max()
+    # err_scale[lam <= x0] = 1
+    # err_scale = err_scale*3+1
     #plt.plot(lam, err_scale)
-    sperr*=3
+    sperr*=SCALE_SPEC_ERROR
     
     #### allow additional normalization term
     spflux *= spec_norm
@@ -1973,7 +1973,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, zstep=0.001, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, zstep=0.001, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None, SCALE_SPEC_ERR=1.):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
@@ -2016,14 +2016,14 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             ### first run with eazy line templates 
             ### and coarse sampling, broaden the compression to hopefully catch a line
             if not force_zrange:
-                unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=3, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory)
+                unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=3, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERR=SCALE_SPEC_ERR)
             
             #os.system('grep Z_ %s_%05d.eazy.param' %(root, id))
                 status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
                 ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
 
             ### Remake the input files for the desired compression
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERR=SCALE_SPEC_ERR)
             
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
@@ -2086,7 +2086,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                 zmax += 0.1*(1+zmax)
             
             tilt = [0, 1]
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERR=SCALE_SPEC_ERR)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         

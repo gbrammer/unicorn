@@ -1635,7 +1635,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     #### Scale the errors of the spectrum
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
-    sperr[is_spec] *= 5
+    sperr[is_spec] *= 100
     
     #### allow additional normalization term
     spflux *= spec_norm

@@ -1633,7 +1633,13 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
     #### Scale the errors of the spectrum
-    sperr *= 5
+    #sperr *= 5
+    x0, sig = 1.1e4, 500
+    err_scale = np.exp(-(lam-x0)**2/2/sig**2)
+    err_scale /= err_scale.max()
+    err_scale[lam <= x0] = 1
+    err_scale = err_scale*3+1
+    sperr*=err_scale
     
     #### allow additional normalization term
     spflux *= spec_norm

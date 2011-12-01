@@ -1257,7 +1257,7 @@ def eazy_lists():
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
     ### single
-    ii = keep & (zout.id[0::3] == 'GOODS-N-21-G141_00697')
+    ii = keep & (zout.id[0::3] == 'GOODS-N-42-G141_00449')
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][ii], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
 def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param'):
@@ -1633,7 +1633,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
     #### Scale the errors of the spectrum
-    sperr *= 2
+    sperr *= 5
     
     #### allow additional normalization term
     spflux *= spec_norm

@@ -575,11 +575,13 @@ specphot(id)
         
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
     
+    total_err = np.sqrt((ferr)**2+(1.0*spec.field('CONTAM'))**2)*anorm
+    
     if GET_SPEC_ONLY:
         if drMatch > 1:
             return False
         else:
-            return lam, ffix*anorm, np.sqrt((ferr/2.5)**2+(1.0*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
+            return lam, ffix*anorm, total_err, lci, fobs, efobs, photom_idx
          
     if Verbose:
         print 'Start plot'
@@ -1254,6 +1256,10 @@ def eazy_lists():
     #### Original templates, individual lines, no tilt
     unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
     
+    ### single
+    ii = keep & (zout.id[0::3] == 'GOODS-N-21-G141_00697')
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][ii], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0)
+    
 def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param'):
     """
     Run the eazy redshift code on a list of objects with id name like:
@@ -1624,7 +1630,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         unicorn.analysis.HAS_PHOTOMETRY = False
         unicorn.analysis.PHOTOMETRY_ID = None
         
-    use = (lam > 1.1e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
+    use = (lam > 1.05e4) & (lam < 1.7e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
     #### allow additional normalization term
     spflux *= spec_norm

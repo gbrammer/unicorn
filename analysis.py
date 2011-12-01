@@ -1630,7 +1630,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         unicorn.analysis.HAS_PHOTOMETRY = False
         unicorn.analysis.PHOTOMETRY_ID = None
         
-    use = (lam > 1.05e4) & (lam < 1.7e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
+    use = (lam > 1.2e4) & (lam < 1.65e4) & (spflux != 0.0) & np.isfinite(spflux) & np.isfinite(sperr)
     
     #### allow additional normalization term
     spflux *= spec_norm

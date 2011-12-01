@@ -579,7 +579,7 @@ specphot(id)
         if drMatch > 1:
             return False
         else:
-            return lam, ffix*anorm, np.sqrt(ferr**2+(1.0*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
+            return lam, ffix*anorm, np.sqrt((ferr/2.5)**2+(1.0*spec.field('CONTAM'))**2)*anorm, lci, fobs, efobs, photom_idx
          
     if Verbose:
         print 'Start plot'

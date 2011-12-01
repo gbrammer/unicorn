@@ -2023,7 +2023,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                 ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
 
             ### Remake the input files for the desired compression
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERR)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR)
             
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))

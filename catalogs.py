@@ -1525,9 +1525,9 @@ def make_full_redshift_catalog():
     fp.writelines(spec_lines)
     fp.close()
     
-    if unicorn.hostname().startswith('uni'):
-        status = os.system('cp *_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
-        status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/*_redshift.cat')
+    # if unicorn.hostname().startswith('uni'):
+    #     status = os.system('cp *_redshift.cat /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+    #     status = os.system('gzip /Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS/*_redshift.cat')
     
 def combine_matched_catalogs():
     """

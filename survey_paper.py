@@ -549,6 +549,7 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
     
     files=glob.glob(unicorn.GRISM_HOME+'REGIONS/'+ROOT+'-[0-9]*reg')
     
+    
     if ROOT == 'UDS':
         p18 = files.pop(9)
         print '\n\nPOP %s\n\n' %(p18)
@@ -558,10 +559,12 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
         files.extend(glob.glob(unicorn.GRISM_HOME+'REGIONS/ERS*reg'))
         
     wfc3_polys = []
+    acs_polys = []
+
     for file in files:
         #            
         base = os.path.basename(file.split('.reg')[0])
-        print base, base in pointing_list
+        #print base, base in pointing_list
         
         if base in pointing_list:
             status = pointing_status[pointing_list == base][0] == 'Archived'
@@ -585,6 +588,8 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
             
         #
         wfc3_polys.append(sup.polysplit(lines[1], get_shapely=True)) 
+        acs_polys.append(sup.polysplit(lines[2], get_shapely=True)) 
+        acs_polys.append(sup.polysplit(lines[3], get_shapely=True)) 
         #
         wfcx, wfcy = sup.polysplit(lines[1])
         if show_wfc3:
@@ -630,30 +635,63 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
             te = ax.text(np.mean(wfcx[:-1])+xoff, np.mean(wfcy[:-1])+yoff, pointing, va='center', ha='center', fontsize=13)
     
     #### Get field area from full WFC3 polygons
-    un = wfc3_polys[0]
+    un_wfc3 = wfc3_polys[0]
     for pp in wfc3_polys[1:]:
-        un = un.union(pp)
-        
-    if un.geometryType() is 'MultiPolygon':
+        un_wfc3 = un_wfc3.union(pp)
+    #
+    wfc3_union= []
+    
+    if un_wfc3.geometryType() is 'MultiPolygon':
         total_area = 0
         xavg, yavg, wht = 0, 0, 0
-        for sub_poly in un.geoms:
+        for sub_poly in un_wfc3.geoms:
             area_i = sub_poly.area*np.cos(y0/360.*2*np.pi)
             total_area += area_i
             x,y = sub_poly.exterior.xy
+            wfc3_union.append(sub_poly)
             xavg += np.mean(x)*area_i**2
             yavg += np.mean(y)*area_i**2
             wht += area_i**2
             #ax.plot(x,y, alpha=0.8, color='orange', linewidth=1)
         xavg, yavg = xavg/wht, yavg/wht
     else:        
-        total_area = un.area*np.cos(y0/360.*2*np.pi)
-        x,y = un.exterior.xy
+        total_area = un_wfc3.area*np.cos(y0/360.*2*np.pi)
+        x,y = un_wfc3.exterior.xy
+        wfc3_union.append(un_wfc3)
         #ax.plot(x,y, alpha=0.8, color='orange', linewidth=1)
         xavg, yavg = np.mean(x), np.mean(y)
     
     #plt.plot([xavg,xavg],[yavg,yavg], marker='x', markersize=20)
     
+    #### Get ACS overlap fraction
+    if ROOT != 'GOODS-N':
+        un_acs = acs_polys[0]
+        for pp in acs_polys[1:]:
+            un_acs = un_acs.union(pp)
+        
+        acs_union = []
+        if un_acs.geometryType() is 'MultiPolygon':
+            for sub_poly in un_acs.geoms:
+                x,y = sub_poly.exterior.xy
+                acs_union.append(sub_poly)
+        else:        
+            x,y = un_acs.exterior.xy
+            acs_union.append(un_acs)
+        wfc3_area = 0.
+        acs_overlap_area = 0.
+        for wun in wfc3_union:
+            wfc3_area += wun.area*np.cos(y0/360.*2*np.pi)*3600.
+            for aun in acs_union:
+                overlap = wun.intersection(aun)
+                acs_overlap_area += overlap.area*np.cos(y0/360.*2*np.pi)*3600.
+
+        print '== Combined areas ==\nWFC3, ACS, frac: %.1f %.1f %.1f' %(wfc3_area, acs_overlap_area ,acs_overlap_area/wfc3_area*100)
+        
+        dummy = """
+        wf = 147.3 + 122.2 + 121.9 + 114.0
+        ac = 134.6 + 112.7 + 102.4 + 102.8
+        print ac/wf*100.
+        """
     #    
     if yticklab is not None:
         ax.set_xticklabels(xticklab)
@@ -666,26 +704,31 @@ def pointings(ROOT='GOODS-SOUTH', width=None, corner='lr', use_status=False, sho
     
     fsi = '20'
     
+    if ROOT == 'GOODS-SOUTH':
+        field_label = 'GOODS-S'
+    else:
+        field_label = ROOT
+        
     if corner=='lr':
-        ax.text(0.95, 0.05,r'$\mathit{%s}$' %(ROOT),
+        ax.text(0.95, 0.05,r'$\mathit{%s}$' %(field_label),
             horizontalalignment='right',
             verticalalignment='bottom',
             transform = ax.transAxes, fontsize=fsi)
     #
     if corner=='ll':
-        ax.text(0.05, 0.05,r'$\mathit{%s}$' %(ROOT),
+        ax.text(0.05, 0.05,r'$\mathit{%s}$' %(field_label),
             horizontalalignment='left',
             verticalalignment='bottom',
             transform = ax.transAxes, fontsize=fsi)
     #
     if corner=='ur':
-        ax.text(0.95, 0.95,r'$\mathit{%s}$' %(ROOT),
+        ax.text(0.95, 0.95,r'$\mathit{%s}$' %(field_label),
             horizontalalignment='right',
             verticalalignment='top',
             transform = ax.transAxes, fontsize=fsi)
     #
     if corner=='ul':
-        ax.text(0.05, 0.95,r'$\mathit{%s}$' %(ROOT),
+        ax.text(0.05, 0.95,r'$\mathit{%s}$' %(field_label),
             horizontalalignment='left',
             verticalalignment='top',
             transform = ax.transAxes, fontsize=fsi)
@@ -899,14 +942,19 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     im_shape = first[1].data.shape
     sup.im_shape = im_shape
     
-    med = threedhst.utils.biweight(sky[1].data, mean=True)
+    med = threedhst.utils.biweight(flat[1].data, mean=True)
     
     ysize = 3.
     #fig = plt.figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*4,ysize], dpi=100)
     
-    
     top_panel = 0.2
     NPANEL = 4
+    
+    #plt.hot()
+    plt.gray()
+    plt.close()
+    plt.rcParams['image.origin'] = 'lower'
+    plt.rcParams['image.interpolation'] = 'nearest'
     
     if USE_PLOT_GUI:
         fig = plt.figure(figsize=[ysize*im_shape[1]*1./im_shape[0]*NPANEL*(1-top_panel)/2,ysize*2],dpi=100)
@@ -919,7 +967,8 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     
     plt.rcParams['lines.linewidth'] = 1
     
-    vmin, vmax = -0.2, 0.1
+    vmin, vmax = -0.15, 0.075
+    vmin, vmax= -0.08, 0.08
     
     x0 = 0.005*2
     y0 = x0/2.
@@ -930,7 +979,7 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     #ax = fig.add_subplot(141)
     ax = fig.add_axes(((x0+(dx+x0)*0), y0+0.5, dx, 0.5-top_panel-y0))
     
-    ax.imshow(0-(first[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin-0.1,vmax=vmax+0.15)    
+    ax.imshow((first[1].data-threedhst.utils.biweight(first[1].data, mean=True)), interpolation='nearest',aspect='auto',vmin=vmin-0.1*0,vmax=vmax+0.15*0)    
     sup.axis_imshow(ax, text='a)\ Raw')
     ax.text(0.12, 0.85, r'$\mathrm{%s}$' %(root), horizontalalignment='left', verticalalignment='center',
                  transform = ax.transAxes, color='black', fontsize=14)
@@ -947,24 +996,24 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
     sup.axis_profile(ax, yrange=range1, text='a)\ Raw')
     
     #ax = fig.add_subplot(142)
-    ax = fig.add_axes(((x0+(dx+x0)*1), y0+0.5, dx, 0.5-top_panel-y0))
-    ax.imshow(0-(flat[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
+    ax = fig.add_axes(((x0+(dx+x0)*1)+x0, y0+0.5, dx, 0.5-top_panel-y0))
+    ax.imshow((flat[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
     sup.axis_imshow(ax, text='b)\ Flat')
     #show_limits(ax, -vmax+med, -vmin+med)
     
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*1), (0.5-top_panel)+0.5, dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1)+x0, (0.5-top_panel)+0.5, dx, top_panel-2*y0))
     pp = sup.flat_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.flat_prof[i])
         pp += sup.flat_prof[i]
-    ax.plot(pp/4., color='black')
+    ax.plot(pp/4.+1, color='black')
     sup.axis_profile(ax, yrange=range1, text='b)\ Flat')
     
     ###########
     #ax = fig.add_subplot(143)
     ax = fig.add_axes(((x0+(dx+x0)*0), y0, dx, 0.5-top_panel-y0))
-    ax.imshow(0-(sky[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
+    ax.imshow((sky[1].data-med), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
     sup.axis_imshow(ax, text='c)\ Background')
     #show_limits(ax, -vmax+med, -vmin+med)
     
@@ -975,16 +1024,16 @@ def make_background_demo(root='AEGIS-11', range1=(0.90,1.08), range2=(-0.02, 0.0
         #ax.plot(sup.sky_prof[i])
         pp += sup.sky_prof[i]
     ax.plot(pp/4., color='black')
-    sup.axis_profile(ax, yrange=range1, text='c)\ Background')
+    sup.axis_profile(ax, yrange=range2, text='c)\ Background')
     
     #ax = fig.add_subplot(144)
-    ax = fig.add_axes(((x0+(dx+x0)*1), y0, dx, 0.5-top_panel-y0))
-    ax.imshow(0-(final[1].data), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
+    ax = fig.add_axes(((x0+(dx+x0)*1)+x0, y0, dx, 0.5-top_panel-y0))
+    ax.imshow((final[1].data), interpolation='nearest',aspect='auto',vmin=vmin,vmax=vmax)    
     sup.axis_imshow(ax, text='d)\ Final')
     #show_limits(ax, -vmax, -vmin)
     
     #### Show profiles
-    ax = fig.add_axes(((x0+(dx+x0)*1), (0.5-top_panel), dx, top_panel-2*y0))
+    ax = fig.add_axes(((x0+(dx+x0)*1)+x0, (0.5-top_panel), dx, top_panel-2*y0))
     pp = sup.final_prof[0]*0.
     for i in range(4):
         #ax.plot(sup.final_prof[i])
@@ -1023,7 +1072,7 @@ def axis_profile(ax, yrange=None, prof=None, text=''):
                      verticalalignment='bottom',
                      transform = ax.transAxes, color='black', fontsize=10)
     
-    ax.text(0.98, 0.08,r'$\mathrm{[%.3f,\ %.3f]}$' %(ylimits[0], ylimits[1]),
+    ax.text(0.98, 0.08,r'$\mathrm{[%.2f,\ %.2f]}$' %(ylimits[0], ylimits[1]),
                  horizontalalignment='right',
                  verticalalignment='bottom',
                  transform = ax.transAxes, color='black', fontsize=8)
@@ -1545,7 +1594,35 @@ def run_empty_apertures_fields():
     for file in files[1:]:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
     
-def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True, MAP_TYPE='MAP_WEIGHT'):
+def grism_empty_apertures():
+    """
+    Try simple empty apertures routine to measure depth of grism exposures, 
+    to compare with the values measured directly from the spectra.
+    """
+    
+    unicorn.survey_paper.empty_apertures(SCI_IMAGE='GOODS-S-34-G141_drz.fits', WHT_IMAGE='GOODS-S-34-G141_drz.fits', aper_params=(2,8.1,2), NSIM=500, ZP=25, make_plot=False, verbose=True, threshold=0.8, is_grism=True)
+    
+    aps = pyfits.open('GOODS-S-34-G141_drz_empty.fits')
+    fluxes = aps[2].data.flatten()
+    stats = threedhst.utils.biweight(fluxes, both=True)
+    
+    sens = pyfits.open('../../CONF/WFC3.IR.G141.1st.sens.2.fits')[1].data
+    wave = sens.WAVELENGTH
+    inv_sens_flam = 1./(sens.SENSITIVITY*0.06/0.128254*46.5)
+    inv_sens_fnu = inv_sens_flam*wave**2/3.e18
+    
+    sig5 = inv_sens_fnu*3*stats[1]
+    sig5_ab = -2.5*np.log10(sig5)-48.6
+    plt.plot(wave, sig5_ab)
+    
+    mag = sig5_ab*0+23
+    input_fnu = 10**(-0.4*(mag+48.6))
+    input_flam = input_fnu*3.e18/wave**2
+    input_counts = input_flam * sens.SENSITIVITY * 46.5
+    
+    #plt.plot(sens.WAVELENGTH, sens.SENSITIVITY)
+    
+def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True, MAP_TYPE='MAP_WEIGHT', threshold=1.5, is_grism=False):
     """
     1) Run SExtractor on the input image to generate a segmentation map.
     
@@ -1585,7 +1662,11 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     img_shape = img_data.shape
     
     #### Setup SExtractor and run to generate a segmentation image
-    threedhst.sex.USE_CONVFILE = 'gauss_4.0_7x7.conv'
+    if is_grism:
+        threedhst.sex.USE_CONVFILE = 'grism.conv'
+    else:
+        threedhst.sex.USE_CONVFILE = 'gauss_4.0_7x7.conv'
+    
     se = threedhst.sex.SExtractor()
     se.aXeParams()
     se.copyConvFile()
@@ -1609,8 +1690,8 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     se.options['MEMORY_PIXSTACK'] = '800000'
     
     se.options['FILTER']    = 'Y'
-    se.options['DETECT_THRESH']    = '1.5'
-    se.options['ANALYSIS_THRESH']  = '1.5'
+    se.options['DETECT_THRESH']    = '%.2f' %(threshold)
+    se.options['ANALYSIS_THRESH']  = '%.2f' %(threshold)
     se.options['MAG_ZEROPOINT'] = '%.2f' %(ZP)  ### arbitrary, actual mags don't matter
     status = se.sextractImage('%s[%d]' %(SCI_IMAGE, SCI_EXT_SEX-1))
     
@@ -2406,20 +2487,47 @@ def zphot_zspec_plot():
     
     zsp = unicorn.catalogs.zsp
     
+    
+    USE_NEW_FITS=True
+    if USE_NEW_FITS:
+        ##### Refit redshifts gets rid of the offset
+        zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_fixed_noTilt.cat')
+        #zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_origTemp_noTilt.cat')
+        zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_scaleSpecErr3_noTilt.cat')
+        zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_scaleSpecErr2_noTilt.cat')
+        zout_new = catIO.Readfile('/research/HST/GRISM/3DHST/UDF/CATALOGS/LINE_TEMPLATES/full_redshift_scaleSpecErr2_yesTilt.cat')
+        refit = zout.id[0::3] == 'x'
+        refit_idx = zout.z_peak[0::3]*0.
+        for i in range(len(zout.id[0::3])):
+            print noNewLine+'%d' %(i)
+            if zout.id[i*3] in zout_new.id:
+                refit[i] = True
+                refit_idx[i] = np.where(zout_new.id[0::3] == zout.id[i*3])[0][0]
+        refit_idx = np.cast[int](refit_idx)
+
+        zphot = zout_new.z_peak[0::3][refit_idx]
+        qz = zout_new.q_z[0::3][refit_idx]
+        qz2 = zout_new.q_z[2::3][refit_idx]
+    else:
+        zphot = zout.z_peak[0::3]
+        qz = zout.q_z[0::3]
+        qz2 = zout.q_z[2::3]
+        
     maglim = 24
     qzmax = 0.2
     contam_max = 0.05
+    stats_zmin = 0.7
     
-    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    keep = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < contam_max) & (qz < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
     
     #### Same selection but nothing on specz
-    keep_nospec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7)
+    keep_nospec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (qz < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > stats_zmin)
     
-    keep_nospec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
+    keep_nospec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (qz < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > stats_zmin) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
     
-    keep_hasspec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
+    keep_hasspec = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (qz < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > stats_zmin) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1)
 
-    keep_hasspec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (zout.q_z[0::3] < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > 0.7) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
+    keep_hasspec_goods = (phot.mag_f1392w[phot.idx] < maglim) & (phot.fcontam[phot.idx] < 0.05) & (qz < qzmax) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zout.z_peak[0::3] > stats_zmin) & (zsp.zspec[zsp.mat_idx] > 0) & (zsp.dr < 1) & ((phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-X'))
     
     #### Spectroscopic redshift ratio by field
     for field in ['GOODS-N', 'GOODS-S', 'COSMOS', 'AEGIS']:
@@ -2429,7 +2537,9 @@ def zphot_zspec_plot():
     print len(keep[keep_hasspec])*1./len(keep[keep_nospec]), len(keep[keep_nospec])
     
     #### Only way to get out a few objects where the photometry wasn't found for the fit
-    keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
+    keep = keep & (qz != qz2)
+    if USE_NEW_FITS:
+        keep = keep & (refit_idx > 0)
     
     plt.rcParams['text.usetex'] = True
     plt.rcParams['font.family'] = 'serif'
@@ -2438,11 +2548,11 @@ def zphot_zspec_plot():
     fig = unicorn.catalogs.plot_init(left=0.07, xs=3, bottom=0.07)
     ax = fig.add_subplot(111)
     
-    zsplit = 0.7
+    zsplit = stats_zmin
     ms=2
     
-    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), marker='o', linestyle='None', alpha=0.2, color='black', markersize=ms)
-    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), np.log10(1+zout.z_peak[0::3][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), marker='o', linestyle='None', alpha=0.2, color='0.9', markersize=ms)
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), np.log10(1+zphot[keep & (zsp.zspec[zsp.mat_idx] > zsplit)]), marker='o', linestyle='None', alpha=0.2, color='black', markersize=ms)
+    ax.plot(np.log10(1+zsp.zspec[zsp.mat_idx][keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), np.log10(1+zphot[keep & (zsp.zspec[zsp.mat_idx] < zsplit)]), marker='o', linestyle='None', alpha=0.2, color='0.9', markersize=ms)
     
     ax.plot([0,5],[0,5], color='white', alpha=0.2, linewidth=3)
     #ax.plot([0,5],[0,5], color='black', alpha=0.3, linewidth=1)
@@ -2455,29 +2565,34 @@ def zphot_zspec_plot():
     ax.set_xticks(np.log10(1+np.array([0,1,2,3,4])))
     ax.set_yticklabels(['0','1','2','3','4'])
     ax.set_yticks(np.log10(1+np.array([0,1,2,3,4])))
-    ax.set_xlim(np.log10(1),np.log10(4+1))
-    ax.set_ylim(np.log10(1),np.log10(4+1))
+    ax.set_xlim(np.log10(1+0),np.log10(4+1))
+    ax.set_ylim(np.log10(1+0),np.log10(4+1))
     
     ax.set_xlabel(r'$z_\mathrm{spec}$')
     ax.set_ylabel(r'$z_\mathrm{G141+phot}$')
     
-    dz = (zout.z_peak[0::3] - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
+    dz = (zphot - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
     clip = np.abs(dz) < 0.1
     sigma_gt1 = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 1)])
     sigma_gt1_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 1) & clip])
-    sigma_gt0_biw = threedhst.utils.biweight(dz[keep & (zout.z_spec[0::3] > 0.7)])
-    sigma_gt0 = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 0.7)])
-    sigma_gt0_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > 0.7) & clip])
-    NOUT = len(dz[keep & (zout.z_spec[0::3] > 0.7) & ~clip])*1./len(dz[keep & (zout.z_spec[0::3] > 0.7)])
+    sigma_gt0_biw = threedhst.utils.biweight(dz[keep & (zout.z_spec[0::3] > stats_zmin)])
+    sigma_gt0 = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > stats_zmin)])
+    sigma_gt0_clip = threedhst.utils.nmad(dz[keep & (zout.z_spec[0::3] > stats_zmin) & clip])
+    NOUT = len(dz[keep & (zout.z_spec[0::3] > stats_zmin) & ~clip])*1./len(dz[keep & (zout.z_spec[0::3] > stats_zmin)])
     
     fs = 9
     
     print sigma_gt0, sigma_gt0_clip, sigma_gt1, sigma_gt1_clip, NOUT
-    ax.text(0.1,0.9,r'$H_{140} <\ %.1f,\ z_\mathrm{spec} >\ 0.7,\ Q_z <\ %.2f$' %(maglim, qzmax), transform=ax.transAxes, fontsize=fs)
-    ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > 0.7)])), transform=ax.transAxes, fontsize=fs)
+    ax.text(0.1,0.9,r'$H_{140} <\ %.1f,\ z_\mathrm{spec} >\ %.1f,\ Q_z <\ %.2f$' %(maglim, stats_zmin, qzmax), transform=ax.transAxes, fontsize=fs)
+    ax.text(0.1,0.81,r'$N=%d$' %(len(dz[keep & (zout.z_spec[0::3] > stats_zmin)])), transform=ax.transAxes, fontsize=fs)
     ax.text(0.1,0.72,r'$\sigma_\mathrm{NMAD}=%.4f$' %(sigma_gt0), transform=ax.transAxes, fontsize=fs)
     pct = '\%'
     ax.text(0.1,0.63,r'$f_\mathrm{>0.1}=%.1f%s$' %(NOUT*100,pct), transform=ax.transAxes, fontsize=fs)
+    
+    # zbox = np.log10(1+stats_zmin)
+    # ax.fill_between([0,zbox],[0,0],[zbox,zbox], color='red', alpha=0.1)
+    ax.set_xlim(np.log10(0.0+1),np.log10(3.5+1))
+    ax.set_ylim(np.log10(0.0+1),np.log10(3.5+1))
     
     fig.savefig('zphot_zspec.pdf')
     plt.rcParams['text.usetex'] = False
@@ -2502,11 +2617,11 @@ def zphot_zspec_plot():
         Make plots to see how the redshift residuals depend on things like mag, 
         contamination fraction, Qz.
         """
-        keep = (phot.mag_f1392w[phot.idx] < 25) & (phot.fcontam[phot.idx] < 1) & (zout.q_z[0::3] < 1000) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > 0.7) & (zsp.dr < 1)
+        keep = (phot.mag_f1392w[phot.idx] < 25) & (phot.fcontam[phot.idx] < 1) & (zout.q_z[0::3] < 1000) & (phot.fcover[phot.idx] > 0.9) & (mcat.logm[mcat.idx] > 0) & (mcat.rmatch[mcat.idx] < 0.5) & (zsp.zspec[zsp.mat_idx] > stats_zmin) & (zsp.dr < 1)
         
         keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
         
-        dz = (zout.z_peak[0::3] - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
+        dz = (zphot - zsp.zspec[zsp.mat_idx])/(1+zsp.zspec[zsp.mat_idx])
         
         yr = (-0.5,0.5)
         alpha, ms, color = 0.5, 2,'black'
@@ -2553,7 +2668,7 @@ def zphot_zspec_plot():
         bad = (dzlog > 0.027) & (dzlog < 0.047 ) & (np.log10(1+zsp.zspec[zsp.mat_idx]) > 0.2) & keep
 
         bad = (dzlog > 0.18) & keep
-        bad = (np.abs(dz) > 0.1) & (zsp.zspec[zsp.mat_idx] > 0.7) & keep
+        bad = (np.abs(dz) > 0.1) & (zsp.zspec[zsp.mat_idx] > stats_zmin) & keep
 
         print np.array(zsp.source)[zsp.mat_idx][bad]
         print phot.id[phot.idx][bad]

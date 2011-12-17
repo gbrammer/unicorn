@@ -1895,7 +1895,7 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     ap_head.update('WHT_EXT',WHT_EXT, comment='Weight extension')
     
     prim = pyfits.PrimaryHDU(header=ap_head)
-    ap_hdu = pyfits.ImageHDU(data=apertures)
+    ap_hdu = pyfits.ImageHDU(data=np.array(apertures))
     fl_hdu = pyfits.ImageHDU(data=fluxes)
     ce_hdu = pyfits.ImageHDU(data=centers)
     pyfits.HDUList([prim, ap_hdu, fl_hdu, ce_hdu]).writeto('%s_empty.fits' %(ROOT), clobber='True')

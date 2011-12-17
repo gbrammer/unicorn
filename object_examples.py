@@ -746,8 +746,46 @@ def t_dwarf():
     ###  z=2.0, huge, old: COSMOS-26-G141_00725
     ### z=1.9, zspec, beautiful fit UDF: PRIMO-1101-G141_01022
 
+def get_tdwarf_mag():
+    """
+    Get the broad / medium-band H magnitudes of the T dwarf
+    to compare to m140
+    """
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    object = 'AEGIS-3-G141_00195'
+    ra = phot.x_world[phot.id == object][0]
+    dec = phot.y_world[phot.id == object][0]
+    m140 = phot.mag_f1392w[phot.id == object][0]
+    
+    nmbs_cat, nmbs_zout, nmbs_fout = unicorn.analysis.read_catalogs(root=object)
+    dr = np.sqrt((nmbs_cat.ra-ra)**2*np.cos(dec/360*2*np.pi)**2+(nmbs_cat.dec-dec)**2)*3600.
+    h1mag = 25-2.5*np.log10((nmbs_cat.H1*nmbs_cat.Ktot/nmbs_cat.K)[dr == dr.min()][0])
+    h2mag = 25-2.5*np.log10((nmbs_cat.H2*nmbs_cat.Ktot/nmbs_cat.K)[dr == dr.min()][0])
+    hmag = 25-2.5*np.log10(((nmbs_cat.H1+nmbs_cat.H2)/2.*nmbs_cat.Ktot/nmbs_cat.K)[dr == dr.min()][0])
+    jmag = 25-2.5*np.log10(((nmbs_cat.J2+nmbs_cat.J3)/2.*nmbs_cat.Ktot/nmbs_cat.K)[dr == dr.min()][0])
+    jmag = 25-2.5*np.log10(((nmbs_cat.J3)/1.*nmbs_cat.Ktot/nmbs_cat.K)[dr == dr.min()][0])
+    
+    wirds = catIO.Readfile('/Users/gbrammer/research/drg/PHOTZ/EAZY/WIRDS/WIRDS_D3-95_Ks_ugrizJHKs_141927+524056_T0002.cat.candels')
+    dr = np.sqrt((wirds.ra-ra)**2*np.cos(dec/360.*2*np.pi)**2+(wirds.dec-dec)**2)*3600.
+    jwirds = wirds.jtot[dr == dr.min()][0]
+    hwirds = wirds.htot[dr == dr.min()][0]
+    
+    print '       J     H     J-H   H1    H2'
+    print 'NMBS  %5.2f %5.2f %5.2f %5.2f %5.2f' %(jmag, hmag, jmag-hmag, h1mag, h2mag)
+    print 'WIRDS %5.2f %5.2f %5.2f' %(jwirds, hwirds, jwirds-hwirds)
+    
+    #### Vrba et al. (2004)
+    #absH = np.array([14.52,14.78,15.07])
+    #d =
+     
+def misc_objects():
+    
+    unicorn.object_examples.general_plot('UDF-Full-G141_00624', flam_norm=-19, vscale=0.1, vthumb=(-0.08*0.3,0.01*0.3), SED_voffset=0.42, SED_hoffset=0.05, remove_contamination=False)
 
-def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.1, SED_hoffset=0, plot_min=None, plot_max=None, yticks=None, fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=1, fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-18):
+    
+def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.1, SED_hoffset=0, plot_min=None, plot_max=None, yticks=None, fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=1, vthumb=(-1,0.1), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-18):
     
     import unicorn.object_examples
     dy2d = unicorn.object_examples.dy2d
@@ -804,7 +842,7 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
             if dx_thumb is None:
                 dx_thumb = dy_thumb
 
-            axThumb.imshow(0-thumb[0].data[y0+dy_thumb:y1+dy_thumb, y0+dx_thumb:y1+dx_thumb], vmin=-2.4*vscale, vmax=0.3*vscale, interpolation='nearest', zorder=2, aspect='auto')
+            axThumb.imshow(0-thumb[0].data[y0+dy_thumb:y1+dy_thumb, y0+dx_thumb:y1+dx_thumb], vmin=vthumb[0], vmax=vthumb[1], interpolation='nearest', zorder=2, aspect='auto')
             axThumb.set_yticklabels([])
             axThumb.set_xticklabels([])
             xtick = axThumb.set_xticks([0,y1-y0]); ytick = axThumb.set_yticks([0,y1-y0])
@@ -838,10 +876,17 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     #zspec = zout.z_peak[0::3][zout.id[0::3] == object]
     zspec = zout_file.z_peak[fit_version]
     
-    mag = phot.mag_f1392w[phot.id == object][0]
+    try:
+        mag = phot.mag_f1392w[phot.id == object][0]
+    except:
+        mag = -1
+        
     axSpec.text(0.05,0.9,object, transform=axSpec.transAxes, fontsize=9)
-    axSpec.text(0.05,0.8,r'$ \ z=%.3f,\ m_{140}=%.1f$' %(zspec, mag), transform=axSpec.transAxes, fontsize=11)
-    
+    if mag > 0:
+        axSpec.text(0.05,0.8,r'$ \ z=%.3f,\ m_{140}=%.1f$' %(zspec, mag), transform=axSpec.transAxes, fontsize=11)
+    else:
+        axSpec.text(0.05,0.8,r'$z=%.3f$' %(zspec), transform=axSpec.transAxes, fontsize=11)
+        
     # lines = [4102, 4341, 4862, 4980]
     # y0 = [0.7, 0.7, 1, 1.5]
     # labels = [r'H$\delta$',r'H$\gamma$', r'H$\beta$','O III 4959+5007']
@@ -863,8 +908,9 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     #### Inset full sed
     if show_SED:
         axInset = fig.add_axes((left+0.55+SED_hoffset, bottom+SED_voffset, 0.99-left-0.6, dy2d*0.4))
-        axInset.plot(lci[is_spec], fobs[is_spec], alpha=0.9, color='black', linewidth=2)
+        axInset.plot(lci[is_spec], fobs[is_spec], alpha=0.9, color='black', linewidth=1)
         axInset.plot(lambdaz,temp_sed, color='red', linewidth=1, alpha=0.3)
+        axInset.plot(lci[~is_spec], fobs[~is_spec], marker='o', linestyle='None', alpha=0.5, color='white')
         axInset.plot(lci[~is_spec], fobs[~is_spec], marker='o', linestyle='None', alpha=0.3, color='black')
 
         axInset.semilogx()

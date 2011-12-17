@@ -1594,6 +1594,111 @@ def run_empty_apertures_fields():
     for file in files[1:]:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
     
+def grism_apertures_plot():
+    
+    os.chdir(unicorn.GRISM_HOME+'ANALYSIS/SURVEY_PAPER')
+    
+    files = glob.glob('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EMPTY_APERTURES/*empty.fits')
+    bg = threedhst.catIO.Readfile('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/sky_background.dat')
+    
+    sens = pyfits.open(unicorn.GRISM_HOME+'CONF/WFC3.IR.G141.1st.sens.2.fits')[1].data
+    sens_14um = np.interp(1.4e4,sens.WAVELENGTH,sens.SENSITIVITY)
+    
+    colors = {'AEGIS':'red','COSMOS':'blue','UDS':'purple', 'GNGRISM':'orange','GOODSS':'green'}
+    
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Times'
+    
+    fig = unicorn.catalogs.plot_init(xs=4, left=0.125, bottom=0.085, right=0.01, top=0.01, square=True, fontsize=12)
+    
+    ax = fig.add_subplot(111)
+    
+    for file in files:
+        root = os.path.basename(file).split('-G141')[0].replace('GOODS-N-','GNGRISM').replace('S-S','S-SOUTH')
+        print root
+        mat = (bg.targname == root) & (bg.filter == 'G141')
+        if len(mat[mat]) == 0:
+            continue
+        mean_bg = np.mean(bg.bg_mean[mat])
+        err_bg = np.std(bg.bg_mean[mat])
+        aps = pyfits.open(file)
+        #
+        fluxes = aps[2].data
+        stats = threedhst.utils.biweight(fluxes, both=True)
+        sigmas = fluxes[0,:].flatten()*0
+        for i in range(len(sigmas)):
+            sigmas[i] = threedhst.utils.biweight(fluxes[:,i])
+        #
+        #sigmas /= 0.128254/0.06 ### smaller drizzled pixels
+        sigmas /= 0.75          ### accounts for smaller pixels and encircled energy in the spatial axis
+        pcorr, scorr = 0.8, 0.5
+        rcorr = pcorr/scorr
+        bigR = rcorr/(1-1./3/rcorr)
+        #sigmas *= bigR   ### correlated pixel errors from Mdriz handbook
+        inv_sens_flam = sigmas/(sens_14um*46.5*2)
+        inv_sens_fnu = inv_sens_flam*1.4e4**2/3.e18
+        sig3 = inv_sens_fnu*3
+        sig3_ab = -2.5*np.log10(sig3)-48.6
+        #
+        field = os.path.basename(file).replace('GOODS-N','GNGRISM').replace('GOODS-S','GOODSS').split('-')[0]
+        print field
+        p = ax.errorbar(mean_bg,sig3_ab[0], xerr=err_bg, marker='o', ms=8, alpha=0.4, color=colors[field], ecolor=colors[field])
+        
+    xarr = np.arange(0,5,0.02) ###  background rate, cts / s
+    yarr = 22.9-2.5*np.log10(np.sqrt(xarr/2.))
+    
+    #### Eq. 1 from paper
+    scale = 0.06/0.128254
+    Nexp, texp, rn, R, dark = 4, 1300, 20, 2*scale, 0.05
+    
+    #dark += 0.181/3.
+    area = np.pi*R**2
+    #area = 3
+    ee_fraction = 0.75 # for 3 pix aperture in spatial direction, nominal pixels
+    
+    total_counts_resel = (xarr+dark)*texp*area*2*Nexp # 
+    eq1_cts = np.sqrt(total_counts_resel+rn**2*area*Nexp)
+    eq1_cps = eq1_cts/texp/Nexp/ee_fraction/2
+    eq1_flam = eq1_cps/(sens_14um*46.5)
+    eq1_fnu = eq1_flam*1.4e4**2/3.e18
+    eq1_ab = -2.5*np.log10(eq1_fnu*3)-48.6
+    plt.plot(xarr, eq1_ab-2.5*np.log10(0.85), color='purple', linewidth=2, linestyle='--')
+    plt.plot(xarr, eq1_ab, color='purple', linewidth=2)
+
+    # ### include source term
+    # eps = total_counts_resel+rn**2*area*N
+    # sn = 3
+    # limit = (sn**2+np.sqrt(sn**4+4*eps*sn**2))/2.
+    # 
+    # limit_cts = np.sqrt(limit+total_counts_resel+rn**2*area*N)*1./np.sqrt(N)/texp/area
+    # limit_flam = 1./(sens_14um*2*46.5)
+    # limit_fnu = limit_flam*1.4e4**2/3.e18
+    # limit_ab = -2.5*np.log10(limit_fnu*3*limit_cts/0.75**2)-48.6
+    # plt.plot(xarr, limit_ab, color='blue')
+    
+    ### Predict source counts
+    mag = 23
+    source_fnu = 10**(-0.4*(mag+48.6))
+    source_flam = source_fnu/1.4e4**2*3.e18
+    source_cps = source_flam*sens_14um*46.5*ee_fraction
+    source_counts = source_cps*Nexp*texp*2
+    
+    print np.interp(1.88,xarr,total_counts_resel), np.interp(1.88,xarr,np.sqrt(total_counts_resel+rn**2*area*Nexp)), np.interp(1.88,xarr,eq1_ab), source_counts, source_counts / np.interp(1.88,xarr,np.sqrt(total_counts_resel+rn**2*area*Nexp))
+    
+    #ax.plot(xarr, yarr, color='black', alpha=0.2, linewidth=3)
+    ax.set_xlim(0.6,3.2)
+    ax.set_ylim(23.8,25.0)
+    ax.set_xlabel(r'Background level [electrons / s]')
+    ax.set_ylabel(r'$3\sigma$ continuum depth @ 1.4$\mu$m, $D_\mathrm{ap}=0.24^{\prime\prime}/\,90\,$\AA')
+    
+    x0, y0, dy = 3, 24.8, 0.1
+    for i,field in enumerate(colors.keys()[1:]):
+        field_txt = field.replace('GNGRISM','GOODS-N').replace('GOODSS','GOODS-S')
+        ax.text(x0, y0-i*dy, field_txt, color=colors[field], horizontalalignment='right')
+     
+    plt.savefig('grism_empty_apertures.pdf')   
+    
 def grism_empty_apertures():
     """
     Try simple empty apertures routine to measure depth of grism exposures, 
@@ -1602,6 +1707,13 @@ def grism_empty_apertures():
     
     unicorn.survey_paper.empty_apertures(SCI_IMAGE='GOODS-S-34-G141_drz.fits', WHT_IMAGE='GOODS-S-34-G141_drz.fits', aper_params=(2,8.1,2), NSIM=500, ZP=25, make_plot=False, verbose=True, threshold=0.8, is_grism=True)
     
+    for field in ['AEGIS','GOODS-S','UDS']: #,'COSMOS','GOODS-N']:
+        os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT/')
+        images = glob.glob(field+'*G141_drz.fits')
+        print images
+        for image in images:
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, WHT_IMAGE=image, aper_params=(2,8.1,2), NSIM=500, ZP=25, make_plot=False, verbose=True, threshold=0.8, is_grism=True, rectangle_apertures = [(4,4),(2,6),(4,6)])
+            
     aps = pyfits.open('GOODS-S-34-G141_drz_empty.fits')
     fluxes = aps[2].data.flatten()
     stats = threedhst.utils.biweight(fluxes, both=True)
@@ -1611,8 +1723,8 @@ def grism_empty_apertures():
     inv_sens_flam = 1./(sens.SENSITIVITY*0.06/0.128254*46.5)
     inv_sens_fnu = inv_sens_flam*wave**2/3.e18
     
-    sig5 = inv_sens_fnu*3*stats[1]
-    sig5_ab = -2.5*np.log10(sig5)-48.6
+    sig3 = inv_sens_fnu*3*stats[1]
+    sig3_ab = -2.5*np.log10(sig5)-48.6
     plt.plot(wave, sig5_ab)
     
     mag = sig5_ab*0+23
@@ -1622,7 +1734,7 @@ def grism_empty_apertures():
     
     #plt.plot(sens.WAVELENGTH, sens.SENSITIVITY)
     
-def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True, MAP_TYPE='MAP_WEIGHT', threshold=1.5, is_grism=False):
+def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIMO_F125W_drz.fits', WHT_EXT=2, aper_params=(1,17,0.5), NSIM=1000, ZP=26.25, make_plot=True, verbose=True, MAP_TYPE='MAP_WEIGHT', threshold=1.5, is_grism=False, rectangle_apertures = None):
     """
     1) Run SExtractor on the input image to generate a segmentation map.
     
@@ -1705,6 +1817,12 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     #NSIM = 1000
     #apertures = np.arange(1,17,0.5)
     apertures = np.arange(aper_params[0], aper_params[1], aper_params[2])
+    if rectangle_apertures is not None:
+        IS_RECTANGLE = True
+        apertures = rectangle_apertures   ### list of tuples with (dx,dy) sizes
+    else:
+        IS_RECTANGLE = False
+    
     fluxes = np.zeros((NSIM, len(apertures)))
     centers = np.zeros((NSIM, len(apertures), 2))
     
@@ -1713,20 +1831,29 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
     for iap, ap in enumerate(apertures):
         #aper_image = np.zeros(img_shape)
         icount = 0
-        print 'Aperture radius: %.2f pix\n' %(ap)
+        if IS_RECTANGLE:
+            print 'Aperture %.2f x %.2f pix\n' %(ap[0], ap[1])
+            rap = (ap[0]/2.,ap[1]/2.)
+        else:
+            print 'Aperture radius: %.2f pix\n' %(ap)
+            rap = (ap, ap)
+            
         while icount < NSIM:
             #### Random coordinate
-            xc = np.random.rand()*(img_shape[1]-4*ap)+2*ap
-            yc = np.random.rand()*(img_shape[0]-4*ap)+2*ap
+            xc = np.random.rand()*(img_shape[1]-4*rap[0])+2*rap[0]
+            yc = np.random.rand()*(img_shape[0]-4*rap[1])+2*rap[1]
             
             #### Quick test to see if the coordinate is within an object or 
             #### where weight is zero
             if (seg[int(yc), int(xc)] != 0) | (img_wht[int(yc), int(xc)] <= 0) | (img_data[int(yc), int(xc)] == 0):
                 continue
             
-            #### Shapely point + buffer to define the aperture
-            point = Point(xc, yc)
-            buff = point.buffer(ap, resolution=16)
+            #### Shapely point + buffer to define the circular aperture
+            if IS_RECTANGLE:
+                aperture_polygon = Polygon(((xc-ap[0]/2.,yc-ap[1]/2.), (xc+ap[0]/2.,yc-ap[1]/2.), (xc+ap[0]/2.,yc+ap[1]/2.), (xc-ap[0]/2.,yc+ap[1]/2.)))
+            else:
+                point = Point(xc, yc)
+                aperture_polygon = point.buffer(ap, resolution=16)
             
             #### initialize the aperture
             aper*=0
@@ -1735,10 +1862,10 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
             #### the circular aperture using the intersection of Shapely polygons
             smax = 0
             wmin = 1.e10
-            for i in range(int(np.floor(xc-ap)),int(np.ceil(xc+ap))):
-                for j in range(int(np.floor(yc-ap)),int(np.ceil(yc+ap))):
+            for i in range(int(np.floor(xc-rap[0])),int(np.ceil(xc+rap[0]))):
+                for j in range(int(np.floor(yc-rap[1])),int(np.ceil(yc+rap[1]))):
                     pix = Polygon(((i+0.5,j+0.5), (i+1.5,j+0.5), (i+1.5,j+1.5), (i+0.5,j+1.5)))
-                    isect = pix.intersection(buff)
+                    isect = pix.intersection(aperture_polygon)
                     aper[j,i] = isect.area
                     if isect.area > 0:
                         smax = np.array([smax, seg[j,i]]).max()

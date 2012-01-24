@@ -119,6 +119,63 @@ def egs():
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
     
+def comsos():
+    import unicorn.candels
+    
+    os.chdir('/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/')
+    unicorn.candels.make_asn_files()
+    
+    #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
+    ALIGN_IMAGE = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
+
+    files=glob.glob('COSMOS-V*asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                SCALE=0.06, geometry='rotate,shift')
+    #
+    threedhst.gmap.makeImageMap(['COSMOS-V12-F125W_drz.fits','COSMOS-V12-F160W_drz.fits', 'COSMOS-V12-F160W_align.fits[0]*4',], aper_list=[15,16])
+    
+    # V0T-F125 71/1I-F160Wsatellite trail, V54-125 - bad shift
+    root = 'EGS-V72-F125W'
+
+    threedhst.shifts.refine_shifts(ROOT_DIRECT=root,
+      ALIGN_IMAGE=ALIGN_IMAGE,
+      fitgeometry='shift', clean=True,
+      ALIGN_EXTENSION=0)
+    #
+    threedhst.prep_flt_files.startMultidrizzle(root+'_asn.fits',
+         use_shiftfile=True, skysub=False,
+         final_scale=0.06, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False)
+    #
+    
+    ##### DQ flag: F125W - 19,23,27
+    #####          F160W - 7,11,13,15,23,24,25,49
+    ## done: 19,23    
+    threedhst.dq.checkDQ(asn_direct_file='COSMOS-V27-F125W_asn.fits', asn_grism_file='COSMOS-V27-F160W_asn.fits', path_to_flt='../RAW/', wait_time=60)
+    
+    for filt in ['F125W', 'F160W']:
+        files=glob.glob('COSMOS-V*-'+filt+'_asn.fits')
+        threedhst.utils.combine_asn_shifts(files, out_root='COSMOS-'+filt, path_to_FLT='./', run_multidrizzle=False)
+        #
+        SCALE = 0.1283
+        threedhst.prep_flt_files.startMultidrizzle('COSMOS-'+filt+'_asn.fits',
+             use_shiftfile=True, skysub=False,
+             final_scale=SCALE, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False,
+             ra=150.1291915, dec=2.36638225, final_outnx=4667*0.1283/SCALE, 
+             final_outny=11002*0.1283/SCALE)
+    #
+    iraf.imcalc('COSMOS-F160W_drz.fits[1],COSMOS-F125W_drz.fits[1]', "diff.fits", "im1-im2")
+    
+    threedhst.shifts.plot_shifts('COSMOS-F125W', ALIGN_IMAGE, skip_swarp=False)
+    
+    threedhst.gmap.makeImageMap(['COSMOS-F125W_drz.fits','COSMOS-F160W_drz.fits','diff.fits'], aper_list=[13,14,15], polyregions=glob.glob('COSMOS-V*F125W_asn.pointing.reg'), zmin=-0.1, zmax=1)
+    
+    # p!sh ~/Sites/FITS/keys.sh
     
 def uds():
     import unicorn.candels

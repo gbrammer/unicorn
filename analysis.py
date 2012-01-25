@@ -1254,11 +1254,17 @@ def eazy_lists():
     keep = keep & (zout.q_z[0::3] != zout.q_z[2::3])
     
     #### Original templates, individual lines, no tilt
-    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0, SCALE_SPEC_ERROR=1)
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=1, SCALE_SPEC_ERROR=2)
+    unicorn.catalogs.make_full_redshift_catalog()
+    os.system('mv full_redshift.cat full_redshift_scaleSpecErr2_yesTilt.cat')
+    
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][keep], TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', TILT_ORDER=0, SCALE_SPEC_ERROR=2)
+    unicorn.catalogs.make_full_redshift_catalog()
+    os.system('mv full_redshift.cat full_redshift_fixed_scaleSpecErr2_noTilt.cat')
     
     ### single
-    ii = keep & (zout.id[0::3] == 'PRIMO-1101-G141_00046')
-    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][ii], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0, SCALE_SPEC_ERROR=1.)
+    ii = keep & (zout.id[0::3] == 'GOODS-N-14-G141_00526')
+    unicorn.analysis.run_eazy_on_list(ids=zout.id[0::3][ii], TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_ORDER=0, SCALE_SPEC_ERROR=3.)
     
 def run_eazy_on_list(ids = ['COSMOS-20-G141_01097'], compress=0.75, pipe=' > eazy.log', COMPUTE_TILT=True, TILT_ORDER=1, TEMPLATES_FILE='templates/fixed_lines_suppl.spectra.param', SCALE_SPEC_ERROR=1):
     """

@@ -25,6 +25,7 @@ $URL: https://subversion.assembla.com/svn/threedhst_internal/trunk/reduce.py $
 $Author: gbrammer $
 $Date: 2011-05-22 02:01:43 -0400 (Sun, 22 May 2011) $
 
+
 """
 __version__ = " $Rev: 5 $"
 
@@ -40,6 +41,8 @@ import pyfits
 import pyraf
 from pyraf import iraf
 
+noNewLine = '\x1b[1A\x1b[1M'
+
 import threedhst
 
 def interlace_combine(root='COSMOS-1-F140W', view=True):
@@ -52,6 +55,10 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
 
     run = threedhst.prep_flt_files.MultidrizzleRun(root)
     #run.blot_back(ii=0, copy_new=True)
+    
+    im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
+    PAM = im[1].data
+    im.close()
     
     scl = np.float(run.scl)
     xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
@@ -82,10 +89,17 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
         print flt
         flt = run.flt[i]
         im = pyfits.open(flt+'.fits')
+        
+        #### Use the pixel area map correction
+        im[1].data *= PAM
+        #### Divide by 4 to conserve surface brightness with smaller output pixels
+        im[1].data /= 4
+        
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
             header = red.scale_header_wcs(h1.copy(), factor=2, pad=pad)
+        
         dx = np.int(np.round((xsh[i]-xsh[0])*2))
         dy = np.int(np.round((ysh[i]-ysh[0])*2))
         #
@@ -232,8 +246,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     
     bigX = xc - xoff
     bigY = yc - yoff
-    
-        
+      
     xmi, xma = -580, 730
     NX,NY = xma-xmi, 20
     
@@ -314,7 +327,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             full_sens[y0[keep]+NY+1,xpix[keep]] += sens_interp[keep]
         
         if (lam_spec is not None) & (flux_spec is not None):
-            spec_interp = np.interp(lam, lam_spec, flux_spec, left=0., right=0.)
+            #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
+            spec_interp = threedhst.utils.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
             sens_interp *= spec_interp
         #
         if beam == 'A':
@@ -334,24 +348,51 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
 
 class GrismModel():
-    def __init__(self, root='GOODS-S-24'):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60):
+        """
+        Initialize: set padding, growth factor, read input files.
+        """
         self.root=root
+
         if not os.path.exists(root+'_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
             self.find_objects()
+        
+        self.grow_factor = grow_factor
+        self.pad = pad
         
         threedhst.showMessage('Reading FITS files and catalog...')
         self.read_files()
         
     def read_files(self):
+        """
+        Read FITS files, catalogs, and segmentation images for a pair of 
+        interlaced exposures.
+        """
         self.im = pyfits.open(self.root+'-F140W_inter.fits')
+        self.filter = self.im[0].header['FILTER']
+        ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
+        self.ZP = ZPs[self.filter]
+
+        PLAMs = {'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4}
+        self.PLAM = PLAMs[self.filter]
+        
+        self.make_flux()
+                
         self.gris = pyfits.open(self.root+'-G141_inter.fits')
-        self.flux = self.im[1].data * 10**(-0.4*(26.46+48.6))*3.e18/1.392e4**2/1.e-17
         self.sh = self.im[1].data.shape
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         self.segm = pyfits.open(self.root+'_seg.fits')
         self.model = self.im[1].data*0.
         self.yf, self.xf = np.indices(self.im[1].data.shape)
+        
+    def make_flux(self):
+        """
+        Convert from e/s to physical fluxes using the ZP and pivot wavelength 
+        for the direct image filter
+        """
+        self.flux = self.im[1].data * 10**(-0.4*(self.ZP+48.6))* 3.e18 / self.PLAM**2 / 1.e-17
+        self.flux_fnu = self.im[1].data * 10**(-0.4*(self.ZP+48.6))
         
     def find_objects(self, LIMITING_MAGNITUDE=23.5):
         #### Run SExtractor on the direct image, with the WHT 
@@ -372,7 +413,7 @@ class GrismModel():
         #### Detect thresholds (default = 1.5)
         se.options['DETECT_THRESH']    = '1' 
         se.options['ANALYSIS_THRESH']  = '1'
-        se.options['MAG_ZEROPOINT'] = '26.46'
+        se.options['MAG_ZEROPOINT'] = '%.2f' %(self.ZP)
         #### Run SExtractor
         status = se.sextractImage(self.root+'-F140W_inter.fits[0]')
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
@@ -386,15 +427,30 @@ class GrismModel():
         self.cat.write()
         self.segm = pyfits.open(self.root+'_seg.fits')
     
-    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E']):
+    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E'], verbose=False, normalize=True):
         import unicorn.reduce as red
         
         ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
         
         xc = np.float(self.cat.X_IMAGE[ii])
         yc = np.float(self.cat.Y_IMAGE[ii])
-        #
-        orders, self.xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS)
+        
+        #### Normalize the input spectrum to the direct image passband
+        if (lam_spec is not None) & (normalize is True):
+            if verbose:
+                print 'Input spectrum is provided, normalize it for filter, %s' %(self.filter)
+            
+            x_filt, y_filt = np.loadtxt(os.getenv('iref')+'/'+self.filter + '.dat', unpack=True)
+            y_filt_int = np.interp(lam_spec, x_filt, y_filt)
+            filt_norm = np.trapz(y_filt_int*flux_spec, lam_spec) / np.trapz(y_filt_int, lam_spec)
+            flux_spec /= filt_norm
+        
+        #### Define the grism dispersion for the central pixel of an object.  
+        #### Assume doesn't change across the object extent
+        if verbose:
+            print 'Define grism dispersion.'
+            
+        orders, self.xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, pad=self.pad)
         yord, xord = np.indices(orders.shape)
         non_zero = orders > 0
         xord, yord, ford, word, sord = xord[non_zero], yord[non_zero], orders[non_zero], self.xi[2][non_zero], self.xi[3][non_zero]
@@ -407,7 +463,11 @@ class GrismModel():
         xpix = self.xf[mask]
         ypix = self.yf[mask]
         object = self.model*0.
-        #
+        
+        #### Loop through pixels defined within the segmentation region, summing
+        #### dispersed flux
+        if verbose:
+            print 'Loop through object pixels within the segmentation region.'
         for jj in range(xpix.size):
             x, y = xpix[jj], ypix[jj]
             xxi = x+xord
@@ -418,6 +478,9 @@ class GrismModel():
         self.object = object
         
         #### Make full images that show the wavelength, sensitivity
+        if verbose:
+            print 'Make full image arrays that show the wavelength, sensitivity'
+        
         xxi = np.int(np.round(xc))+xord
         use = (xxi >= 0) & (xxi < self.sh[1])
         cut = np.zeros(self.sh[1])

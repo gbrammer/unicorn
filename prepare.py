@@ -560,7 +560,7 @@ def GOODSS(FORCE=False):
             ALIGN = ALIGN_FILES[2]
         #
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
             
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-31-F140W_drz.fits','GOODS-S-31-F140W_align.fits[0]*4', 'GOODS-S-31-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
@@ -921,6 +921,10 @@ def UDS(FORCE=False):
     os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits'
     ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
+    ALIGN_EXTENSION=1
+    
+    ALIGN = '/research/HST/CANDELS/UDS/UKIDSS/UDS_K.fits'
+    ALIGN_EXTENSION=0
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -928,7 +932,7 @@ def UDS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=1, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXTENSION, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Check
     threedhst.gmap.makeImageMap(['UDS-23-F140W_drz.fits', 'UDS-23-F140W_align.fits[0]','UDS-23-G141_drz.fits'], aper_list=[14,15,16],  polyregions=glob.glob('UDS-*-F140W_asn.pointing.reg'))

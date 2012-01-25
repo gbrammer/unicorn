@@ -110,6 +110,97 @@ def throughput():
     fig.savefig('throughput.pdf')
     
     plt.rcParams['text.usetex'] = False
+#
+def throughput_v2():
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    
+    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    
+    xg141, yg141 = np.loadtxt('g141.dat', unpack=True)
+    xf140, yf140 = np.loadtxt('f140w.dat', unpack=True)
+    xf814, yf814 = np.loadtxt('f814w.dat', unpack=True)
+    xg800l, yg800l = np.loadtxt('g800l.dat', unpack=True)
+
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'Serif'
+    plt.rcParams['font.serif'] = 'Times'
+
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.095, bottom=0.08, top=0.065, right=0.01)
+    
+    #ax = fig.add_subplot(111)
+    #ax = fig.add_axes(((x0+(dx+x0)*0), y0+0.5, dx, 0.5-top_panel-y0))
+    ysplit = 0.65
+    ax = fig.add_axes((0.06, 0.135, 0.935, (ysplit-0.135)))
+    
+    ax.plot(xg141, yg141, color='black', linewidth=2, alpha=0.5)
+    ax.fill(xg141, yg141, color='red', linewidth=2, alpha=0.1)
+    ax.plot(xf140, yf140, color='black', linewidth=2, alpha=0.7)
+    
+    ax.plot(xg800l, yg800l, color='black', linewidth=2, alpha=0.5)
+    ax.fill(xg800l, yg800l, color='blue', linewidth=2, alpha=0.1)
+    ax.plot(xf814, yf814, color='black', linewidth=2, alpha=0.7)
+        
+    em_names = ['[OII]',r'H$\beta$','','[OIII]',r'H$\alpha$']
+    
+    dlam = 30
+    zi = 1
+    
+    yy = 0.1
+    ax.text(5800, 0.12+yy,'G800L',rotation=48., color='black', alpha=0.7)
+    ax.text(5800, 0.12+yy,'G800L',rotation=48., color='blue', alpha=0.4)
+
+    ax.text(7100, 0.14+yy,'F814W',rotation=80., color='black', alpha=0.9)
+
+    ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='black', alpha=0.7)
+    ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='red', alpha=0.4)
+
+    ax.text(1.21e4, 0.14+yy,'F140W',rotation=88., color='black', alpha=0.9)
+    
+    #ax.set_yticklabels([]); 
+    
+    #ax2 = ax.twiny()
+    ax2 = fig.add_axes((0.06, ysplit+0.02, 0.935, (0.86-ysplit)))
+    ax2.xaxis.set_label_position('top')
+    ax2.xaxis.set_ticks_position('top')
+    ### H-alpha
+    xbox = np.array([0,1,1,0,0])
+    dy= 0.333333
+    y0= 1.0
+    ybox = np.array([0,0,1,1,0])*dy
+    
+    
+    width_acs = np.array([6000.,9000.])
+    width_wfc3 = np.array([1.1e4,1.65e4])
+    
+    line_names = [r'H$\alpha$',r'H$\beta$ / [OIII]','[OII]']
+    
+    for i, l0 in enumerate([6563.,4934.,3727]):
+        zline = width_acs/l0-1
+        ax2.fill(xbox*(zline[1]-zline[0])+zline[0],y0-ybox-i*dy, color='blue', alpha=0.1)
+        zline = width_wfc3/l0-1
+        ax2.fill(xbox*(zline[1]-zline[0])+zline[0],y0-ybox-i*dy, color='red', alpha=0.1)
+        ax2.plot([0,4],np.array([0,0])+y0-(i+1)*dy, color='black')
+        ax2.text(3.7,y0-(i+0.5)*dy, line_names[i], horizontalalignment='right', verticalalignment='center')
+        
+    ax.set_xlim(4500, 1.79e4)
+    ax.set_ylim(0,0.65)
+    ytick = ax.set_yticks([0,0.2,0.4,0.6])
+    ax.set_xlabel(r'$\lambda$ [\AA]')
+    ax.set_ylabel('Throughput')
+    minorLocator   = MultipleLocator(1000)
+    ax.xaxis.set_minor_locator(minorLocator)
+    minorLocator   = MultipleLocator(0.1)
+    ax.yaxis.set_minor_locator(minorLocator)
+    
+    ax2.set_xlim(0,3.8)
+    ytick = ax2.set_yticks([])
+    ax2.set_ylim(0,1)
+    minorLocator   = MultipleLocator(0.1)
+    ax2.xaxis.set_minor_locator(minorLocator)
+    ax2.set_xlabel(r'$z_\mathrm{line}$')
+    
+    fig.savefig('throughput.pdf')
+    plt.rcParams['text.usetex'] = False
     
 def orbit_structure():
     """
@@ -1594,15 +1685,58 @@ def run_empty_apertures_fields():
     for file in files[1:]:
         unicorn.survey_paper.empty_apertures(SCI_IMAGE=file, SCI_EXT=1, WHT_IMAGE=file, WHT_EXT=2, aper_params=(1,17,1), NSIM=1000, ZP=26.46, make_plot=True)
     
-def grism_apertures_plot():
+    
+    
+def grism_apertures_plot(SHOW_FLUX=False):
+    
+    test = """
+    The following derives the correction, R, needed to scale the pixel standard
+    deviations in the drizzled images with small pixels, to the noise in 
+    "nominal" pixels.
+    
+    files = glob.glob('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EMPTY_APERTURES/*pix*empty.fits')
+    
+    ratio = []
+    for file in files:
+        impix = pyfits.open(file)
+        im = pyfits.open(file.replace('pix',''))
+        print threedhst.utils.biweight(im[2].data[:,2]) /  threedhst.utils.biweight(impix[2].data[:,2])
+        ratio.append(threedhst.utils.biweight(im[2].data[:,2]) /  threedhst.utils.biweight(impix[2].data[:,2]))
+    
+    print 'R ~ %.2f' %(1./np.mean(ratio))
+    
+    # Emission line flux
+    
+    texp, Nexp, R, dark, sky, ee_fraction = 1277, 4, 2, 0.05, 1.5, 0.75
+    area = np.pi*R**2
+    
+    total_counts_resel = (xarr+dark)*texp*area*Nexp # 
+    eq1_cts = np.sqrt(total_counts_resel+rn**2*area*Nexp)
+    eq1_cps = eq1_cts/texp/Nexp
+    #eq1_flam = eq1_cps/(sens_14um*46.5)
+    print eq1_cps
+    
+    """
     
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/SURVEY_PAPER')
     
-    files = glob.glob('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EMPTY_APERTURES/*empty.fits')
+    # files = glob.glob('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EMPTY_APERTURES_CIRCULAR/*G141_drz_empty.fits')
+    # aper_use = 0
+    
+    files = glob.glob('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/EMPTY_APERTURES/*G141_drz_empty.fits')
+    aper_use = 1
+
+    #### Parameters of the plot
+    lam_int = 1.4e4
+    SN_show = 5
+    
+    if SHOW_FLUX:
+        aper_use = 0
+        
     bg = threedhst.catIO.Readfile('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER/sky_background.dat')
     
     sens = pyfits.open(unicorn.GRISM_HOME+'CONF/WFC3.IR.G141.1st.sens.2.fits')[1].data
-    sens_14um = np.interp(1.4e4,sens.WAVELENGTH,sens.SENSITIVITY)
+    sens_14um = np.interp(lam_int,sens.WAVELENGTH,sens.SENSITIVITY)
     
     colors = {'AEGIS':'red','COSMOS':'blue','UDS':'purple', 'GNGRISM':'orange','GOODSS':'green'}
     
@@ -1629,58 +1763,59 @@ def grism_apertures_plot():
         sigmas = fluxes[0,:].flatten()*0
         for i in range(len(sigmas)):
             sigmas[i] = threedhst.utils.biweight(fluxes[:,i])
-        #
-        #sigmas /= 0.128254/0.06 ### smaller drizzled pixels
-        sigmas /= 0.75          ### accounts for smaller pixels and encircled energy in the spatial axis
-        pcorr, scorr = 0.8, 0.5
-        rcorr = pcorr/scorr
-        bigR = rcorr/(1-1./3/rcorr)
-        #sigmas *= bigR   ### correlated pixel errors from Mdriz handbook
-        inv_sens_flam = sigmas/(sens_14um*46.5*2)
-        inv_sens_fnu = inv_sens_flam*1.4e4**2/3.e18
-        sig3 = inv_sens_fnu*3
-        sig3_ab = -2.5*np.log10(sig3)-48.6
-        #
+            #sigmas[i] = threedhst.utils.nmad(fluxes[:,i])
+            #sigmas[i] = np.std(fluxes[:,i])
+
+        #sigmas *= 1.34  ### scale factor for correlated pixels, determined empirically
+        inv_sens_flam = sigmas/(sens_14um*22*4)
+        
         field = os.path.basename(file).replace('GOODS-N','GNGRISM').replace('GOODS-S','GOODSS').split('-')[0]
-        print field
-        p = ax.errorbar(mean_bg,sig3_ab[0], xerr=err_bg, marker='o', ms=8, alpha=0.4, color=colors[field], ecolor=colors[field])
+        print field, aps[1].data[aper_use]
+        
+        if SHOW_FLUX:
+            sig3_flux = inv_sens_flam*SN_show
+            sig3_flux /= 0.75**2  ### Include for encircled energy within 3 nominal spatial pixles
+            sig3_ab = sig3_flux*2*46.5/1.e-17
+        else:
+            inv_sens_fnu = inv_sens_flam*lam_int**2/3.e18
+            sig3_flux = inv_sens_fnu*SN_show
+            sig3_flux /= 0.75  ### Include for encircled energy within 3 nominal spatial pixles
+            sig3_ab = -2.5*np.log10(sig3_flux)-48.6#-2.5*np.log10(np.sqrt(2))
+        
+        p = ax.errorbar(mean_bg,sig3_ab[aper_use], xerr=err_bg, marker='o', ms=8, alpha=0.4, color=colors[field], ecolor=colors[field])
+                
         
     xarr = np.arange(0,5,0.02) ###  background rate, cts / s
     yarr = 22.9-2.5*np.log10(np.sqrt(xarr/2.))
     
     #### Eq. 1 from paper
     scale = 0.06/0.128254
-    Nexp, texp, rn, R, dark = 4, 1300, 20, 2*scale, 0.05
+    Nexp, texp, rn, R, dark = 4, 1277, 20, 2*scale, 0.05
     
     #dark += 0.181/3.
-    area = np.pi*R**2
-    #area = 3
+    #area = np.pi*R**2
+    area = 3
     ee_fraction = 0.75 # for 3 pix aperture in spatial direction, nominal pixels
     
     total_counts_resel = (xarr+dark)*texp*area*2*Nexp # 
     eq1_cts = np.sqrt(total_counts_resel+rn**2*area*Nexp)
     eq1_cps = eq1_cts/texp/Nexp/ee_fraction/2
     eq1_flam = eq1_cps/(sens_14um*46.5)
-    eq1_fnu = eq1_flam*1.4e4**2/3.e18
-    eq1_ab = -2.5*np.log10(eq1_fnu*3)-48.6
-    plt.plot(xarr, eq1_ab-2.5*np.log10(0.85), color='purple', linewidth=2, linestyle='--')
-    plt.plot(xarr, eq1_ab, color='purple', linewidth=2)
-
-    # ### include source term
-    # eps = total_counts_resel+rn**2*area*N
-    # sn = 3
-    # limit = (sn**2+np.sqrt(sn**4+4*eps*sn**2))/2.
-    # 
-    # limit_cts = np.sqrt(limit+total_counts_resel+rn**2*area*N)*1./np.sqrt(N)/texp/area
-    # limit_flam = 1./(sens_14um*2*46.5)
-    # limit_fnu = limit_flam*1.4e4**2/3.e18
-    # limit_ab = -2.5*np.log10(limit_fnu*3*limit_cts/0.75**2)-48.6
-    # plt.plot(xarr, limit_ab, color='blue')
+    eq1_fnu = eq1_flam*lam_int**2/3.e18
+    eq1_ab = -2.5*np.log10(eq1_fnu*SN_show)-48.6#-2.5*np.log10(np.sqrt(0.5))
+    
+    plt.plot(xarr, eq1_ab+2.5*np.log10(1.35), color='black', alpha=0.4, linewidth=2, linestyle='--')
+    plt.plot(xarr, eq1_ab, color='black', alpha=0.4, linewidth=2)
+    plt.text(1.,24.21-2.5*np.log10(SN_show/3.),'ETC', rotation=-44, color='black', alpha=0.4,horizontalalignment='center')
+    plt.arrow(1.5, 24.1-2.5*np.log10(SN_show/3.), 0, 0.1, color='0.6', alpha=1, fill=True, width=0.02, head_width=0.06, head_length=0.02, overhang=0.05)
+    plt.text(1.5+0.05, 24.1-2.5*np.log10(SN_show/3.)+0.05,r'$R_\mathrm{driz}$', verticalalignment='center', alpha=0.4)
+    
+    #plt.plot(xarr, eq1_ab-2.5*np.log10(np.sqrt(2*46.5/22.5)), color='purple', linewidth=2)
     
     ### Predict source counts
     mag = 23
     source_fnu = 10**(-0.4*(mag+48.6))
-    source_flam = source_fnu/1.4e4**2*3.e18
+    source_flam = source_fnu/lam_int**2*3.e18
     source_cps = source_flam*sens_14um*46.5*ee_fraction
     source_counts = source_cps*Nexp*texp*2
     
@@ -1688,16 +1823,24 @@ def grism_apertures_plot():
     
     #ax.plot(xarr, yarr, color='black', alpha=0.2, linewidth=3)
     ax.set_xlim(0.6,3.2)
-    ax.set_ylim(23.8,25.0)
+    if SHOW_FLUX:
+        ax.set_ylim(1,5.1)
+        ax.set_ylabel(r'$%0d\sigma$ emission line sensitivity ($10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}}$)' %(SN_show))
+        #ax.semilogy()
+    else:
+        ax.set_ylim(23.8-2.5*np.log10(SN_show/3.),25.0-2.5*np.log10(SN_show/3.))
+        ax.set_ylabel(r'$%0d\sigma$ continuum depth (1.4$\mu$m, $\Delta=92\,$\AA)' %(SN_show))
+        
     ax.set_xlabel(r'Background level [electrons / s]')
-    ax.set_ylabel(r'$3\sigma$ continuum depth @ 1.4$\mu$m, $D_\mathrm{ap}=0.24^{\prime\prime}/\,90\,$\AA')
+    #ax.set_ylabel(r'$3\sigma$ continuum depth @ 1.4$\mu$m, $D_\mathrm{ap}=0.24^{\prime\prime}/\,90\,$\AA')
     
-    x0, y0, dy = 3, 24.8, 0.1
-    for i,field in enumerate(colors.keys()[1:]):
+    x0, y0, dy = 3, 24.8-2.5*np.log10(SN_show/3.), 0.1
+    for i,field in enumerate(colors.keys()):
         field_txt = field.replace('GNGRISM','GOODS-N').replace('GOODSS','GOODS-S')
         ax.text(x0, y0-i*dy, field_txt, color=colors[field], horizontalalignment='right')
      
     plt.savefig('grism_empty_apertures.pdf')   
+    plt.close()
     
 def grism_empty_apertures():
     """
@@ -1709,10 +1852,20 @@ def grism_empty_apertures():
     
     for field in ['AEGIS','GOODS-S','UDS']: #,'COSMOS','GOODS-N']:
         os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT/')
-        images = glob.glob(field+'*G141_drz.fits')
+        images = glob.glob(field+'*[0-9]-G141_drz.fits')
         print images
-        for image in images:
-            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, WHT_IMAGE=image, aper_params=(2,8.1,2), NSIM=500, ZP=25, make_plot=False, verbose=True, threshold=0.8, is_grism=True, rectangle_apertures = [(4,4),(2,6),(4,6)])
+        for image in images[1:]:
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=image, WHT_IMAGE=image, aper_params=(2,8.1,2), NSIM=1000, ZP=25, make_plot=False, verbose=True, threshold=0.8, is_grism=True, rectangle_apertures = [(4,4),(2,6),(4,6)])
+            #
+            #### Make a version with nominal pixels for testing
+            threedhst.shifts.make_grism_shiftfile(image.replace('drz','asn').replace('G141','F140W'), image.replace('drz','asn'))
+            threedhst.utils.combine_asn_shifts([image.replace('drz','asn')], out_root=image.split('_drz')[0]+'pix')
+            threedhst.prep_flt_files.startMultidrizzle(image.split('_drz')[0] +'pix_asn.fits',
+                     use_shiftfile=True, skysub=False,
+                     final_scale=0.128254, pixfrac=0.01, driz_cr=False,
+                     updatewcs=False, clean=True, median=False)
+            new = image.replace('G141','G141pix')
+            unicorn.survey_paper.empty_apertures(SCI_IMAGE=new, WHT_IMAGE=new, aper_params=(2,8.1,2), NSIM=500, ZP=25, make_plot=False, verbose=True, threshold=1.0, is_grism=True, rectangle_apertures = [(2,2),(1,3),(2,3),(4,4)])
             
     aps = pyfits.open('GOODS-S-34-G141_drz_empty.fits')
     fluxes = aps[2].data.flatten()
@@ -3009,6 +3162,7 @@ def number_counts():
     
     ##### OFFSET TO TOTAL!
     m140 = phot.mag_f1392w - 0.22
+    #m140 = phot.mag_f1392w
     
     #### Full histogram
     y_full, x_full = np.histogram(m140[phot.idx][fields], bins=nbin, range=xrange)
@@ -3063,7 +3217,7 @@ def number_counts():
     wscale[~np.isfinite(wscale)] = 1
     wscale[wscale > 1] = 1
     wscale[wscale == 0] = 1
-    hi_z1 /= wscale
+    #hi_z1 /= wscale
     # lo_z1 /= wscale
     # y_z1 /= wscale
     
@@ -3079,11 +3233,12 @@ def number_counts():
     
     #z1q_mag = unicorn.catalogs.run_selection(zmin=1, zmax=5.5, fcontam=1, qzmin=0., qzmax=100, dr=1.0, has_zspec=False, fcovermin=0.5, fcovermax=1.0, massmin=0, massmax=15, magmin=0, magmax=23)
     
-    z1q_mag = z1q & fields & (m140[phot.idx] <= 23.)  & ~points
+    z1q_mag = z1q & fields & (m140[phot.idx] <= 23.8)  & ~points
     N_z1_total = len(z1q_mag[z1q_mag])*1./NPOINT*149.
-    N_total = len(z1q_mag[matched & fields & (m140[phot.idx] <= 23.)])*1./NPOINT*149.
+    N_total = len(z1q_mag[matched & fields & (m140[phot.idx] <= 23.8)])*1./NPOINT*149.
     print 'N (z>1, m<23) = %d, N_total = %d' %(N_z1_total, N_total)
-    
+    print 'N (z>1, m<23) = %d' %(np.interp(23.8, x_z1, y_z1*149./NPOINT))
+
     #### z > 2
     z2 = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 50.5)  & ~points
     y_z2, x_z2 = np.histogram(m140[phot.idx][fields & matched & z2], bins=nbin, range=xrange)
@@ -3092,7 +3247,7 @@ def number_counts():
         y_z2 = np.cumsum(y_z2)
     
     lo_z2, hi_z2 = threedhst.utils.gehrels(y_z2)
-    hi_z2 /= wscale
+    #hi_z2 /= wscale
     
     #### Tail of bright objects in the z>2 set
     tail = (zout.z_peak[0::3] > 2) & (zout.q_z[0::3] < 50.5)  & ~points & fields & matched & (m140[phot.idx] < 21)

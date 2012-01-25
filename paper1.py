@@ -329,4 +329,25 @@ def gen_rgb_colortable(Vbins = range(10), rgb = (1,0,0), reverse=False):
         Vcolors.append((rgb[0]*values[i], rgb[1]*values[i], rgb[2]*values[i]))
     #
     return Vcolors
+
+def line_ratios():
+    """ 
+    Get distribution of line ratios with respect to H-a to perhaps use as a prior
+    in fitting codes.
+    """    
+    import unicorn.paper1 as p1
+    import unicorn
+    import threedhst
+    
+    import numpy as np
+    import matplotlib.pyplot as plt
+    
+    sel, NOBJ = p1.sdss_selection(zmax=0.2)
+    
+    plt.hist(np.log10(p1.sdss_line.NII_6584_FLUX[sel] / p1.sdss_line.H_ALPHA_FLUX[sel]), bins=100, range=(-2,2))
+    plt.hist(np.log10(p1.sdss_line.H_BETA_FLUX[sel] / p1.sdss_line.H_ALPHA_FLUX[sel]), bins=100, range=(-3,3))
+    plt.hist(np.log10(p1.sdss_line.H_BETA_FLUX[sel] / p1.sdss_line.OIII_5007_FLUX[sel]), bins=100, range=(-3,3))
+
+    
+    
     

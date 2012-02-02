@@ -565,6 +565,11 @@ def GOODSS(FORCE=False):
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-31-F140W_drz.fits','GOODS-S-31-F140W_align.fits[0]*4', 'GOODS-S-31-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
     
+    visits=[30]
+    for visit in visits:
+        threedhst.dq.checkDQ(asn_direct_file='GOODS-S-%02d-F140W_asn.fits' %(visit), asn_grism_file='GOODS-S-%02d-G141_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
+        os.system('rm GOODS-S-%02d*asn.fits' %(visit))
+        
     #### Make direct image for each pointing that also include 
     #### neighboring pointings
     files = glob.glob('GOODS-S-*-F140W_asn.fits')
@@ -919,10 +924,10 @@ def UDS(FORCE=False):
     import os
 
     os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds01_f160w_v0.5_drz.fits'
-    ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
-    ALIGN_EXTENSION=1
-    
+    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    ALIGN_EXT=0
+    #ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
+    #ALIGN_EXT=1
     ALIGN = '/research/HST/CANDELS/UDS/UKIDSS/UDS_K.fits'
     ALIGN_EXTENSION=0
     
@@ -932,10 +937,27 @@ def UDS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXTENSION, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Check
     threedhst.gmap.makeImageMap(['UDS-23-F140W_drz.fits', 'UDS-23-F140W_align.fits[0]','UDS-23-G141_drz.fits'], aper_list=[14,15,16],  polyregions=glob.glob('UDS-*-F140W_asn.pointing.reg'))
+    
+    ### Bright remnants
+    visits = [12]
+    for visit in visits:
+        threedhst.dq.checkDQ(asn_direct_file='UDS-%02d-F140W_asn.fits' %(visit), asn_grism_file='UDS-%02d-G141_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
+    
+    #### Try combining visits around the lens
+    direct_files = glob.glob('UDS-1[47]-F140W_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='lens-F140W',path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('lens-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+    direct_files = glob.glob('UDS-1[47]-G141_asn.fits')
+    threedhst.utils.combine_asn_shifts(direct_files, out_root='lens-G141',path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('lens-G141_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+    #
+    threedhst.prep_flt_files.startMultidrizzle('UDS-1-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False)
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings, not coded yet but need to regenerate the original 
@@ -1397,6 +1419,41 @@ def DADDI():
     #
     threedhst.gmap.makeImageMap(['HIGHZ-CLUSTER-4-F140W_drz.fits', 'HIGHZ-CLUSTER-4-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15, 16])
 
+def redo_all_sky_subtraction():
+    import unicorn.prepare
+    
+    for field in ['AEGIS','COSMOS','UDS','GOODS-S','GOODS-N']:
+        os.chdir(unicorn.GRISM_HOME+'/%s/PREP_FLT' %(field))
+        asn_files = glob.glob(field+'-[0-9]*G141_asn.fits')
+        for asn_file in asn_files:
+            print asn_file
+            unicorn.prepare.redo_sky_subtraction(asn_file=asn_file, PATH_TO_RAW='../RAW', sky_images=['sky.G141.set001.fits', 'sky.G141.set002.fits', 'sky.G141.set003.fits', 'sky.G141.set004.fits', 'sky.G141.set005.fits', 'sky.G141.set025.fits', 'sky.G141.set120.fits'])
+            
+def redo_sky_subtraction(asn_file='GOODS-S-30-G141_asn.fits', PATH_TO_RAW='../RAW', sky_images=['sky.G141.set001.fits', 'sky.G141.set002.fits', 'sky.G141.set003.fits', 'sky.G141.set004.fits', 'sky.G141.set005.fits', 'sky.G141.set025.fits', 'sky.G141.set120.fits']):
+    
+    import threedhst
+    import threedhst.grism_sky
+    
+    asn = threedhst.utils.ASNFile(asn_file)
+    
+    threedhst.process_grism.fresh_flt_files(asn_file, 
+                 from_path=PATH_TO_RAW, preserve_dq=False)
+    
+    ## Run the sky background division             
+    asn_grism = threedhst.utils.ASNFile(asn_file)
+    for exp in asn_grism.exposures:
+        threedhst.grism_sky.remove_grism_sky(flt=exp+'_flt.fits', list=sky_images, path_to_sky='../CONF/', verbose=True, second_pass=True, overall=True)
+    
+    ## Run Multidrizzle twice, the first time to flag CRs + hot pixels
+    threedhst.prep_flt_files.startMultidrizzle(asn_file, use_shiftfile=True, skysub=False,
+            final_scale=0.128, pixfrac=1.0, driz_cr=True,
+            updatewcs=True, median=True, clean=True)
+            
+    threedhst.prep_flt_files.startMultidrizzle(asn_file, use_shiftfile=True, skysub=False,
+            final_scale=0.06, pixfrac=0.8, driz_cr=False,
+            updatewcs=False, median=False, clean=True)
+    
+    
 def count_pointings():
     import unicorn
     import glob

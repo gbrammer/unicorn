@@ -119,7 +119,7 @@ def egs():
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
     
-def comsos():
+def cosmos():
     import unicorn.candels
     
     os.chdir('/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/')
@@ -154,26 +154,92 @@ def comsos():
     
     ##### DQ flag: F125W - 19,23,27
     #####          F160W - 7,11,13,15,23,24,25,49
-    ## done: 19,23    
-    threedhst.dq.checkDQ(asn_direct_file='COSMOS-V27-F125W_asn.fits', asn_grism_file='COSMOS-V27-F160W_asn.fits', path_to_flt='../RAW/', wait_time=60)
+    ## done: 19,23,24,27 ,7
+    for visit in [11,13,15,25,49]:
+        threedhst.dq.checkDQ(asn_direct_file='COSMOS-V%02d-F125W_asn.fits' %(visit), asn_grism_file='COSMOS-V%02d-F160W_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
     
-    for filt in ['F125W', 'F160W']:
-        files=glob.glob('COSMOS-V*-'+filt+'_asn.fits')
-        threedhst.utils.combine_asn_shifts(files, out_root='COSMOS-'+filt, path_to_FLT='./', run_multidrizzle=False)
+    bad_visits = [19,23,27] # epoch1
+    bad_visits = [67,51] #epoch2
+    for visit in bad_visits:
+        threedhst.dq.checkDQ(asn_direct_file='COSMOS-V%02d-F125W_asn.fits' %(visit), asn_grism_file='COSMOS-V%02d-F125W_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
+        os.remove('COSMOS-V%02d-F125W_drz.fits' %(visit))
+    #
+    bad_visits = [7,11,13,15,23,24,25,49]  #epoch1
+    bad_visits = [94,93,89,79,78,52]  #epoch2
+    for visit in bad_visits:
+        threedhst.dq.checkDQ(asn_direct_file='COSMOS-V%02d-F160W_asn.fits' %(visit), asn_grism_file='COSMOS-V%02d-F160W_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
+        os.remove('COSMOS-V%02d-F160W_drz.fits' %(visit))
+    
+    # Redo BG subtraction for visits with trails masked
+    files=glob.glob('COSMOS-V*asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=2,
+                SCALE=0.06, geometry='rotate,shift')
+    
+    #### Align everything to the F160W image from epoch1
+    #TEST
+    threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN_IMAGE), matchImage='COSMOS-V45-F160W_drz.fits', match_extension=1, output='tmp.fits')
+    
+    files=glob.glob('COSMOS-V[0-4]*-F160W_asn.fits')
+    files.append('COSMOS-V50-F160W_asn.fits')
+    for file in files:
+        visit = int(file.split('-')[1][1:])
+        print visit
+        ### Redo because messed up with a typo earlier
+        threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-V%02d-F160W' %(visit), ALIGN_IMAGE='COSMOS-V%02d-F125W_drz.fits' %(visit), fitgeometry='shift', clean=True, ALIGN_EXTENSION=1)
+        threedhst.prep_flt_files.startMultidrizzle('COSMOS-V%02d-F160W_asn.fits' %(visit), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+        # threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-V%02d-F125W' %(visit), ALIGN_IMAGE=file.replace('asn','drz'), fitgeometry='shift', clean=True, ALIGN_EXTENSION=1)
+        # threedhst.prep_flt_files.startMultidrizzle('COSMOS-V%02d-F125W_asn.fits' %(visit), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+        # #
+        # threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-V%02d-F125W' %(visit+44), ALIGN_IMAGE=file.replace('asn','drz'), fitgeometry='shift', clean=True, ALIGN_EXTENSION=1)
+        # threedhst.prep_flt_files.startMultidrizzle('COSMOS-V%02d-F125W_asn.fits' %(visit+44), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
         #
-        SCALE = 0.1283
-        threedhst.prep_flt_files.startMultidrizzle('COSMOS-'+filt+'_asn.fits',
+        # threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-V%02d-F160W' %(visit+44), ALIGN_IMAGE=file.replace('asn','drz'), fitgeometry='shift', clean=True, ALIGN_EXTENSION=1)
+        # threedhst.prep_flt_files.startMultidrizzle('COSMOS-V%02d-F160W_asn.fits' %(visit+44), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+            
+    for filt in ['F125W', 'F160W']:
+        # files=glob.glob('COSMOS-V[0-4]*-'+filt+'_asn.fits')
+        # files.append('COSMOS-V50-'+filt+'_asn.fits')
+        # out='COSMOS-epoch1-'+filt
+        #
+        # files=glob.glob('COSMOS-V[5-9]*-'+filt+'_asn.fits')
+        # xx = files.pop(0)
+        # out='COSMOS-epoch2-'+filt
+        #
+        files=glob.glob('COSMOS-V*-'+filt+'_asn.fits')
+        out='COSMOS-full-'+filt
+        #
+        threedhst.utils.combine_asn_shifts(files, out_root=out, path_to_FLT='./', run_multidrizzle=False)
+        SCALE = 0.06
+        threedhst.prep_flt_files.startMultidrizzle(out+'_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=0.8, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=150.1291915, dec=2.36638225, final_outnx=4667*0.1283/SCALE, 
-             final_outny=11002*0.1283/SCALE)
+             final_outny=11002*0.1283/SCALE, build_drz=False)
+    
+    ###  Combined detection image
+    files=glob.glob('COSMOS-V*-F???W_asn.fits')
+    out='COSMOS-J+H'
+    threedhst.utils.combine_asn_shifts(files, out_root=out, path_to_FLT='./', run_multidrizzle=False)
+    SCALE = 0.06
+    threedhst.prep_flt_files.startMultidrizzle(out+'_asn.fits',
+         use_shiftfile=True, skysub=False,
+         final_scale=SCALE, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False,
+         ra=150.1291915, dec=2.36638225, final_outnx=4667*0.1283/SCALE, 
+         final_outny=11002*0.1283/SCALE, build_drz=False)
+    
     #
-    iraf.imcalc('COSMOS-F160W_drz.fits[1],COSMOS-F125W_drz.fits[1]', "diff.fits", "im1-im2")
+    iraf.imcalc('COSMOS-epoch2-F125W_drz_sci.fits,COSMOS-epoch1-F125W_drz_sci.fits', "diff_F125W.fits", "im1-im2")
+    iraf.imcalc('COSMOS-epoch2-F160W_drz_sci.fits,COSMOS-epoch1-F160W_drz_sci.fits', "diff_F160W.fits", "im1-im2")
     
     threedhst.shifts.plot_shifts('COSMOS-F125W', ALIGN_IMAGE, skip_swarp=False)
     
-    threedhst.gmap.makeImageMap(['COSMOS-F125W_drz.fits','COSMOS-F160W_drz.fits','diff.fits'], aper_list=[13,14,15], polyregions=glob.glob('COSMOS-V*F125W_asn.pointing.reg'), zmin=-0.1, zmax=1)
     
     # p!sh ~/Sites/FITS/keys.sh
     

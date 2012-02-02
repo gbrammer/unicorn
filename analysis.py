@@ -161,7 +161,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if goodsn:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/'
         #
         CAT_FILE = CAT_PATH+'mods.cat'

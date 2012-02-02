@@ -43,6 +43,8 @@ from pyraf import iraf
 
 noNewLine = '\x1b[1A\x1b[1M'
 
+import time
+
 import threedhst
 
 def interlace_combine(root='COSMOS-1-F140W', view=True):
@@ -247,8 +249,20 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     bigX = xc - xoff
     bigY = yc - yoff
       
-    xmi, xma = -580, 730
-    NX,NY = xma-xmi, 20
+    #xmi, xma = -580, 730
+    xmi, xma = 1000,-1000
+    if 'A' in BEAMS:
+        xmi, xma = min(xmi,10), max(xma,213)
+    if 'B' in BEAMS:
+        xmi, xma = min(xmi,-210), max(xma, -170)
+    if 'C' in BEAMS:
+        xmi, xma = min(xmi,207), max(xma,454)
+    if 'D' in BEAMS:
+        xmi, xma = min(xmi, 469), max(xma,668)
+    if 'E' in BEAMS:
+        xmi, xma = min(xmi, -550), max(xma,-400)
+        
+    NX,NY = xma-xmi, 8
     
     xmi *= grow_factor
     xma *= grow_factor
@@ -258,6 +272,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     model = np.zeros((NY*2+1, NX), dtype=np.float)
     wavelength = model*0
     full_sens = model*0
+    
+    #print model.shape, NX, NY
     
     yi, xi = np.indices(model.shape)
     xi += xmi
@@ -348,34 +364,41 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
 
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNITUDE=24):
         """
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
+        
+        header = pyfits.getheader(root+'-F140W_inter.fits',0)
+        self.filter = header['FILTER']
+        ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
+        self.ZP = ZPs[self.filter]
 
+        PLAMs = {'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4}
+        self.PLAM = PLAMs[self.filter]
+        
         if not os.path.exists(root+'_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
-            self.find_objects()
+            self.find_objects(LIMITING_MAGNITUDE=LIMITING_MAGNITUDE)
         
         self.grow_factor = grow_factor
         self.pad = pad
         
         threedhst.showMessage('Reading FITS files and catalog...')
         self.read_files()
-        
+        self.init_object_spectra()
+        try:
+            test = self.total_fluxes
+        except:
+            self.make_total_flux()
+            
     def read_files(self):
         """
         Read FITS files, catalogs, and segmentation images for a pair of 
         interlaced exposures.
         """
         self.im = pyfits.open(self.root+'-F140W_inter.fits')
-        self.filter = self.im[0].header['FILTER']
-        ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
-        self.ZP = ZPs[self.filter]
-
-        PLAMs = {'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4}
-        self.PLAM = PLAMs[self.filter]
         
         self.make_flux()
                 
@@ -426,7 +449,35 @@ class GrismModel():
 
         self.cat.write()
         self.segm = pyfits.open(self.root+'_seg.fits')
-    
+        
+        threedhst.sex.sexcatRegions(self.root+'_inter.cat', self.root+'_inter.reg', format=1)
+        
+        self.make_total_flux()
+        self.init_object_spectra()
+        
+    def init_object_spectra(self):
+        
+        self.lam_specs = {}
+        self.flux_specs = {}
+        for obj in self.cat['NUMBER']:
+            self.lam_specs[obj] = None
+            self.flux_specs[obj] = None
+        
+    def make_total_flux(self):
+        
+        #### Total flux
+        try:
+            flux = self.flux
+        except:
+            self.make_flux()
+            flux = self.flux
+        #
+        self.total_fluxes = {}
+        print 'Total flux...\n\n'
+        for obj in self.cat['NUMBER']:
+            print noNewLine+'Object #%d' %(obj)
+            self.total_fluxes[obj] = np.sum(flux[self.segm[0].data == obj])
+            
     def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E'], verbose=False, normalize=True):
         import unicorn.reduce as red
         
@@ -436,19 +487,22 @@ class GrismModel():
         yc = np.float(self.cat.Y_IMAGE[ii])
         
         #### Normalize the input spectrum to the direct image passband
+        t0 = time.time()
         if (lam_spec is not None) & (normalize is True):
             if verbose:
-                print 'Input spectrum is provided, normalize it for filter, %s' %(self.filter)
+                t1 = time.time(); dt = t1-t0; t0=t1
+                print 'Input spectrum is provided, normalize it for filter, %s (%.2f s)' %(self.filter, dt)
             
             x_filt, y_filt = np.loadtxt(os.getenv('iref')+'/'+self.filter + '.dat', unpack=True)
             y_filt_int = np.interp(lam_spec, x_filt, y_filt)
             filt_norm = np.trapz(y_filt_int*flux_spec, lam_spec) / np.trapz(y_filt_int, lam_spec)
             flux_spec /= filt_norm
-        
+            
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent
         if verbose:
-            print 'Define grism dispersion.'
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print 'Define grism dispersion (%.2f s).' %(dt)
             
         orders, self.xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, pad=self.pad)
         yord, xord = np.indices(orders.shape)
@@ -467,7 +521,8 @@ class GrismModel():
         #### Loop through pixels defined within the segmentation region, summing
         #### dispersed flux
         if verbose:
-            print 'Loop through object pixels within the segmentation region.'
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print 'Loop through object pixels within the segmentation region (%.2f s).' %(dt)
         for jj in range(xpix.size):
             x, y = xpix[jj], ypix[jj]
             xxi = x+xord
@@ -479,7 +534,8 @@ class GrismModel():
         
         #### Make full images that show the wavelength, sensitivity
         if verbose:
-            print 'Make full image arrays that show the wavelength, sensitivity'
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print 'Make full image arrays that show the wavelength, sensitivity (%.2f s)' %(dt)
         
         xxi = np.int(np.round(xc))+xord
         use = (xxi >= 0) & (xxi < self.sh[1])
@@ -489,17 +545,94 @@ class GrismModel():
         
         cut[xxi[use]] = sord[use] 
         self.object_sens = np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+    
+    def refine_model(self, ID, BEAMS=['A','B','C','D','E'], view=False, model_has_object=True):
+        from scipy import polyfit,polyval
+
+        if ID not in self.cat['NUMBER']:
+            print '#%d not in the catalog.' %(ID)
+            return False
         
-    def full_model(self, BEAMS=['A','B','C','D','E'], save_ext='_model0'):
+        #### First iteration
+        self.compute_object_model(id=ID, BEAMS=['A'], lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID])
+        first_model = self.object*1.
+        
+        if model_has_object:
+            self.model -= first_model
+            
+        whts = self.object**4
+        finite_mask = np.isfinite(self.model) 
+        whts[~finite_mask] = 0
+        whts[self.gris[1].data == 0] = 0
+
+        ratio = (self.gris[1].data - self.model) / self.object
+        ratio[~finite_mask] = 0.
+        ratio[~np.isfinite(ratio)] = 0
+        whts[~np.isfinite(ratio)] = 0
+
+        ratio_extract = np.sum(ratio*whts, axis=0) / np.sum(whts, axis=0)
+        ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
+
+        wave = np.mean(self.object_wave, axis=0)
+        
+        keep = (wave > 1.1e4) & (wave < 1.65e4)
+        if len(keep[keep]) < 10:
+            self.model += self.object
+            return True
+            
+        coeff = polyfit(wave[keep], ratio_extract[keep], 1)
+        ratio_extract[~keep] = polyval(coeff, wave[~keep])
+        
+        if self.flux_specs[ID] is not None:
+            self.flux_specs[ID] *= ratio_extract[wave > 0]
+        else:
+            self.lam_specs[ID] = wave[wave > 0]
+            self.flux_specs[ID] = ratio_extract[wave > 0]
+            
+        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec = self.lam_specs[ID], flux_spec = self.flux_specs[ID], normalize=False)
+        second_model = self.object*1.
+        
+        #### View the results
+        if view.__class__ == threedhst.dq.myDS9:
+            print 'Display results for #%d to DS9' %(ID)
+            diff_first = self.gris[1].data - self.model - first_model
+            diff_second = self.gris[1].data - self.model - second_model
+
+            view.frame(1)
+            view.v(self.gris[1].data, vmin=-0.1, vmax=5)
+            view.frame(2)
+            view.v(diff_first, vmin=-0.1, vmax=5)
+            view.frame(3)
+            view.v(diff_second, vmin=-0.1, vmax=5)
+
+            idx = (self.cat['NUMBER'] == ID)
+            view.set('pan to %f %f' %(self.cat['X_IMAGE'][idx][0], self.cat['Y_IMAGE'][idx][0]))
+            view.set('zoom to 1.4')
+            view.set('cmap value 4.43936 0.462911')
+            view.set('cmap HSV')
+            view.set('cmap value 7.20824 0.48544')
+            view.set('regions file %s_inter.reg' %(self.root))
+            view.match_all(alignType='image')
+            
+        self.model += second_model
+    
+    def show_ratio_spectrum(self, ID):
+        if ID not in self.cat['NUMBER']:
+            print '#%d not in the catalog.' %(ID)
+            return False
+        
+        plt.plot(self.lam_specs[ID], self.flux_specs[ID]*self.total_fluxes[ID])
+        
+    def full_model(self, BEAMS=['A','B','C','D','E'], save_ext='_model0', iteration_number=0):
+        
         self.model*=0.
         threedhst.showMessage('Making full object model...')
-        print '\n'
-        noNewLine = '\x1b[1A\x1b[1M'
-        for ii,id in enumerate(self.cat.NUMBER):
-            print noNewLine+id
-            self.compute_object_model(id=np.int(id), BEAMS=BEAMS)
-            self.model += self.object
         
+        so = np.argsort(self.cat['MAG_AUTO'])
+        N = len(so)
+        for i, id in enumerate(self.cat['NUMBER'][so]):
+            print noNewLine+'Full model, object #%d (%d/%d)' %(id, i+1, N)
+            self.refine_model(id, BEAMS=BEAMS, view=ds9, model_has_object=(iteration_number > 0))      
         if save_ext:
             pyfits.writeto(self.root+save_ext+'.fits', self.model, clobber=True)
     
@@ -689,8 +822,6 @@ def model_stripe():
     
     BEAMS = ['A','B']
     BEAMS = ['A','B','C','D'] #,'E']
-    noNewLine = '\x1b[1A\x1b[1M'
-
     
     orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
     yord, xord = np.indices(orders.shape)

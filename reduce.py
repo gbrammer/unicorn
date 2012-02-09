@@ -121,7 +121,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=inter, header=header)
     wht = pyfits.ImageHDU(data=N, header=header)
-    pyfits.HDUList([hdu,sci,wht]).writeto(root+'_inter.fits', clobber=True)
+    image = pyfits.HDUList([hdu,sci,wht])
+    if 'EXTEND' not in hdu.header.keys():
+        hdu.header.update('EXTEND', True, after='NAXIS')
+    
+    image.writeto(root+'_inter.fits', clobber=True)
     
     try:
         os.remove(root+'_inter_sci.fits')

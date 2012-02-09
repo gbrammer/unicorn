@@ -281,7 +281,7 @@ def orbit_structure():
 
     ax.plot(np.abs(xpix_acs-np.cast[int](xpix_acs))*scale+x0, np.abs(ypix_acs-np.cast[int](ypix_acs))*scale+y0, marker='o', markersize=10, color=acs_color, alpha=0.8, zorder=13)
     #ax.plot(np.array([0,0.5,1,0.5])*scale+x0, np.array([0,0.5,0.5,1])*scale+y0, marker='o', marker='None', color=acs_color, linestyle='--', alpha=0.6, zorder=13)
-    ax.plot(np.array([0,0.5,0.5,1])*scale+x0, np.array([0,1,0.5,0.5])*scale+y0, marker='o', marker='None', color=acs_color, linestyle='--', alpha=0.6, zorder=13)
+    ax.plot(np.array([0,0.5,0.5,1])*scale+x0, np.array([0,1,0.5,0.5])*scale+y0, marker='o', color=acs_color, linestyle='--', alpha=0.6, zorder=13)
     
     ax.text(x0+scale/2., y0-1, 'ACS Parallel', horizontalalignment='center')
     

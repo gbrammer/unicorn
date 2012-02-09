@@ -1008,6 +1008,23 @@ def UDS_mosaic():
              ra=ra, dec=dec,
              final_outnx = nx, final_outny=ny)
 
+def SN_TILE41():
+    """ Supernova in COSMOS """
+    import os
+    import threedhst
+    import unicorn
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+
+    os.chdir(unicorn.GRISM_HOME+'SN-TILE41/PREP_FLT')
+    
+    ALIGN = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    ALIGN_EXT=0
+    
+    unicorn.candels.make_asn_files(force=False)
+    
+    pair('TILE41-F160W_asn.fits', 'TILE41-G141_asn.fits', ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+    
 def SN_GEORGE():
     ####********************************************####
     ####              SN-GEORGE (GOODS-S)

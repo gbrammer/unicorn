@@ -233,6 +233,8 @@ def cosmos():
          updatewcs=False, clean=True, median=False,
          ra=150.1291915, dec=2.36638225, final_outnx=4667*0.1283/SCALE, 
          final_outny=11002*0.1283/SCALE, build_drz=False)
+    #
+    threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN_IMAGE), matchImage='COSMOS-full-F160W_drz_sci.fits', match_extension=0, output='COSMOS-full-ACSi.fits')
     
     #
     iraf.imcalc('COSMOS-epoch2-F125W_drz_sci.fits,COSMOS-epoch1-F125W_drz_sci.fits', "diff_F125W.fits", "im1-im2")

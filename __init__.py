@@ -36,3 +36,7 @@ import survey_paper
 import go_acs
 import fast
 
+try:
+    import utils_c #as utils_c
+except:
+    print """Couldn't import "utils_c" """

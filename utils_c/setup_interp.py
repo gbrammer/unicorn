@@ -1,4 +1,4 @@
-#!/usr/stsci/pyssgx/Python-2.7/bin/python
+#!/usr/bin/env python
 # /usr/stsci/pyssg/Python-2.5.4/bin/python
 """
 Use distutils to compile Cython routines with all of the appropriate 

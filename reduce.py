@@ -32,6 +32,7 @@ __version__ = " $Rev: 5 $"
 import os
 import glob
 import shutil
+import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -47,7 +48,9 @@ import time
 
 import threedhst
 
-def interlace_combine(root='COSMOS-1-F140W', view=True):
+import unicorn.utils_c as utils_c
+
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     import threedhst.dq
@@ -67,7 +70,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
     yi,xi = np.indices((1014,1014))
     pad = 60
     N = np.zeros((2028+pad,2028+pad))
-    inter = np.zeros((2028+pad,2028+pad))
+    inter_sci = np.zeros((2028+pad,2028+pad))
+    if use_error:
+        inter_err = np.zeros((2028+pad,2028+pad))
     xi+=pad/4
     yi+=pad/4
     
@@ -96,11 +101,13 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
         im[1].data *= PAM
         #### Divide by 4 to conserve surface brightness with smaller output pixels
         im[1].data /= 4
+        im[2].data /= 4
         
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
             header = red.scale_header_wcs(h1.copy(), factor=2, pad=pad)
+            header_wht = header.copy(); header_wht.update('EXTNAME','ERR')
         
         dx = np.int(np.round((xsh[i]-xsh[0])*2))
         dy = np.int(np.round((ysh[i]-ysh[0])*2))
@@ -111,54 +118,67 @@ def interlace_combine(root='COSMOS-1-F140W', view=True):
         #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
         #
         use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
-        inter[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
+        inter_sci[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
+        if use_error:
+            inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]
+        
         N[yi[use]*2+dy,xi[use]*2+dx] += 1
         #
         if view:
-            ds9.view_array(inter, header=header)
+            ds9.view_array(inter_sci, header=header)
             ds9.scale(-0.1,5)
-            
+    
+    if use_error:
+        h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
+    else:
+        h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
+        
     hdu = pyfits.PrimaryHDU(header=h0)
-    sci = pyfits.ImageHDU(data=inter, header=header)
-    wht = pyfits.ImageHDU(data=N, header=header)
+    sci = pyfits.ImageHDU(data=inter_sci, header=header)
+    if use_error:
+        wht = pyfits.ImageHDU(data=inter_err*N, header=header)
+    else:
+        wht = pyfits.ImageHDU(data=N, header=header)
+        
     image = pyfits.HDUList([hdu,sci,wht])
     if 'EXTEND' not in hdu.header.keys():
         hdu.header.update('EXTEND', True, after='NAXIS')
     
     image.writeto(root+'_inter.fits', clobber=True)
     
-    try:
-        os.remove(root+'_inter_sci.fits')
-        os.remove(root+'_inter_wht.fits')
-    except:
-        pass
-    #
-    new_coeffs_dat(input=run.flt[0]+'_coeffs1.dat', output='scale_coeffs.dat')
-    
-    im = pyfits.open(root+'_inter.fits', mode='update')
-    sf = threedhst.shifts.ShiftFile(root+'_shifts.txt')
-    
-    shift = threedhst.utils.xyrot(np.array([sf.xshift[0]]), np.array([sf.yshift[0]]), 180.-im[1].header['PA_APER'])
-    
-    im[1].header.update('CRPIX1', im[1].header['CRPIX1']+2*shift[0][0])
-    im[1].header.update('CRPIX2', im[1].header['CRPIX2']+2*shift[1][0])
-    im[2].header.update('CRPIX1', im[2].header['CRPIX1']+2*shift[0][0])
-    im[2].header.update('CRPIX2', im[2].header['CRPIX2']+2*shift[1][0])
-    
-    im.flush()
-    
-    status = iraf.wdrizzle(data = root+'_inter.fits[1]', 
-                           outdata = root+'_inter_sci.fits',
-     outweig = root+'_inter_wht.fits', outcont = "", in_mask = root+'_inter.fits[2]', 
-     wt_scl = 'exptime', 
-     outnx = 2300, outny = 2300, geomode = 'wcs', kernel = 'square',
-     pixfrac = 1.0, coeffs = "scale_coeffs.dat", lamb = 1392., xgeoim = "", 
-     ygeoim = "", align = 'center', scale = 1.0, xsh = -10.0, ysh = 0.0, rot = 0.0,
-     shft_un = 'output', shft_fr = 'output', outscl = 0.060,
-     raref = header['CRVAL1'], decref = header['CRVAL2'], xrefpix = 1150, 
-     yrefpix = 1150,
-     orient = 0.0, dr2gpar = "", expkey = 'exptime', in_un = 'cps',
-     out_un = 'cps', fillval = '0', mode = 'al')
+    if make_undistorted:
+        try:
+            os.remove(root+'_inter_sci.fits')
+            os.remove(root+'_inter_wht.fits')
+        except:
+            pass
+        #
+        new_coeffs_dat(input=run.flt[0]+'_coeffs1.dat', output='scale_coeffs.dat')
+
+        im = pyfits.open(root+'_inter.fits', mode='update')
+        sf = threedhst.shifts.ShiftFile(root+'_shifts.txt')
+
+        shift = threedhst.utils.xyrot(np.array([sf.xshift[0]]), np.array([sf.yshift[0]]), 180.-im[1].header['PA_APER'])
+
+        im[1].header.update('CRPIX1', im[1].header['CRPIX1']+2*shift[0][0])
+        im[1].header.update('CRPIX2', im[1].header['CRPIX2']+2*shift[1][0])
+        im[2].header.update('CRPIX1', im[2].header['CRPIX1']+2*shift[0][0])
+        im[2].header.update('CRPIX2', im[2].header['CRPIX2']+2*shift[1][0])
+
+        im.flush()
+
+        status = iraf.wdrizzle(data = root+'_inter.fits[1]', 
+                               outdata = root+'_inter_sci.fits',
+         outweig = root+'_inter_wht.fits', outcont = "", in_mask = root+'_inter.fits[2]', 
+         wt_scl = 'exptime', 
+         outnx = 2300, outny = 2300, geomode = 'wcs', kernel = 'square',
+         pixfrac = 1.0, coeffs = "scale_coeffs.dat", lamb = 1392., xgeoim = "", 
+         ygeoim = "", align = 'center', scale = 1.0, xsh = -10.0, ysh = 0.0, rot = 0.0,
+         shft_un = 'output', shft_fr = 'output', outscl = 0.060,
+         raref = header['CRVAL1'], decref = header['CRVAL2'], xrefpix = 1150, 
+         yrefpix = 1150,
+         orient = 0.0, dr2gpar = "", expkey = 'exptime', in_un = 'cps',
+         out_un = 'cps', fillval = '0', mode = 'al')
 
 def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat',output='scale_coeffs.dat', factor=2, pad=60):
     fp = open(input)
@@ -222,7 +242,7 @@ def scale_header_wcs(header, factor=2, pad=60):
     header.update('EXPTIME',1)
     
     return header
-
+    
 def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D','E'], dydx=True):
     
     import threedhst.prep_flt_files
@@ -276,6 +296,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     model = np.zeros((NY*2+1, NX), dtype=np.float)
     wavelength = model*0
     full_sens = model*0
+    beam_index = np.zeros(NX, dtype=np.int)
     
     #print model.shape, NX, NY
     
@@ -284,7 +305,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     yi -= NY
     xarr, xpix, yarr = np.arange(xma-xmi)+xmi, np.arange(xma-xmi), np.arange(NY*2+1)-NY
     
-    for beam in BEAMS:
+    for ib,beam in enumerate(BEAMS):
        
         xmi_beam, xma_beam = tuple(np.cast[int](conf['BEAM'+beam].split())) 
         xmi_beam *= grow_factor
@@ -335,12 +356,18 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             stripe[y0[keep]+NY+1,xpix[keep]] = f0[keep]
             wavelength[y0[keep]+NY,xpix[keep]] += lam[keep]
             wavelength[y0[keep]+NY+1,xpix[keep]] += lam[keep]
-        
+            #
+            beam_index[xpix[keep]] += 2**ib
+            
         yoff_save = dydx_0+dydx_1*(xmi_beam+xma_beam)/2
-              
+        if beam == 'A':
+            yoff_array = dydx_0+dydx_1*(xarr-xoff_beam)
+            #print 'Yoff_array', xarr.shape, yoff_array.shape
+            
         #### Sensitivity
         sens = pyfits.open('../CONF/'+conf['SENSITIVITY_'+beam])[1].data
-        sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
         
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
@@ -348,7 +375,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         if (lam_spec is not None) & (flux_spec is not None):
             #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
-            spec_interp = threedhst.utils.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
+            spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
+            spec_interp[~np.isfinite(spec_interp)] = 0
+            spec_interp[lam < np.min(lam_spec)] = 0
             sens_interp *= spec_interp
         #
         if beam == 'A':
@@ -363,8 +392,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         stripe *= np.dot(np.ones((NY*2+1,1)), sens_interp.reshape(1,NX)) * grow_factor**2
         
         model += stripe
+        #print beam, model.max()
         
-    return model, (xmi, xma, wavelength, full_sens, yoff_save)
+    return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
 
 
 class GrismModel():
@@ -390,28 +420,38 @@ class GrismModel():
         self.pad = pad
         
         threedhst.showMessage('Reading FITS files and catalog...')
+        print 'Read files...'
         self.read_files()
+        print 'Init object spectra...'
         self.init_object_spectra()
         try:
             test = self.total_fluxes
         except:
             self.make_total_flux()
-            
+        
+        self.ra_wcs, self.dec_wcs = None, None
+        
     def read_files(self):
         """
         Read FITS files, catalogs, and segmentation images for a pair of 
         interlaced exposures.
         """
         self.im = pyfits.open(self.root+'-F140W_inter.fits')
-        
         self.make_flux()
                 
         self.gris = pyfits.open(self.root+'-G141_inter.fits')
+        self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
+        self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
+        self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
+        self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
         self.segm = pyfits.open(self.root+'_seg.fits')
-        self.model = self.im[1].data*0.
-        self.yf, self.xf = np.indices(self.im[1].data.shape)
+        self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
+        self.model = np.zeros(self.sh, dtype=np.double)
+        self.object = np.zeros(self.sh, dtype=np.double)
+        self.test_object = np.zeros(self.sh)
+        self.yf, self.xf = np.indices(self.sh)
         
     def make_flux(self):
         """
@@ -459,6 +499,77 @@ class GrismModel():
         self.make_total_flux()
         self.init_object_spectra()
         
+    def get_corrected_wcs(self, verbose=True):
+        """
+        Use iraf.dither.tran to get the real, undistorted WCS coordinates of each object
+        """
+        import iraf
+        from iraf import stsdas
+        from iraf import dither
+        
+        try:
+            import stsci.tools.wcsutil as wcsutil
+            wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
+        except:
+            print 'Failed: import stsci.tools.wcsutil'
+            wcs = None
+            
+        NOBJ = len(self.cat.id)
+        
+        asn = threedhst.utils.ASNFile(self.root+'-F140W_asn.fits')
+        flt = asn.exposures[0]+'_flt.fits'
+        fp = open('/tmp/%s.flt_xy' %(self.root),'w')
+        for i in range(NOBJ):
+            xi = (self.cat['X_IMAGE'][i]-self.pad/2.)/self.grow_factor
+            yi = (self.cat['Y_IMAGE'][i]-self.pad/2.)/self.grow_factor
+            fp.write('%.2f %.2f\n' %(xi,  yi))
+        
+        fp.close()
+        
+        print 'Running iraf.tran()'
+        status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+        
+        self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)
+                    
+        fp = open('%s_inter.cat.wcsfix' %(self.root),'w')
+        fp.write('# id    mag   ra    dec\n')
+        for i, line in enumerate(status[-NOBJ:]):
+            if verbose:
+                print noNewLine+'Running iraf.xy2rd (%4d/%4d)' %(i+1, NOBJ)
+            spl = np.cast[float](line.split())
+            #
+            if wcs is not None:
+                self.ra_wcs[i], self.dec_wcs[i] = wcs.xy2rd((spl[2],spl[3]))
+            else:
+                status_xy2rd = iraf.xy2rd(infile=self.root+'-F140W_drz.fits[1]', x=spl[2], y=spl[3], hms=iraf.no, Stdout=1)
+                self.ra_wcs[i], self.dec_wcs[i] = np.double(iraf.xy2rd.ra), np.double(iraf.xy2rd.dec)
+            
+            fp.write('%5d  %.3f  %.6f  %.6f\n' %(self.cat.id[i], self.cat.mag[i], self.ra_wcs[i], self.dec_wcs[i]))
+            
+        fp.close()
+        if verbose:
+            print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.root)
+            
+    def make_wcs_region_file(self, filename=None):
+        """
+        Make a region file with the true WCS coordinates.  
+        
+        Default output `filename` is self.root+'_inter_wcs.reg'
+        """
+        if filename is None:
+            filename = self.root+'_inter_wcs.reg'
+        
+        if self.ra_wcs is None:
+            self.update_wcs_coords()
+        
+        fp = open(filename,'w')
+        fp.write('fk5\n')
+        for i in range(len(self.cat.id)):
+            fp.write('circle(%.6f, %.6f, 0.2") # text={%d}\n' %(self.ra_wcs[i], self.dec_wcs[i], self.cat.id[i]))
+        fp.close()
+        
+        print 'WCS-correct region file: %s' %(filename)
+        
     def init_object_spectra(self):
         
         self.lam_specs = {}
@@ -477,109 +588,168 @@ class GrismModel():
             flux = self.flux
         #
         self.total_fluxes = {}
-        print 'Total flux...\n\n'
+        print 'Total flux...'
+       
+        # ## Test, compare c version
+        # t0 = time.time()
+        # for obj in self.cat['NUMBER']:
+        #     print noNewLine+'Object #%d' %(obj)
+        #     self.total_fluxes[obj] = np.sum(flux[self.segm[0].data == obj])
+        # 
+        # told = time.time()
+        #self.new_fluxes = {}
+
+        fluxes = utils_c.total_flux(self.flux, self.segm[0].data)
         for obj in self.cat['NUMBER']:
-            print noNewLine+'Object #%d' %(obj)
-            self.total_fluxes[obj] = np.sum(flux[self.segm[0].data == obj])
+            #self.new_fluxes[obj] = fluxes[obj]
+            self.total_fluxes[obj] = fluxes[obj]
+                    
+        # tnew = time.time()
+        # print 'Compare total fluxes:  %.3f  %.3f' %(told-t0, tnew-told)
+        # for obj in self.cat['NUMBER']:
+        #     print ' %.7f %.7f' %(self.total_fluxes[obj], self.total_fluxes[obj]-self.new_fluxes[obj])
+        
             
     def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E'], verbose=False, normalize=True):
-        import unicorn.reduce as red
+        import unicorn.reduce
+        
+        t0 = time.time()
         
         ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
+        
+        self.id = id
         
         xc = np.float(self.cat.X_IMAGE[ii])
         yc = np.float(self.cat.Y_IMAGE[ii])
         
         #### Normalize the input spectrum to the direct image passband
         t0 = time.time()
-        if (lam_spec is not None) & (normalize is True):
+        if (lam_spec is not None) & (normalize is True):            
+            x_filt, y_filt = np.loadtxt(os.getenv('iref')+'/'+self.filter + '.dat', unpack=True)
+            #y_filt_int = np.interp(lam_spec, x_filt, y_filt)
+            y_filt_int = utils_c.interp_c(lam_spec, x_filt, y_filt)
+            filt_norm = np.trapz(y_filt_int*flux_spec, lam_spec) / np.trapz(y_filt_int, lam_spec)
+            flux_spec /= filt_norm
             if verbose:
                 t1 = time.time(); dt = t1-t0; t0=t1
                 print 'Input spectrum is provided, normalize it for filter, %s (%.2f s)' %(self.filter, dt)
-            
-            x_filt, y_filt = np.loadtxt(os.getenv('iref')+'/'+self.filter + '.dat', unpack=True)
-            y_filt_int = np.interp(lam_spec, x_filt, y_filt)
-            filt_norm = np.trapz(y_filt_int*flux_spec, lam_spec) / np.trapz(y_filt_int, lam_spec)
-            flux_spec /= filt_norm
-            
+
         #### Define the grism dispersion for the central pixel of an object.  
-        #### Assume doesn't change across the object extent
+        #### Assume doesn't change across the object extent            
+        t0 = time.time()
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, pad=self.pad)
+        
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
             print 'Define grism dispersion (%.2f s).' %(dt)
             
-        orders, self.xi = red.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, pad=self.pad)
         yord, xord = np.indices(orders.shape)
-        non_zero = orders > 0
-        xord, yord, ford, word, sord = xord[non_zero], yord[non_zero], orders[non_zero], self.xi[2][non_zero], self.xi[3][non_zero]
+        beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
         
+        non_zero = orders > 0
+        #xord, yord, ford, word, sord = xord[non_zero], yord[non_zero], orders[non_zero], self.xi[2][non_zero], self.xi[3][non_zero]
+        cast = np.uint
+        xord, yord, ford, word, sord, bord = np.array(xord[non_zero], dtype=cast), np.array(yord[non_zero], dtype=cast), np.array(orders[non_zero], dtype=np.float64), self.xi[2][non_zero], self.xi[3][non_zero], beams[non_zero]
+                
         ys = orders.shape
         xord += self.xi[0]
         yord -= (ys[0]-1)/2
         #
-        mask = self.segm[0].data == id
-        xpix = self.xf[mask]
-        ypix = self.yf[mask]
-        object = self.model*0.
+        self.object *= 0.
+    
+        # mask = self.segm[0].data == id
+        # xpix = self.xf[mask]
+        # ypix = self.yf[mask]
+        # 
+        # #### Loop through pixels defined within the segmentation region, summing
+        # #### dispersed flux
+        # for jj in range(xpix.size):
+        #     x, y = xpix[jj], ypix[jj]
+        #     xxi = x+xord
+        #     yyi = y+yord
+        #     use = (xxi >= 0) & (xxi < self.sh[1]) & (yyi >= 0) & (yyi < self.sh[0])
+        #     self.object[yyi[use], xxi[use]] += ford[use]*self.flux[y,x]*10
+        # 
+        # self.test_object = self.object*1.
+        # self.object *= 0.
+        # #self.object = object
+        # if verbose:
+        #     tx = time.time()
+        #     print 'Loop through object pixels within the segmentation region. (%.3f)' %(tx-t0)
+        #     t0 = tx
+            
+        #### Test cversion
+        #print self.flux.dtype, self.segm[0].data.dtype, xord.dtype, yord.dtype, ford.dtype
         
-        #### Loop through pixels defined within the segmentation region, summing
-        #### dispersed flux
+        status = utils_c.disperse_grism_object(self.flux, id, self.segm[0].data, xord, yord, ford, self.object)
+        
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
-            print 'Loop through object pixels within the segmentation region (%.2f s).' %(dt)
-        for jj in range(xpix.size):
-            x, y = xpix[jj], ypix[jj]
-            xxi = x+xord
-            yyi = y+yord
-            use = (xxi >= 0) & (xxi < self.sh[1]) & (yyi >= 0) & (yyi < self.sh[0])
-            object[yyi[use], xxi[use]] += ford[use]*self.flux[y,x]*10
-
-        self.object = object
+            print 'Loop (c). (%.3f)' %(dt)
         
         #### Make full images that show the wavelength, sensitivity
-        if verbose:
-            t1 = time.time(); dt = t1-t0; t0=t1
-            print 'Make full image arrays that show the wavelength, sensitivity (%.2f s)' %(dt)
-        
         xxi = np.int(np.round(xc))+xord
         use = (xxi >= 0) & (xxi < self.sh[1])
+        ### First order only
+        #use = use & (xord > 10*self.grow_factor) & (xord < 213*self.grow_factor) 
+        use = use &  (bord == 1)
         cut = np.zeros(self.sh[1])
         cut[xxi[use]] = word[use] 
-        self.object_wave = np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+        self.object_wave = cut*1. #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
         
         cut[xxi[use]] = sord[use] 
-        self.object_sens = np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
-    
-    def refine_model(self, ID, BEAMS=['A','B','C','D','E'], view=False, model_has_object=True):
+        self.object_sens = cut*1. #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+        
+        if verbose:
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print 'Output wavelength and sensitivity arrays. (%.3f)' %(dt)
+        
+    def refine_model(self, ID, BEAMS=['A','B','C','D','E'], view=False, model_has_object=True, verbose=False):
         from scipy import polyfit,polyval
 
-        if ID not in self.cat['NUMBER']:
+        if ID not in self.cat.id:
             print '#%d not in the catalog.' %(ID)
             return False
-        
+                    
         #### First iteration
-        self.compute_object_model(id=ID, BEAMS=['A'], lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID])
-        first_model = self.object*1.
+        #self.compute_object_model(id=ID, BEAMS=['A'], lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID], verbose=verbose)
+        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID], verbose=verbose, normalize=False)
+        
+        t0 = time.time()
+        if view.__class__ == threedhst.dq.myDS9:
+            first_model = self.object*1
         
         if model_has_object:
-            self.model -= first_model
-            
-        whts = self.object**4
-        finite_mask = np.isfinite(self.model) 
-        whts[~finite_mask] = 0
-        whts[self.gris[1].data == 0] = 0
-
-        ratio = (self.gris[1].data - self.model) / self.object
-        ratio[~finite_mask] = 0.
-        ratio[~np.isfinite(ratio)] = 0
-        whts[~np.isfinite(ratio)] = 0
-
-        ratio_extract = np.sum(ratio*whts, axis=0) / np.sum(whts, axis=0)
-        ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
-
-        wave = np.mean(self.object_wave, axis=0)
+            self.model -= self.object
         
-        keep = (wave > 1.1e4) & (wave < 1.65e4)
+        if verbose:
+            t1 = time.time(); dt=t1-t0; t0=t1
+            print 'Refine, first_model  (%.3f)' %(dt)
+            
+        # whts = self.object**4
+        # finite_mask = np.isfinite(self.model) & (self.gris[2].data != 0)
+        # whts[~finite_mask] = 0
+        # whts[self.gris[1].data == 0] = 0
+        # 
+        # ratio = (self.gris[1].data - (self.model)) / self.object
+        # ratio[~finite_mask] = 0.
+        # ratio[~np.isfinite(ratio)] = 0
+        # whts[~np.isfinite(ratio)] = 0
+        # 
+        # ratio_extract = np.sum(ratio*whts, axis=0) / np.sum(whts, axis=0)
+        # ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
+        ratio_extract = utils_c.get_model_ratio(self.object, self.model, self.gris[1].data)
+        
+        if verbose:
+            t1 = time.time(); dt=t1-t0; t0=t1
+            print 'Make ratio  (%.3f)' %(dt)
+        
+        #wave = np.mean(self.object_wave, axis=0)
+        wave = self.object_wave
+        
+        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)
+        #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
+        
         if len(keep[keep]) < 10:
             self.model += self.object
             return True
@@ -588,13 +758,19 @@ class GrismModel():
         ratio_extract[~keep] = polyval(coeff, wave[~keep])
         
         if self.flux_specs[ID] is not None:
-            self.flux_specs[ID] *= ratio_extract[wave > 0]
+            rint = utils_c.interp_c(self.lam_specs[ID], wave[wave > 0], ratio_extract[wave > 0])
+            self.flux_specs[ID] *= rint
         else:
             self.lam_specs[ID] = wave[wave > 0]
             self.flux_specs[ID] = ratio_extract[wave > 0]
+        #
+        if verbose:
+            t1 = time.time(); dt=t1-t0; t0=t1
+            print 'Extract ratio, save values  (%.3f)' %(dt)
             
-        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec = self.lam_specs[ID], flux_spec = self.flux_specs[ID], normalize=False)
-        second_model = self.object*1.
+        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec = self.lam_specs[ID], flux_spec = self.flux_specs[ID], normalize=False, verbose=verbose)
+        if view.__class__ == threedhst.dq.myDS9:
+            second_model = self.object*1.
         
         #### View the results
         if view.__class__ == threedhst.dq.myDS9:
@@ -612,14 +788,20 @@ class GrismModel():
             idx = (self.cat['NUMBER'] == ID)
             view.set('pan to %f %f' %(self.cat['X_IMAGE'][idx][0], self.cat['Y_IMAGE'][idx][0]))
             view.set('zoom to 1.4')
-            view.set('cmap value 4.43936 0.462911')
+            #view.set('cmap value 4.43936 0.462911')
             view.set('cmap HSV')
-            view.set('cmap value 7.20824 0.48544')
+            view.set('cmap value 7.02222 0.0867647')
             view.set('regions file %s_inter.reg' %(self.root))
             view.match_all(alignType='image')
             
-        self.model += second_model
-    
+            plt.plot(self.lam_specs[ID], self.flux_specs[ID])
+        
+        ### Done, now update the total model
+        if view.__class__ == threedhst.dq.myDS9:
+            self.model += second_model
+        else:
+            self.model += self.object
+
     def show_ratio_spectrum(self, ID):
         if ID not in self.cat['NUMBER']:
             print '#%d not in the catalog.' %(ID)
@@ -627,20 +809,222 @@ class GrismModel():
         
         plt.plot(self.lam_specs[ID], self.flux_specs[ID]*self.total_fluxes[ID])
         
-    def full_model(self, BEAMS=['A','B','C','D','E'], save_ext='_model0', iteration_number=0):
+    def compute_full_model(self, BEAMS=['A','B','C','D','E'], save_ext='_model0', iteration_number=0, view=None, MAG_LIMIT=23.5):
         
         self.model*=0.
         threedhst.showMessage('Making full object model...')
         
-        so = np.argsort(self.cat['MAG_AUTO'])
+        mag = self.cat['MAG_AUTO']
+        so = np.argsort(mag)
+        so = so[mag[so] <= MAG_LIMIT]
         N = len(so)
-        for i, id in enumerate(self.cat['NUMBER'][so]):
-            print noNewLine+'Full model, object #%d (%d/%d)' %(id, i+1, N)
-            self.refine_model(id, BEAMS=BEAMS, view=ds9, model_has_object=(iteration_number > 0))      
-        if save_ext:
+        
+        for i in range(N):
+            #for i, id in enumerate(self.cat['NUMBER'][so]):
+            id = self.cat['NUMBER'][so][i]
+            print noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
+            self.refine_model(id, BEAMS=BEAMS, view=view, model_has_object=(iteration_number > 0))      
+        
+        if save_ext is not None:
             pyfits.writeto(self.root+save_ext+'.fits', self.model, clobber=True)
     
-    def twod_spectrum(self, id=328, grow=1, miny=80):
+    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=28, refine=True, verbose=False):
+        
+        seg = self.segm[0].data
+        seg_mask = seg == id
+        ypix, xpix = self.yf, self.xf
+    
+        NY = ypix[seg_mask].max()-ypix[seg_mask].min()
+        NX = xpix[seg_mask].max()-xpix[seg_mask].min()
+        NT = np.max([NY*grow, NX*grow, miny])
+        
+        ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
+        
+        xc = np.int(np.round(self.cat.x_pix[ii]))-1
+        yc = np.int(np.round(self.cat.y_pix[ii]))-1
+        
+        if verbose:
+            print 'Generating direct image extensions'
+            
+        self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        self.direct_wht = self.im[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        self.direct_seg = np.cast[np.int16](seg[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2])
+        
+        #### Initialize the output FITS file
+        prim = pyfits.PrimaryHDU()
+        prim.header.update('POINTING', self.root)
+        prim.header.update('ID', id)
+        prim.header.update('BUNIT', 'ELECTRONS/S')
+        prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
+        prim.header.update('FILTER', self.gris[0].header['FILTER'])
+        
+        extensions = [prim]
+
+        header = pyfits.ImageHDU().header
+        
+        #### Direct thumbnails
+        header.update('EXTNAME','DSCI')
+        extensions.append(pyfits.ImageHDU(self.direct_thumb, header))
+        header.update('EXTNAME','DWHT')
+        extensions.append(pyfits.ImageHDU(self.direct_wht, header))
+        header.update('EXTNAME','DSEG')
+        extensions.append(pyfits.ImageHDU(self.direct_seg, header))
+        
+        #### Find objects that could contaminate the current one
+        dylo = self.cat.y_pix-self.cat.y_pix[ii]-self.cat['FLUX_RADIUS']*3
+        dy0 = self.cat.y_pix-self.cat.y_pix[ii]
+        dyhi = self.cat.y_pix-self.cat.y_pix[ii]+self.cat['FLUX_RADIUS']*3
+        dy = np.minimum(np.abs(dylo), np.abs(dy0))
+        dy = np.minimum(np.abs(dyhi), dy)
+        
+        dx = self.cat.x_pix-self.cat.x_pix[ii]
+        nearby = (dy < (NT/2.+5)) & (dx < 420*self.grow_factor) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
+        
+        BEAMS=['A','B','C','D','E']
+        view=False
+        if nearby.sum() > 0:
+            ids = self.cat.id[nearby][np.argsort(self.cat.mag[nearby])]
+            for idi in ids:
+                if verbose:
+                    print 'Calculating contaminating object #%d' %(idi)
+                #
+                if refine:
+                    self.refine_model(idi, BEAMS=BEAMS, view=view, model_has_object=(self.lam_specs[idi] is not None))      
+                else:
+                    self.compute_object_model(idi, BEAMS=BEAMS, lam_spec=self.lam_specs[idi], flux_spec=self.flux_specs[idi], normalize=False)      
+                                
+        #### Generate model for current object
+        if verbose:
+            print 'Compute object model #%d' %(id)
+
+        if refine:
+            self.refine_model(id, BEAMS=BEAMS, view=view, model_has_object=(self.lam_specs[id] is not None))      
+        else:
+            self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_specs[id], flux_spec=self.flux_specs[id], normalize=False)      
+        
+        #### Find pixels of the 1st order        
+        xarr = np.arange(self.sh[0])
+        xmin = xarr[(self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)].min()
+        xmax = xarr[(self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)].max()
+        
+        #### dydx offset for grism trace
+        xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+xc
+        xoff_int = np.arange(xmin, xmax, dtype=np.double)
+        yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])
+
+        yc = np.int(np.round(self.cat.y_pix[ii]+yoff_int.mean()))-1
+        #yc_off = np.cast[int](np.round(self.cat.y_pix[ii]+yoff_int))-1
+        self.ytrace = NT/2.+yoff_int-yoff_int.mean()
+                        
+        self.wave = self.object_wave[xmin:xmax]
+        self.dwave = self.wave[1]-self.wave[0]
+        
+        if verbose:
+            print 'Writing spectrum extensions.'
+            
+        ### WCS header
+        header.update('CRPIX1',1)
+        header.update('CDELT1',self.dwave)
+        header.update('CRVAL1',self.wave[0])
+        header.update('CUNIT1','Angstrom')
+        header.update('CTYPE1','WAVE')
+        
+        header.update('CRPIX2',NT/2.+1)
+        header.update('CRVAL2',0)
+        header.update('CDELT2',0.128254/2)
+        header.update('CUNIT2','arcsec')
+        header.update('CTYPE2','CRDIST')
+        
+        self.grism_sci = self.gris[1].data[yc-NT/2:yc+NT/2, xmin:xmax]
+        
+        #### testing shifting the pixels:  better to just provide the (float) trace
+        ####  than shifting by integer pixels
+        
+        # self.grism_sci_yoff = self.grism_sci*0.
+        # for i in range(len(yoff_int)):
+        #     self.grism_sci_yoff[:,i] = self.gris[1].data[yc_off[i]-NT/2:yc_off[i]+NT/2, xmin+i]
+
+        header.update('EXTNAME','SCI')
+        extensions.append(pyfits.ImageHDU(self.grism_sci, header))
+        
+        self.grism_wht = self.gris[2].data[yc-NT/2:yc+NT/2, xmin:xmax]
+        header.update('EXTNAME','WHT')
+        header.update('WHTERROR',self.gris[0].header['WHTERROR'])
+        
+        extensions.append(pyfits.ImageHDU(self.grism_wht, header))
+        
+        self.the_object = self.object[yc-NT/2:yc+NT/2, xmin:xmax]
+        header.update('EXTNAME','MODEL')
+        extensions.append(pyfits.ImageHDU(self.the_object, header))
+        
+        self.full_model = self.model[yc-NT/2:yc+NT/2, xmin:xmax]
+        header.update('EXTNAME','CONTAM')
+        extensions.append(pyfits.ImageHDU(self.full_model-self.the_object, header))
+                
+        header.update('EXTNAME','WAVE')
+        extensions.append(pyfits.ImageHDU(self.wave, header))
+        
+        self.sens = self.object_sens[xmin:xmax]
+        header.update('EXTNAME','SENS')
+        header.update('BUNIT','(ELECTRONS/S) / (FLAM*1.E17)')
+        extensions.append(pyfits.ImageHDU(self.sens, header))
+        
+        header.update('EXTNAME','YTRACE')
+        header.update('BUNIT','PIXELS')
+        extensions.append(pyfits.ImageHDU(self.ytrace, header))
+        
+        hdu = pyfits.HDUList(extensions)
+        hdu.writeto(self.root+'_%05d.fits' %(id), clobber=True)
+        
+        self.twod = hdu
+    
+    def show_2d(self, savePNG = False):
+        import unicorn
+        
+        ii = np.where(np.cast[int](self.cat.NUMBER) == self.id)[0][0]
+        
+        fig = unicorn.catalogs.plot_init(xs=5, left=0.05, right=0.05, bottom=0.05, top=0.05, aspect=1./1.2)
+        
+        xx = np.arange(self.grism_sci.shape[1])
+        ltick = np.array([1.2,1.3,1.4,1.5,1.6])
+        xtick = np.interp(ltick*1.e4, self.wave, xx)
+        
+        ax = fig.add_subplot(431)
+        ax.imshow(self.direct_thumb, vmin=-0.5, vmax=2, interpolation='nearest')
+        ax.set_yticklabels([]); ax.set_xticklabels([]); 
+        ax.text(1.1,0.8, self.root+r'_%05d' %(self.id), transform=ax.transAxes)
+        ax.text(1.1,0.6, r'$m_{140}=%.2f$' %(self.cat.mag[ii]), transform=ax.transAxes)
+        
+        if self.lam_specs[self.id] is not None:
+            ax = fig.add_subplot(422)
+            ax.plot(self.lam_specs[self.id], self.flux_specs[self.id]*self.total_fluxes[self.id])
+            xx = ax.set_xticks(ltick*1.e4)
+            ax.set_xticklabels(ltick)
+            ax.set_xlim(1.1e4,1.65e4)
+            y = self.flux_specs[self.id]*self.total_fluxes[self.id]
+            ax.set_ylim(-0.1*y.max(), 1.1*y.max())
+            ax.set_yticklabels([]);
+        
+        ax = fig.add_subplot(412)
+        ax.imshow(self.grism_sci, vmin=-0.05, vmax=0.2, interpolation='nearest')
+        ax.set_yticklabels([]); ax.set_xticklabels([]); 
+        xx = ax.set_xticks(xtick)
+
+        ax = fig.add_subplot(413)
+        ax.imshow(self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
+        ax.set_yticklabels([]); ax.set_xticklabels([]); 
+        xx = ax.set_xticks(xtick)
+
+        ax = fig.add_subplot(414)
+        ax.imshow(self.grism_sci-self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
+        ax.set_yticklabels([]); ax.set_xticklabels([]); 
+        xx = ax.set_xticks(xtick)
+        
+        if savePNG:
+            fig.savefig(self.root+'_%05d.png' %(self.id))
+            plt.close()
+            
+    def twod_spectrum_old(self, id=328, grow=1, miny=80):
         """
         Extract 2D direct + grism thumbnails.
         """
@@ -684,6 +1068,8 @@ class GrismModel():
         header.update('EXTNAME','DSCI')
         extensions.append(pyfits.ImageHDU(self.direct_thumb, header))
         header.update('EXTNAME','DWHT')
+        header.update('WHTERROR',self.gris[0].header['WHTERROR'])
+        
         extensions.append(pyfits.ImageHDU(np.cast[int](self.direct_wht), header))
         
         self.wave = self.object_wave[507, xmin:xmax]
@@ -782,8 +1168,8 @@ class GrismModel():
         sens_smooth = np.convolve(sens, obj_profile, mode='same')
         
         ## lo = 1.1157e4, 1.6536
-        yint = np.interp(np.array([1.1157e4, 1.6536e4]), wave, sens)
-        yint_smooth = np.interp(np.array([1.1157e4, 1.6536e4]), wave, sens_smooth)
+        yint = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens)
+        yint_smooth = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens_smooth)
         
         sens_corrected = sens*1.
         sens_corrected[wave < 1.1157e4] = sens_smooth[wave < 1.1157e4]+yint[0]-yint_smooth[0]

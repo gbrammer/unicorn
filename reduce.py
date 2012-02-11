@@ -50,6 +50,17 @@ import threedhst
 
 import unicorn.utils_c as utils_c
 
+def go_all():
+    
+    for field in ['AEGIS','COSMOS','GOODS-S','UDS']:
+        os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT')
+        files=glob.glob(field+'-[0-9]*asn.fits')
+        for file in files:
+            print file
+            unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
+            if 'G141' in file:
+                model = unicorn.reduce.GrismModel(file.split('-G141')[0], LIMITING_MAGNITUDE=26)
+        
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -442,12 +453,15 @@ class GrismModel():
         self.gris = pyfits.open(self.root+'-G141_inter.fits')
         self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
         self.sh = self.im[1].data.shape
+        
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
         self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
+        
         self.segm = pyfits.open(self.root+'_seg.fits')
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
+        
         self.model = np.zeros(self.sh, dtype=np.double)
         self.object = np.zeros(self.sh, dtype=np.double)
         self.test_object = np.zeros(self.sh)
@@ -496,7 +510,10 @@ class GrismModel():
         
         threedhst.sex.sexcatRegions(self.root+'_inter.cat', self.root+'_inter.reg', format=1)
         
-        self.make_total_flux()
+        try:
+            self.make_total_flux()
+        except:
+            pass
         self.init_object_spectra()
         
     def get_corrected_wcs(self, verbose=True):

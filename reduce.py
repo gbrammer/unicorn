@@ -457,6 +457,9 @@ class GrismModel():
         self.sh = self.im[1].data.shape
         
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
+        
+        self.trim_edge_objects(verbose=True)
+        
         self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
         self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
@@ -506,8 +509,11 @@ class GrismModel():
         if len(q) > 0:
             numbers = np.cast[int](self.cat.NUMBER)[q]
             self.cat.popItem(numbers)
-
+        
         self.cat.write()
+        
+        self.trim_edge_objects(verbose=True)
+        
         self.segm = pyfits.open(self.root+'_seg.fits')
         
         threedhst.sex.sexcatRegions(self.root+'_inter.cat', self.root+'_inter.reg', format=1)
@@ -517,7 +523,25 @@ class GrismModel():
         except:
             pass
         self.init_object_spectra()
+    
+    def trim_edge_objects(self, verbose=True):
+        """
+        Trim objects from the SExtractor catalog that are in the ragged
+        edge of the interlaced images.
+        """
         
+        x_edge = (self.cat['X_IMAGE'] < self.pad/2) | (self.cat['X_IMAGE'] > (self.sh[1]-self.pad/2-25))
+        y_edge = (self.cat['Y_IMAGE'] < self.pad/2) | (self.cat['Y_IMAGE'] > (self.sh[0]-self.pad/2-25))
+        
+        q = x_edge | y_edge
+        
+        if q.sum() > 0:
+            if verbose:
+                print 'Cutting %d likely fake and/or othwerwise problematic objects from the edge of the images.' %(q.sum())
+            numbers = np.cast[int](self.cat.NUMBER)[q]
+            self.cat.popItem(numbers)
+            self.cat.write()
+            
     def get_corrected_wcs(self, verbose=True):
         """
         Use iraf.dither.tran to get the real, undistorted WCS coordinates of each object

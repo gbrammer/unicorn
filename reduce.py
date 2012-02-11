@@ -52,15 +52,17 @@ import unicorn.utils_c as utils_c
 
 def go_all():
     
-    for field in ['AEGIS','COSMOS','GOODS-S','UDS']:
+    for field in ['AEGIS','COSMOS','GOODS-S','UDS'][1:]:
         os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT')
         files=glob.glob(field+'-[0-9]*asn.fits')
         for file in files:
             print file
-            unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
+            #unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
             if 'G141' in file:
                 model = unicorn.reduce.GrismModel(file.split('-G141')[0], LIMITING_MAGNITUDE=26)
-        
+                model.get_corrected_wcs()
+                model.make_wcs_region_file()
+
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -544,6 +546,8 @@ class GrismModel():
         fp.close()
         
         print 'Running iraf.tran()'
+        threedhst.process_grism.flprMulti()
+        
         status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
         
         self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)
@@ -577,7 +581,7 @@ class GrismModel():
             filename = self.root+'_inter_wcs.reg'
         
         if self.ra_wcs is None:
-            self.update_wcs_coords()
+            self.get_corrected_wcs()
         
         fp = open(filename,'w')
         fp.write('fk5\n')

@@ -6,10 +6,11 @@ cimport numpy as np
 DTYPE = np.double
 ctypedef np.double_t DTYPE_t
 ctypedef np.uint_t UINT_t
+ctypedef np.int_t INT_t
 
 import cython
 
-def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.ndarray[UINT_t, ndim=2] segm, np.ndarray[UINT_t, ndim=1] xord, np.ndarray[UINT_t, ndim=1] yord, np.ndarray[DTYPE_t, ndim=1] ford, np.ndarray[DTYPE_t, ndim=2] object):
+def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.ndarray[UINT_t, ndim=2] segm, np.ndarray[INT_t, ndim=1] xord, np.ndarray[INT_t, ndim=1] yord, np.ndarray[DTYPE_t, ndim=1] ford, np.ndarray[DTYPE_t, ndim=2] object):
     """
     disperse_grism_object(flux, id, segm, xord, yord, ford, object)
     
@@ -18,7 +19,8 @@ def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.
     The result is updated in place to the `object` image.
     
     """
-    cdef unsigned int NX, NY, x, y, Nord, iord, xxi, yyi
+    cdef unsigned int NX, NY, x, y, Nord, iord
+    cdef int xxi, yyi
     #cdef np.ndarray[DTYPE_t, ndim=2] object
     cdef double flux_i
     
@@ -73,7 +75,7 @@ def get_model_ratio(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE_t, ndim
     
     cdef unsigned int NX, NY, ix, iy
     cdef np.ndarray[DTYPE_t, ndim=1] ratio_extract
-    cdef double wht_sum, wht_i, obj_i, obj_sum, observed_i
+    cdef double wht_sum, wht_i, obj_i, obj_sum, observed_i, model_i
     
     NY, NX = np.shape(object)
     ratio_extract = np.zeros(NX, dtype=DTYPE)
@@ -84,13 +86,50 @@ def get_model_ratio(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE_t, ndim
         for y in range(NY):
             obj_i = object[y,x]    
             observed_i = observed[y,x]
-            if (obj_i > 0) & (observed_i != 0):
+            model_i = model[y,x]
+            if (obj_i > 0) & ((observed_i-model_i) > 0):
                 wht_i = obj_i**4
-                obj_sum += (observed_i-model[y,x])/obj_i*wht_i
+                obj_sum += (observed_i-model_i)/obj_i*wht_i
                 wht_sum += wht_i
         
         if wht_sum > 0:
             ratio_extract[x] = obj_sum/wht_sum
+        
+    return ratio_extract
+    
+#
+@cython.boundscheck(False)
+def get_model_ratio_optimal(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE_t, ndim=2] model, np.ndarray[DTYPE_t, ndim=2] observed, np.ndarray[DTYPE_t, ndim=2] error):
+    
+    cdef unsigned int NX, NY, ix, iy
+    cdef np.ndarray[DTYPE_t, ndim=1] ratio_extract
+    cdef double obj_i, observed_i, var_i, wht_i
+    cdef double data_num_sum, obj_num_sum, denom_sum, prof_sum
+    
+    NY, NX = np.shape(object)
+    ratio_extract = np.zeros(NX, dtype=DTYPE)
+    
+    for x in range(NX):
+        wht_sum = 0.
+        obj_sum = 0.
+        data_num_sum = 0.
+        obj_num_sum = 0.
+        #denom_sum = 0.
+        #prof_sum = 0.
+        for y in range(NY):
+            obj_i = object[y,x]    
+            observed_i = observed[y,x]
+            var_i = error[y,x]**2
+            if (obj_i > 0) & (observed_i != 0) & (var_i > 0):
+                #wht_i = obj_i**5/var_i
+                data_num_sum += obj_i*(observed_i-model[y,x])/var_i
+                obj_num_sum += obj_i*obj_i/var_i
+                #denom_sum += obj_i**2/var_i
+                #prof_sum += obj_i
+        
+        if obj_num_sum > 0:
+            #ratio_extract[x] = (num_sum) / (denom_sum)
+            ratio_extract[x] = (data_num_sum) / (obj_num_sum)
         
     return ratio_extract
     

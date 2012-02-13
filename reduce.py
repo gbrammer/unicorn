@@ -418,6 +418,8 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNIT
     
     model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, pad=pad, LIMITING_MAGNITUDE=LIMITING_MAGNITUDE)
     
+    model.get_corrected_wcs(verbose=True)
+    
     test = model.load_model_spectra()
     if not test:
         ### First iteration with flat spectra and the object flux
@@ -449,10 +451,13 @@ class Interp1Dspec():
         
         ax = fig.add_subplot(111)
         
-        ymax = (self.data.flux/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
-        
-        ax.errorbar(self.data.wave, self.data.flux/self.data.sensitivity, self.data.error/self.data.sensitivity, color='black', ecolor='0.7', alpha=0.5, marker=',', ms=3, linestyle='None')
-        ax.plot(self.data.wave, self.data.flux/self.data.sensitivity, color='blue', alpha=0.5)
+        ymax = ((self.data.flux-self.data.contam)/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
+        if ymax < 0:
+            ymax = (self.data.flux/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
+            
+        ax.errorbar(self.data.wave, (self.data.flux-self.data.contam)/self.data.sensitivity, self.data.error/self.data.sensitivity, color='black', ecolor='0.7', alpha=0.5, marker=',', ms=3, linestyle='None')
+        ax.plot(self.data.wave, (self.data.flux-self.data.contam)/self.data.sensitivity, color='blue', alpha=0.5)
+        ax.plot(self.data.wave, self.data.flux/self.data.sensitivity, color='red', alpha=0.2)
         ax.plot(self.data.wave, self.data.contam/self.data.sensitivity, color='red')
         
         ax.set_ylim(-0.1*ymax, 1.1*ymax)
@@ -487,10 +492,10 @@ class GrismModel():
         self.grow_factor = grow_factor
         self.pad = pad
         
-        threedhst.showMessage('Reading FITS files and catalog...')
-        print 'Read files...'
+        threedhst.showMessage('Read FITS files and catalog')
+        print 'Read files'
         self.read_files()
-        print 'Init object spectra...'
+        print 'Init object spectra'
         self.init_object_spectra()
         try:
             test = self.total_fluxes
@@ -586,8 +591,8 @@ class GrismModel():
         edge of the interlaced images.
         """
         
-        x_edge = (self.cat['X_IMAGE'] < self.pad/2) | (self.cat['X_IMAGE'] > (self.sh[1]-self.pad/2-25))
-        y_edge = (self.cat['Y_IMAGE'] < self.pad/2) | (self.cat['Y_IMAGE'] > (self.sh[0]-self.pad/2-25))
+        x_edge = (self.cat['X_IMAGE'] < self.pad/2+10) | (self.cat['X_IMAGE'] > (self.sh[1]-self.pad/2-25))
+        y_edge = (self.cat['Y_IMAGE'] < self.pad/2+10) | (self.cat['Y_IMAGE'] > (self.sh[0]-self.pad/2-25))
         
         q = x_edge | y_edge
         
@@ -605,14 +610,25 @@ class GrismModel():
         import iraf
         from iraf import stsdas
         from iraf import dither
+        import threedhst.catIO as catIO
         
+        if os.path.exists('%s_inter.cat.wcsfix' %(self.root)):
+            wcs = catIO.Readfile('%s_inter.cat.wcsfix' %(self.root))
+            test = wcs.id == self.cat.id
+            if np.sum(test) == len(self.cat.id):
+                if verbose:
+                    print 'Get corrected coordinates from %s_inter.cat.wcsfix' %(self.root)
+                self.ra_wcs = wcs.ra
+                self.dec_wcs = wcs.dec
+                return True
+                
         try:
             import stsci.tools.wcsutil as wcsutil
             wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
         except:
             print 'Failed: import stsci.tools.wcsutil'
             wcs = None
-            
+        
         NOBJ = len(self.cat.id)
         
         asn = threedhst.utils.ASNFile(self.root+'-F140W_asn.fits')
@@ -651,6 +667,8 @@ class GrismModel():
         if verbose:
             print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.root)
             
+        return True
+        
     def make_wcs_region_file(self, filename=None):
         """
         Make a region file with the true WCS coordinates.  
@@ -692,7 +710,7 @@ class GrismModel():
             flux = self.flux
         #
         self.total_fluxes = {}
-        print 'Total flux...'
+        print 'Total flux'
        
         # ## Test, compare c version
         # t0 = time.time()
@@ -809,7 +827,7 @@ class GrismModel():
             t1 = time.time(); dt = t1-t0; t0=t1
             print 'Output wavelength and sensitivity arrays. (%.3f)' %(dt)
             
-    def refine_model(self, id, BEAMS=['A','B','C','D'], view=False, verbose=False, MAG_FOR_SIMPLE=23):
+    def refine_model(self, id, BEAMS=['A','B','C','D'], view=False, verbose=False, MAG_FOR_SIMPLE=22):
         """
         MAG_FOR_SIMPLE:  use linear fit if mag > MAG_FOR_SIMPLE
         """
@@ -963,9 +981,9 @@ class GrismModel():
         
         #self.model*=0.
         if refine:
-            threedhst.showMessage('Making full object model (refined model)...')
+            threedhst.showMessage('Making full object model (refined model)')
         else:
-            threedhst.showMessage('Making full object model (flat spectra)...')
+            threedhst.showMessage('Making full object model (flat spectra)')
             
         mag = self.cat['MAG_AUTO']
         so = np.argsort(mag)
@@ -1017,7 +1035,9 @@ class GrismModel():
             im.close()
         else:
             print "ERROR: Object list in pickle doesn't match the current catalog."
-        
+            fp.close()
+            return False
+            
         fp.close()
         return True
         
@@ -1031,10 +1051,14 @@ class GrismModel():
         NX = xpix[seg_mask].max()-xpix[seg_mask].min()
         NT = np.max([NY*grow, NX*grow, miny])
         
+        #NT = np.min([self.pad/2, NT])
+        
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
         
         xc = np.int(np.round(self.cat.x_pix[ii]))-1
         yc = np.int(np.round(self.cat.y_pix[ii]))-1
+        
+        NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
         
         if verbose:
             print 'Generating direct image extensions'
@@ -1186,7 +1210,7 @@ class GrismModel():
         
         if savePNG:
             fig = Figure(figsize=[5,5*1.2], dpi=100)
-            fig.subplots_adjust(wspace=0.2, hspace=0.02,left=0.02, bottom=0.02, right=0.98, top=0.98)
+            fig.subplots_adjust(wspace=0.2, hspace=0.08,left=0.02, bottom=0.02, right=0.98, top=0.98)
         else:
             fig = unicorn.catalogs.plot_init(xs=5, left=0.05, right=0.05, bottom=0.05, top=0.05, aspect=1./1.2)
             
@@ -1227,7 +1251,7 @@ class GrismModel():
         
         if savePNG:
             canvas = FigureCanvasAgg(fig)
-            canvas.print_figure(self.root+'_%05d.2D.png', dpi=100, transparent=False)
+            canvas.print_figure(self.root+'_%05d.2D.png' %(self.id), dpi=100, transparent=False)
                         
     def oned_spectrum(self, verbose=True):
         """
@@ -1363,70 +1387,23 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_1d_OLD(self, id=284):
+    def extract_spectra_and_diagnostics(self, list=None, MAG_LIM=19):
         """
-        Extract a 1D spectrum after cutting out the 2D spectrum using `twod_spectrum`.
-        
-        Trying to implement smoothing of the sensitivity curve, but still doesn't
-        look right.  Should the whole curve be smoothed, or just the wings
-        extended?  In principle, it should work if you provide the correct input 
-        spectrum to the model.
-        
-        Still need to implement computing the quantitative contamination.
+        Extract 1D and 2D spectra of objects with id in `list`.
         """
-        from scipy import polyfit, polyval
+        import unicorn.reduce
+        if list is None:
+            list = self.cat.id[self.cat.mag < MAG_LIM]
         
-        if not os.path.exists(self.root+'_%05d.fits' %(id)):
-            self.twod_spectrum(id=id)
-        
-        im = pyfits.open(self.root+'_%05d.fits' %(id))
-        shape = im['SCI'].data.shape
-        
-        profile = np.sum(im['MODEL'].data, axis=1)
-        profile /= np.sum(profile)        
-        profile = np.dot(profile.reshape(-1,1), np.ones((1,shape[1])))
-        
-        flux_dn = im['SCI'].data*im[0].header['EXPTIME']
-        
-        wht = im['WHT'].data
-        
-        x,y = np.where(wht == 0)
-        
-        pad = 1
-        for xi, yi in zip(x,y):
-            sub = flux_dn[xi-pad:xi+pad+1,yi-pad:yi+pad+1]
-            wht_i = wht[xi-pad:xi+pad+1,yi-pad:yi+pad+1]
-            if (np.sum(wht_i) != 0.0):
-                flux_dn[xi,yi] = np.mean(sub[np.isfinite(sub)])
-                wht[xi,yi] = 1
+        N = len(list)
+        for i,id in enumerate(list):
+            print noNewLine+'Object #%-4d (%4d/%4d)' %(id,i+1,N)
+            #
+            self.twod_spectrum(id=id, verbose=False, miny=30, refine=True)
+            self.show_2d(savePNG=True)
+            spec = unicorn.reduce.Interp1Dspec(self.root+'_%05d.1D.fits' %(id), PNG=True)
                 
-        sigma = np.sqrt(flux_dn + 21**2)
-        sigma[flux_dn < 0] = 21
-        
-        sum_dn = np.sum(flux_dn/im[0].header['EXPTIME']*profile/sigma**2*wht, axis=0)/np.sum(profile**2/sigma**2*wht)
-        
-        obj_profile = np.sum(im['DSCI'].data, axis=0)
-        obj_profile /= np.sum(obj_profile)
-        
-        wave = im['WAVE'].data
-        sens = im['SENS'].data
-        
-        sens_smooth = np.convolve(sens, obj_profile, mode='same')
-        
-        ## lo = 1.1157e4, 1.6536
-        yint = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens)
-        yint_smooth = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens_smooth)
-        
-        sens_corrected = sens.copy()
-        sens_corrected[wave < 1.1157e4] = sens_smooth[wave < 1.1157e4]+yint[0]-yint_smooth[0]
-        sens_corrected[wave > 1.6536e4] = sens_smooth[wave > 1.6536e4]+yint[1]-yint_smooth[1]
-        
-        self.oned_wave = wave
-        self.oned_flux = sum_dn / sens_corrected
-        
-        coeffs = polyfit(wave[(wave > 1.15e4) & (wave < 1.64e4)], self.oned_flux[(wave > 1.15e4) & (wave < 1.64e4)], 1)
-        self.oned_flux_linear = polyval(coeffs, wave)/polyval(coeffs, 1.4e4)
-        
+                
 def field_dependent(xi, yi, str_coeffs):
     """ 
     Calculate field-dependent parameter for aXe conventions.

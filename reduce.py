@@ -50,6 +50,9 @@ import threedhst
 
 import unicorn.utils_c as utils_c
 
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
 def go_all():
     
     for field in ['AEGIS','COSMOS','GOODS-S','UDS'][1:]:
@@ -60,6 +63,7 @@ def go_all():
             #unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
             if 'G141' in file:
                 model = unicorn.reduce.GrismModel(file.split('-G141')[0], LIMITING_MAGNITUDE=26)
+                model.trim_edge_objects()
                 model.get_corrected_wcs()
                 model.make_wcs_region_file()
 
@@ -256,7 +260,7 @@ def scale_header_wcs(header, factor=2, pad=60):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D','E'], dydx=True):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -409,7 +413,58 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
 
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNITUDE=24):
+    import unicorn.reduce
+    
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, pad=pad, LIMITING_MAGNITUDE=LIMITING_MAGNITUDE)
+    
+    test = model.load_model_spectra()
+    if not test:
+        ### First iteration with flat spectra and the object flux
+        model.compute_full_model(refine=False, MAG_LIMIT=LIMITING_MAGNITUDE, save_pickle=False)   
+        ### For the brighter galaxies, refine the model with the observed spectrum         
+        model.compute_full_model(refine=True, MAG_LIMIT=21, save_pickle=True)
+        
+    return model
+    
+class Interp1Dspec():
+    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True):
+        self.file = file
+        tab = pyfits.open(file)
+        self.header = tab[1].header
+        self.data = tab[1].data
+        tab.close()
+        
+        if PNG:
+            self.show(savePNG=True)
+            
+    def show(self, savePNG=True):
+        import unicorn
+        
+        #fig = unicorn.catalogs.plot_init(xs=4, left=0.1, right=0.02*1.618, bottom=0.08, top=0.02, aspect=1./1.618)
+        fig = Figure(figsize=[4,4/1.618], dpi=100)
 
+        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.125,
+                            bottom=0.15,right=0.97,top=1-0.02*1.618)
+        
+        ax = fig.add_subplot(111)
+        
+        ymax = (self.data.flux/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
+        
+        ax.errorbar(self.data.wave, self.data.flux/self.data.sensitivity, self.data.error/self.data.sensitivity, color='black', ecolor='0.7', alpha=0.5, marker=',', ms=3, linestyle='None')
+        ax.plot(self.data.wave, self.data.flux/self.data.sensitivity, color='blue', alpha=0.5)
+        ax.plot(self.data.wave, self.data.contam/self.data.sensitivity, color='red')
+        
+        ax.set_ylim(-0.1*ymax, 1.1*ymax)
+        ax.set_xlim(1.05e4, 1.72e4)
+        ax.set_xlabel(r'$\lambda$ / $\AA$')
+        ax.set_ylabel(r'$f_\lambda / 10^{-17}$ cgs')
+        
+        if savePNG:
+            #fig.savefig(self.file.replace('fits','png'))
+            canvas = FigureCanvasAgg(fig)
+            canvas.print_figure(self.file.replace('fits','png'), dpi=100, transparent=False)
+            
 class GrismModel():
     def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNITUDE=24):
         """
@@ -443,7 +498,7 @@ class GrismModel():
             self.make_total_flux()
         
         self.ra_wcs, self.dec_wcs = None, None
-        
+                
     def read_files(self):
         """
         Read FITS files, catalogs, and segmentation images for a pair of 
@@ -454,6 +509,7 @@ class GrismModel():
                 
         self.gris = pyfits.open(self.root+'-G141_inter.fits')
         self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
+        self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
@@ -537,7 +593,7 @@ class GrismModel():
         
         if q.sum() > 0:
             if verbose:
-                print 'Cutting %d likely fake and/or othwerwise problematic objects from the edge of the images.' %(q.sum())
+                print "Cutting %d likely fake and/or othwerwise problematic objects\n   at the image edges from the SExtractor catalog \n   (they'll still be in the segmentation image)." %(q.sum())
             numbers = np.cast[int](self.cat.NUMBER)[q]
             self.cat.popItem(numbers)
             self.cat.write()
@@ -617,12 +673,15 @@ class GrismModel():
         
     def init_object_spectra(self):
         
-        self.lam_specs = {}
+        self.lam_spec = np.arange(0.95e4,1.8e4,22.)
+        
+        self.obj_in_model = {}
         self.flux_specs = {}
         for obj in self.cat['NUMBER']:
-            self.lam_specs[obj] = None
+            #self.lam_specs[obj] = None
             self.flux_specs[obj] = None
-        
+            self.obj_in_model[obj] = False
+            
     def make_total_flux(self):
         
         #### Total flux
@@ -655,7 +714,7 @@ class GrismModel():
         #     print ' %.7f %.7f' %(self.total_fluxes[obj], self.total_fluxes[obj]-self.new_fluxes[obj])
         
             
-    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D','E'], verbose=False, normalize=True):
+    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D'], verbose=False, normalize=True):
         import unicorn.reduce
         
         t0 = time.time()
@@ -693,7 +752,7 @@ class GrismModel():
         
         non_zero = orders > 0
         #xord, yord, ford, word, sord = xord[non_zero], yord[non_zero], orders[non_zero], self.xi[2][non_zero], self.xi[3][non_zero]
-        cast = np.uint
+        cast = np.int
         xord, yord, ford, word, sord, bord = np.array(xord[non_zero], dtype=cast), np.array(yord[non_zero], dtype=cast), np.array(orders[non_zero], dtype=np.float64), self.xi[2][non_zero], self.xi[3][non_zero], beams[non_zero]
                 
         ys = orders.shape
@@ -737,34 +796,40 @@ class GrismModel():
         use = (xxi >= 0) & (xxi < self.sh[1])
         ### First order only
         #use = use & (xord > 10*self.grow_factor) & (xord < 213*self.grow_factor) 
-        use = use &  (bord == 1)
+        use_order = use &  (bord == 1)
         cut = np.zeros(self.sh[1])
-        cut[xxi[use]] = word[use] 
-        self.object_wave = cut*1. #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+        cut[xxi[use_order]] = word[use_order] 
+        self.object_wave = cut.copy() #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+        self.full_wave = word[use]
         
-        cut[xxi[use]] = sord[use] 
-        self.object_sens = cut*1. #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
+        cut[xxi[use_order]] = sord[use_order] 
+        self.object_sens = cut.copy() #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
             print 'Output wavelength and sensitivity arrays. (%.3f)' %(dt)
-        
-    def refine_model(self, ID, BEAMS=['A','B','C','D','E'], view=False, model_has_object=True, verbose=False):
+            
+    def refine_model(self, id, BEAMS=['A','B','C','D'], view=False, verbose=False, MAG_FOR_SIMPLE=23):
+        """
+        MAG_FOR_SIMPLE:  use linear fit if mag > MAG_FOR_SIMPLE
+        """
         from scipy import polyfit,polyval
 
-        if ID not in self.cat.id:
-            print '#%d not in the catalog.' %(ID)
+        if id not in self.cat.id:
+            print '#%d not in the catalog.' %(id)
             return False
-                    
+        
+        ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
+                  
         #### First iteration
-        #self.compute_object_model(id=ID, BEAMS=['A'], lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID], verbose=verbose)
-        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec=self.lam_specs[ID], flux_spec = self.flux_specs[ID], verbose=verbose, normalize=False)
+        #self.compute_object_model(id=id, BEAMS=['A'], lam_spec=self.lam_specs[id], flux_spec = self.flux_specs[id], verbose=verbose)
+        self.compute_object_model(id=id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec = self.flux_specs[id], verbose=verbose, normalize=False)
         
         t0 = time.time()
         if view.__class__ == threedhst.dq.myDS9:
             first_model = self.object*1
         
-        if model_has_object:
+        if self.obj_in_model[id]:
             self.model -= self.object
         
         if verbose:
@@ -783,7 +848,9 @@ class GrismModel():
         # 
         # ratio_extract = np.sum(ratio*whts, axis=0) / np.sum(whts, axis=0)
         # ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
-        ratio_extract = utils_c.get_model_ratio(self.object, self.model, self.gris[1].data)
+        
+        #ratio_extract = utils_c.get_model_ratio(self.object, self.model, self.gris[1].data)
+        ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
         
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
@@ -791,35 +858,51 @@ class GrismModel():
         
         #wave = np.mean(self.object_wave, axis=0)
         wave = self.object_wave
-        
-        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)
+        xpix = np.arange(self.sh[1])
+        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0) & (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
-        if len(keep[keep]) < 10:
+        if keep.sum() < 10:
             self.model += self.object
+            self.obj_in_model[id] = True
             return True
             
         coeff = polyfit(wave[keep], ratio_extract[keep], 1)
         ratio_extract[~keep] = polyval(coeff, wave[~keep])
+        #ratio_extract = threedhst.utils.medfilt(ratio_extract,21, AVERAGE=True)
+        if self.cat.mag[ii] > MAG_FOR_SIMPLE:
+            ratio_extract[keep] = polyval(coeff, wave[keep])
+            
+        #ratio_extract = np.maximum(ratio_extract, 0.33)
         
-        if self.flux_specs[ID] is not None:
-            rint = utils_c.interp_c(self.lam_specs[ID], wave[wave > 0], ratio_extract[wave > 0])
-            self.flux_specs[ID] *= rint
+        ratio_extract = np.maximum(ratio_extract, 0.1)
+        #print np.min(ratio_extract)
+        
+        #rint = utils_c.interp_c(self.lam_spec, wave[wave > 0], ratio_extract[wave > 0])
+        rint = np.interp(self.lam_spec, wave[wave > 0], ratio_extract[wave > 0], left=0.0, right=0.0)
+        
+        #print np.min(rint)
+        if self.flux_specs[id] is not None:
+            self.flux_specs[id] *= rint
+            #print np.min(self.flux_specs[id]), np.min(rint), self.flux_specs[id].shape, rint.shape
         else:
-            self.lam_specs[ID] = wave[wave > 0]
-            self.flux_specs[ID] = ratio_extract[wave > 0]
-        #
+            #self.lam_specs[id] = wave[wave > 0]
+            self.flux_specs[id] = rint
+        
+        #### Enforce minimum for "flux_specs" scaling to avoid divide-by-large-numbers
+        #self.flux_specs[id] = np.maximum(self.flux_specs[id], 0.2)
+        
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
             print 'Extract ratio, save values  (%.3f)' %(dt)
             
-        self.compute_object_model(id=ID, BEAMS=BEAMS, lam_spec = self.lam_specs[ID], flux_spec = self.flux_specs[ID], normalize=False, verbose=verbose)
+        self.compute_object_model(id=id, BEAMS=BEAMS, lam_spec = self.lam_spec, flux_spec = self.flux_specs[id], normalize=False, verbose=verbose)
         if view.__class__ == threedhst.dq.myDS9:
-            second_model = self.object*1.
+            second_model = self.object.copy()
         
         #### View the results
         if view.__class__ == threedhst.dq.myDS9:
-            print 'Display results for #%d to DS9' %(ID)
+            print 'Display results for #%d to DS9' %(id)
             diff_first = self.gris[1].data - self.model - first_model
             diff_second = self.gris[1].data - self.model - second_model
 
@@ -830,7 +913,7 @@ class GrismModel():
             view.frame(3)
             view.v(diff_second, vmin=-0.1, vmax=5)
 
-            idx = (self.cat['NUMBER'] == ID)
+            idx = (self.cat['NUMBER'] == id)
             view.set('pan to %f %f' %(self.cat['X_IMAGE'][idx][0], self.cat['Y_IMAGE'][idx][0]))
             view.set('zoom to 1.4')
             #view.set('cmap value 4.43936 0.462911')
@@ -839,41 +922,106 @@ class GrismModel():
             view.set('regions file %s_inter.reg' %(self.root))
             view.match_all(alignType='image')
             
-            plt.plot(self.lam_specs[ID], self.flux_specs[ID])
+            plt.plot(self.lam_spec, self.flux_specs[id])
         
         ### Done, now update the total model
         if view.__class__ == threedhst.dq.myDS9:
             self.model += second_model
+            self.obj_in_model[id] = True
         else:
             self.model += self.object
+            self.obj_in_model[id] = True
 
-    def show_ratio_spectrum(self, ID):
-        if ID not in self.cat['NUMBER']:
-            print '#%d not in the catalog.' %(ID)
+    def show_ratio_spectrum(self, id, flux=True):
+        if id not in self.cat['NUMBER']:
+            print '#%d not in the catalog.' %(id)
             return False
         
-        plt.plot(self.lam_specs[ID], self.flux_specs[ID]*self.total_fluxes[ID])
+        if self.flux_specs[id] is None:
+            show = self.lam_spec*0.+1
+        else:
+            show = self.flux_specs[id].copy()
         
-    def compute_full_model(self, BEAMS=['A','B','C','D','E'], save_ext='_model0', iteration_number=0, view=None, MAG_LIMIT=23.5):
+        if flux:
+            show *= self.total_fluxes[id]
+            
+        plt.plot(self.lam_spec, show)
+    
+    def remove_object(self, id, BEAMS=['A','B','C','D'], verbose=False):
         
-        self.model*=0.
-        threedhst.showMessage('Making full object model...')
+        if id not in self.cat.id:
+            print '#%d not in the catalog.' %(id)
+            return False
         
+        self.compute_object_model(id=id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec = self.flux_specs[id], verbose=verbose, normalize=False)
+                
+        if self.obj_in_model[id]:
+            self.model -= self.object
+            self.obj_in_model[id] = False
+            
+    def compute_full_model(self, BEAMS=['A','B','C','D'], view=None, MAG_LIMIT=21., save_pickle=True, refine=True):
+        
+        #self.model*=0.
+        if refine:
+            threedhst.showMessage('Making full object model (refined model)...')
+        else:
+            threedhst.showMessage('Making full object model (flat spectra)...')
+            
         mag = self.cat['MAG_AUTO']
         so = np.argsort(mag)
         so = so[mag[so] <= MAG_LIMIT]
         N = len(so)
-        
+                
         for i in range(N):
             #for i, id in enumerate(self.cat['NUMBER'][so]):
             id = self.cat['NUMBER'][so][i]
             print noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
-            self.refine_model(id, BEAMS=BEAMS, view=view, model_has_object=(iteration_number > 0))      
+            if refine:
+                self.refine_model(id, BEAMS=BEAMS, view=view)      
+            else:
+                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=None, flux_spec=None)      
+                self.model += self.object
+                self.obj_in_model[id] = True
+                
+        if save_pickle:
+            self.save_model_spectra()
+            
+    def save_model_spectra(self):
+        import pickle
         
-        if save_ext is not None:
-            pyfits.writeto(self.root+save_ext+'.fits', self.model, clobber=True)
-    
-    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=28, refine=True, verbose=False):
+        fp = open(self.root+'_model.pkl','wb')
+        pickle.dump(self.cat.id, fp)
+        pickle.dump(self.obj_in_model, fp)
+        pickle.dump(self.lam_spec, fp)
+        pickle.dump(self.flux_specs, fp)
+        fp.close()
+        
+        pyfits.writeto(self.root+'_model.fits', self.model, clobber=True)
+        
+    def load_model_spectra(self):
+        import pickle
+        if not os.path.exists(self.root+'_model.pkl'):
+            return False
+            
+        fp = open(self.root+'_model.pkl','rb')
+        ids = pickle.load(fp)
+        test = ids == self.cat.id
+        if np.sum(test) == len(self.cat.id):
+            print 'Load spectra from pickle'
+            self.obj_in_model = pickle.load(fp)
+            self.lam_spec = pickle.load(fp)
+            self.flux_specs = pickle.load(fp)
+            
+            im = pyfits.open(self.root+'_model.fits')
+            self.model = np.cast[np.double](im[0].data)
+            im.close()
+        else:
+            print "ERROR: Object list in pickle doesn't match the current catalog."
+        
+        fp.close()
+        return True
+        
+    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False):
         
         seg = self.segm[0].data
         seg_mask = seg == id
@@ -925,7 +1073,7 @@ class GrismModel():
         dx = self.cat.x_pix-self.cat.x_pix[ii]
         nearby = (dy < (NT/2.+5)) & (dx < 420*self.grow_factor) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
         
-        BEAMS=['A','B','C','D','E']
+        BEAMS=['A','B','C','D']
         view=False
         if nearby.sum() > 0:
             ids = self.cat.id[nearby][np.argsort(self.cat.mag[nearby])]
@@ -934,18 +1082,24 @@ class GrismModel():
                     print 'Calculating contaminating object #%d' %(idi)
                 #
                 if refine:
-                    self.refine_model(idi, BEAMS=BEAMS, view=view, model_has_object=(self.lam_specs[idi] is not None))      
+                    if (not self.obj_in_model[idi]) | force_refine_nearby:
+                        self.refine_model(idi, BEAMS=BEAMS, view=view)      
                 else:
-                    self.compute_object_model(idi, BEAMS=BEAMS, lam_spec=self.lam_specs[idi], flux_spec=self.flux_specs[idi], normalize=False)      
-                                
+                    if (not self.obj_in_model[idi]) | force_refine_nearby:
+                        self.compute_object_model(idi, BEAMS=BEAMS, lam_spec=None, flux_spec=None)      
+                        self.model += self.object
+                        self.obj_in_model[idi] = True
+                        
         #### Generate model for current object
         if verbose:
             print 'Compute object model #%d' %(id)
 
         if refine:
-            self.refine_model(id, BEAMS=BEAMS, view=view, model_has_object=(self.lam_specs[id] is not None))      
+            self.refine_model(id, BEAMS=BEAMS, view=view)      
         else:
-            self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_specs[id], flux_spec=self.flux_specs[id], normalize=False)      
+            self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
+            self.model += self.object
+            self.obj_in_model[idi] = True
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[0])
@@ -1019,17 +1173,23 @@ class GrismModel():
         extensions.append(pyfits.ImageHDU(self.ytrace, header))
         
         hdu = pyfits.HDUList(extensions)
-        hdu.writeto(self.root+'_%05d.fits' %(id), clobber=True)
+        hdu.writeto(self.root+'_%05d.2D.fits' %(id), clobber=True)
         
         self.twod = hdu
-    
+        
+        self.oned_spectrum(verbose=verbose)
+        
     def show_2d(self, savePNG = False):
         import unicorn
         
         ii = np.where(np.cast[int](self.cat.NUMBER) == self.id)[0][0]
         
-        fig = unicorn.catalogs.plot_init(xs=5, left=0.05, right=0.05, bottom=0.05, top=0.05, aspect=1./1.2)
-        
+        if savePNG:
+            fig = Figure(figsize=[5,5*1.2], dpi=100)
+            fig.subplots_adjust(wspace=0.2, hspace=0.02,left=0.02, bottom=0.02, right=0.98, top=0.98)
+        else:
+            fig = unicorn.catalogs.plot_init(xs=5, left=0.05, right=0.05, bottom=0.05, top=0.05, aspect=1./1.2)
+            
         xx = np.arange(self.grism_sci.shape[1])
         ltick = np.array([1.2,1.3,1.4,1.5,1.6])
         xtick = np.interp(ltick*1.e4, self.wave, xx)
@@ -1040,9 +1200,9 @@ class GrismModel():
         ax.text(1.1,0.8, self.root+r'_%05d' %(self.id), transform=ax.transAxes)
         ax.text(1.1,0.6, r'$m_{140}=%.2f$' %(self.cat.mag[ii]), transform=ax.transAxes)
         
-        if self.lam_specs[self.id] is not None:
+        if self.flux_specs[self.id] is not None:
             ax = fig.add_subplot(422)
-            ax.plot(self.lam_specs[self.id], self.flux_specs[self.id]*self.total_fluxes[self.id])
+            ax.plot(self.lam_spec, self.flux_specs[self.id]*self.total_fluxes[self.id])
             xx = ax.set_xticks(ltick*1.e4)
             ax.set_xticklabels(ltick)
             ax.set_xlim(1.1e4,1.65e4)
@@ -1066,103 +1226,144 @@ class GrismModel():
         xx = ax.set_xticks(xtick)
         
         if savePNG:
-            fig.savefig(self.root+'_%05d.png' %(self.id))
-            plt.close()
+            canvas = FigureCanvasAgg(fig)
+            canvas.print_figure(self.root+'_%05d.2D.png', dpi=100, transparent=False)
+                        
+    def oned_spectrum(self, verbose=True):
+        """
+        1D extraction after generating the 2D spectra.
+        
+        Currently just testing
+        """
+        
+        t0 = time.time()
+        
+        obj_cleaned = self.grism_sci - (self.full_model - self.the_object)
+        contam_cleaned = self.grism_sci - self.the_object
+        variance = self.grism_wht**2
             
-    def twod_spectrum_old(self, id=328, grow=1, miny=80):
-        """
-        Extract 2D direct + grism thumbnails.
-        """
-        self.compute_object_model(id=id, BEAMS=['A'])
-        #self.model = pyfits.open('GOODS-S-24_model0.fits')[0].data
+        #### Get extraction window where profile is > 10% of maximum 
+        osh = self.the_object.shape
+        xarr = np.arange(osh[1])
+        xint14 = int(np.interp(1.3e4, self.wave, xarr))
         
-        seg = self.segm[0].data
-        ypix, xpix = np.indices(seg.shape)
-        NY = ypix[seg == id].max()-ypix[seg == id].min()
-        NX = xpix[seg == id].max()-xpix[seg == id].min()
-        NT = np.max([NY*grow, NX*grow, miny])
-        #print NT, NX, NY
+        yprof = np.arange(osh[0])
+        profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
+        profile = profile/profile.sum()
         
-        ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
+        #profile2D = np.dot(profile.reshape((-1,1)), np.ones((1,osh[1])))
+        window = profile >= 0.1*profile.max()
         
-        xc = np.int(np.round(np.float(self.cat.X_IMAGE[ii])))-1
-        yc = np.int(np.round(np.float(self.cat.Y_IMAGE[ii])))-1
+        #### Use object as the profile since it contains the y shift along the trace
+        prof_x = np.sum(self.the_object, axis=0)
+        profile2D = self.the_object/np.dot(np.ones((osh[0],1)), prof_x.reshape((1,-1)))
         
-        self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
-        self.direct_wht = self.im[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        if (1 == 0):
+            plt.plot(yprof, profile, color='blue')
+            plt.plot(yprof[window], profile[window], color='red', linewidth=3)
+            print np.trapz(profile[window], xprof[window]) / np.trapz(profile, xprof)
         
-        #### dydx offset for grism trace
-        yc = np.int(np.round(np.float(self.cat.Y_IMAGE[ii])+self.xi[4]))-1
+        obj_cleaned[variance == 0] = 0
+        contam_cleaned[variance == 0] = 0
         
-        #pyfits.writeto('junk.fits', self.direct_thumb, clobber=True)
+        #### Simple sums, also weighted
+        weights = 1./variance
+        weights[variance == 0] = 0
         
-        xmin = xpix[self.object_wave > 0].min()
-        xmax = xpix[self.object_wave > 0].max()
-                
-        prim = pyfits.PrimaryHDU()
-        prim.header.update('POINTING', self.root)
-        prim.header.update('ID', id)
-        prim.header.update('BUNIT', 'ELECTRONS/S')
-        prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
-        prim.header.update('FILTER', self.gris[0].header['FILTER'])
+        var_sum = np.sum(weights[window,:], axis=0)
         
-        extensions = [prim]
-        header = pyfits.ImageHDU().header
+        weighted_sum = np.sum((obj_cleaned*weights)[window,:], axis=0) / var_sum
+        weighted_var = 1./np.sum(weights[window,:], axis=0)
+        weighted_sig = np.sqrt(weighted_var)
         
-        #### Direct thumbnails
-        header.update('EXTNAME','DSCI')
-        extensions.append(pyfits.ImageHDU(self.direct_thumb, header))
-        header.update('EXTNAME','DWHT')
-        header.update('WHTERROR',self.gris[0].header['WHTERROR'])
+        simple_sum = np.sum(obj_cleaned[window,:], axis=0)
+        simple_var = np.sum(variance[window,:], axis=0)
+        simple_sig = np.sqrt(simple_var)
         
-        extensions.append(pyfits.ImageHDU(np.cast[int](self.direct_wht), header))
+        #### Optimal extraction
+        opt_variance = variance.copy()
+        opt_variance[opt_variance == 0] = 1.e6
         
-        self.wave = self.object_wave[507, xmin:xmax]
-        self.dwave = self.wave[1]-self.wave[0]
+        num = np.sum(profile2D*obj_cleaned/opt_variance, axis=0)
+        #num_contam = np.sum(profile2D*contam_cleaned/opt_variance, axis=0)
+        num_contam = np.sum(profile2D*(self.full_model - self.the_object)/opt_variance, axis=0)
+        num_full = np.sum(profile2D*self.grism_sci/opt_variance, axis=0)
         
-        ### WCS header
-        header.update('CRPIX1',1)
-        header.update('CDELT1',self.dwave)
-        header.update('CRVAL1',self.wave[0])
-        header.update('CUNIT1','Angstrom')
-        header.update('CTYPE1','WAVE')
+        denom = np.sum(profile2D**2 / opt_variance, axis=0)
         
-        header.update('CRPIX2',NT/2.+1)
-        header.update('CRVAL2',0)
-        header.update('CDELT2',0.128254/2)
-        header.update('CUNIT2','arcsec')
-        header.update('CTYPE2','CRDIST')
+        optimal_sum = num / denom
+        optimal_sum_contam = num_contam / denom
+        optimal_sum_full = num_full / denom
         
-        self.grism_sci = self.gris[1].data[yc-NT/2:yc+NT/2, xmin:xmax]
-        header.update('EXTNAME','SCI')
-        extensions.append(pyfits.ImageHDU(self.grism_sci, header))
+        optimal_var = 1./np.sum(profile2D**2/opt_variance, axis=0)
+        optimal_sig = np.sqrt(optimal_var)
         
-        self.grism_wht = np.cast[int](self.gris[2].data[yc-NT/2:yc+NT/2, xmin:xmax])
-        header.update('EXTNAME','WHT')
-        extensions.append(pyfits.ImageHDU(self.grism_wht, header))
+        trace_pix = np.cast[int](np.round(self.ytrace))
+        #trace_spec = self.grism_sci[trace_pix,:]
+        trace_spec = optimal_sum*0.
+        trace_sig = optimal_sum*0.
+        for i in range(osh[1]):
+            trace_spec[i] = self.grism_sci[trace_pix[i],i]
+            trace_sig[i] = self.grism_wht[trace_pix[i],i]
         
-        self.the_object = self.object[yc-NT/2:yc+NT/2, xmin:xmax]
-        header.update('EXTNAME','MODEL')
-        extensions.append(pyfits.ImageHDU(self.the_object, header))
+        scale_to_total = 1./np.max(profile)       
+         
+        c1 = pyfits.Column(name='wave', format='D', unit='ANGSTROMS', array=self.wave)
+        c2 = pyfits.Column(name='flux', format='D', unit='ELECTRONS/S', array=optimal_sum_full)
+        c3 = pyfits.Column(name='error', format='D', unit='ELECTRONS/S', array=optimal_sig)
+        c4 = pyfits.Column(name='contam', format='D', unit='ELECTRONS/S', array=optimal_sum_contam)
+        c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=trace_spec)
+        c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=trace_sig)
+        c7 = pyfits.Column(name='sensitivity', format='D', unit='COUNTS / 1E-17 CGS', array=self.sens)
         
-        self.full_model = self.model[yc-NT/2:yc+NT/2, xmin:xmax]
-        header.update('EXTNAME','CONTAM')
-        extensions.append(pyfits.ImageHDU(self.full_model-self.the_object, header))
-                
-        header.update('EXTNAME','WAVE')
-        extensions.append(pyfits.ImageHDU(self.wave, header))
+        coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
+        head = pyfits.Header()
+        head.update('ATRACE', scale_to_total, comment='Factor to scale trace to total flux')
         
-        self.sens = self.object_sens[507, xmin:xmax]
-        header.update('EXTNAME','SENS')
-        header.update('BUNIT','(ELECTRONS/S) / (FLAM*1.E17)')
-        extensions.append(pyfits.ImageHDU(self.sens, header))
-
-        hdu = pyfits.HDUList(extensions)
-        hdu.writeto(self.root+'_%05d.fits' %(id), clobber=True)
+        ii = np.where(np.cast[int](self.cat.id) == self.id)[0][0]
+        try:
+            head.update('RA', self.ra_wcs[ii], comment='Target R.A.')
+            head.update('DEC', self.dec_wcs[ii], comment='Target Dec.')
+        except:
+            head.update('RA', 0., comment='Target R.A.')
+            head.update('DEC', 0., comment='Target R.A.')
+        #
+        head.update('X_PIX', self.cat.x_pix[ii], comment='X pixel in interlaced image')
+        head.update('Y_PIX', self.cat.y_pix[ii], comment='Y pixel in interlaced image')
+        head.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
         
-        self.twod = hdu
-    
-    def extract_1d(self, id=284):
+        
+        tbHDU = pyfits.new_table(coldefs, header=head)
+        tbHDU.writeto(self.root+'_%05d.1D.fits' %(self.id), clobber=True)
+        
+        if verbose:
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print '1D spectrum (%.3f)' %(dt)
+        
+        #return self.wave, optimal_sum, optimal_sig, trace_spec, trace_sig, scale_to_total
+        
+        # #### Testing to see how errors look, fit a line and calculate chi**2
+        # import gbb.pymc_line 
+        # xarr, yarr, earr = self.wave*1., optimal_sum/self.sens, optimal_sig/self.sens
+        # mc_line = gbb.pymc_line.init_model(xarr, yarr, earr, order=1)
+        # R = pymc.MCMC(mc_line)
+        # NSAMP, BURN = 10000, 3000
+        # R.sample(NSAMP, burn=BURN)
+        # 
+        # plt.plot(xarr, yarr, 'o')
+        # fit_trace = R.trace('eval_poly')[:]
+        # for i in range(0,fit_trace.shape[0],fit_trace.shape[0]/100):
+        #     p = plt.plot(xarr, fit_trace[i,:], color='red', alpha=0.05)
+        # 
+        # 
+        # import scipy
+        # stats = R.stats()
+        # yfit = scipy.polyval([stats['a1']['mean'], stats['a0']['mean']], xarr)
+        # dy = (yarr-yfit)/earr
+        # plt.hist(dy, range=(-5,5), bins=100)
+        # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
+        
+    def extract_1d_OLD(self, id=284):
         """
         Extract a 1D spectrum after cutting out the 2D spectrum using `twod_spectrum`.
         
@@ -1216,7 +1417,7 @@ class GrismModel():
         yint = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens)
         yint_smooth = utils_c.interp_c(np.array([1.1157e4, 1.6536e4]), wave, sens_smooth)
         
-        sens_corrected = sens*1.
+        sens_corrected = sens.copy()
         sens_corrected[wave < 1.1157e4] = sens_smooth[wave < 1.1157e4]+yint[0]-yint_smooth[0]
         sens_corrected[wave > 1.6536e4] = sens_smooth[wave > 1.6536e4]+yint[1]-yint_smooth[1]
         

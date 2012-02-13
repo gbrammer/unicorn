@@ -1018,7 +1018,7 @@ def SN_TILE41():
 
     os.chdir(unicorn.GRISM_HOME+'SN-TILE41/PREP_FLT')
     
-    ALIGN = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    ALIGN = os.getenv('CANDELS')+'/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
     ALIGN_EXT=0
     
     unicorn.candels.make_asn_files(force=False)

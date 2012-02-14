@@ -59,38 +59,82 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-def go_all():
-    
-    for field in ['AEGIS','COSMOS','GOODS-S','UDS'][1:]:
-        os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT')
-        files=glob.glob(field+'-[0-9]*asn.fits')
-        for file in files:
-            print file
-            #unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
-            if 'G141' in file:
-                model = unicorn.reduce.GrismModel(file.split('-G141')[0], MAG_LIMIT=26)
-                model.trim_edge_objects()
-                model.get_corrected_wcs()
-                model.make_wcs_region_file()
-    #
-    
-    ### Extract the spectra
+def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
+    """
+    clean_all=True; clean_spectra=True; make_images=True; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
+    """
     import unicorn
-    import glob
-    fp = open('/tmp/reduce.log','w')
-    for field in ['AEGIS','COSMOS','UDS','GOODS-S']:
-        os.chdir(unicorn.GRISM_HOME+'/'+field+'/PREP_FLT/')
-        files = glob.glob('*G141_inter.fits')
-        for file in files:
-            #for i in [35,36,37,38]:
-            if os.path.exists(file.split('-G141')[0]+'_model.fits'):
-                continue
-            model = unicorn.reduce.process_GrismModel(root=file.split('-G141')[0], MAG_LIMIT=26)
-            model.extract_spectra_and_diagnostics(MAG_LIMIT=25, skip=True)
-            del(model)
-            
-    fp.close()
     
+    #### Set up the interlaced images
+    for field in ['AEGIS','COSMOS','GOODS-S','UDS'][1:]:
+        
+        os.chdir(unicorn.GRISM_HOME+field+'/PREP_FLT')
+        files=glob.glob(field+'-[0-9]*G141_asn.fits')
+        #
+        ### First run
+        clean_all=True; clean_spectra=True; make_images=True; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
+        ### Redo
+        clean_all=False; clean_spectra=False; make_images=False; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
+        extract_limit=23.5
+        
+        ### Fainter extraction limit, don't regenerate everything already done
+        clean_all=False; clean_spectra=False; make_images=False; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
+        extract_limit=25
+        
+        for file in files:
+            status = unicorn.reduce.reduce_pointing(file=file, clean_all=clean_all, clean_spectra=clean_spectra, make_images=make_images, make_model=make_model, fix_wcs=fix_wcs, extract_limit=extract_limit, skip_completed_spectra=skip_completed_spectra, MAG_LIMIT=MAG_LIMIT, out_path=out_path)
+
+
+def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
+    import unicorn
+
+    print file
+    root=file.split('-G141')[0].split('-F140W')[0]
+    
+    remove = []
+    if clean_spectra | clean_all:
+        #print 'Clean spectra'
+        remove.extend(glob.glob(root+'_*1D.fits'))
+        remove.extend(glob.glob(root+'_*1D.png'))
+        remove.extend(glob.glob(root+'_*2D.fits'))
+        remove.extend(glob.glob(root+'_*2D.png'))
+        remove.extend(glob.glob(root+'_*2D.xxx'))
+    
+    if clean_all:
+        #print 'Clean all'
+        remove.extend(glob.glob(root+'_*inter*'))
+        remove.extend(glob.glob(root+'_model.*'))
+        remove.extend(glob.glob(root+'_seg.fits'))
+        remove.extend(glob.glob(root+'-[FG]*inter.fits'))
+        
+    if remove != []:
+        for ff in remove:
+            print noNewLine+'Remove %s' %(ff)
+            os.remove(ff)
+            
+    if make_images | (not os.path.exists(root+'-F140W_inter.fits')):
+        unicorn.reduce.interlace_combine(root+'-F140W', view=False, use_error=True, make_undistorted=False)
+
+    if make_images | (not os.path.exists(root+'-G141_inter.fits')):
+        unicorn.reduce.interlace_combine(root+'-G141', view=False, use_error=True, make_undistorted=False)
+    
+    if make_model:
+        model = unicorn.reduce.process_GrismModel(root, MAG_LIMIT=MAG_LIMIT)
+    else:
+        return True
+        
+    if fix_wcs:
+        model.trim_edge_objects()
+        model.get_corrected_wcs()
+        model.make_wcs_region_file()
+        
+    if extract_limit is not None:
+        model.extract_spectra_and_diagnostics(MAG_LIMIT=extract_limit, skip=skip_completed_spectra)
+    
+    del(model)
+    
+    return True
+                        
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -130,7 +174,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     for flt in run.flt:
         im = pyfits.open(flt+'.fits')
         hot_pix += (im[3].data & 4096) / 4096
-    
+        
     hot_pix = hot_pix > 2
         
     for i,flt in enumerate(run.flt):
@@ -144,6 +188,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         im[1].data /= 4
         im[2].data /= 4
         
+        ### Mask cosmic rays
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
@@ -157,8 +202,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         dy = dys[i]
         #
         #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
-        #
-        use = ((im[3].data & 4) == 0) & (~hot_pix) & ((im[3].data & 32) == 0)
+        #        
+        use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
+        
         inter_sci[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
         if use_error:
             inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]
@@ -453,7 +499,7 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
         
     return model
     
-class Interp1Dspec():
+class Interlace1D():
     def __init__(self, file='UDS-17_00319.1D.fits', PNG=True):
         self.file = file
         tab = pyfits.open(file)
@@ -470,15 +516,24 @@ class Interp1Dspec():
         #fig = unicorn.catalogs.plot_init(xs=4, left=0.1, right=0.02*1.618, bottom=0.08, top=0.02, aspect=1./1.618)
         fig = Figure(figsize=[4,4/1.618], dpi=100)
 
-        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.125,
+        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.135,
                             bottom=0.15,right=0.97,top=1-0.02*1.618)
         
         ax = fig.add_subplot(111)
         
-        ymax = ((self.data.flux-self.data.contam)/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
-        if ymax < 0:
-            ymax = (self.data.flux/self.data.sensitivity)[(self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)].max()
+        wavelength_region = (self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)
+        if np.sum(wavelength_region) > 0:
+            ymax = ((self.data.flux-self.data.contam)/self.data.sensitivity)[wavelength_region].max()
+            if ymax <= 0:
+                ymax = (self.data.flux/self.data.sensitivity)[wavelength_region].max()
+        else:
+            ymax=0
             
+        if ymax <= 0:
+            ymax = (self.data.flux/self.data.sensitivity).max()
+        if ymax <= 0:
+            ymax = 1
+        
         ax.errorbar(self.data.wave, (self.data.flux-self.data.contam)/self.data.sensitivity, self.data.error/self.data.sensitivity, color='black', ecolor='0.7', alpha=0.5, marker=',', ms=3, linestyle='None')
         ax.plot(self.data.wave, (self.data.flux-self.data.contam)/self.data.sensitivity, color='blue', alpha=0.5)
         ax.plot(self.data.wave, self.data.flux/self.data.sensitivity, color='red', alpha=0.2)
@@ -500,6 +555,8 @@ class GrismModel():
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
+        self.grow_factor = grow_factor
+        self.pad = pad
         
         header = pyfits.getheader(root+'-F140W_inter.fits',0)
         self.filter = header['FILTER']
@@ -509,30 +566,6 @@ class GrismModel():
         PLAMs = {'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4}
         self.PLAM = PLAMs[self.filter]
         
-        if not os.path.exists(root+'_seg.fits'):
-            threedhst.showMessage('Running SExtractor...')
-            self.find_objects(MAG_LIMIT=MAG_LIMIT)
-        
-        self.grow_factor = grow_factor
-        self.pad = pad
-        
-        threedhst.showMessage('Read FITS files and catalog')
-        print 'Read files'
-        self.read_files()
-        print 'Init object spectra'
-        self.init_object_spectra()
-        try:
-            test = self.total_fluxes
-        except:
-            self.make_total_flux()
-        
-        self.ra_wcs, self.dec_wcs = None, None
-                
-    def read_files(self):
-        """
-        Read FITS files, catalogs, and segmentation images for a pair of 
-        interlaced exposures.
-        """
         self.im = pyfits.open(self.root+'-F140W_inter.fits')
         self.make_flux()
                 
@@ -541,6 +574,30 @@ class GrismModel():
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         
+        if not os.path.exists(root+'_seg.fits'):
+            threedhst.showMessage('Running SExtractor...')
+            self.find_objects(MAG_LIMIT=MAG_LIMIT)
+                
+        threedhst.showMessage('Read FITS files and catalog')
+        print 'Read files'
+        self.read_files()
+        
+        print 'Init object spectra'
+        self.init_object_spectra()
+        
+        self.make_total_flux()
+        
+        self.ra_wcs, self.dec_wcs = None, None
+        self.model = np.zeros(self.sh, dtype=np.double)
+        self.object = np.zeros(self.sh, dtype=np.double)
+        #self.test_object = np.zeros(self.sh)
+        self.yf, self.xf = np.indices(self.sh)
+                
+    def read_files(self):
+        """
+        Read FITS files, catalogs, and segmentation images for a pair of 
+        interlaced exposures.
+        """        
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         
         self.trim_edge_objects(verbose=True)
@@ -551,12 +608,7 @@ class GrismModel():
         
         self.segm = pyfits.open(self.root+'_seg.fits')
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
-        
-        self.model = np.zeros(self.sh, dtype=np.double)
-        self.object = np.zeros(self.sh, dtype=np.double)
-        self.test_object = np.zeros(self.sh)
-        self.yf, self.xf = np.indices(self.sh)
-        
+                
     def make_flux(self):
         """
         Convert from e/s to physical fluxes using the ZP and pivot wavelength 
@@ -569,9 +621,11 @@ class GrismModel():
         #### Run SExtractor on the direct image, with the WHT 
         #### extension as a weight image
         se = threedhst.sex.SExtractor()
+        
         ## Set the output parameters required for aXe 
         ## (stored in [threedhst source]/data/aXe.param) 
         se.aXeParams()
+        
         ## XXX add test for user-defined .conv file
         se.copyConvFile()
         se.overwrite = True
@@ -581,13 +635,16 @@ class GrismModel():
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
         se.options['WEIGHT_IMAGE']    = self.root+'-F140W_inter.fits[1]'
         se.options['FILTER']    = 'Y'
+        
         #### Detect thresholds (default = 1.5)
         se.options['DETECT_THRESH']    = '1' 
         se.options['ANALYSIS_THRESH']  = '1'
         se.options['MAG_ZEROPOINT'] = '%.2f' %(self.ZP)
+        
         #### Run SExtractor
         status = se.sextractImage(self.root+'-F140W_inter.fits[0]')
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
+        
         #### Trim faint sources
         mag = np.cast[float](self.cat.MAG_AUTO)
         q = np.where(mag > MAG_LIMIT)[0]
@@ -597,17 +654,17 @@ class GrismModel():
         
         self.cat.write()
         
-        self.trim_edge_objects(verbose=True)
+        #self.trim_edge_objects(verbose=True)
         
-        self.segm = pyfits.open(self.root+'_seg.fits')
+        #self.segm = pyfits.open(self.root+'_seg.fits')
         
         threedhst.sex.sexcatRegions(self.root+'_inter.cat', self.root+'_inter.reg', format=1)
         
-        try:
-            self.make_total_flux()
-        except:
-            pass
-        self.init_object_spectra()
+        # try:
+        #     self.make_total_flux()
+        # except:
+        #     pass
+        # self.init_object_spectra()
     
     def trim_edge_objects(self, verbose=True):
         """
@@ -668,8 +725,14 @@ class GrismModel():
         print 'Running iraf.tran()'
         threedhst.process_grism.flprMulti()
         
-        status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
-        
+        ### For some reason this dies occasionally "too many positional arguments for traxy"
+        ### Try running a second time if it dies once
+        try:
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+        except:
+            threedhst.process_grism.flprMulti()
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            
         self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)
                     
         fp = open('%s_inter.cat.wcsfix' %(self.root),'w')
@@ -1038,7 +1101,7 @@ class GrismModel():
         pickle.dump(self.flux_specs, fp)
         fp.close()
         
-        pyfits.writeto(self.root+'_model.fits', self.model, clobber=True)
+        pyfits.writeto(self.root+'_model.fits', data=self.model, header=self.gris[1].header, clobber=True)
         
     def load_model_spectra(self):
         import pickle
@@ -1151,9 +1214,23 @@ class GrismModel():
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[0])
-        xmin = xarr[(self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)].min()
-        xmax = xarr[(self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)].max()
+        wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
         
+        if np.sum(wavelength_region) < 20:
+            fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
+            fp.write('%.2f %.2f  %d %d\n' %(xc, yc, -1, -1))
+            fp.close()
+            return False
+        
+        xmin = xarr[wavelength_region].min()
+        xmax = xarr[wavelength_region].max()
+        
+        if ((self.sh[1]-xmin) < 20) | ((xmax-xmin) < 20):
+            fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
+            fp.write('%.2f %.2f  %d %d\n' %(xc, yc, xmin, xmax))
+            fp.close()
+            return False
+            
         #### dydx offset for grism trace
         xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+xc
         xoff_int = np.arange(xmin, xmax, dtype=np.double)
@@ -1227,11 +1304,16 @@ class GrismModel():
         
         self.oned_spectrum(verbose=verbose)
         
-    def show_2d(self, savePNG = False):
+        return True
+        
+    def show_2d(self, savePNG = False, verbose=False):
         import unicorn
         
         ii = np.where(np.cast[int](self.cat.NUMBER) == self.id)[0][0]
         
+        if verbose:
+            print 'Setup figure'
+            
         if savePNG:
             fig = Figure(figsize=[5,5*1.2], dpi=100)
             fig.subplots_adjust(wspace=0.2, hspace=0.08,left=0.02, bottom=0.02, right=0.98, top=0.98)
@@ -1242,6 +1324,9 @@ class GrismModel():
         ltick = np.array([1.2,1.3,1.4,1.5,1.6])
         xtick = np.interp(ltick*1.e4, self.wave, xx)
         
+        if verbose:
+            print noNewLine+'Thumb panel'
+        
         ax = fig.add_subplot(431)
         ax.imshow(self.direct_thumb, vmin=-0.5, vmax=2, interpolation='nearest')
         ax.set_yticklabels([]); ax.set_xticklabels([]); 
@@ -1249,6 +1334,9 @@ class GrismModel():
         ax.text(1.1,0.6, '#%d' %(self.id), transform=ax.transAxes)
         ax.text(1.1,0.4, r'$m_{140}=%.2f$' %(self.cat.mag[ii]), transform=ax.transAxes)
         ax.text(1.1,0.2, r'$(%.1f, %.1f)$' %(self.cat.x_pix[ii], self.cat.y_pix[ii]), transform=ax.transAxes)
+        
+        if verbose:
+            print noNewLine+'Plot flux_specs'
         
         if self.flux_specs[self.id] is not None:
             ax = fig.add_subplot(422)
@@ -1260,20 +1348,32 @@ class GrismModel():
             ax.set_ylim(-0.1*y.max(), 1.1*y.max())
             ax.set_yticklabels([]);
         
+        if verbose:
+            print noNewLine+'GRISM - science'
+        
         ax = fig.add_subplot(412)
         ax.imshow(self.grism_sci, vmin=-0.05, vmax=0.2, interpolation='nearest')
         ax.set_yticklabels([]); ax.set_xticklabels([]); 
         xx = ax.set_xticks(xtick)
+
+        if verbose:
+            print noNewLine+'GRISM - model'
 
         ax = fig.add_subplot(413)
         ax.imshow(self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
         ax.set_yticklabels([]); ax.set_xticklabels([]); 
         xx = ax.set_xticks(xtick)
 
+        if verbose:
+            print noNewLine+'GRISM - difference'
+        
         ax = fig.add_subplot(414)
         ax.imshow(self.grism_sci-self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
         ax.set_yticklabels([]); ax.set_xticklabels([]); 
         xx = ax.set_xticks(xtick)
+        
+        if verbose:
+            print noNewLine+'Save the PNG'
         
         if savePNG:
             canvas = FigureCanvasAgg(fig)
@@ -1413,7 +1513,7 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19):
+    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False):
         """
         Extract 1D and 2D spectra of objects with id in `list`.
         """
@@ -1421,29 +1521,31 @@ class GrismModel():
         if list is None:
             list = self.cat.id[self.cat.mag < MAG_LIMIT]
         
-        fp = open(self.root+'_inter.failed','w')
+        #fp = open(self.root+'_inter.failed','w')
         
         N = len(list)
         for i,id in enumerate(list):
             print noNewLine+'Object #%-4d (%4d/%4d)' %(id,i+1,N)
             #
-            if os.path.exists(self.root+'_%05d.1D.fits' %(id)) & skip:
+            if (os.path.exists(self.root+'_%05d.2D.fits' %(id)) | os.path.exists(self.root+'_%05d.2D.xxx' %(id))) & skip:
                 continue
             
-            try:
-                self.twod_spectrum(id=id, verbose=False, miny=30, refine=True)
-            except:
-                fp.write('%d 2Da\n' %(id))
-                
-            try:
-                self.show_2d(savePNG=True)
-            except:
-                fp.write('%d 2Db\n' %(id))
+            if verbose:
+                print '2D FITS'
+            status = self.twod_spectrum(id=id, verbose=verbose, miny=30, refine=True)
             
-            try:
-                spec = unicorn.reduce.Interp1Dspec(self.root+'_%05d.1D.fits' %(id), PNG=True)
-            except:
-                fp.write('%d 1D\n' %(id))
+            if status is False:
+                if verbose:
+                    print noNewLine+'Object #%-4d (%4d/%4d) - No 2D' %(id,i+1,N)
+                continue
+                    
+            if verbose:
+                print noNewLine+'2D FITS, 2D PNG, 1D FITS'
+            self.show_2d(savePNG=True, verbose=verbose)
+
+            if verbose:
+                print noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
+            spec = unicorn.reduce.Interlace1D(self.root+'_%05d.1D.fits' %(id), PNG=True)
                 
 def field_dependent(xi, yi, str_coeffs):
     """ 

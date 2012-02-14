@@ -36,6 +36,12 @@ import time
 
 import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams['patch.edgecolor'] = 'None'
+plt.rcParams['font.size'] = 10
+
+plt.rcParams['image.origin'] = 'lower'
+plt.rcParams['image.interpolation'] = 'nearest'
+
 USE_PLOT_GUI = False
 
 import pyfits
@@ -62,7 +68,7 @@ def go_all():
             print file
             #unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, use_error=True, make_undistorted=False)
             if 'G141' in file:
-                model = unicorn.reduce.GrismModel(file.split('-G141')[0], LIMITING_MAGNITUDE=26)
+                model = unicorn.reduce.GrismModel(file.split('-G141')[0], MAG_LIMIT=26)
                 model.trim_edge_objects()
                 model.get_corrected_wcs()
                 model.make_wcs_region_file()
@@ -413,17 +419,31 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
 
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNITUDE=24):
+def go():
+    import unicorn
+    import glob
+    fp = open('/tmp/reduce.log','w')
+    for field in ['AEGIS','COSMOS','UDS','GOODS-S']:
+        os.chdir(unicorn.GRISM_HOME+'/'+field+'/PREP_FLT/')
+        files = glob.glob('*G141_inter.fits')
+        for file in files:
+            #for i in [35,36,37,38]:
+                model = unicorn.reduce.process_GrismModel(root=file.split('-G141')[0], MAG_LIMIT=26)
+                model.extract_spectra_and_diagnostics(MAG_LIMIT=25, skip=True)
+            
+    fp.close()
+    
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, pad=pad, LIMITING_MAGNITUDE=LIMITING_MAGNITUDE)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, pad=pad, MAG_LIMIT=MAG_LIMIT)
     
     model.get_corrected_wcs(verbose=True)
     
     test = model.load_model_spectra()
     if not test:
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=LIMITING_MAGNITUDE, save_pickle=False)   
+        model.compute_full_model(refine=False, MAG_LIMIT=model.cat.mag.max(), save_pickle=False)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
         model.compute_full_model(refine=True, MAG_LIMIT=21, save_pickle=True)
         
@@ -471,7 +491,7 @@ class Interp1Dspec():
             canvas.print_figure(self.file.replace('fits','png'), dpi=100, transparent=False)
             
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, LIMITING_MAGNITUDE=24):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
         """
         Initialize: set padding, growth factor, read input files.
         """
@@ -487,7 +507,7 @@ class GrismModel():
         
         if not os.path.exists(root+'_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
-            self.find_objects(LIMITING_MAGNITUDE=LIMITING_MAGNITUDE)
+            self.find_objects(MAG_LIMIT=MAG_LIMIT)
         
         self.grow_factor = grow_factor
         self.pad = pad
@@ -541,7 +561,7 @@ class GrismModel():
         self.flux = self.im[1].data * 10**(-0.4*(self.ZP+48.6))* 3.e18 / self.PLAM**2 / 1.e-17
         self.flux_fnu = self.im[1].data * 10**(-0.4*(self.ZP+48.6))
         
-    def find_objects(self, LIMITING_MAGNITUDE=23.5):
+    def find_objects(self, MAG_LIMIT=23.5):
         #### Run SExtractor on the direct image, with the WHT 
         #### extension as a weight image
         se = threedhst.sex.SExtractor()
@@ -566,7 +586,7 @@ class GrismModel():
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         #### Trim faint sources
         mag = np.cast[float](self.cat.MAG_AUTO)
-        q = np.where(mag > LIMITING_MAGNITUDE)[0]
+        q = np.where(mag > MAG_LIMIT)[0]
         if len(q) > 0:
             numbers = np.cast[int](self.cat.NUMBER)[q]
             self.cat.popItem(numbers)
@@ -1221,8 +1241,10 @@ class GrismModel():
         ax = fig.add_subplot(431)
         ax.imshow(self.direct_thumb, vmin=-0.5, vmax=2, interpolation='nearest')
         ax.set_yticklabels([]); ax.set_xticklabels([]); 
-        ax.text(1.1,0.8, self.root+r'_%05d' %(self.id), transform=ax.transAxes)
-        ax.text(1.1,0.6, r'$m_{140}=%.2f$' %(self.cat.mag[ii]), transform=ax.transAxes)
+        ax.text(1.1,0.8, self.root, transform=ax.transAxes)
+        ax.text(1.1,0.6, '#%d' %(self.id), transform=ax.transAxes)
+        ax.text(1.1,0.4, r'$m_{140}=%.2f$' %(self.cat.mag[ii]), transform=ax.transAxes)
+        ax.text(1.1,0.2, r'$(%.1f, %.1f)$' %(self.cat.x_pix[ii], self.cat.y_pix[ii]), transform=ax.transAxes)
         
         if self.flux_specs[self.id] is not None:
             ax = fig.add_subplot(422)
@@ -1387,22 +1409,37 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_spectra_and_diagnostics(self, list=None, MAG_LIM=19):
+    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19):
         """
         Extract 1D and 2D spectra of objects with id in `list`.
         """
         import unicorn.reduce
         if list is None:
-            list = self.cat.id[self.cat.mag < MAG_LIM]
+            list = self.cat.id[self.cat.mag < MAG_LIMIT]
+        
+        fp = open(self.root+'_inter.failed','w')
         
         N = len(list)
         for i,id in enumerate(list):
             print noNewLine+'Object #%-4d (%4d/%4d)' %(id,i+1,N)
             #
-            self.twod_spectrum(id=id, verbose=False, miny=30, refine=True)
-            self.show_2d(savePNG=True)
-            spec = unicorn.reduce.Interp1Dspec(self.root+'_%05d.1D.fits' %(id), PNG=True)
+            if os.path.exists(self.root+'_%05d.1D.fits' %(id)) & skip:
+                continue
+            
+            try:
+                self.twod_spectrum(id=id, verbose=False, miny=30, refine=True)
+            except:
+                fp.write('%d 2Da\n' %(id))
                 
+            try:
+                self.show_2d(savePNG=True)
+            except:
+                fp.write('%d 2Db\n' %(id))
+            
+            try:
+                spec = unicorn.reduce.Interp1Dspec(self.root+'_%05d.1D.fits' %(id), PNG=True)
+            except:
+                fp.write('%d 1D\n' %(id))
                 
 def field_dependent(xi, yi, str_coeffs):
     """ 

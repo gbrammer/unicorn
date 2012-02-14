@@ -1457,7 +1457,9 @@ class GrismModel():
             trace_sig[i] = self.grism_wht[trace_pix[i],i]
         
         scale_to_total = 1./np.max(profile)       
-         
+        if not np.isfinite(scale_to_total):
+            scale_to_total=-1
+            
         c1 = pyfits.Column(name='wave', format='D', unit='ANGSTROMS', array=self.wave)
         c2 = pyfits.Column(name='flux', format='D', unit='ELECTRONS/S', array=optimal_sum_full)
         c3 = pyfits.Column(name='error', format='D', unit='ELECTRONS/S', array=optimal_sig)

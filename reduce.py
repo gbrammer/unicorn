@@ -72,7 +72,25 @@ def go_all():
                 model.trim_edge_objects()
                 model.get_corrected_wcs()
                 model.make_wcs_region_file()
-
+    #
+    
+    ### Extract the spectra
+    import unicorn
+    import glob
+    fp = open('/tmp/reduce.log','w')
+    for field in ['AEGIS','COSMOS','UDS','GOODS-S']:
+        os.chdir(unicorn.GRISM_HOME+'/'+field+'/PREP_FLT/')
+        files = glob.glob('*G141_inter.fits')
+        for file in files:
+            #for i in [35,36,37,38]:
+            if os.path.exists(file.split('-G141')[0]+'_model.fits'):
+                continue
+            model = unicorn.reduce.process_GrismModel(root=file.split('-G141')[0], MAG_LIMIT=26)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=25, skip=True)
+            del(model)
+            
+    fp.close()
+    
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -418,20 +436,6 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #print beam, model.max()
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
-
-def go():
-    import unicorn
-    import glob
-    fp = open('/tmp/reduce.log','w')
-    for field in ['AEGIS','COSMOS','UDS','GOODS-S']:
-        os.chdir(unicorn.GRISM_HOME+'/'+field+'/PREP_FLT/')
-        files = glob.glob('*G141_inter.fits')
-        for file in files:
-            #for i in [35,36,37,38]:
-                model = unicorn.reduce.process_GrismModel(root=file.split('-G141')[0], MAG_LIMIT=26)
-                model.extract_spectra_and_diagnostics(MAG_LIMIT=25, skip=True)
-            
-    fp.close()
     
 def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
     import unicorn.reduce

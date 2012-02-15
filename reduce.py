@@ -547,7 +547,7 @@ class Interlace1D():
         if savePNG:
             #fig.savefig(self.file.replace('fits','png'))
             canvas = FigureCanvasAgg(fig)
-            canvas.print_figure(self.file.replace('fits','png'), dpi=100, transparent=False)
+            canvas.print_figure(os.path.basename(self.file).replace('fits','png'), dpi=100, transparent=False)
             
 class GrismModel():
     def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):

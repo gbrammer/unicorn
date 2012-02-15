@@ -1141,5 +1141,477 @@ def clash_red_galaxies():
     #
     drz = pyfits.open('../hlsp_clash_hst_wfc3ir_macs2129_f125w_v1_drz.fits')
     zp=-2.5*np.log10(drz[0].header['PHOTFLAM']) - 21.10 - 5 *np.log10(drz[0].header['PHOTPLAM']) + 18.6921
+
+def get_full_candels_region(field='COSMOS'):
+    import unicorn
+    
+    if field == 'AEGIS':
+        field = 'EGS'
+        
+    reg_files = glob.glob(os.getenv('CANDELS')+'/%s/PREP_FLT/*F160W*pointing.reg' %(field))
+    #out_file = os.getenv('CANDELS')+'/COSMOS_full.reg'
+    
+    regions = []
+    for file in reg_files:
+        print unicorn.noNewLine+file
+        fp = open(file)
+        lines = fp.readlines()
+        fp.close()
+        for line in lines:
+            if 'polygon' in line:
+                regions.append(unicorn.survey_paper.polysplit(region=line[:-1], get_shapely=True))
+    #
+    un = regions[0]
+    for pp in regions[1:]:
+        un = un.union(pp)
+    
+    #
+    if un.geometryType() is 'MultiPolygon':
+        x, y = [], []
+        for sub_poly in un.geoms:
+            xi, yi = sub_poly.exterior.xy
+            x.append(np.array(xi)), y.append(np.array(yi))
+            #ax.plot(x,y, alpha=candels_alpha, color=candels_color, linewidth=1)
+            #ax.fill(x,y, alpha=0.1, color='0.7')
+    else:        
+        x, y = un.exterior.xy
+        x, y = np.array(x), np.array(y)
+        #plt.plot(x,y, alpha=0.5, color='blue', linewidth=1)
+        #plt.fill(x,y, alpha=0.1, color='0.7')
+    
+    return un, x, y
+    
+    
+        
+def massive_galaxies_morphologies(field='COSMOS'):
+    import threedhst
+    import threedhst.eazyPy as eazy
+    import unicorn
+    import shapely
+    from shapely.geometry import Point,Polygon
+    import stsci.tools.wcsutil as wcsutil
+    
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='%s-1' %(field))
+    try:
+        test = cat.use
+    except:
+        cat.use = np.ones(len(cat.id), dtype=np.int)
+    
+    full_geom, xreg, yreg = unicorn.candels.get_full_candels_region(field=field)
+    
+    in_candels = cat.id < 0
+    print 'Find objects within CANDELS'
+
+    idx = np.arange(len(cat.id))
+    for i in idx:
+        #print unicorn.noNewLine+'%d' %(i)
+        in_candels[i] = full_geom.contains(Point(cat.ra[i], cat.dec[i]))
+
+    print unicorn.noNewLine+'Find objects within CANDELS - Done.'
+        
+    #
+    eazy_path = {}
+    eazy_path['AEGIS'] = '/3DHST/Ancillary/AEGIS/NMBS/Photometry//aegis-n2.deblend.redshifts'
+    eazy_path['COSMOS'] = '/3DHST/Ancillary/COSMOS/NMBS/Photometry//cosmos-1.deblend.redshifts'
+    eazy_path['GOODS-S'] = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST'
+    eazy_path['GOODS-N'] = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/../EAZY/OUTPUT'
+    eazy_path['UDS'] = '/3DHST/Ancillary/UDS/UKIDSS/FAST'
+    
+    MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
+    OUTPUT_DIRECTORY = eazy_path[field]
+    CACHE_FILE='Same'
+    
+    F160W = {}
+    F160W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    F160W['AEGIS'] = '/Users/gbrammer/CANDELS/EGS/PREP_FLT/EGS-F160W_drz_sci.fits'
+    F160W['UDS'] = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    F160W['GOODS-S'] = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    
+    F125W = {}
+    F125W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F125W_drz_sci.fits'
+    F125W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F125W_drz_sci.fits'
+    F125W['AEGIS'] = '/Users/gbrammer/CANDELS/EGS/PREP_FLT/EGS-F125W_drz_sci.fits'
+    F125W['UDS'] = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f125w_v1.0_drz.fits'
+    F125W['GOODS-S'] = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F125W_wfc3ir_drz_sci.fits'
+    
+    im_f125w = pyfits.open(F125W[field])
+    im_f160w = pyfits.open(F160W[field])
+    
+    wcs_f125w = wcsutil.WCSObject('f125w',header=im_f125w[0].header)
+    wcs_f160w = wcsutil.WCSObject('f160w',header=im_f160w[0].header)
+        
+    thumb_size = 8 # arcsec
+    ps_f125w = np.sqrt(wcs_f125w.cd11**2+wcs_f125w.cd12**2)*3600.
+    ps_f160w = np.sqrt(wcs_f160w.cd11**2+wcs_f160w.cd12**2)*3600.
+    
+    N_125 = int(np.round(thumb_size / ps_f125w / 2))
+    N_160 = int(np.round(thumb_size / ps_f160w / 2))
+    ticks_125 = np.arange(0,thumb_size+1)/ps_f125w
+    ticks_160 = np.arange(0,thumb_size+1)/ps_f160w
+    
+    plt.gray()
+    
+    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.19) & (zout.z_peak > 2.3) & (zout.z_peak < 2.7)
+    
+    for ii in idx[massive]:
+        print ii
+        
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
+    
+        zgrid, pz = eazy.getEazyPz(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
+        
+        fig = unicorn.catalogs.plot_init(xs=8, aspect=1./4*0.95, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8)
+        
+        #### SED
+        ax = fig.add_subplot(141)
+        ymax = (fobs)[(efobs > 0) & (fobs > -99)].max()
+        ax.errorbar(lci, fobs, efobs, marker='o', linestyle='None', color='black', ecolor='black', ms=4, alpha=0.7)
+        ax.plot(lambdaz, temp_sed, color='blue', alpha=0.3)
+        ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        ax.set_xlim(3000,8.2e4)
+        ax.semilogx()
+        
+        #### p(z)
+        ax = fig.add_subplot(142)
+        ax.plot(zgrid, pz, color='orange')
+        ax.fill(zgrid, pz, color='orange', alpha=0.5)
+        if zout.z_spec[ii] > 0:
+            ax.plot(np.array([1,1])*zout.z_spec[ii], [0, 1.05*pz.max()], color='red', linewidth=1)
+        
+        #### Label
+        ax.text(1.1, 1.05, '%s-%d, K=%.2f, z=%.2f, logM=%.2f, Av=%.2f' %(field, cat.id[ii], cat.kmag[ii], zout.z_peak[ii], fout.lmass[ii], fout.Av[ii]), transform=ax.transAxes, horizontalalignment='center')
+        
+        #### F125W thumbnail
+        x125, y125 = wcs_f125w.rd2xy((cat.ra[ii], cat.dec[ii]), hour=False)
+        x125, y125 = np.int(np.round(x125))-1, np.int(np.round(y125))-1
+        
+        x160, y160 = wcs_f160w.rd2xy((cat.ra[ii], cat.dec[ii]), hour=False)
+        x160, y160 = np.int(np.round(x160))-1, np.int(np.round(y160))-1
+        
+        thumb125 = im_f125w[0].data[y125-N_125:y125+N_125, x125-N_125:x125+N_125]
+        thumb160 = im_f160w[0].data[y160-N_160:y160+N_160, x160-N_160:x160+N_160]
+        
+        l125 = np.log10(thumb125+0.1); l125[~np.isfinite(l125)]
+        l160 = np.log10(thumb160+0.1); l160[~np.isfinite(l160)]
+        
+        scl = (-0.3,1)
+        scl = (0.1,1)
+        ax = fig.add_subplot(143)
+        #ax.imshow(l125, vmin=-1.2, vmax=0.3, interpolation='nearest')
+        ax.imshow(0-l125, vmin=scl[0], vmax=scl[1], interpolation='nearest')
+        xtick = ax.set_xticks(ticks_125);ytick = ax.set_yticks(ticks_125) 
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_ylabel('F125W')
+
+        
+        ax = fig.add_subplot(144)
+        #ax.imshow(l160, vmin=-1.2, vmax=0.3, interpolation='nearest')
+        ax.imshow(0-l160, vmin=scl[0], vmax=scl[1], interpolation='nearest')
+        xtick = ax.set_xticks(ticks_160);ytick = ax.set_yticks(ticks_160) 
+        ax.set_ylabel('F160W')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        
+        fig.savefig('%s-%05d_%3.1f.png' %(field, cat.id[ii], zout.z_peak[ii]))
+        
+        plt.close()
+        
+def massive_galaxies_spectra(field='COSMOS'):
+    
+    import threedhst
+    import threedhst.eazyPy as eazy
+    import threedhst.catIO as catIO
+    import unicorn
+    import shapely
+    from shapely.geometry import Point,Polygon
+    import stsci.tools.wcsutil as wcsutil
+    
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='%s-1' %(field))
+    try:
+        test = cat.use
+    except:
+        cat.use = np.ones(len(cat.id), dtype=np.int)
+        
+    full_geom, xreg, yreg = unicorn.candels.get_full_candels_region(field=field)
+    
+    in_candels = cat.id < 0
+    print 'Find objects within CANDELS'
+
+    idx = np.arange(len(cat.id))
+    for i in idx:
+        #print unicorn.noNewLine+'%d' %(i)
+        in_candels[i] = full_geom.contains(Point(cat.ra[i], cat.dec[i]))
+
+    print unicorn.noNewLine+'Find objects within CANDELS - Done.'
+        
+    #
+    eazy_path = {}
+    eazy_path['AEGIS'] = '/3DHST/Ancillary/AEGIS/NMBS/Photometry//aegis-n2.deblend.redshifts'
+    eazy_path['COSMOS'] = '/3DHST/Ancillary/COSMOS/NMBS/Photometry//cosmos-1.deblend.redshifts'
+    eazy_path['GOODS-S'] = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST'
+    eazy_path['GOODS-N'] = '/3DHST/Ancillary/GOODS-N/MODS/Photometry/FAST/../EAZY/OUTPUT'
+    eazy_path['UDS'] = '/3DHST/Ancillary/UDS/UKIDSS/FAST'
+    
+    MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
+    OUTPUT_DIRECTORY = eazy_path[field]
+    CACHE_FILE='Same'
+    
+    F160W = {}
+    F160W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    F160W['AEGIS'] = '/Users/gbrammer/CANDELS/EGS/PREP_FLT/EGS-F160W_drz_sci.fits'
+    F160W['UDS'] = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    F160W['GOODS-S'] = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    
+    im_f160w = pyfits.open(F160W[field])
+    
+    wcs_f160w = wcsutil.WCSObject('f160w',header=im_f160w[0].header)
+        
+    thumb_size = 8 # arcsec
+    ps_f160w = np.sqrt(wcs_f160w.cd11**2+wcs_f160w.cd12**2)*3600.
+    
+    N_160 = int(np.round(thumb_size / ps_f160w / 2))
+    ticks_160 = np.arange(0,thumb_size+1)/ps_f160w
+    
+    #massive = in_candels & (cat.use == 1) & (fout.lmass > 10.98) & (zout.z_peak > 1.5)
+    
+    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.19) & (zout.z_peak > 1.7)
+    
+    #### 3D-HST interlaced objects
+    specs = glob.glob(unicorn.GRISM_HOME+'/%s/PREP_FLT/*wcsfix' %(field))
+    specs_id, specs_ra, specs_dec, specs_pointing = [], [], [], []
+    for spec in specs:
+        print unicorn.noNewLine+spec
+        wcs = catIO.Readfile(spec)
+        pointing = int(spec.split('FLT/%s-' %(field))[1].split('_inter')[0])
+        specs_id.extend(list(wcs.id))
+        specs_ra.extend(list(wcs.ra))
+        specs_dec.extend(list(wcs.dec))
+        specs_pointing.extend([pointing]*len(wcs.id))
+    
+    specs_id, specs_ra, specs_dec, specs_pointing = np.array(specs_id), np.array(specs_ra), np.array(specs_dec), np.array(specs_pointing)
+    
+    for ii in idx[massive]:
+        print ii
+        
+        dr = np.sqrt((cat.ra[ii]-specs_ra)**2/np.cos(cat.ra[ii]/360.*2*np.pi)**2+(cat.dec[ii]-specs_dec)**2)*3600.
+        match = dr < 1
+        if np.sum(match) == 0:
+            continue
+        
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
+    
+        zgrid, pz = eazy.getEazyPz(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
+        
+        fig = unicorn.catalogs.plot_init(xs=8, aspect=2./3, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8)
+                        
+        #### SED
+        ax = fig.add_subplot(231)
+        ymax = (fobs)[(efobs > 0) & (fobs > -99)].max()
+        ax.errorbar(lci, fobs, efobs, marker='o', linestyle='None', color='black', ecolor='black', ms=4, alpha=0.7)
+        ax.plot(lambdaz, temp_sed, color='blue', alpha=0.3)
+        ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        ax.set_xlim(3000,8.2e4)
+        ax.semilogx()
+        
+        #### p(z)
+        ax = fig.add_subplot(232)
+        ax.plot(zgrid, pz, color='orange')
+        ax.fill(zgrid, pz, color='orange', alpha=0.5)
+        if zout.z_spec[ii] > 0:
+            ax.plot(np.array([1,1])*zout.z_spec[ii], [0, 1.05*pz.max()], color='red', linewidth=1)
+        
+        #### Label
+        ax.text(0.5, 1.03, '%s-%d, K=%.2f, z=%.2f, logM=%.2f, Av=%.2f' %(field, cat.id[ii], cat.kmag[ii], zout.z_peak[ii], fout.lmass[ii], fout.Av[ii]), transform=ax.transAxes, horizontalalignment='center')
+        
+        #### F160W thumbnail
+        x160, y160 = wcs_f160w.rd2xy((cat.ra[ii], cat.dec[ii]), hour=False)
+        x160, y160 = np.int(np.round(x160))-1, np.int(np.round(y160))-1
+        
+        thumb160 = im_f160w[0].data[y160-N_160:y160+N_160, x160-N_160:x160+N_160]
+        
+        l160 = np.log10(thumb160+0.1); l160[~np.isfinite(l160)]
+        
+        scl = (-0.3,1)
+        scl = (0.1,1)
+        ax = fig.add_subplot(233)
+        #ax.imshow(l160, vmin=-1.2, vmax=0.3, interpolation='nearest')
+        ax.imshow(0-l160, vmin=scl[0], vmax=scl[1], interpolation='nearest')
+        xtick = ax.set_xticks(ticks_160);ytick = ax.set_yticks(ticks_160) 
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_ylabel('F160W')
+                    
+        icount = 0
+        NMAT = np.maximum(np.sum(match),2)
+        for id, pointing in zip(specs_id[match], specs_pointing[match]):
+            try:
+                spc2D = pyfits.open(unicorn.GRISM_HOME+'/%s/PREP_FLT/%s-%d_%05d.2D.fits' %(field, field, pointing, id))            
+            except:
+                NMAT -= 1
+        #
+        NMAT = np.maximum(NMAT,2)
+        
+        for id, pointing in zip(specs_id[match], specs_pointing[match]):
+            try:
+                spc2D = pyfits.open(unicorn.GRISM_HOME+'/%s/PREP_FLT/%s-%d_%05d.2D.fits' %(field, field, pointing, id))            
+            except:
+                continue
+            
+            spc1D = unicorn.reduce.Interlace1D(unicorn.GRISM_HOME+'/%s/PREP_FLT/%s-%d_%05d.1D.fits' %(field, field, pointing, id), PNG=False)
+            spc1D.show()
+            #
+            icount +=1 
+            ax = fig.add_subplot(200+10*NMAT+NMAT+icount)
+            ax.plot(lambdaz/1.e4, temp_sed, color='blue', linewidth=2, alpha=0.4)
+            ax.errorbar(lci/1.e4, fobs, efobs, marker='o', linestyle='None', color='red', ecolor='red', ms=6, alpha=0.7)
+            plt.xlim(0.8, 2.1)
+            ax.set_title('%s-%d_%05d.1D.fits' %(field, pointing, id))
+            #            
+            keep = (spc1D.data.wave > 1.12e4) & (spc1D.data.wave < 1.6e4)
+            if np.sum(keep) > 10:
+                wave = np.cast[np.double](spc1D.data.wave)
+                flux = (spc1D.data.flux-spc1D.data.contam)/spc1D.data.sensitivity
+                err = spc1D.data.error/spc1D.data.sensitivity
+                #
+                NW = len(wave)
+                NBIN = 3
+                wbin = np.zeros(NW/NBIN)
+                fbin, ebin = wbin*1., wbin*1.
+                for i in range(NW/NBIN):
+                    wbin[i] = wave[i*NBIN+1]
+                    fbin[i] = np.sum(flux[i*NBIN:i*NBIN+NBIN])/3.
+                    ebin[i] = np.sqrt(np.sum(err[i*NBIN:i*NBIN+NBIN]**2))/3.
+                #    
+                #
+                yint = unicorn.utils_c.interp_conserve_c(wave, lambdaz, temp_sed) 
+                anorm = np.sum(flux[keep]*yint[keep]/err[keep]**2)/np.sum(yint[keep]**2/err[keep]**2)
+                #ax.errorbar(spc1D.data.wave/1.e4, flux/anorm, err/anorm, marker=',', color='black', alpha=0.5, linestyle='None')
+                ax.plot(spc1D.data.wave/1.e4, flux/anorm, color='black', alpha=0.2)
+                ax.plot(spc1D.data.wave/1.e4, spc1D.data.contam/anorm, color='orange', alpha=0.5, linewidth=2)
+                ax.errorbar(wbin/1.e4, fbin/anorm, ebin/anorm, marker='o', linestyle='None', ms=3, alpha=0.4, capsize=1.1, color='black', ecolor='black')
+                ymax = flux[keep].max()/anorm
+                print ymax
+                ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        
+        fig.savefig('%s-%05d_spec.png' %(field, cat.id[ii]))
+
+        plt.close()
+        
+def proposal_figure():
+    
+    ### Compact: COSMOS-01966, mass=11.28, z=2.28
+    ### Merger: COSMOS-5024, mass=11.32, z=2.61
+    ### Extended: COSMOS-16561
+    import threedhst
+    import threedhst.eazyPy as eazy
+    import threedhst.catIO as catIO
+    import unicorn
+    import shapely
+    from shapely.geometry import Point,Polygon
+    import stsci.tools.wcsutil as wcsutil
+    
+    field = 'COSMOS'
+    compact = 1966
+    merger = 5024
+    extended = 16561 # 12867
+    
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='COSMOS')
+    cat.Jmag = 25-2.5*np.log10(cat.J)
+    cat.Jmag = 25-2.5*np.log10(cat.J1*0.5+cat.J2*0.5)
+    cat.Hmag = 25-2.5*np.log10(cat.H)
+    
+    F160W = {}
+    F160W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    F160W['AEGIS'] = '/Users/gbrammer/CANDELS/EGS/PREP_FLT/EGS-F160W_drz_sci.fits'
+    F160W['UDS'] = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    F160W['GOODS-S'] = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    
+    F125W = {}
+    F125W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F125W_drz_sci.fits'
+    F125W['COSMOS'] = '/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/COSMOS-full-F125W_drz_sci.fits'
+    F125W['AEGIS'] = '/Users/gbrammer/CANDELS/EGS/PREP_FLT/EGS-F125W_drz_sci.fits'
+    F125W['UDS'] = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f125w_v1.0_drz.fits'
+    F125W['GOODS-S'] = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F125W_wfc3ir_drz_sci.fits'
+    
+    im_f125w = pyfits.open(F125W[field])
+    im_f160w = pyfits.open(F160W[field])
+    
+    wcs_f125w = wcsutil.WCSObject('f125w',header=im_f125w[0].header)
+    wcs_f160w = wcsutil.WCSObject('f160w',header=im_f160w[0].header)
+        
+    thumb_size = 8 # arcsec
+    ps_f125w = np.sqrt(wcs_f125w.cd11**2+wcs_f125w.cd12**2)*3600.
+    ps_f160w = np.sqrt(wcs_f160w.cd11**2+wcs_f160w.cd12**2)*3600.
+    
+    N_125 = int(np.round(thumb_size / ps_f125w / 2))
+    N_160 = int(np.round(thumb_size / ps_f160w / 2))
+    ticks_125 = np.arange(0,thumb_size+1)/ps_f125w
+    ticks_160 = np.arange(0,thumb_size+1)/ps_f160w
+        
+    labels = ['Compact','Extended','Merger/clump']
+    ids = [compact, extended, merger]
+    scl = (-0.3,1)
+    scl = (0.1,1)
+    scales = [(0.1,1),(0.3,1),(0.3,1)]
+    
+    
+    idx= np.arange(len(cat.id))
+    
+    vert = True
+    if vert:
+        aspect = 3./2
+        xs=4
+    else:
+        aspect = 2./3
+        xs=4*3/2
+        
+    fig = unicorn.catalogs.plot_init(xs=xs, aspect=aspect, left=0.01, right=0.01, bottom=0.01, top=0.01, fontsize=10)
+    fig.subplots_adjust(wspace=0.00,hspace=0.00)
+    
+    for i in range(3):
+               
+        ii = idx[cat.id == ids[i]][0]
+        
+        x125, y125 = wcs_f125w.rd2xy((cat.ra[ii], cat.dec[ii]), hour=False)
+        x125, y125 = np.int(np.round(x125))-1, np.int(np.round(y125))-1
+        
+        x160, y160 = wcs_f160w.rd2xy((cat.ra[ii], cat.dec[ii]), hour=False)
+        x160, y160 = np.int(np.round(x160))-1, np.int(np.round(y160))-1
+        
+        thumb125 = im_f125w[0].data[y125-N_125:y125+N_125, x125-N_125:x125+N_125]*1.5
+        thumb160 = im_f160w[0].data[y160-N_160:y160+N_160, x160-N_160:x160+N_160]
+        
+        l125 = np.log10(thumb125+0.1); l125[~np.isfinite(l125)]
+        l160 = np.log10(thumb160+0.1); l160[~np.isfinite(l160)]
+        
+        scl = scales[i]
+        if vert:
+            ax = fig.add_subplot(321+i*3)
+        else:
+            ax = fig.add_subplot(231+i)
+            
+        #ax.imshow(l125, vmin=-1.2, vmax=0.3, interpolation='nearest')
+        ax.imshow(0-l125, vmin=scl[0], vmax=scl[1], interpolation='nearest')
+        xtick = ax.set_xticks(ticks_125);ytick = ax.set_yticks(ticks_125) 
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.text(0.1, 0.1, r'F125W / $J$=%.1f' %(cat.Jmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
+        ax.text(0.1, 0.9, r'C1-%05d' %(ids[i]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='top')
+        ax.text(0.1, 0.8, r'$z=$%.2f, log M/M$_\odot$=%.1f' %(zout.z_peak[ii], fout.lmass[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='top')
+
+        if vert:
+            ax = fig.add_subplot(321+i*3)
+        else:
+            ax = fig.add_subplot(231+i+3)
+            
+        #ax.imshow(l160, vmin=-1.2, vmax=0.3, interpolation='nearest')
+        ax.imshow(0-l160, vmin=scl[0], vmax=scl[1], interpolation='nearest')
+        xtick = ax.set_xticks(ticks_160);ytick = ax.set_yticks(ticks_160) 
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.text(0.1, 0.1, r'F160W / $H$=%.1f' %(cat.Hmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
+        ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
+        
         
     

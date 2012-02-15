@@ -40,3 +40,5 @@ try:
     import utils_c #as utils_c
 except:
     print """Couldn't import "utils_c" """
+    
+noNewLine = '\x1b[1A\x1b[1M'

@@ -41,8 +41,6 @@ idx_mpa_vagc = None
 
 sdss_selection = False
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 def read_sdss(read_full_lines=True):
     """
     

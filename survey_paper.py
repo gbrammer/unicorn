@@ -21,8 +21,6 @@ import unicorn
 
 import re
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 root = None
 
 def throughput():
@@ -1281,7 +1279,7 @@ def show_flat_function():
     wave = np.arange(1.05e4, 1.7e4, 250.)
     color='blue'
     for xi in range(50,951,50):
-        print noNewLine+'%d' %(xi)
+        print unicorn.noNewLine+'%d' %(xi)
         for yi in range(50,951,50):
             ffunc = unicorn.survey_paper.get_flat_function(x=xi, y=yi, wave=wave)
             ffunc /= np.interp(1.4e4, wave, ffunc)
@@ -1528,7 +1526,7 @@ def get_spec_signal_to_noise():
                 continue
             #
             for id in SPC._ext_map:
-                print noNewLine+'%s_%05d' %(pointing, id)
+                print unicorn.noNewLine+'%s_%05d' %(pointing, id)
                 #
                 spec = SPC.getSpec(id)
                 mask = (spec.LAMBDA > 1.15e4) & (spec.LAMBDA < 1.6e4) & (spec.CONTAM/spec.FLUX < 0.1) & np.isfinite(spec.FLUX)
@@ -2031,10 +2029,10 @@ def empty_apertures(SCI_IMAGE='PRIMO_F125W_drz.fits', SCI_EXT=1, WHT_IMAGE='PRIM
                 fluxes[icount, iap] = (aper*img_data).sum()
                 centers[icount, iap, : ]  = np.array([xc, yc])
                 #aper_image += aper
-                print noNewLine+'%d' %(icount)
+                print unicorn.noNewLine+'%d' %(icount)
                 icount += 1
             else:
-                print noNewLine+'Skip: %f %f' %((seg*aper).max(), (img_wht*aper).min())
+                print unicorn.noNewLine+'Skip: %f %f' %((seg*aper).max(), (img_wht*aper).min())
                 continue
     
     #### Make the output FITS file.  List of aperture radii in extension 1, aperture
@@ -2209,7 +2207,7 @@ def make_star_thumbnails():
     head['CRPIX1'], head['CRPIX2'] = NPIX, NPIX
     
     for i in idx[points & isolated]:
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         id = np.int(cat.NUMBER[i])
         xi, yi = int(np.round(xpix[i])), int(np.round(ypix[i]))
         sub_data = img_data[yi-NPIX:yi+NPIX, xi-NPIX: xi+NPIX]
@@ -2249,7 +2247,7 @@ def curve_of_growth():
     stack = sci[1].data*0.
     
     for i in range(NOBJ):
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         star = sci[i+1].data
         yy, xx = np.indices(star.shape)
         center = (np.abs(xx-50) < 5) & (np.abs(yy-50) < 5)
@@ -2265,7 +2263,7 @@ def curve_of_growth():
         NAP = len(apers)
         fluxes = np.zeros(apers.shape)
         for i in range(NAP):
-            #print noNewLine+'%.2f' %(apers[i])
+            #print unicorn.noNewLine+'%.2f' %(apers[i])
             fluxes[i] = unicorn.survey_paper.aper_phot(star, xc, yc, apers[i])
         #
         pp = plt.plot(apers, fluxes/fluxes[20], alpha=0.2, color='blue')
@@ -2275,7 +2273,7 @@ def curve_of_growth():
     stack = stack / count
     stack_fluxes = np.zeros(apers.shape)
     for i in range(NAP):
-        print noNewLine+'%.2f' %(apers[i])
+        print unicorn.noNewLine+'%.2f' %(apers[i])
         stack_fluxes[i] = unicorn.survey_paper.aper_phot(star, xc, yc, apers[i])
     
     plt.xlabel(r'$R_\mathrm{aper}$')
@@ -2779,7 +2777,7 @@ def zphot_zspec_plot():
         refit = zout.id[0::3] == 'x'
         refit_idx = zout.z_peak[0::3]*0.
         for i in range(len(zout.id[0::3])):
-            print noNewLine+'%d' %(i)
+            print unicorn.noNewLine+'%d' %(i)
             if zout.id[i*3] in zout_new.id:
                 refit[i] = True
                 refit_idx[i] = np.where(zout_new.id[0::3] == zout.id[i*3])[0][0]
@@ -2992,7 +2990,7 @@ def zphot_zspec_lines():
     refit = zout.id[0::3] == 'x'
     refit_idx = zout.z_peak[0::3]*0.
     for i in range(len(zout.id[0::3])):
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         if zout.id[i*3] in zout_new.id:
             refit[i] = True
             refit_idx[i] = np.where(zout_new.id[0::3] == zout.id[i*3])[0][0]
@@ -3399,7 +3397,7 @@ def get_iband_mags():
     for id, field in zip(ids, fields):
         path = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS_v1.6/ASCII/%s/%s_obs_sed.dat' %(field, id)
         if os.path.exists(path):
-            print noNewLine+id
+            print unicorn.noNewLine+id
             obs = catIO.Readfile(path)
             dlam_spec = obs.lc[-1]-obs.lc[-2]
             is_spec = np.append(np.abs(1-np.abs(obs.lc[1:]-obs.lc[0:-1])/dlam_spec) < 0.05,True)
@@ -3637,7 +3635,7 @@ def find_brown_dwarf():
     ###### Loop through all point sources
     stars = (phot.flux_radius[phot.idx] < 3) & (phot.mag_f1392w[phot.idx] < 24) & (mcat.rmatch[mcat.idx] < 0.5)
     for object in phot.id[phot.idx][stars]:
-        print noNewLine+'%s' %(object)
+        print unicorn.noNewLine+'%s' %(object)
         try:
             lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s' %(object), OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/ANALYSIS/REDSHIFT_FITS_v1.6/OUTPUT/', CACHE_FILE = 'Same')
         except:

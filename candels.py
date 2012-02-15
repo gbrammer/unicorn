@@ -22,8 +22,6 @@ import threedhst.eazyPy as eazy
 
 import unicorn
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 def goods_ers():
     """
     GOODS-ERS field (not candels)
@@ -772,7 +770,6 @@ def star_stacks():
     import os
     import numpy as np
     import glob
-    noNewLine = '\x1b[1A\x1b[1M'
     
     os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
     
@@ -825,7 +822,7 @@ def star_stacks():
     for obj in phot.id[stars_3d]:
         path = unicorn.analysis.get_grism_path(obj)
         pointing = obj.split('G141')[0]+'F140W'
-        print noNewLine+pointing
+        print unicorn.noNewLine+pointing
         if pointing != old_pointing:
             drz = pyfits.open(path+'PREP_FLT/'+pointing+'_drz.fits')
             old_pointing = pointing
@@ -1062,7 +1059,7 @@ def clash_make_catalog():
         #
         fluxes.append(flux*dered)
         errors.append(error*dered)
-        print noNewLine+file+depth
+        print unicorn.noNewLine+file+depth
         
     fluxes = np.array(fluxes)
     errors = np.array(errors)
@@ -1094,7 +1091,7 @@ def clash_make_catalog():
     fp.write(header+'\n')
     fp.write(dered_str)
     for i in range(NOBJ):
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         flux = fluxes[:,i]
         error = errors[:,i]
         line = '%-6d %.6f %.6f' %(id[i], ra[i], dec[i])

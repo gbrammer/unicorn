@@ -22,8 +22,6 @@ import unicorn.brown_dwarf
 
 import re
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 root = None
 
 left = 0.1

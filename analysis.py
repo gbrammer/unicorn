@@ -30,8 +30,6 @@ BAD_SPECTRUM = False
 
 SPC_FILENAME = None
 SPC = None
-
-noNewLine = '\x1b[1A\x1b[1M'
  
 def get_grism_path(root):
     """ 
@@ -672,7 +670,7 @@ specphot(id)
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(OUT_PATH+'/'+out_file, dpi=100, transparent=False)
     
-    print noNewLine+OUT_PATH+'/'+out_file
+    print unicorn.noNewLine+OUT_PATH+'/'+out_file
     
     if Verbose:
         print 'Close the plot window'
@@ -795,7 +793,7 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
         
     for j, id in enumerate(ids):
         progress = '%2d' %(np.int(j*100./len(ids))) + '%'
-        print noNewLine+out_image+':  '+progress
+        print unicorn.noNewLine+out_image+':  '+progress
             
         i = np.arange(grismCat.nrows)[grismCat.id == id][0]
            
@@ -1444,7 +1442,7 @@ def make_rf_flux_catalog():
             files.append('OUTPUT/'+line[:-1])
     
     for file in files:
-        print noNewLine +file
+        print unicorn.noNewLine +file
         
         root=os.path.basename(file).split('G141')[0]+'G141'
         id=int(os.path.basename(file).split('G141_')[1].split('.param')[0])
@@ -2326,7 +2324,7 @@ def check_eazy_fits():
     fp.write('# object NTEMP zmin zmax temp_file\n')
     
     for file in param_files:
-        print noNewLine+file[:-1]
+        print unicorn.noNewLine+file[:-1]
         param = eazy.EazyParam('OUTPUT/%s' %(file[:-1]))
         fp.write('%-30s %2d %6.2f %6.2f %s\n' %(file[:-1], len(param.templates), param['Z_MIN'], param['Z_MAX'], param['TEMPLATES_FILE']))
         
@@ -2370,7 +2368,7 @@ def make_all_asciifiles():
     for i in range(len(zout.z_peak[0::3])):
         object = zout.id[0::3][i]
         field = phot.field[phot.idx][i]
-        print noNewLine+object
+        print unicorn.noNewLine+object
         try:
             unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/%s' %(field))
         except:

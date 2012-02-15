@@ -48,12 +48,10 @@ import pyfits
 import pyraf
 from pyraf import iraf
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 import time
 
 import threedhst
-
+import unicorn
 import unicorn.utils_c as utils_c
 
 from matplotlib.figure import Figure
@@ -109,7 +107,7 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
         
     if remove != []:
         for ff in remove:
-            print noNewLine+'Remove %s' %(ff)
+            print unicorn.noNewLine+'Remove %s' %(ff)
             os.remove(ff)
             
     if make_images | (not os.path.exists(root+'-F140W_inter.fits')):
@@ -739,7 +737,7 @@ class GrismModel():
         fp.write('# id    mag   ra    dec\n')
         for i, line in enumerate(status[-NOBJ:]):
             if verbose:
-                print noNewLine+'Running iraf.xy2rd (%4d/%4d)' %(i+1, NOBJ)
+                print unicorn.noNewLine+'Running iraf.xy2rd (%4d/%4d)' %(i+1, NOBJ)
             spl = np.cast[float](line.split())
             #
             if wcs is not None:
@@ -802,7 +800,7 @@ class GrismModel():
         # ## Test, compare c version
         # t0 = time.time()
         # for obj in self.cat['NUMBER']:
-        #     print noNewLine+'Object #%d' %(obj)
+        #     print unicorn.noNewLine+'Object #%d' %(obj)
         #     self.total_fluxes[obj] = np.sum(flux[self.segm[0].data == obj])
         # 
         # told = time.time()
@@ -1080,7 +1078,7 @@ class GrismModel():
         for i in range(N):
             #for i, id in enumerate(self.cat['NUMBER'][so]):
             id = self.cat['NUMBER'][so][i]
-            print noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
+            print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
             if refine:
                 self.refine_model(id, BEAMS=BEAMS, view=view)      
             else:
@@ -1325,7 +1323,7 @@ class GrismModel():
         xtick = np.interp(ltick*1.e4, self.wave, xx)
         
         if verbose:
-            print noNewLine+'Thumb panel'
+            print unicorn.noNewLine+'Thumb panel'
         
         ax = fig.add_subplot(431)
         ax.imshow(self.direct_thumb, vmin=-0.5, vmax=2, interpolation='nearest')
@@ -1336,7 +1334,7 @@ class GrismModel():
         ax.text(1.1,0.2, r'$(%.1f, %.1f)$' %(self.cat.x_pix[ii], self.cat.y_pix[ii]), transform=ax.transAxes)
         
         if verbose:
-            print noNewLine+'Plot flux_specs'
+            print unicorn.noNewLine+'Plot flux_specs'
         
         if self.flux_specs[self.id] is not None:
             ax = fig.add_subplot(422)
@@ -1349,7 +1347,7 @@ class GrismModel():
             ax.set_yticklabels([]);
         
         if verbose:
-            print noNewLine+'GRISM - science'
+            print unicorn.noNewLine+'GRISM - science'
         
         ax = fig.add_subplot(412)
         ax.imshow(self.grism_sci, vmin=-0.05, vmax=0.2, interpolation='nearest')
@@ -1357,7 +1355,7 @@ class GrismModel():
         xx = ax.set_xticks(xtick)
 
         if verbose:
-            print noNewLine+'GRISM - model'
+            print unicorn.noNewLine+'GRISM - model'
 
         ax = fig.add_subplot(413)
         ax.imshow(self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
@@ -1365,7 +1363,7 @@ class GrismModel():
         xx = ax.set_xticks(xtick)
 
         if verbose:
-            print noNewLine+'GRISM - difference'
+            print unicorn.noNewLine+'GRISM - difference'
         
         ax = fig.add_subplot(414)
         ax.imshow(self.grism_sci-self.full_model, vmin=-0.05, vmax=0.2, interpolation='nearest')
@@ -1373,7 +1371,7 @@ class GrismModel():
         xx = ax.set_xticks(xtick)
         
         if verbose:
-            print noNewLine+'Save the PNG'
+            print unicorn.noNewLine+'Save the PNG'
         
         if savePNG:
             canvas = FigureCanvasAgg(fig)
@@ -1527,7 +1525,7 @@ class GrismModel():
         
         N = len(list)
         for i,id in enumerate(list):
-            print noNewLine+'Object #%-4d (%4d/%4d)' %(id,i+1,N)
+            print unicorn.noNewLine+'Object #%-4d (%4d/%4d)' %(id,i+1,N)
             #
             if (os.path.exists(self.root+'_%05d.2D.fits' %(id)) | os.path.exists(self.root+'_%05d.2D.xxx' %(id))) & skip:
                 continue
@@ -1538,15 +1536,15 @@ class GrismModel():
             
             if status is False:
                 if verbose:
-                    print noNewLine+'Object #%-4d (%4d/%4d) - No 2D' %(id,i+1,N)
+                    print unicorn.noNewLine+'Object #%-4d (%4d/%4d) - No 2D' %(id,i+1,N)
                 continue
                     
             if verbose:
-                print noNewLine+'2D FITS, 2D PNG, 1D FITS'
+                print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS'
             self.show_2d(savePNG=True, verbose=verbose)
 
             if verbose:
-                print noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
+                print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
             spec = unicorn.reduce.Interlace1D(self.root+'_%05d.1D.fits' %(id), PNG=True)
                 
 def field_dependent(xi, yi, str_coeffs):
@@ -1593,7 +1591,7 @@ def model_stripe():
     skip = 5
     
     for y in range(460, 540):
-        print noNewLine + 'Y: %d' %(y)
+        print unicorn.noNewLine + 'Y: %d' %(y)
         if (y % 20) == 0:
             pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
         

@@ -16,8 +16,6 @@ from pyraf import iraf
 
 from threedhst.prep_flt_files import process_3dhst_pair as pair
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 def go_all():
     import unicorn.go_acs
     unicorn.go_acs.test(root='jbhm32')
@@ -195,7 +193,7 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
         
             ext = extensions[j]
             
-            print noNewLine+' 1) Mask'
+            print unicorn.noNewLine+' 1) Mask'
             data = flt[ext].data/skies[j][0].data
             data[seg[0].data > 0] = np.nan
             # ds9.v(flt[ext].data, vmin=100, vmax=200)
@@ -203,7 +201,7 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
             # ds9.v(data, vmin=100, vmax=200)
             
             ### Collapse along rows
-            print noNewLine+' 2) Profile'
+            print unicorn.noNewLine+' 2) Profile'
             shp = data.shape
             avg = np.zeros(shp[0])
             for k in range(shp[0]):
@@ -216,7 +214,7 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
             ykern /= np.trapz(ykern, xkern)
             
             #### Need to make a larger array for smoothing at the edges
-            print noNewLine+' 3) Correct'
+            print unicorn.noNewLine+' 3) Correct'
             avg_grow = np.ones(shp[0]+8*sig)
             avg_grow[0:4*sig] *= avg[0]
             avg_grow[4*sig:-4*sig] = avg
@@ -239,7 +237,7 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
             flt[ext].header.update('MDRIZSKY', stats2[0])
         
         #
-        print noNewLine+' 4) Update FLT'
+        print unicorn.noNewLine+' 4) Update FLT'
         
         flt.flush()
     

@@ -31,8 +31,6 @@ BAD_SPECTRUM = False
 SPC_FILENAME = None
 SPC = None
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 IREF = os.getenv('iref')
 
 try:
@@ -415,7 +413,7 @@ def make_g141_bg():
         #
         flt = pyfits.open(PATHS[i]+files[i])
         flt[1].data *= flat
-        print noNewLine+'%d %s %s' %(i, files[i], flt[0].header['PFLTFILE'])
+        print unicorn.noNewLine+'%d %s %s' %(i, files[i], flt[0].header['PFLTFILE'])
         #
         ### Segmentation mask
         masked = pyfits.open(fi.replace('flt','flt.seg'))[0].data == 0
@@ -585,7 +583,7 @@ def make_imaging_flat():
         #
         flt = pyfits.open(PATHS[i]+files[i])
         flt[1].data *= flat
-        print noNewLine+'%d %s %s' %(i, files[i], flt[0].header['PFLTFILE'])
+        print unicorn.noNewLine+'%d %s %s' %(i, files[i], flt[0].header['PFLTFILE'])
         #
         ### Segmentation mask
         masked = pyfits.open(fi.replace('flt','flt.seg'))[0].data == 0

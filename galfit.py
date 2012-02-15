@@ -27,8 +27,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import pyfits
 
 import threedhst.catIO as catIO
-
-noNewLine = '\x1b[1A\x1b[1M'
+import threedhst
+import unicorn
 
 def fit_cosmos():
     import unicorn.galfit
@@ -427,7 +427,7 @@ def sync():
     import os
     print 'Syncing GALFIT files...'
     os.system('rsync -az /3DHST/Spectra/Work/ANALYSIS/GALFIT/ /Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/GALFIT/')
-    print noNewLine+'Syncing GALFIT files...Done.'
+    print unicorn.noNewLine+'Syncing GALFIT files...Done.'
     
 def make_full_catalog(output='full_galfit.cat'):
     """ 
@@ -449,7 +449,7 @@ def make_full_catalog(output='full_galfit.cat'):
     lines = ['# id   PSF_FIT  mag mag_err  r_e  r_e_err   n  n_err  ba  ba_err   chi2\n# '+time.ctime()+'\n']
     for file in files:
         object = file.split('_galfit')[0]
-        print noNewLine+object
+        print unicorn.noNewLine+object
         try:
             log = unicorn.galfit.GalfitLogfile(file)
             chi2 = log.chi2

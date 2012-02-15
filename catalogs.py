@@ -23,8 +23,6 @@ import unicorn
 
 import cosmocalc
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
 
 zout = None
@@ -53,7 +51,7 @@ def read_catalogs(force=False):
     #### Redshifts, master ID list
     ######################################
     
-    print noNewLine+'Reading Redshifts...'
+    print unicorn.noNewLine+'Reading Redshifts...'
     
     zout = catIO.Readfile(PATH_TO_CAT+'full_redshift.cat')
     
@@ -76,7 +74,7 @@ def read_catalogs(force=False):
     #### Full photometry
     ######################################
     
-    print noNewLine+'Reading SExtractor photometry...'
+    print unicorn.noNewLine+'Reading SExtractor photometry...'
     
     phot = catIO.Readfile(PATH_TO_CAT+'full_sextractor.cat')
 
@@ -96,7 +94,7 @@ def read_catalogs(force=False):
     #### Matches to photometric catalogs
     ######################################
     
-    print noNewLine+'Reading external catalog matches...'
+    print unicorn.noNewLine+'Reading external catalog matches...'
     
     mcat = catIO.Readfile(PATH_TO_CAT+'full_match.cat')
     if not os.path.exists(PATH_TO_CAT+'mcat.npz'):
@@ -113,7 +111,7 @@ def read_catalogs(force=False):
     #### Emission line fits
     ######################################
     
-    print noNewLine+'Reading Emission lines...'
+    print unicorn.noNewLine+'Reading Emission lines...'
     
     lines = catIO.Readfile(PATH_TO_CAT+'full_emission_lines.cat')
     if not os.path.exists(PATH_TO_CAT+'lines.npz'):
@@ -131,7 +129,7 @@ def read_catalogs(force=False):
     ######################################
     
     if os.path.exists(PATH_TO_CAT+'full_rf_fluxes.cat.partial'):
-        print noNewLine+'Reading Rest-frame colors...'
+        print unicorn.noNewLine+'Reading Rest-frame colors...'
         rest = catIO.Readfile(PATH_TO_CAT+'full_rf_fluxes.cat.partial')
         if not os.path.exists(PATH_TO_CAT+'rest.npz'):
             found_rest, idx_rest = match_string_arrays(zout.id[0::3], rest.id)
@@ -151,7 +149,7 @@ def read_catalogs(force=False):
     #####################################
         
     if os.path.exists(PATH_TO_CAT+'full_galfit.cat'):
-        print noNewLine+'Reading GALFIT...'
+        print unicorn.noNewLine+'Reading GALFIT...'
         gfit = catIO.Readfile(PATH_TO_CAT+'full_galfit.cat')
         if not os.path.exists(PATH_TO_CAT+'gfit.npz'):
             found_gfit_rev, idx_gfit_rev = match_string_arrays(gfit.id, zout.id[0::3])
@@ -185,7 +183,7 @@ def read_catalogs(force=False):
     ########################################
     #### Spectroscopic redshifts
     ########################################
-    print noNewLine+'Reading Spectroscopic redshifts...'
+    print unicorn.noNewLine+'Reading Spectroscopic redshifts...'
     unicorn.catalogs.make_specz_catalog()
     
 class selectionParams():
@@ -250,7 +248,7 @@ def make_selection_catalog(selection, filename='selection.cat', make_html=True):
     
     for ii in int_idx:
         object = gfit.id[gfit.idx][ii]
-        print noNewLine+object
+        print unicorn.noNewLine+object
         #### Match to FAST catalog to get Av
         cat, zout_phot, fout = unicorn.analysis.read_catalogs(root=object)
         fmat = np.where(fout.id == mcat.id_phot[mcat.idx][ii])[0][0]
@@ -1181,7 +1179,7 @@ def fill_image(objects, x, y, scale=None, xrange=(0,1), yrange=(0,1), NX=1024, N
         scale = np.ones(NOBJ)
         
     for i in range(NOBJ):
-        print noNewLine+objects[i]
+        print unicorn.noNewLine+objects[i]
         thu = pyfits.open('DATA/'+objects[i]+'_thumb.fits.gz')
         shp = thu[0].data.shape
         
@@ -1229,7 +1227,7 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
       avgx = []
       avgy = []
       for object in objects:
-        print noNewLine+object
+        print unicorn.noNewLine+object
         zi = zout.z_peak[0::3][zout.id[0::3] == object][0]
         #
         try:
@@ -1342,7 +1340,7 @@ def make_object_tarfiles(objects, thumbs=False):
     
     tarline = 'tar czvf spec.tar.gz'
     for object in objects:
-        print noNewLine+object
+        print unicorn.noNewLine+object
         #
         tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='../../REDSHIFT_FITS/OUTPUT', CACHE_FILE = 'Same')
         
@@ -1399,7 +1397,7 @@ def combine_sextractor_catalogs():
     header = '# ID FIELD POINTING '+' '.join(columns)+'\n# '+time.ctime()+'\n'
     out_lines = []
     for file in files:
-        print noNewLine+file
+        print unicorn.noNewLine+file
         if file.startswith('GN20'):
             continue
         ### GOODS-N catalogs don't have the MAG_APER columns
@@ -1444,7 +1442,7 @@ def combine_sextractor_catalogs():
     # header = '# ID FIELD POINTING '+' '.join(columns)+'\n'
     # out_lines = []
     # for file in files:
-    #     print noNewLine+file
+    #     print unicorn.noNewLine+file
     #     if file.startswith('GN20'):
     #         continue
     #     fp = open(file)
@@ -1495,7 +1493,7 @@ def make_full_redshift_catalog():
     
     fp.close()
     for file in files[1:]:
-        print noNewLine+file
+        print unicorn.noNewLine+file
         if os.path.exists(file.replace('.zout','_refine.zout')):
             fp = open(file.replace('.zout','_refine.zout'))
         else:
@@ -1544,7 +1542,7 @@ def combine_matched_catalogs():
     fp.close()
     for file in files:
         pointing = os.path.basename(file).split('_match')[0]
-        print noNewLine+pointing
+        print unicorn.noNewLine+pointing
         fp = open(file)
         lines = fp.readlines()[3:]
         fp.close()
@@ -1575,7 +1573,7 @@ def eqw_catalog():
     lines = ['# id  z_grism halpha_eqw  halpha_eqw_err  halpha_flux   oiii_eqw oiii_eqw_err  oiii_flux   hbeta_eqw  hbeta_eqw_err  hbeta_flux\n# '+time.ctime()+'\n']
     for file in files:
         object=os.path.basename(file).split('.coeff')[0]
-        print noNewLine+object
+        print unicorn.noNewLine+object
         root=object.split('G141')[0]+'G141'
         id = int(object.split('G141_')[1])
         #
@@ -1962,7 +1960,7 @@ def make_specz_catalog():
     bad_matches = zsp.zspec*0
     
     for i in idx_phot:
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         cosd = np.cos(phot.y_world[phot.idx][i]/360.*2*np.pi)
         drs = np.sqrt((phot.x_world[phot.idx][i]-zsp.ra)**2*cosd**2+(phot.y_world[phot.idx][i]-zsp.dec)**2)*3600.
         drmin = drs.min()
@@ -1997,7 +1995,7 @@ def print_zsp_catalog():
     fp.write('# v1.6\n')
     
     for i in range(len(zsp.dr)):
-        print noNewLine+'%d' %(i)
+        print unicorn.noNewLine+'%d' %(i)
         fp.write('%s %9.5f %8.2f\n' %(zspID[i], zspec[i], zspDR[i]))
     
     fp.close()

@@ -30,8 +30,6 @@ BAD_SPECTRUM = False
 SPC_FILENAME = None
 SPC = None
 
-noNewLine = '\x1b[1A\x1b[1M'
-
 def fit_all_brown_dwarfs():
     import glob
     import unicorn
@@ -142,7 +140,7 @@ class BD_fit():
             trim_mtype = types[min].startswith('M')
             
         if (chi2.min() < chi2_limit) & (~trim_mtype):
-            print noNewLine + ascii_file+' * '+' %s %0.2f' %(types[min], chi2.min())
+            print unicorn.noNewLine + ascii_file+' * '+' %s %0.2f' %(types[min], chi2.min())
             self.spec = spec
             self.types = types
             self.chi2 = chi2
@@ -150,7 +148,7 @@ class BD_fit():
             self.ascii_file = ascii_file
             self.make_plot()
         else:
-            print noNewLine + ascii_file + ' %s %0.2f' %(types[min], chi2.min())
+            print unicorn.noNewLine + ascii_file + ' %s %0.2f' %(types[min], chi2.min())
             
     def make_plot(self):
         import matplotlib.pyplot as plt

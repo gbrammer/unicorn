@@ -1015,15 +1015,65 @@ def SN_TILE41():
     import unicorn
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
-
+    import threedhst.catIO as catIO
+    
     os.chdir(unicorn.GRISM_HOME+'SN-TILE41/PREP_FLT')
     
     ALIGN = os.getenv('CANDELS')+'/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
     ALIGN_EXT=0
     
-    unicorn.candels.make_asn_files(force=False)
+    info = catIO.Readfile('files.info')
     
-    pair('TILE41-F160W_asn.fits', 'TILE41-G141_asn.fits', ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+    #### Make ASN files for different grisms / orientations, combine mixed filters for direct images to get the shifts right
+    asn = threedhst.utils.ASNFile(glob.glob('i*asn.fits')[0])
+    
+    match = (info.targname == 'TILE41') & (info.filter == 'F160W') & (info.pa_v3 < 140)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-132-F160W'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+
+    match = (info.targname == 'TILE41') & (info.filter == 'G141') & (info.pa_v3 < 140)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-132-G141'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+
+    match = (info.targname == 'TILE41') & (info.filter != 'G141') & (info.pa_v3 > 140)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-152-direct'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+
+    match = (info.targname == 'TILE41') & (info.filter == 'G141') & (info.pa_v3 > 140)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-152-G141'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+
+    match = (info.targname == 'TILE41') & (info.filter != 'G102') & (info.pa_v3 < 130)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-129-direct'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+
+    match = (info.targname == 'TILE41') & (info.filter == 'G102') & (info.pa_v3 < 130)
+    asn.exposures = []
+    for exp in info.file[match]:
+        asn.exposures.append(exp.split('_flt')[0])
+    asn.product = 'TILE41-129-G102'
+    asn.write(asn.product+'_asn.fits', clobber=True)
+    
+    #unicorn.candels.make_asn_files(force=False)
+    
+    pair('TILE41-132-F160W_asn.fits', 'TILE41-132-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+
+    pair('TILE41-152-direct_asn.fits', 'TILE41-152-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
 def SN_GEORGE():
     ####********************************************####

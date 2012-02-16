@@ -384,6 +384,36 @@ def sn_primo():
         unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
         go.clean_up()
 #
+def sn_tile41():
+    import unicorn.go_3dhst as go
+    import threedhst.process_grism as proc
+    import unicorn.analysis
+    
+    os.chdir(unicorn.GRISM_HOME+'SN-TILE41')
+    
+    #### Copy necessary files from PREP_FLT to DATA
+    os.chdir('PREP_FLT')
+    grism_asn  = glob.glob('TILE41*-G1*_asn.fits')
+    files=glob.glob('TILE41*-G1*_shifts.txt')
+    files.extend(grism_asn)
+    files.extend(glob.glob('TILE41*tweak.fits'))
+    for file in files:
+        status = os.system('cp '+file+' ../DATA')
+        #shutil.copy(file, '../DATA')
+        
+    os.chdir('../')
+    
+    #### Initialize parameters
+    go.set_parameters(direct='F160W', LIMITING_MAGNITUDE=23)
+    
+    #### Main loop for reduction
+    for i, asn in enumerate(grism_asn):
+        threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/TILE41-F160W_drz.fits'
+        threedhst.options['OTHER_BANDS'] = [['TILE41-F105W_sci.fits', 'F105W' , 1055.2, 26.27], ['TILE41-F125W_sci.fits', 'F125W' , 1248.6, 26.25]]
+        proc.reduction_script(asn_grism_file=asn)
+        #unicorn.analysis.make_SED_plots(grism_root=asn.split('_asn.fits')[0])
+        go.clean_up()
+
 def uds():
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc

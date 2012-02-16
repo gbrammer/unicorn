@@ -1025,7 +1025,7 @@ def SN_TILE41():
     info = catIO.Readfile('files.info')
     
     #### Make ASN files for different grisms / orientations, combine mixed filters for direct images to get the shifts right
-    asn = threedhst.utils.ASNFile(glob.glob('i*asn.fits')[0])
+    asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
     
     match = (info.targname == 'TILE41') & (info.filter == 'F160W') & (info.pa_v3 < 140)
     asn.exposures = []
@@ -1071,10 +1071,135 @@ def SN_TILE41():
     
     #unicorn.candels.make_asn_files(force=False)
     
+    #### First G141 angle
+    ## direct only
     pair('TILE41-132-F160W_asn.fits', 'TILE41-132-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
-
+    
+    threedhst.shifts.make_grism_shiftfile('TILE41-132-F160W_asn.fits', 'TILE41-132-G141_asn.fits')
+    sf_direct = threedhst.shifts.ShiftFile('TILE41-132-F160W_shifts.txt')
+    sf_grism = threedhst.shifts.ShiftFile('TILE41-132-G141_shifts.txt')
+    
+    for i in range(sf_direct.nrows):
+        sf_grism.xshift[i*2] = sf_direct.xshift[i]
+        sf_grism.xshift[i*2+1] = sf_direct.xshift[i]
+        sf_grism.yshift[i*2] = sf_direct.yshift[i]
+        sf_grism.yshift[i*2+1] = sf_direct.yshift[i]
+    
+    sf_grism.write(sf_grism.filename)
+    
+    ## Now do grism
+    pair('TILE41-132-F160W_asn.fits', 'TILE41-132-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
+    
+    #### Second G141 angle
+    ## direct only
     pair('TILE41-152-direct_asn.fits', 'TILE41-152-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
+    threedhst.shifts.make_grism_shiftfile('TILE41-152-direct_asn.fits', 'TILE41-152-G141_asn.fits')
+    sf_direct = threedhst.shifts.ShiftFile('TILE41-152-direct_shifts.txt')
+    sf_grism = threedhst.shifts.ShiftFile('TILE41-152-G141_shifts.txt')
+    
+    for i in range(sf_direct.nrows):
+        sf_grism.xshift[i*2] = sf_direct.xshift[i]
+        sf_grism.xshift[i*2+1] = sf_direct.xshift[i]
+        sf_grism.yshift[i*2] = sf_direct.yshift[i]
+        sf_grism.yshift[i*2+1] = sf_direct.yshift[i]
+    
+    sf_grism.write(sf_grism.filename)
+    
+    ## Now do grism
+    pair('TILE41-152-direct_asn.fits', 'TILE41-152-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
+
+    #### G102 Visit
+    ## direct only
+    pair('TILE41-129-direct_asn.fits', 'TILE41-129-G102_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=True, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+    
+    threedhst.shifts.make_grism_shiftfile('TILE41-129-direct_asn.fits', 'TILE41-129-G102_asn.fits')
+    sf_direct = threedhst.shifts.ShiftFile('TILE41-129-direct_shifts.txt')
+    sf_grism = threedhst.shifts.ShiftFile('TILE41-129-G102_shifts.txt')
+    
+    for i in range(sf_direct.nrows):
+        sf_grism.xshift[i*2] = sf_direct.xshift[i]
+        sf_grism.xshift[i*2+1] = sf_direct.xshift[i]
+        sf_grism.yshift[i*2] = sf_direct.yshift[i]
+        sf_grism.yshift[i*2+1] = sf_direct.yshift[i]
+    
+    sf_grism.write(sf_grism.filename)
+    
+    ###### Now do grism
+    ### G102 Flat
+    sky = pyfits.open('../CONF/WFC3.IR.G102.sky.V1.0.fits')
+    flat = pyfits.open('/3DHST/Spectra/Work/iref//uc72113oi_pfl.fits')
+    flat_im = flat[1].data[5:-5,5:-5]
+    pyfits.writeto('../CONF/sky_g102_f105w.fits', data=sky[0].data/flat_im, header=sky[0].header, clobber=True)
+    
+    IREF = os.getenv('iref')
+    threedhst.grism_sky.flat_f140 = pyfits.open(IREF+'/uc72113oi_pfl.fits')
+    threedhst.grism_sky.flat_g141 = pyfits.open(IREF+'/u4m1335li_pfl.fits')
+    threedhst.grism_sky.flat = threedhst.grism_sky.flat_g141[1].data[5:1019,5:1019] / threedhst.grism_sky.flat_f140[1].data[5:1019, 5:1019]
+    threedhst.grism_sky.flat[flat <= 0] = 5
+    threedhst.grism_sky.flat[flat > 5] = 5
+    
+    pair('TILE41-129-direct_asn.fits', 'TILE41-129-G102_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift', sky_images=['sky_g102_f105w.fits'])
+    
+    #### Make correct direct images separated by band
+    threedhst.utils.combine_asn_shifts(['TILE41-129-direct_asn.fits', 'TILE41-132-F160W_asn.fits','TILE41-152-direct_asn.fits'], out_root='TILE41-direct', path_to_FLT='./', run_multidrizzle=False)
+    
+    sf = threedhst.shifts.ShiftFile('TILE41-direct_shifts.txt')
+    import copy
+    
+    for filter in ['F105W','F125W','F160W']:
+        print unicorn.noNewLine+filter
+        asn = threedhst.utils.ASNFile('TILE41-direct_asn.fits')
+        sfout = copy.deepcopy(sf)
+        for i in np.arange(sfout.nrows-1,-1,-1):
+            head = pyfits.getheader(sfout.images[i])
+            if head['FILTER'] != filter:
+                p = asn.exposures.pop(i)
+                p = sfout.pop(i)
+        #
+        asn.product = 'TILE41-%s' %(filter)
+        asn.write('TILE41-%s_asn.fits' %(filter))
+        sfout.write('TILE41-%s_shifts.txt' %(filter))
+    
+    #
+    for filter in ['F105W','F125W','F160W']:
+        threedhst.prep_flt_files.startMultidrizzle('TILE41-%s_asn.fits' %(filter), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False, ra=150.0726, dec=2.1947412, final_outnx=2890, final_outny=2680)
+    #
+    for filter in ['F105W','F125W','F160W']:
+        try:
+            os.remove('../DATA/TILE41-%s_sci.fits' %(filter))
+        except:
+            pass
+        #
+        iraf.imcopy('TILE41-%s_drz.fits[1]' %(filter), '../DATA/TILE41-%s_sci.fits' %(filter))
+    
+    ### 3-Color Display
+    ds9 = threedhst.dq.myDS9()
+    scale = 'linear'
+    ds9.set('rgb yes')
+    scl = (-0.02,1.)
+    
+    ds9.set('rgb blue')
+    ds9.set('file TILE41-F105W_drz.fits')
+    s = 10**(0.4*(26.27-25.96))/(1.6/1.0)**2
+    ds9.set('scale limits %.3f %.3f' %(scl[0]*s, scl[1]*s))
+    ds9.set('scale '+scale)
+    
+    ds9.set('rgb green')
+    ds9.set('file TILE41-F125W_drz.fits')
+    s = 10**(0.4*(26.25-25.96))/(1.6/1.25)**2
+    ds9.set('scale limits %.3f %.3f' %(scl[0]*s, scl[1]*s))
+    ds9.set('scale '+scale)
+
+    ds9.set('rgb red')
+    ds9.set('file TILE41-F160W_drz.fits')
+    ds9.set('scale limits %.3f %.3f' %(scl[0], scl[1]))
+    ds9.set('scale '+scale)
+
+    ds9.set('rgb lock colorbar')
+    
+    ##########
+    ###
 def SN_GEORGE():
     ####********************************************####
     ####              SN-GEORGE (GOODS-S)

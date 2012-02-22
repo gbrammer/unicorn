@@ -1487,9 +1487,10 @@ def massive_galaxies_spectra(field='COSMOS'):
                 ax.plot(spc1D.data.wave/1.e4, spc1D.data.contam/anorm, color='orange', alpha=0.5, linewidth=2)
                 ax.errorbar(wbin/1.e4, fbin/anorm, ebin/anorm, marker='o', linestyle='None', ms=3, alpha=0.4, capsize=1.1, color='black', ecolor='black')
                 ymax = flux[keep].max()/anorm
-                print ymax
+                #print ymax
                 ax.set_ylim(-0.05*ymax, 1.1*ymax)
-        
+                ax.set_xlim(0.9,1.8)
+                
         unicorn.catalogs.savefig(fig, '%s-%05d_spec.png' %(field, cat.id[ii]))
 
         plt.close()

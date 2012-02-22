@@ -1371,7 +1371,7 @@ def massive_galaxies_spectra(field='COSMOS'):
     
     #massive = in_candels & (cat.use == 1) & (fout.lmass > 10.98) & (zout.z_peak > 1.5)
     
-    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.19) & (zout.z_peak > 1.7)
+    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.5) & (zout.z_peak > 1.7)
     
     #### 3D-HST interlaced objects
     specs = glob.glob(unicorn.GRISM_HOME+'/%s/PREP_FLT/*wcsfix' %(field))
@@ -1399,7 +1399,7 @@ def massive_galaxies_spectra(field='COSMOS'):
     
         zgrid, pz = eazy.getEazyPz(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
         
-        fig = unicorn.catalogs.plot_init(xs=8, aspect=2./3, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8)
+        fig = unicorn.catalogs.plot_init(xs=8, aspect=2./3, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8, NO_GUI=True)
                         
         #### SED
         ax = fig.add_subplot(231)
@@ -1490,7 +1490,7 @@ def massive_galaxies_spectra(field='COSMOS'):
                 print ymax
                 ax.set_ylim(-0.05*ymax, 1.1*ymax)
         
-        fig.savefig('%s-%05d_spec.png' %(field, cat.id[ii]))
+        unicorn.plotting.savefig(f, '%s-%05d_spec.png' %(field, cat.id[ii]))
 
         plt.close()
         

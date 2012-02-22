@@ -1277,11 +1277,11 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
             
-def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, fontsize=10):
+def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, fontsize=10, NO_GUI=False):
 
     import unicorn
     
-    if unicorn.hostname().startswith('uni'):
+    if unicorn.hostname().startswith('uni') | NO_GUI:
         unicorn.catalogs.USE_PLOT_GUI = False
     else:
         unicorn.catalogs.USE_PLOT_GUI = True
@@ -1317,6 +1317,15 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
                         bottom=0.10,right=0.99,top=0.97)        
     
     return fig
+    
+def savefig(fig, filename='figure.png'):
+    
+    if USE_PLOT_GUI:
+        fig.savefig(outfile,dpi=100,transparent=False)
+    else:
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_figure(filename, dpi=100, transparent=False)
+    
     
 def make_object_tarfiles(objects, thumbs=False):
     """

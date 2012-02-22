@@ -1179,7 +1179,7 @@ def get_full_candels_region(field='COSMOS'):
     
     
         
-def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=1.7):
+def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6)):
     import threedhst
     import threedhst.eazyPy as eazy
     import unicorn
@@ -1247,7 +1247,7 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=1.7):
     
     plt.gray()
     
-    massive = in_candels & (cat.use == 1) & (fout.lmass > masslim) & (zout.z_peak > zlim) # & (zout.z_peak < 2.7)
+    massive = in_candels & (cat.use == 1) & (fout.lmass > masslim) & (zout.z_peak > zlim[0]) & (zout.z_peak < zlim[1])
     
     for ii in idx[massive]:
         print ii
@@ -1313,7 +1313,7 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=1.7):
         
         plt.close()
         
-def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=1.7):
+def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=[1.7,6]):
     
     import threedhst
     import threedhst.eazyPy as eazy
@@ -1371,7 +1371,7 @@ def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=1.7):
     
     #massive = in_candels & (cat.use == 1) & (fout.lmass > 10.98) & (zout.z_peak > 1.5)
     
-    massive = in_candels & (cat.use == 1) & (fout.lmass > masslim) & (zout.z_peak > zlim)
+    massive = in_candels & (cat.use == 1) & (fout.lmass > masslim) & (zout.z_peak > zlim[0]) & (zout.z_peak < zlim[1])
     
     #### 3D-HST interlaced objects
     specs = glob.glob(unicorn.GRISM_HOME+'/%s/PREP_FLT/*wcsfix' %(field))

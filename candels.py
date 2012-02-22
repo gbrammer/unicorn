@@ -1247,7 +1247,7 @@ def massive_galaxies_morphologies(field='COSMOS'):
     
     plt.gray()
     
-    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.19) & (zout.z_peak > 2.3) & (zout.z_peak < 2.7)
+    massive = in_candels & (cat.use == 1) & (fout.lmass > 11.5) & (zout.z_peak > 2.3) & (zout.z_peak < 2.7)
     
     for ii in idx[massive]:
         print ii
@@ -1309,7 +1309,7 @@ def massive_galaxies_morphologies(field='COSMOS'):
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         
-        fig.savefig('%s-%05d_%3.1f.png' %(field, cat.id[ii], zout.z_peak[ii]))
+        unicorn.catalogs.savefig(fig, '%s-%05d_%3.1f.png' %(field, cat.id[ii], zout.z_peak[ii]))
         
         plt.close()
         

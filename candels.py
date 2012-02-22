@@ -1455,7 +1455,7 @@ def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=[1.7,6]):
                 continue
             
             spc1D = unicorn.reduce.Interlace1D(unicorn.GRISM_HOME+'/%s/PREP_FLT/%s-%d_%05d.1D.fits' %(field, field, pointing, id), PNG=False)
-            spc1D.show()
+            #spc1D.show()
             #
             icount +=1 
             ax = fig.add_subplot(200+10*NMAT+NMAT+icount)

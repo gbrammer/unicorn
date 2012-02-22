@@ -1490,7 +1490,7 @@ def massive_galaxies_spectra(field='COSMOS'):
                 print ymax
                 ax.set_ylim(-0.05*ymax, 1.1*ymax)
         
-        unicorn.plotting.savefig(f, '%s-%05d_spec.png' %(field, cat.id[ii]))
+        unicorn.catalogs.savefig(f, '%s-%05d_spec.png' %(field, cat.id[ii]))
 
         plt.close()
         

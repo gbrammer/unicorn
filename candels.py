@@ -1484,7 +1484,7 @@ def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=[1.7,6]):
                 anorm = np.sum(flux[keep]*yint[keep]/err[keep]**2)/np.sum(yint[keep]**2/err[keep]**2)
                 #ax.errorbar(spc1D.data.wave/1.e4, flux/anorm, err/anorm, marker=',', color='black', alpha=0.5, linestyle='None')
                 ax.plot(spc1D.data.wave/1.e4, flux/anorm, color='black', alpha=0.2)
-                ax.plot(spc1D.data.wave/1.e4, spc1D.data.contam/anorm, color='orange', alpha=0.5, linewidth=2)
+                ax.plot(spc1D.data.wave/1.e4, spc1D.data.contam/spc1D.data.sensitivity/anorm, color='orange', alpha=0.5, linewidth=2)
                 ax.errorbar(wbin/1.e4, fbin/anorm, ebin/anorm, marker='o', linestyle='None', ms=3, alpha=0.4, capsize=1.1, color='black', ecolor='black')
                 ymax = flux[keep].max()/anorm
                 #print ymax

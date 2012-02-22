@@ -1256,7 +1256,7 @@ def massive_galaxies_morphologies(field='COSMOS'):
     
         zgrid, pz = eazy.getEazyPz(ii, MAIN_OUTPUT_FILE=MAIN_OUTPUT_FILE, OUTPUT_DIRECTORY=OUTPUT_DIRECTORY, CACHE_FILE = CACHE_FILE)
         
-        fig = unicorn.catalogs.plot_init(xs=8, aspect=1./4*0.95, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8)
+        fig = unicorn.catalogs.plot_init(xs=8, aspect=1./4*0.95, left=0.08, right=0.02, bottom=0.05, top=0.04, fontsize=8, NO_GUI=True)
         
         #### SED
         ax = fig.add_subplot(141)

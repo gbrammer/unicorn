@@ -1309,7 +1309,7 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6)):
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         
-        unicorn.catalogs.savefig(fig, '%s-%05d_%3.1f.png' %(field, cat.id[ii], zout.z_peak[ii]))
+        unicorn.catalogs.savefig(fig, '%s-%05d_%3.1f.pdf' %(field, cat.id[ii], zout.z_peak[ii]))
         
         plt.close()
         
@@ -1491,7 +1491,7 @@ def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=[1.7,6]):
                 ax.set_ylim(-0.05*ymax, 1.1*ymax)
                 ax.set_xlim(0.9,1.8)
                 
-        unicorn.catalogs.savefig(fig, '%s-%05d_spec.png' %(field, cat.id[ii]))
+        unicorn.catalogs.savefig(fig, '%s-%05d_spec.pdf' %(field, cat.id[ii]))
 
         plt.close()
         

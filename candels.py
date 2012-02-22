@@ -5,7 +5,6 @@ import shutil
 import numpy as np
 import pyfits
 import scipy.linalg
-# from scipy import polyfit, polyval
 import matplotlib.pyplot as plt
 
 from pyraf import iraf

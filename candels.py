@@ -1179,7 +1179,7 @@ def get_full_candels_region(field='COSMOS'):
     
     
         
-def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6)):
+def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=false):
     import threedhst
     import threedhst.eazyPy as eazy
     import unicorn
@@ -1287,6 +1287,23 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6)):
         thumb125 = im_f125w[0].data[y125-N_125:y125+N_125, x125-N_125:x125+N_125]
         thumb160 = im_f160w[0].data[y160-N_160:y160+N_160, x160-N_160:x160+N_160]
         
+        if save_fits:
+            hdu = [pyfits.PrimaryHDU()]
+            header = pyfits.Header()
+            header.update('RA', cat.ra[ii], comment='Right Ascension')
+            header.update('DEC', cat.dec[ii], comment='Declination')
+            
+            header.update('FILTER','F125W')
+            header.update('SCALE', np.abs(wcs_f125w.cd11)*3600., comment='Pixel scale')
+            hdu.append(pyfits.ImageHDU(data=thumb125))
+
+            header.update('FILTER','F160W')
+            header.update('SCALE', np.abs(wcs_f160w.cd11)*3600., comment='Pixel scale')
+            hdu.append(pyfits.ImageHDU(data=thumb125))
+            
+            hdul = pyfits.HDUList(hdu)
+            hdul.writeto('%s-%05d_%3.1f.fits' %(field, cat.id[ii], zout.z_peak[ii]), clobber=True)
+            
         l125 = np.log10(thumb125+0.1); l125[~np.isfinite(l125)]
         l160 = np.log10(thumb160+0.1); l160[~np.isfinite(l160)]
         

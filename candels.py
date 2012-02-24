@@ -1179,7 +1179,7 @@ def get_full_candels_region(field='COSMOS'):
     
     
         
-def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=False, id=None):
+def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=False, id=None, thumb_size = 8):
     import threedhst
     import threedhst.eazyPy as eazy
     import unicorn
@@ -1236,7 +1236,7 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), sa
     wcs_f125w = wcsutil.WCSObject('f125w',header=im_f125w[0].header)
     wcs_f160w = wcsutil.WCSObject('f160w',header=im_f160w[0].header)
         
-    thumb_size = 8 # arcsec
+    # thumb_size: arcsec
     ps_f125w = np.sqrt(wcs_f125w.cd11**2+wcs_f125w.cd12**2)*3600.
     ps_f160w = np.sqrt(wcs_f160w.cd11**2+wcs_f160w.cd12**2)*3600.
     

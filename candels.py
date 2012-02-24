@@ -1179,7 +1179,7 @@ def get_full_candels_region(field='COSMOS'):
     
     
         
-def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=false, id=None):
+def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=False, id=None):
     import threedhst
     import threedhst.eazyPy as eazy
     import unicorn

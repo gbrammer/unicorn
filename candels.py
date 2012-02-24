@@ -1179,7 +1179,7 @@ def get_full_candels_region(field='COSMOS'):
     
     
         
-def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=false):
+def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), save_fits=false, id=None):
     import threedhst
     import threedhst.eazyPy as eazy
     import unicorn
@@ -1249,6 +1249,9 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), sa
     
     massive = in_candels & (cat.use == 1) & (fout.lmass > masslim) & (zout.z_peak > zlim[0]) & (zout.z_peak < zlim[1])
     
+    if id is not None:
+        massive = cat.id == id
+        
     for ii in idx[massive]:
         print ii
         

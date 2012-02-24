@@ -1298,11 +1298,11 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), sa
             
             header.update('FILTER','F125W')
             header.update('SCALE', np.abs(wcs_f125w.cd11)*3600., comment='Pixel scale')
-            hdu.append(pyfits.ImageHDU(data=thumb125))
+            hdu.append(pyfits.ImageHDU(data=thumb125, header=header))
 
             header.update('FILTER','F160W')
             header.update('SCALE', np.abs(wcs_f160w.cd11)*3600., comment='Pixel scale')
-            hdu.append(pyfits.ImageHDU(data=thumb125))
+            hdu.append(pyfits.ImageHDU(data=thumb160, header=header))
             
             hdul = pyfits.HDUList(hdu)
             hdul.writeto('%s-%05d_%3.1f.fits' %(field, cat.id[ii], zout.z_peak[ii]), clobber=True)

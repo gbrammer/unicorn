@@ -2527,6 +2527,7 @@ def make_eazy_2d_continuum(root='UDF-G141', id=1279):
     ds9.v(im[1].data-model[0].data-im[4].data, vmin=-0.01, vmax=0.1)
     
     """
+    
 def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=0.2, zmax=5, compress=0.8, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=1, force_zrange=False):
     """
     Run FAST fit on the photometry + spectra.  If the catalog and template file

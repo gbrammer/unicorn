@@ -335,7 +335,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     import threedhst.dq
     #ds9 = threedhst.dq.myDS9()
 
-    conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path='../CONF/').params
+    conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path=os.getenv('THREEDHST')+'/CONF/').params
     
     ## A star in COSMOS-15-F140W
     ##### For interlaced images
@@ -450,7 +450,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             #print 'Yoff_array', xarr.shape, yoff_array.shape
             
         #### Sensitivity
-        sens = pyfits.open('../CONF/'+conf['SENSITIVITY_'+beam])[1].data
+        sens = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
         #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
         sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
         
@@ -546,7 +546,185 @@ class Interlace1D():
             #fig.savefig(self.file.replace('fits','png'))
             canvas = FigureCanvasAgg(fig)
             canvas.print_figure(os.path.basename(self.file).replace('fits','png'), dpi=100, transparent=False)
+
+class Interlace2D():
+    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True):
+        self.id = int(file.split('.2D')[0].split('_')[-1])
+        self.file = file
+        self.im = pyfits.open(file)
+        self.thumb = np.cast[np.double](self.im['DSCI'].data)
+        self.thumb_weight = np.cast[np.double](self.im['DWHT'].data)
+        self.seg = np.cast[np.uint](self.im['DSEG'].data)
+        
+        self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
+        self.x_pix = self.oned.header['X_PIX']
+        self.y_pix = self.oned.header['Y_PIX']
+        self.pad = 60
+        self.grow_factor = 2 ### add these parameters to 2D header
+        self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
+        self.total_flux = np.sum(self.flux*(self.seg > 0))
+        
+        self.init_model()
+        
+    def init_model(self, lam_spec=None, flux_spec=None):
+        """
+        Initialize all of the junk needed to go from the pixels in the 
+        direct thumbnail to the 2D model spectrum
+        """
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, pad=self.pad)
+        
+        yord, xord = np.indices(orders.shape)
+        beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
+        
+        non_zero = orders > 0
+        
+        cast = np.int
+        xord, yord, ford, word, sord, bord = np.array(xord[non_zero], dtype=cast), np.array(yord[non_zero], dtype=cast), np.array(orders[non_zero], dtype=np.float64), self.xi[2][non_zero], self.xi[3][non_zero], beams[non_zero]
+                
+        ys = orders.shape
+        xord += self.xi[0]
+        yord -= (ys[0]-1)/2
+        #        
+        sh = self.thumb.shape
+        NX = xord.max()+sh[0]
+        ypad = 10
+        self.object = np.zeros((sh[0]+2*ypad, NX), dtype=np.double)
+        self.obj_flux = np.zeros((sh[0]+2*ypad, NX), dtype=np.double)
+        self.obj_flux[ypad:-ypad,0:sh[0]] = self.flux
+        self.obj_seg = np.zeros((sh[0]+2*ypad, NX), dtype=np.uint)
+        self.obj_seg[ypad:-ypad,0:sh[0]] = self.seg
+        
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord, yord, ford, self.object)
+        
+        xxi = np.int(np.round(sh[0]/2.))+xord
+        use = (xxi >= 0) & (xxi < (NX))
+        ### First order only
+        #use = use & (xord > 10*self.grow_factor) & (xord < 213*self.grow_factor) 
+        use_order = use 
+        cut = np.zeros(NX)
+        cut[xxi[use_order]] = word[use_order] 
+        self.object_wave = cut.copy() #np.dot(np.ones((self.sh[0],1)),
+        
+        xarr = np.arange(NX)
+        wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        limited = wavelength_region & ((self.object_wave-self.im['WAVE'].data.min()) > -1) & ((self.object_wave - self.im['WAVE'].data.max()) < 1)        
+        
+        xmin = xarr[limited].min()
+        xmax = xarr[limited].max()
+        ### need to account for [xmin:xmax] = (xmax-xmin)-1
+        if limited.sum() < wavelength_region.sum():
+            xmax += 1
             
+        self.xmin, self.xmax = xmin, xmax
+        
+        # xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+sh[0]/2.
+        # xoff_int = np.arange(xmin, xmax, dtype=np.double)
+        # yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])        
+        #self.yc = np.int(np.round(yoff_int.mean()))
+        self.yc = -self.im['SCI'].header['YTOFF']
+        self.ypad = ypad
+        
+        self.xord = xord
+        self.yord = yord
+        self.ford = ford
+        self.non_zero = non_zero
+        
+        self.model = self.object[self.yc+ypad:self.yc-ypad,xmin:xmax]
+    
+    def compute_model(self, lam_spec=None, flux_spec=None):
+        """
+        The nuts and bolts were determined in init_model.  Now just provide 
+        and input spectrum and compute the model
+        """
+        ### Dispersion of single pixel        
+        # if (lam_spec is not None):
+        #     if (lam_spec.min() > 0.9e4) | (lam_spec.max() < 1.8e4):
+        #         xint = np.arange(0.9e4,1.9e4,22)
+        #         yint = xint*0.+1
+        #         yint = unicorn.utils_c.interp_conserve_c(xint, lam_spec, flux_spec)
+        #         lam_spec, flux_spec = xint, np.maximum(0,yint)
+        #         print 'Reform', lam_spec, flux_spec
+                
+        #print lam_spec, flux_spec
+        
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, pad=self.pad)
+        
+        #print orders.shape
+        
+        if (lam_spec is not None):
+            ford = np.array(orders[self.non_zero], dtype=np.float64)
+        else:
+            ford = self.ford
+            
+        ### Integrated over the thumbnail
+        self.object *= 0.
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, self.xord, self.yord, ford, self.object)
+        
+        ### Done!
+        self.model = self.object[self.yc+self.ypad:self.yc-self.ypad,self.xmin:self.xmax]
+    
+    def optimal_extract(self, input=None):
+        
+        obj_cleaned = input
+        variance = self.im['WHT'].data**2
+            
+        #### Get extraction window where profile is > 10% of maximum 
+        osh = self.im['MODEL'].data.shape
+        xarr = np.arange(osh[1])
+        xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
+        
+        yprof = np.arange(osh[0])
+        profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
+        profile = profile/profile.sum()
+        
+        #profile2D = np.dot(profile.reshape((-1,1)), np.ones((1,osh[1])))
+        window = profile >= 0.1*profile.max()
+        
+        #### Use object as the profile since it contains the y shift along the trace
+        prof_x = np.sum(self.im['MODEL'].data, axis=0)
+        profile2D = self.im['MODEL'].data/np.dot(np.ones((osh[0],1)), prof_x.reshape((1,-1)))
+                
+        obj_cleaned[variance == 0] = 0
+        
+        #### Optimal extraction
+        opt_variance = variance.copy()
+        opt_variance[opt_variance == 0] = 1.e6
+        
+        num = np.sum(profile2D*obj_cleaned/opt_variance, axis=0)        
+        denom = np.sum(profile2D**2 / opt_variance, axis=0)
+        
+        optimal_sum = num / denom
+        return self.im['WAVE'].data, optimal_sum
+        
+    def timer(self):
+        """
+        Test how long it takes to execute.
+        """
+        import time
+        t0 = time.time()
+        N = 100
+        m = self.model*1.
+        for i in range(N):
+            self.compute_model()
+            m += self.model
+        t1 = time.time()
+        print '%d steps, no model: %.3f s' %(N, t1-t0)
+        
+        wave = np.exp(np.arange(7,10,0.1))
+        flux = wave*0.+1
+
+        wave = np.cast[np.double](self.oned.data.wave)
+        flux = np.cast[np.double]((self.oned.data.flux-self.oned.data.contam) / self.oned.data.sensitivity)
+        
+        t0 = time.time()
+        N = 100
+        m = self.model*1.
+        for i in range(N):
+            self.compute_model(lam_spec = wave, flux_spec = flux)
+            m += self.model
+        t1 = time.time()
+        print '%d steps, WITH model: %.3f s' %(N, t1-t0)
+        
 class GrismModel():
     def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
         """
@@ -1156,6 +1334,14 @@ class GrismModel():
         prim = pyfits.PrimaryHDU()
         prim.header.update('POINTING', self.root)
         prim.header.update('ID', id)
+        prim.header.update('X_PIX', self.cat.x_pix[ii], comment='X pixel in interlaced image')
+        prim.header.update('Y_PIX', self.cat.y_pix[ii], comment='Y pixel in interlaced image')
+        prim.header.update('RA', self.ra_wcs[ii], comment='Target R.A.')
+        prim.header.update('DEC', self.dec_wcs[ii], comment='Target Dec.')
+        prim.header.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
+        prim.header.update('FTOTAL', self.total_fluxes[id], comment='Total flux within segmentation image (1E-17)')
+        prim.header.update('PAD', self.pad, comment='Padding at edge of interlaced image')
+        prim.header.update('GROW', self.grow_factor, comment='"grow_factor" from unicorn.reduce')
         prim.header.update('BUNIT', 'ELECTRONS/S')
         prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
         prim.header.update('FILTER', self.gris[0].header['FILTER'])
@@ -1234,8 +1420,9 @@ class GrismModel():
         xoff_int = np.arange(xmin, xmax, dtype=np.double)
         yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])
 
-        yc = np.int(np.round(self.cat.y_pix[ii]+yoff_int.mean()))-1
-        #yc_off = np.cast[int](np.round(self.cat.y_pix[ii]+yoff_int))-1
+        yc_spec = np.int(np.round(self.cat.y_pix[ii]+yoff_int.mean()))-1
+        spec_y_offset = yc-yc_spec
+        
         self.ytrace = NT/2.+yoff_int-yoff_int.mean()
                         
         self.wave = self.object_wave[xmin:xmax]
@@ -1257,29 +1444,24 @@ class GrismModel():
         header.update('CUNIT2','arcsec')
         header.update('CTYPE2','CRDIST')
         
-        self.grism_sci = self.gris[1].data[yc-NT/2:yc+NT/2, xmin:xmax]
+        header.update('YTOFF',spec_y_offset,comment='Offset of middle of spectrum trace')
         
-        #### testing shifting the pixels:  better to just provide the (float) trace
-        ####  than shifting by integer pixels
+        self.grism_sci = self.gris[1].data[yc_spec-NT/2:yc_spec+NT/2, xmin:xmax]
         
-        # self.grism_sci_yoff = self.grism_sci*0.
-        # for i in range(len(yoff_int)):
-        #     self.grism_sci_yoff[:,i] = self.gris[1].data[yc_off[i]-NT/2:yc_off[i]+NT/2, xmin+i]
-
         header.update('EXTNAME','SCI')
         extensions.append(pyfits.ImageHDU(self.grism_sci, header))
         
-        self.grism_wht = self.gris[2].data[yc-NT/2:yc+NT/2, xmin:xmax]
+        self.grism_wht = self.gris[2].data[yc_spec-NT/2:yc_spec+NT/2, xmin:xmax]
         header.update('EXTNAME','WHT')
         header.update('WHTERROR',self.gris[0].header['WHTERROR'])
         
         extensions.append(pyfits.ImageHDU(self.grism_wht, header))
         
-        self.the_object = self.object[yc-NT/2:yc+NT/2, xmin:xmax]
+        self.the_object = self.object[yc_spec-NT/2:yc_spec+NT/2, xmin:xmax]
         header.update('EXTNAME','MODEL')
         extensions.append(pyfits.ImageHDU(self.the_object, header))
         
-        self.full_model = self.model[yc-NT/2:yc+NT/2, xmin:xmax]
+        self.full_model = self.model[yc_spec-NT/2:yc_spec+NT/2, xmin:xmax]
         header.update('EXTNAME','CONTAM')
         extensions.append(pyfits.ImageHDU(self.full_model-self.the_object, header))
                 
@@ -1558,7 +1740,7 @@ def field_dependent(xi, yi, str_coeffs):
     xy = np.array([1,xi,yi,xi**2,xi*yi,yi**2, xi**3, xi**2*yi, xi*yi**2, yi**3])
     a = np.sum(coeffs*xy[0:len(coeffs)])
     return a
-    
+
 def model_stripe():
     """
     Model a horizontal stripe across the image assuming uniform illumination

@@ -446,6 +446,12 @@ def uds():
     unicorn.analysis.make_SED_plots(grism_root='UDS-23-G141')
     go.clean_up()
 
+    go.set_parameters(direct='F140W', LIMITING_MAGNITUDE=26)
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/UDS-18-F140W_drz.fits'
+    proc.reduction_script(asn_grism_file='UDS-18-G141_asn.fits')
+    unicorn.analysis.make_SED_plots(grism_root='UDS-18-G141')
+    go.clean_up()
+
 def goods_ers():
     """
 

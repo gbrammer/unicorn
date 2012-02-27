@@ -1321,7 +1321,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
 def savefig(fig, filename='figure.png'):
     
     if USE_PLOT_GUI:
-        fig.savefig(outfile,dpi=100,transparent=False)
+        fig.savefig(filename,dpi=100,transparent=False)
     else:
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(filename, dpi=100, transparent=False)

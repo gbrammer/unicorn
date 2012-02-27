@@ -34,7 +34,7 @@ def reduce_interlace():
     extract_limit=25
     
     files=glob.glob('GOODS-S-3*G141_asn.fits')
-    for file in files:
+    for file in files[1:]:
         status = unicorn.reduce.reduce_pointing(file=file, clean_all=clean_all, clean_spectra=clean_spectra, make_images=make_images, make_model=make_model, fix_wcs=fix_wcs, extract_limit=extract_limit, skip_completed_spectra=skip_completed_spectra, MAG_LIMIT=MAG_LIMIT, out_path=out_path)
     
 def compare_pieter_2D():

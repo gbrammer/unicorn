@@ -417,7 +417,7 @@ class GrismSpectrumFit():
         
         tempfilt, self.eazy_coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
 
-        eazyParam = eazy.EazyParam(CAT_PATH+'/'+root+'.param')
+        # eazyParam = eazy.EazyParam(CAT_PATH+'/'+root+'.param')
 
         # id = 6187
         # ix = np.arange(cat.id.shape[0])[cat.id == id][0]

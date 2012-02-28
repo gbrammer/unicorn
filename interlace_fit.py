@@ -144,9 +144,9 @@ class GrismSpectrumFit():
             z_test = zgrid[i]
 
             #### Generate the 2D spectrum model for the continuum and emission line templates
+            if self.best_fit_nolines.sum() == 0.:
+                self.best_fit_nolines = self.best_fit_nolines*0.+1
             self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines); continuum_model = self.twod.model*1.
-            if continuum_model.sum() == 0.:
-                continuum_model = continuum_model*0.+1
                 
             self.twod.compute_model(self.linex*(1+z_test), self.liney); line_model = self.twod.model*1.
 

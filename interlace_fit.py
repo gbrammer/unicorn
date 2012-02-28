@@ -11,7 +11,7 @@ import scipy.stats as stats
 
 import matplotlib.pyplot as plt
 
-import emcee
+# import emcee
 
 import unicorn
 import threedhst
@@ -20,7 +20,7 @@ import threedhst.catIO as catIO
 import unicorn.utils_c as utils_c
 import threedhst.eazyPy as eazy
 
-def go_bright():
+def go_bright(skip_completed=True):
     """
     Fit spectra of bright galaxies in the test UDF pointing
     """
@@ -28,16 +28,34 @@ def go_bright():
     
     os.chdir('/research/HST/GRISM/3DHST/UDF/PREP_FLT')
     model = unicorn.reduce.GrismModel('GOODS-S-34')
-    
-    bright = model.cat.mag < 23.5
-    
     os.chdir('mcz')
     
-    ids = model.cat.id[bright]
-    for id in ids:        
-        gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
-        #gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
-        gris.make_figure()
+    os.chdir('/research/HST/GRISM/3DHST/UDS/PREP_FLT')
+
+    os.chdir(unicorn.GRISM_HOME+'/GOODS-S/PREP_FLT')
+    
+    pointings = glob.glob('*_model.fits')
+    
+    for point in pointings:
+        pointing = point.split('_model')[0]
+        #pointing = 'UDS-18'
+        model = unicorn.reduce.GrismModel(pointing)
+        bright = model.cat.mag < 23.5
+        ids = model.cat.id[bright]
+        for id in ids:     
+            root='%s_%05d' %(pointing, id)
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            if gris.dr > 1:
+                continue
+            #
+            gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
+            #gris.make_figure()
         
 class GrismSpectrumFit():
     """
@@ -287,6 +305,8 @@ class GrismSpectrumFit():
         photometric SED
 
         """
+        zout = self.zout
+        
         zgrid0, full_prob0, zgrid1, full_prob1 = self.zgrid0, self.full_prob0, self.zgrid1, self.full_prob1
                 
         #### Initialize the figure
@@ -452,6 +472,7 @@ def go_MCMC_fit():
     Try a MCMC fit, TESTING 
     """
     #### EMCEE
+    import emcee
     init = np.array([unicorn.interlace_fit.z_peak, 0])
     step_sig = np.array([unicorn.interlace_fit.dz, 0.03])
     obj_fun = unicorn.interlace_fit.objective_twod

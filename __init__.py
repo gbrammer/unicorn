@@ -36,6 +36,8 @@ import survey_paper
 import go_acs
 import fast
 
+import interlace_fit
+
 try:
     import utils_c #as utils_c
 except:

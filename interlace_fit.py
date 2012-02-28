@@ -117,6 +117,8 @@ class GrismSpectrumFit():
         #### Observed flux and variance images of the 2D spectrum
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
+        var += (self.twod.im['CONTAM'].flatten())**2
+
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
 
@@ -417,7 +419,7 @@ class GrismSpectrumFit():
         
         tempfilt, self.eazy_coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
 
-        # eazyParam = eazy.EazyParam(CAT_PATH+'/'+root+'.param')
+        # eazyParam = eazy.EazyParam(ZOUT_PATH+'/'+root+'.param')
 
         # id = 6187
         # ix = np.arange(cat.id.shape[0])[cat.id == id][0]

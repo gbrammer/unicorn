@@ -117,7 +117,7 @@ class GrismSpectrumFit():
         #### Observed flux and variance images of the 2D spectrum
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
-        var += (self.twod.im['CONTAM'].flatten())**2
+        var += (self.twod.im['CONTAM'].data**2).flatten()
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)

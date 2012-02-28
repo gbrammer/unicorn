@@ -321,7 +321,7 @@ class GrismSpectrumFit():
         ax.plot(self.oned_wave/1.e4, self.model_oned, color='red', alpha=0.5, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
-        if wuse.sum() < 5:
+        if wuse.sum() > 5:
             ymax = self.oned.data.flux[wuse].max(); 
         else:
             ymax = self.oned.data.flux.max()

@@ -35,6 +35,7 @@ def go_bright(skip_completed=True):
     os.chdir(unicorn.GRISM_HOME+'/GOODS-S/PREP_FLT')
     
     pointings = glob.glob('*_model.fits')
+    skip_completed=True
     
     for point in pointings:
         pointing = point.split('_model')[0]
@@ -320,7 +321,12 @@ class GrismSpectrumFit():
         ax.plot(self.oned_wave/1.e4, self.model_oned, color='red', alpha=0.5, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
-        ymax = self.oned.data.flux[wuse].max(); ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
+        if wuse.sum() < 5:
+            ymax = self.oned.data.flux[wuse].max(); 
+        else:
+            ymax = self.oned.data.flux.max()
+            
+        ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
 
         #### Spectrum in f_lambda
         ax = fig.add_subplot(142)
@@ -329,7 +335,12 @@ class GrismSpectrumFit():
         ax.plot(self.oned_wave/1.e4, self.model_oned/self.oned.data.sensitivity, color='red', alpha=0.5, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
-        ymax = (self.oned.data.flux/self.oned.data.sensitivity)[wuse].max(); ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
+        if wuse.sum() > 5:
+            ymax = (self.oned.data.flux/self.oned.data.sensitivity)[wuse].max()
+        else:
+            ymax = (self.oned.data.flux/self.oned.data.sensitivity).max()
+            
+        ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
 
         #### p(z)
         ax = fig.add_subplot(143)

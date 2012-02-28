@@ -388,7 +388,7 @@ class GrismSpectrumFit():
         ax.set_ylabel(r'$f_\lambda$')
         
         good = efobs > 0
-        if sum.good() > 0:
+        if good.sum() > 0:
             ymax = fobs[good].max()
         else:
             ymax = fobs.max()

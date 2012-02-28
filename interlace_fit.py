@@ -386,8 +386,13 @@ class GrismSpectrumFit():
         ax.plot(self.oned.data.wave, flux_spec*anorm, color='red', alpha=0.5)
         ax.set_xlabel(r'$\lambda$')
         ax.set_ylabel(r'$f_\lambda$')
-
-        ymax = fobs[efobs > 0].max()
+        
+        good = efobs > 0
+        if sum.good() > 0:
+            ymax = fobs[good].max()
+        else:
+            ymax = fobs.max()
+            
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
         ax.semilogx(); ax.set_xlim(3000.,8.e4)
 

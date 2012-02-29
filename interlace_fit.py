@@ -399,8 +399,7 @@ class GrismSpectrumFit():
         else:
             ymax = fobs.max()
             
-        ax.set_ylim(-0.05*ymax, 1.1*ymax)
-        ax.semilogx(); ax.set_xlim(3000.,8.e4)
+        ax.semilogx(); ax.set_xlim(3000.,8.e4); ax.set_ylim(-0.05*ymax, 1.1*ymax)
 
         #### Save the result to a file
         unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))

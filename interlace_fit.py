@@ -5,7 +5,13 @@ Fit templates to the interlaced grism spectra to measure redshifts, and....
 import os
 
 import pyfits
-import stsci.convolve
+
+##### First option is STSCI_PYTHON v2.12 / Python2.7.  Second is older Python2.5.4
+try:
+    import stsci.convolve as convolve
+except:
+    import convolve
+    
 import numpy as np
 import scipy.stats as stats
 

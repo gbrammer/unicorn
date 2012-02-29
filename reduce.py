@@ -79,6 +79,9 @@ def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True
         clean_all=False; clean_spectra=False; make_images=False; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
         extract_limit=25
         
+        #### Regenerate 2D FITS files
+        skip_completed=False
+        
         for file in files:
             status = unicorn.reduce.reduce_pointing(file=file, clean_all=clean_all, clean_spectra=clean_spectra, make_images=make_images, make_model=make_model, fix_wcs=fix_wcs, extract_limit=extract_limit, skip_completed_spectra=skip_completed_spectra, MAG_LIMIT=MAG_LIMIT, out_path=out_path)
 
@@ -883,9 +886,11 @@ class GrismModel():
             import stsci.tools.wcsutil as wcsutil
             wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
         except:
-            print 'Failed: import stsci.tools.wcsutil'
-            wcs = None
-        
+            #print 'Failed: import stsci.tools.wcsutil'
+            #wcs = None
+            import pytools.wcsutil as wcsutil
+            wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
+            
         NOBJ = len(self.cat.id)
         
         asn = threedhst.utils.ASNFile(self.root+'-F140W_asn.fits')

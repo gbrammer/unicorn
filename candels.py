@@ -1185,8 +1185,11 @@ def massive_galaxies_morphologies(field='COSMOS', masslim=11.2, zlim=(1.7,6), sa
     import unicorn
     import shapely
     from shapely.geometry import Point,Polygon
-    import stsci.tools.wcsutil as wcsutil
-    
+    try:
+        import stsci.tools.wcsutil as wcsutil
+    except:
+        import pytools.wcsutil as wcsutil
+        
     cat, zout, fout = unicorn.analysis.read_catalogs(root='%s-1' %(field))
     try:
         test = cat.use
@@ -1341,7 +1344,10 @@ def massive_galaxies_spectra(field='COSMOS', masslim=11.2, zlim=[1.7,6]):
     import unicorn
     import shapely
     from shapely.geometry import Point,Polygon
-    import stsci.tools.wcsutil as wcsutil
+    try:
+        import stsci.tools.wcsutil as wcsutil
+    except:
+        import pytools.wcsutil as wcsutil
     
     cat, zout, fout = unicorn.analysis.read_catalogs(root='%s-1' %(field))
     try:
@@ -1526,7 +1532,10 @@ def proposal_figure():
     import unicorn
     import shapely
     from shapely.geometry import Point,Polygon
-    import stsci.tools.wcsutil as wcsutil
+    try:
+        import stsci.tools.wcsutil as wcsutil
+    except:
+        import pytools.wcsutil as wcsutil
     
     field = 'COSMOS'
     compact = 1966

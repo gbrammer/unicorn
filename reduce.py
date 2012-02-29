@@ -139,9 +139,9 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
-    import threedhst.dq
     
     if view:
+        import threedhst.dq
         ds9 = threedhst.dq.myDS9()
 
     run = threedhst.prep_flt_files.MultidrizzleRun(root)

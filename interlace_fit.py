@@ -90,7 +90,7 @@ class GrismSpectrumFit():
 
         #### Initialize the continuum and emission line templates    
         self.line_free_template()
-        self.linex, self.liney = np.loadtxt('templates/dobos11/SF0_0.emline.txt', unpack=True)
+        self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
         
         #### Try to read the previous p(z) from the pickle file
         if self.read_pickle():
@@ -479,16 +479,16 @@ class GrismSpectrumFit():
 
         #### Read in the line-free templates and scale them with "tnorm" to match those stored
         #### in the temp_sed file
-        nlx, nly = np.loadtxt('templates/EAZY_v1.0_lines/eazy_v1.0_sed1_nolines.dat', unpack=True)
+        nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed1_nolines.dat', unpack=True)
         noline_temps = np.zeros((nlx.shape[0],7))
         noline_temps[:,0] = nly/self.eazy_coeffs['tnorm'][0]
         for i in range(2,7):
-            nlx, nly = np.loadtxt('templates/EAZY_v1.0_lines/eazy_v1.0_sed%d_nolines.dat' %(i), unpack=True)
+            nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed%d_nolines.dat' %(i), unpack=True)
             noline_temps[:,i-1] = nly/self.eazy_coeffs['tnorm'][i-1]
 
         #### The last v1.1 template was a BC03 model without lines, so just use it directly    
         i = 7
-        lx, ly = np.loadtxt('templates/EAZY_v1.1_lines/eazy_v1.1_sed%d.dat' %(i), unpack=True)
+        lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.1_lines/eazy_v1.1_sed%d.dat' %(i), unpack=True)
         noline_temps[:,6] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][6]
 
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])

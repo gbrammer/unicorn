@@ -171,7 +171,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     #### GOODS-N field from Weiner program 11600
     if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
         dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
-        dys = np.array([0,-3,-10,-8]) + np.int(np.round(ysh[0]))*0
+        dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
         
     dxi = np.cast[int](np.ceil(dxs/2))
     dyi = np.cast[int](np.ceil(dys/2))

@@ -61,8 +61,8 @@ def go_bright(skip_completed=True):
             if gris.dr > 1:
                 continue
             #
-            gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
-            #gris.make_figure()
+            #gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
+            gris.make_figure()
         
 class GrismSpectrumFit():
     """
@@ -123,7 +123,7 @@ class GrismSpectrumFit():
         #### Observed flux and variance images of the 2D spectrum
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
-        var += (self.twod.im['CONTAM'].data**2).flatten()
+        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
@@ -492,7 +492,42 @@ class GrismSpectrumFit():
 
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
+    
+    def flag_contamination(self, FEXCESS=2.5):
+        # import threedhst.dq
+        # 
+        # root='UDS-18_00180'        
+        # gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+        # 
+        # gris.twod.compute_model()
+        # ds9 = threedhst.dq.myDS9()
+        # ds9.frame(1)
+        # ds9.v(gris.twod.im['SCI'].data, vmin=-0.05, vmax=0.2)
+        # ds9.frame(2)
+        # ds9.v(gris.twod.model, vmin=-0.05, vmax=0.2)
+        # ds9.frame(3)
+        # ds9.v(gris.twod.im['SCI'].data-gris.twod.model, vmin=-0.05, vmax=0.2)
+        # 
+        # flag = (gris.twod.im['SCI'].data-(gris.twod.im['CONTAM'].data+gris.twod.model)) / gris.twod.im['WHT'].data
+        
+        #### Find wavelengths counting in from the edges where the observed extracted
+        #### spectrum is a factor FEXCESS greater than the model (with contamination).
+        #### This is intended to find cases at the left edge of the frame where objects
+        #### fall out of the direct image but still have a 1st order spectrum in the grism image.
+        ####
+        #### Note can't apply blindly because emission lines will also satisfy such a cut.
+        self.twod.compute_model()
+        wave_model, flux_model = self.twod.optimal_extract(self.twod.model+self.twod.im['CONTAM'].data)
+        wave_obs, flux_obs = self.twod.optimal_extract(self.twod.im['SCI'].data)
+        # FEXCESS = 2.5
+        test = flux_obs/flux_model < FEXCESS
+        if test.sum() > 0:
+            first = wave_model[test][0]
+            self.twod.im['CONTAM'].data[:,self.twod.im['WAVE'].data < first] += (self.twod.im['SCI'].data-self.twod.model)[:,self.twod.im['WAVE'].data < first]
+            print 'Unflagged contamination: lam < %.2f' %(first)
 
+        
+        
 def go_MCMC_fit():
     """
     Try a MCMC fit, TESTING 

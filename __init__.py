@@ -25,6 +25,11 @@ if hostname().startswith('850dhcp8'):
     
 import threedhst
 
+try:
+    import utils_c #as utils_c
+except:
+    print """Couldn't import "utils_c" """
+
 import prepare
 import reduce
 import candels
@@ -37,10 +42,5 @@ import go_acs
 import fast
 
 import interlace_fit
-
-try:
-    import utils_c #as utils_c
-except:
-    print """Couldn't import "utils_c" """
     
 noNewLine = '\x1b[1A\x1b[1M'

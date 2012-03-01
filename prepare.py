@@ -904,14 +904,14 @@ def AEGIS_mosaic():
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=214.92061, dec=52.878457,
-             final_outnx = NX, final_outny=NY, final_rot=42)
+             final_outnx = NX, final_outny=NY, final_rot=42, build_drz=False)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=214.92061, dec=52.878457,
-             final_outnx = NX, final_outny=NY, final_rot=42)
+             final_outnx = NX, final_outny=NY, final_rot=42, build_drz=False)
     #
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
@@ -984,7 +984,7 @@ def UDS_mosaic():
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-F140W',
                        path_to_FLT='./', run_multidrizzle=False)
     
-    #### Direct mosaic
+    #### Gris mosaic
     direct_files = glob.glob('UDS-*-G141_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-G141',
                        path_to_FLT='./', run_multidrizzle=False)
@@ -999,14 +999,14 @@ def UDS_mosaic():
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=ra, dec=dec,
-             final_outnx = nx, final_outny=ny)
+             final_outnx = nx, final_outny=ny, build_drz=False)
     
     threedhst.prep_flt_files.startMultidrizzle('UDS-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
              ra=ra, dec=dec,
-             final_outnx = nx, final_outny=ny)
+             final_outnx = nx, final_outny=ny, build_drz=False)
 
 def SN_TILE41():
     """ Supernova in COSMOS """

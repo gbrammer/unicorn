@@ -71,6 +71,8 @@ def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True
         #
         ### First run
         clean_all=True; clean_spectra=True; make_images=True; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
+        extract_limit=23.5
+        
         ### Redo
         clean_all=False; clean_spectra=False; make_images=False; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
         extract_limit=23.5
@@ -166,6 +168,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
     dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
     
+    #### GOODS-N field from Weiner program 11600
+    if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
+        dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([0,-3,-10,-8]) + np.int(np.round(ysh[0]))*0
+        
     dxi = np.cast[int](np.ceil(dxs/2))
     dyi = np.cast[int](np.ceil(dys/2))
     
@@ -910,9 +917,11 @@ class GrismModel():
         ### Try running a second time if it dies once
         try:
             status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            os.remove("/tmp/%s.flt_xy" %(self.root))
         except:
             threedhst.process_grism.flprMulti()
             status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            os.remove("/tmp/%s.flt_xy" %(self.root))
             
         self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)
                     

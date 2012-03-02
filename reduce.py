@@ -127,7 +127,7 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
         return True
         
     if fix_wcs:
-        model.trim_edge_objects()
+        #model.trim_edge_objects()
         model.get_corrected_wcs()
         model.make_wcs_region_file()
         
@@ -138,7 +138,7 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
     
     return True
                         
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     
@@ -156,11 +156,12 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     scl = np.float(run.scl)
     xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
     yi,xi = np.indices((1014,1014))
-    pad = 60
+    
     N = np.zeros((2028+pad,2028+pad))
     inter_sci = np.zeros((2028+pad,2028+pad))
     if use_error:
         inter_err = np.zeros((2028+pad,2028+pad))
+    
     xi+=pad/4
     yi+=pad/4
     
@@ -226,14 +227,14 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     if use_error:
         h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
     else:
-        h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
+        h0.update('WHTERROR',False,comment='WHT extension is 0/1 flagged bad pix')
         
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=inter_sci, header=header)
     if use_error:
-        wht = pyfits.ImageHDU(data=inter_err*N, header=header)
+        wht = pyfits.ImageHDU(data=inter_err*N, header=header_wht)
     else:
-        wht = pyfits.ImageHDU(data=N, header=header)
+        wht = pyfits.ImageHDU(data=N, header=header_wht)
         
     image = pyfits.HDUList([hdu,sci,wht])
     if 'EXTEND' not in hdu.header.keys():
@@ -786,7 +787,7 @@ class GrismModel():
         """        
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         
-        self.trim_edge_objects(verbose=True)
+        #self.trim_edge_objects(verbose=True)
         
         self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
         self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
@@ -1809,4 +1810,232 @@ def model_stripe():
         #model += object #*norm
     #
     pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+#
+def interlace_combine_blot(root='COSMOS-23-F140W', view=True, use_error=False, REFERENCE = 'COSMOS-full-F160W_drz_sci_subim.fits', NGROW=100, segmentation=False, pad=60):
+    
+    import threedhst.prep_flt_files
+    import unicorn.reduce as red
+    import blot_to_flt
+    
+    blot_to_flt.blot_from_reference(REFERENCE = REFERENCE, DRZ_ROOT = root, NGROW=NGROW)
+    
+    if view:
+        import threedhst.dq
+        ds9 = threedhst.dq.myDS9()
+
+    run = threedhst.prep_flt_files.MultidrizzleRun(root)
+    #run.blot_back(ii=0, copy_new=True)
+    
+    #im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
+    #PAM = im[1].data
+    #im.close()
+    
+    scl = np.float(run.scl)
+    xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
+    yi,xi = np.indices((1014,1014+2*NGROW))
+
+    N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
+    inter_sci = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
+    inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
+    
+    xi+=pad/4
+    yi+=pad/4+NGROW
+    
+    #### From pieter
+    dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
+    dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
+    
+    #### GOODS-N field from Weiner program 11600
+    if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
+        dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
+        
+    dxi = np.cast[int](np.ceil(dxs/2))
+    dyi = np.cast[int](np.ceil(dys/2))
+    
+    #### Find hot pixels, which are flagged as cosmic 
+    #### rays at the same location in each of the flt files.  Ignore others.
+    # hot_pix = np.zeros((1014,1014),dtype='int')
+    # for flt in run.flt:
+    #     im = pyfits.open(flt+'.fits')
+    #     hot_pix += (im[3].data & 4096) / 4096
+    #     
+    # hot_pix = hot_pix > 2
+        
+    for i,flt in enumerate(run.flt):
+        flt = run.flt[i]
+        print flt
+        im = pyfits.open(flt.replace('_flt','_blot')+'.fits')
+        im_wht = pyfits.open(flt.replace('_flt','_blot_wht')+'.fits')
+        
+        #### Use the pixel area map correction
+        #im[1].data *= PAM
+        #### Divide by 4 to conserve surface brightness with smaller output pixels
+        im[0].data /= 4
+        im_wht[0].data /= 4
+        #im[2].data /= 4
+        
+        ### Mask cosmic rays
+        if i == 0:
+            h0 = im[0].header
+            h1 = im[0].header
+            header = red.scale_header_wcs(h1.copy(), factor=2, pad=pad)
+            header_wht = header.copy()
+            header_wht.update('EXTNAME','ERR')
+            
+        # dx = np.int(np.round((xsh[i]-xsh[0])*2))
+        # dy = np.int(np.round((ysh[i]-ysh[0])*2))
+        #
+        dx = dxs[i]
+        dy = dys[i]
+        #
+        #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
+        #        
+        #use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
+        
+        inter_sci[yi*2+dy,xi*2+dx] += im[0].data
+        inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
+        #
+        if view:
+            ds9.view_array(inter_sci, header=header)
+            ds9.scale(-0.1,5)
+    
+    header.update('NGROW', NGROW, comment='Number of pixels added to X-axis (centered)')        
+    header.update('PAD', pad, comment='Additional padding around the edges') 
+    
+    hdu = pyfits.PrimaryHDU(header=h0)
+    sci = pyfits.ImageHDU(data=inter_sci, header=header)
+    wht = pyfits.ImageHDU(data=inter_err, header=header_wht)
+            
+    image = pyfits.HDUList([hdu, sci, wht])
+    if 'EXTEND' not in hdu.header.keys():
+        hdu.header.update('EXTEND', True, after='NAXIS')
+    
+    image.writeto(root+'_inter_blot.fits', clobber=True, output_verify="fix")
+
+def blot_from_reference(REFERENCE = 'COSMOS-full-F160W_drz_sci_subim.fits', DRZ_ROOT = 'COSMOS-23-F140W', NGROW=100):
+    """
+    iraf.imcopy('COSMOS-full-F160W_drz_sci.fits[2262:6160,5497:8871]', 'COSMOS-full-F160W_drz_sci_subim.fits')
+    hedit 'COSMOS-full-F160W_drz_sci_subim.fits' 'CD1_2' 0. add+ update+ verify-
+    hedit 'COSMOS-full-F160W_drz_sci_subim.fits' 'CD2_1' 0. add+ update+ verify-
+
+    iraf.imcopy('COSMOS-full-F160W_drz_weight.fits[2262:6160,5497:8871]', 'COSMOS-full-F160W_drz_wht_subim.fits')
+    hedit 'COSMOS-full-F160W_drz_wht_subim.fits' 'CD1_2' 0. add+ update+ verify-
+    hedit 'COSMOS-full-F160W_drz_wht_subim.fits' 'CD2_1' 0. add+ update+ verify-
+
+    """
+    
+    threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, refimage=REFERENCE, build_drz=False)
+    
+    run = threedhst.prep_flt_files.MultidrizzleRun(DRZ_ROOT)
+    #
+    threedhst.process_grism.flprMulti()
+    
+    DATA = DRZ_ROOT+'_drz_sci.fits'
+    DATA = REFERENCE
+    
+    #### Force reference image to have same header as newly-created DRZ image so that
+    #### BLOT has all of the necessary keywords
+    im_ref = pyfits.open(REFERENCE)
+    im_wht = pyfits.open(REFERENCE.replace('sci','wht'))
+    REF_FILTER = im_ref[0].header['FILTER']
+    REF_EXPTIME = im_ref[0].header['EXPTIME']
+    im_drz = pyfits.open(DRZ_ROOT+'_drz_sci.fits')
+    im_ref[0].header = im_drz[0].header.copy()
+    im_ref.writeto('ref_sci.fits', clobber=True)
+    DATA = 'ref_sci.fits'
+    
+    im_wht[0].header = im_drz[0].header.copy()
+    im_wht.writeto('ref_wht.fits', clobber=True)
+    
+    
+    asn = threedhst.utils.ASNFile(DRZ_ROOT+'_asn.fits')
+    for flt_root in asn.exposures:
+        
+        #FLT = 'ibhm51x0q_flt.fits'
+        FLT = flt_root+'_flt.fits'        
+        im_flt = pyfits.open(FLT)
+
+        #### Need to modify the coeffs file 
+        fp = open(FLT.replace('.fits','_coeffs1.dat'))
+        coeffs_lines = fp.readlines()
+        fp.close()
+
+        if NGROW > 0:
+            for i, line in enumerate(coeffs_lines):
+                if line.strip().startswith('refpix'):
+                    ### Default to center pixel
+                    coeffs_lines[i] = 'refpix %9.3f 507\n' %((NGROW*2+1014)*1./2)
+
+        fp = open('tmp_coeffs.dat','w')
+        fp.writelines(coeffs_lines)
+        fp.close()
+        
+        #### We've read in the input shifts from the Multidrizzle ".run" file.  Find 
+        #### the index of the current FLT image in the .run arrays
+        idx = -1
+        for i in range(run.count):
+            if run.flt[i].startswith(FLT.replace('.fits','')):
+                idx = i
+                break
+        
+        #### Remove previous if exists
+        try:
+            os.remove(FLT.replace('_flt','_blot'))
+            os.remove(FLT.replace('_flt','_blot_wht'))
+        except:
+            pass
+        
+        #### Run BLOT
+        status = iraf.wblot( data = DATA, outdata = FLT.replace('_flt','_blot'), 
+           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+           coeffs = 'tmp_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
+           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
+           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+           dr2gpar = '', expkey = 'exptime', expout = 'input', 
+           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        
+        #### Add NGROW to header
+        im_blt = pyfits.open(FLT.replace('_flt','_blot'), mode='update')
+        im_blt[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
+        im_blt[0].header.update('FILTER', REF_FILTER)
+        im_blt[0].header.update('EXPTIME', REF_EXPTIME)
+        im_blt.flush()
+        
+        #### WHT extension
+        status = iraf.wblot( data = 'ref_wht.fits', outdata = FLT.replace('_flt','_blot_wht'), 
+           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+           coeffs = 'tmp_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
+           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
+           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+           dr2gpar = '', expkey = 'exptime', expout = 'input', 
+           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        
+        #### Add NGROW to header
+        im_blt = pyfits.open(FLT.replace('_flt','_blot_wht'), mode='update')
+        #### inverse variance
+        im_blt[0].data = 1/np.sqrt(im_blt[0].data)
+        im_blt[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
+        im_blt[0].header.update('FILTER', REF_FILTER)
+        im_blt[0].header.update('EXPTIME', REF_EXPTIME)
+        im_blt.flush()
+        
+        #import threedhst.dq
+        #ds9 = threedhst.dq.myDS9()
+        # ds9.frame(1)
+        # ds9.view(im_flt[1].data, header=im_flt[1].header)
+        # ds9.scale(-0.05,2)
+        # 
+        # ds9.frame(2)
+        # if NGROW > 0:
+        #     ds9.view(im_blt[0].data[:,NGROW:-NGROW], header=im_blt[0].header)
+        # else:
+        #     ds9.view(im_blt[0].data, header=im_blt[0].header)
+        # ds9.scale(-0.05,2)
     

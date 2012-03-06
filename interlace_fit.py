@@ -61,8 +61,8 @@ def go_bright(skip_completed=True):
             if gris.dr > 1:
                 continue
             #
-            #gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
-            gris.make_figure()
+            gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
+            #gris.make_figure()
         
 class GrismSpectrumFit():
     """
@@ -173,9 +173,12 @@ class GrismSpectrumFit():
 
             #### If `get_model_at_z`, return the model at that redshift
             if (get_model):
+                ixc = np.array([0,2,3])
+                cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
+                line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
                 flux_model = flux_fit.reshape(line_model.shape)
                 oned_wave, model_oned = self.twod.optimal_extract(flux_model)
-                return flux_model, oned_wave, model_oned
+                return flux_model, cont_model, line_model, oned_wave, model_oned
 
             #### Log likelihood at redshift zgrid[i] (-0.5*chi2)
             spec_lnprob[i] = -0.5*np.sum((flux-flux_fit)**2/var)
@@ -308,9 +311,9 @@ class GrismSpectrumFit():
         
         """
         z_max_spec = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
-
-        self.flux_model, self.oned_wave, self.model_oned = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
         
+        self.flux_model, self.cont_model, self.line_model, self.oned_wave, self.model_oned = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
+    
     def make_figure(self):
         """
         Make a plot showing the fit in e/s and f_lambda units, along with p(z) and the
@@ -407,6 +410,58 @@ class GrismSpectrumFit():
         #z_peaks = zgrid[1:-1][(full_prob[1:-1] > np.log(0.05)) & (np.diff(full_prob,2) < 0)]
         #zrange, dz = (z_peaks[0]-0.02*(1+z_peaks[0]), z_peaks[0]+0.02*(1+z_peaks[0])), 0.0002
     
+    def twod_figure(self, vmax=None):
+        """
+        Make a figure showing the raw twod-spectrum, plus contamination- and 
+        continuum-subtracted versions.
+        """
+        
+        sh = self.twod.im[4].data.shape
+        top = 0.055
+        bottom = 0.07
+        left = 0.06
+        aspect = 3.*sh[0]/sh[1]/(1-(top+bottom-left))
+        
+        wave = self.twod.im[8].data
+        xint = [1.1,1.2,1.3,1.4,1.5,1.6]
+        ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
+        
+        fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
+        fig.subplots_adjust(hspace=0.001)
+        
+        if vmax==None:
+            #values = self.twod.im[4].data.flatten()
+            #vmax = values[np.argsort(values)][-10]
+            vmax = self.flux_model.max()
+            
+        #### Raw spectrum
+        ax = fig.add_subplot(311)
+        ax.imshow(0-self.twod.im[4].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.set_yticklabels([])
+        ax.set_xticklabels([])
+        ax.set_xticks(ax_int)
+        ax.set_ylabel('Raw')
+        ax.text(0.95,1+0.1*aspect,self.grism_id, transform=ax.transAxes, horizontalalignment='right', verticalalignment='bottom')
+        
+        #### Contam-subtracted spectrum
+        ax = fig.add_subplot(312)
+        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.set_yticklabels([])
+        ax.set_xticklabels([])
+        ax.set_xticks(ax_int)
+        ax.set_ylabel('-Contam.')
+
+        #### Continuum-subtracted spectrum
+        ax = fig.add_subplot(313)
+        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data+self.cont_model, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.set_yticklabels([])
+        ax.set_xticklabels(xint)
+        ax.set_xticks(ax_int)
+        ax.set_ylabel('-Continuum')
+        ax.set_xlabel(r'$\lambda\ (\mu\mathrm{m})$')
+        
+        unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.2D.%s' %(self.FIGURE_FORMAT))
+        
     def get_photometric_constraints(self, ra=0., dec=0., verbose=True):
         """ 
         Read the overlapping photometric catalog and retrieve the photometry and EAZY fit.

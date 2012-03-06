@@ -244,7 +244,8 @@ class GrismSpectrumFit():
         if make_plot:
             ### Make diagnostic figure
             self.make_figure()
-    
+            self.twod_figure()
+            
     def save_results(self, verbose=True):
         """
         Print the results of the fit to a file, like 

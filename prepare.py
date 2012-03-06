@@ -341,7 +341,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
     threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
@@ -429,6 +429,7 @@ def COSMOS(FORCE=False):
         
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
     #ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
+    ALIGN = '/research/HST/CANDELS/COSMOS/PREP_FLT/HUDF09/*sci.fits'
     ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
     #ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
     
@@ -438,7 +439,7 @@ def COSMOS(FORCE=False):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
     
     #### Fix shifts for COSMOS-18
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 

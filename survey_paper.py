@@ -226,6 +226,9 @@ def orbit_structure():
     xpostarg = np.array([0, 1.355, 0.881, -0.474])
     ypostarg = np.array([0, 0.424, 1.212, 0.788])
     
+    xgoodsn = np.array([0,0.6075, 0.270, -0.3375])/a11
+    ygoodsn = np.array([0,0.1815, 0.6655, 0.484])/b10
+    
     xoff = xpostarg/a11
     yoff = ypostarg/b10
         

@@ -47,7 +47,7 @@ def go_bright(skip_completed=True):
         pointing = point.split('_model')[0]
         #pointing = 'UDS-18'
         model = unicorn.reduce.GrismModel(pointing)
-        bright = model.cat.mag < 23.5
+        bright = model.cat.mag < 22
         ids = model.cat.id[bright]
         for id in ids:     
             root='%s_%05d' %(pointing, id)
@@ -58,9 +58,14 @@ def go_bright(skip_completed=True):
                 gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
             except:
                 continue
+            #
+            if gris.status is False:
+                continue
+            #
             if gris.dr > 1:
                 continue
             #
+            print '\n'
             gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
             #gris.make_figure()
         
@@ -77,6 +82,13 @@ class GrismSpectrumFit():
         
         #### Get the 1D/2D spectra
         self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
+        self.status = True
+        if self.twod.im['SCI'].data.max() <= 0:
+            if verbose:
+                threedhst.showMessage('%s: \nNo non-zero pixels in the 2D spectrum.' %(root), warn=True)
+            self.status = False
+            return None
+            
         self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
         self.grism_id = os.path.basename(self.twod.file.split('.2D.fits')[0])
 
@@ -87,7 +99,12 @@ class GrismSpectrumFit():
         #### If match distance > 1", prior is flat
         if self.dr > 1:
             self.phot_lnprob *= 0
-
+        else:
+            #### Put less weight on spectra when z_phot < 0.55 and there aren't 
+            #### many features expected in the spectrum.
+            if self.z_peak < 0.55:
+                self.twod.im['WHT'].data *= 3.
+                
         #### Initialize the continuum and emission line templates    
         self.line_free_template()
         self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
@@ -97,7 +114,7 @@ class GrismSpectrumFit():
             if verbose:
                 print 'Read p(z) from %s.zfit.pkl' %(self.grism_id)
                 self.get_best_fit()
-            
+                    
     def fit_zgrid(self, zrange = (0.01,6), dz = 0.02, get_model_at_z=None, verbose=True):
         """
         Take the best-fit template from the photo-z fit and just march through in redshift
@@ -186,7 +203,7 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.02, dzsecond=0.0001, save=True, make_plot=True):
+    def fit_in_steps(self, dzfirst=0.01, dzsecond=0.0002, save=True, make_plot=True):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -375,7 +392,7 @@ class GrismSpectrumFit():
 
         #### Make title text
         if zout.z_spec[self.ix] > 0:
-            deltaz = '$\Delta z$ = %.4f' %((zout.z_spec[self.ix]-self.z_max_spec)/(1+zout.z_spec[self.ix]))
+            deltaz = '$\Delta z$ = %.4f' %(-(zout.z_spec[self.ix]-self.z_max_spec)/(1+zout.z_spec[self.ix]))
         else:
             deltaz = ''
 

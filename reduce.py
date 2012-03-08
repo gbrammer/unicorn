@@ -57,6 +57,13 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+try:
+    ### Latest STSCI_PYTHON (Python2.7)
+    import stsci.tools.wcsutil as wcsutil
+except:
+    ### Older STSCI_PYTHON (Python2.5.4)
+    import pytools.wcsutil as wcsutil
+
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
     """
     clean_all=True; clean_spectra=True; make_images=True; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
@@ -208,6 +215,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
             h1 = im[1].header
             header = red.scale_header_wcs(h1.copy(), factor=2, pad=pad)
             header.update('EXTNAME','SCI')
+            header.update('PAD',pad)
             header.update('REFIMAGE', '', comment='Source detection image')
             header_wht = header.copy()
             header_wht.update('EXTNAME','ERR')
@@ -333,7 +341,7 @@ def scale_header_wcs(header, factor=2, pad=60, NGROW=0):
     header.update('NAXIS1',header['NAXIS1']*factor+NGROW*2*factor+pad)
     header.update('NAXIS2',header['NAXIS2']*factor+NGROW*2*factor+pad)
 
-    header.update('CRPIX1',header['CRPIX1']*factor+pad/2)
+    header.update('CRPIX1',header['CRPIX1']*factor+NGROW*factor+pad/2)
     header.update('CRPIX2',header['CRPIX2']*factor+NGROW*factor+pad/2)
     
     keys = ['CD1_1','CD1_2','CD2_1','CD2_2']
@@ -500,17 +508,17 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, pad=pad, MAG_LIMIT=MAG_LIMIT)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, MAG_LIMIT=MAG_LIMIT)
     
     model.get_corrected_wcs(verbose=True)
     
     test = model.load_model_spectra()
     if not test:
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=model.cat.mag.max(), save_pickle=False)   
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
         model.compute_full_model(refine=True, MAG_LIMIT=23, save_pickle=True)
         
@@ -745,26 +753,28 @@ class Interlace2D():
         print '%d steps, WITH model: %.3f s' %(N, t1-t0)
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, pad=60, MAG_LIMIT=24):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
         """
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
         self.grow_factor = grow_factor
-        self.pad = pad
         
         #### Read the direct interlaced image        
-        self.im = pyfits.open(self.root+'-F140W_inter.fits')
-        self.filter = self.im[0].header['FILTER']
+        self.direct = pyfits.open(self.root+'-F140W_inter.fits')
+        self.filter = self.direct[0].header['FILTER']
+        self.pad = self.direct[1].header['PAD']
         self.REF_INTER = False
         
         #### If a "reference" interlaced image exists, use that
         if os.path.exists(self.root+'_ref_inter.fits'):
             self.REF_INTER = True
             self.im = pyfits.open(self.root+'_ref_inter.fits')
-            self.pad += 4*self.im[1].header['NGROW']
+            #self.pad += 4*self.im[1].header['NGROW']
             self.filter = self.im[0].header['FILTER']
-        
+        else:
+            self.im = self.direct
+            
         ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
         self.ZP = ZPs[self.filter]
 
@@ -774,6 +784,8 @@ class GrismModel():
         self.make_flux()
                 
         self.gris = pyfits.open(self.root+'-G141_inter.fits')
+        if self.gris[1].data.shape != self.direct[1].data.shape:
+            threedhst.showMessage('G141 and F140W images have different dimensions!\n')
         self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
@@ -806,9 +818,9 @@ class GrismModel():
         
         #self.trim_edge_objects(verbose=True)
         
-        if 'FLT_X' in self.cat.column_names:
-            self.cat.x_pix = np.cast[float](self.cat.FLT_X)
-            self.cat.y_pix = np.cast[float](self.cat.FLT_Y)
+        if 'X_FLT' in self.cat.column_names:
+            self.cat.x_pix = np.cast[float](self.cat.X_FLT)
+            self.cat.y_pix = np.cast[float](self.cat.Y_FLT)
         else:
             self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
             self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
@@ -928,15 +940,8 @@ class GrismModel():
 
             return True
         
-        #### Else: use tran to get the pixel in the DRZ frame and then xy2rd to get coords
-        try:
-            import stsci.tools.wcsutil as wcsutil
-            wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
-        except:
-            #print 'Failed: import stsci.tools.wcsutil'
-            #wcs = None
-            import pytools.wcsutil as wcsutil
-            wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
+        #### Else: use tran to get the pixel in the DRZ frame and then xy2rd to get coords        
+        wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
             
         NOBJ = len(self.cat.id)
         
@@ -1197,12 +1202,13 @@ class GrismModel():
         #wave = np.mean(self.object_wave, axis=0)
         wave = self.object_wave
         xpix = np.arange(self.sh[1])
-        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0) & (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
+        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
         if keep.sum() < 10:
             self.model += self.object
             self.obj_in_model[id] = True
+            print 'Skipping refine: only %d wavelength steps.' %(keep.sum())
             return True
             
         coeff = polyfit(wave[keep], ratio_extract[keep], 1)
@@ -1383,10 +1389,10 @@ class GrismModel():
         if verbose:
             print 'Generating direct image extensions'
             
-        self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
-        self.direct_wht = self.im[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        self.direct_thumb = self.direct[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        self.direct_wht = self.direct[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
         self.direct_seg = np.cast[np.int16](seg[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2])
-        
+                    
         #### Initialize the output FITS file
         prim = pyfits.PrimaryHDU()
         prim.header.update('POINTING', self.root)
@@ -1403,6 +1409,13 @@ class GrismModel():
         prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
         prim.header.update('FILTER', self.gris[0].header['FILTER'])
         
+        prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
+        
+        if '_ref_inter' in self.im.filename():
+            if xc < (self.pad / 2):
+                prim.header.update('REFTHUMB', True)
+                self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        
         extensions = [prim]
 
         header = pyfits.ImageHDU().header
@@ -1416,9 +1429,19 @@ class GrismModel():
         extensions.append(pyfits.ImageHDU(self.direct_seg, header))
         
         #### Find objects that could contaminate the current one
-        dylo = self.cat.y_pix-self.cat.y_pix[ii]-self.cat['FLUX_RADIUS']*3
+        radius = None
+        if 'KRON_RADIUS' in self.cat.column_names:
+            radius = self.cat['KRON_RADIUS']
+        #
+        if 'FLUX_RADIUS' in self.cat.column_names:
+            radius = self.cat['FLUX_RADIUS']
+        
+        if radius is None:
+            radius = 30.  ### stop-gap
+            
+        dylo = self.cat.y_pix-self.cat.y_pix[ii]-radius*3
         dy0 = self.cat.y_pix-self.cat.y_pix[ii]
-        dyhi = self.cat.y_pix-self.cat.y_pix[ii]+self.cat['FLUX_RADIUS']*3
+        dyhi = self.cat.y_pix-self.cat.y_pix[ii]+radius*3
         dy = np.minimum(np.abs(dylo), np.abs(dy0))
         dy = np.minimum(np.abs(dyhi), dy)
         
@@ -1853,14 +1876,14 @@ def model_stripe():
     #
     pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
 #
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', WEIGHT='UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_weight.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
     
     import threedhst.prep_flt_files
     import unicorn
     
     pointing = root.split('-F1')[0]
     
-    #unicorn.reduce.blot_from_reference(REFERENCE = REFERENCE, WEIGHT=WEIGHT, SEGM=SEGM, DRZ_ROOT = root, NGROW=NGROW, verbose=verbose)
+    #unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = root, NGROW=NGROW, verbose=verbose)
     
     if view:
         import threedhst.dq
@@ -1879,7 +1902,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
 
     #N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
     inter_sci = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
+    #inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
     inter_seg = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW), dtype=int)
     
     xi+=pad/4
@@ -1914,25 +1937,26 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
         flt = run.flt[i]
         print flt
         im = pyfits.open(flt.replace('_flt','_blot')+'.fits')
-        im_wht = pyfits.open(flt.replace('_flt','_blot_wht')+'.fits')
+        #im_wht = pyfits.open(flt.replace('_flt','_blot_wht')+'.fits')
         im_seg = pyfits.open(flt.replace('_flt','_seg')+'.fits')
         
         #### Use the pixel area map correction
         #im[1].data *= PAM
         #### Divide by 4 to conserve surface brightness with smaller output pixels
         im[0].data /= 4
-        im_wht[0].data /= 4
+        #im_wht[0].data /= 4
         #im[2].data /= 4
         
         ### Mask cosmic rays
         if i == 0:
-            h0 = im[0].header
-            h1 = im[0].header
+            im_flt = pyfits.open(flt+'.fits')
+            h0 = im_flt[0].header
+            h1 = im_flt[1].header
             header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, pad=pad, NGROW=NGROW)
-            header_wht = header.copy()
-            header_wht.update('EXTNAME','ERR')
+            #header_wht = header.copy()
+            #header_wht.update('EXTNAME','ERR')
             header.update('EXTNAME','SCI')
-            header.update('REFIMAGE', REFERENCE, comment='Source detection image')
+            header.update('REF_ROOT', REF_ROOT, comment='Source detection image')
             
         # dx = np.int(np.round((xsh[i]-xsh[0])*2))
         # dy = np.int(np.round((ysh[i]-ysh[0])*2))
@@ -1945,7 +1969,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
         #use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
         
         inter_sci[yi*2+dy,xi*2+dx] += im[0].data
-        inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
+        #inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
         inter_seg[yi*2+dy,xi*2+dx] += im_seg[0].data
         
         #
@@ -1959,9 +1983,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
     
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=inter_sci, header=header)
-    wht = pyfits.ImageHDU(data=inter_err, header=header_wht)
+    #wht = pyfits.ImageHDU(data=inter_err, header=header_wht)
             
-    image = pyfits.HDUList([hdu, sci, wht])
+    image = pyfits.HDUList([hdu, sci]) #, wht])
     if 'EXTEND' not in hdu.header.keys():
         hdu.header.update('EXTEND', True, after='NAXIS')
     
@@ -1996,20 +2020,38 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
             pop_id.append(id)
     old_cat.popItem(np.array(pop_id))
     
-    fp = open("/tmp/%s.drz_xy" %(root),'w')
-    #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
-    xw, yw = old_cat['X_IMAGE'], old_cat['Y_IMAGE']
-    NOBJ = len(old_cat.id)
-    for i in range(NOBJ):
-        fp.write('%.3f %.3f\n' %(xw[i], yw[i]))
-    fp.close()
-    
-    if verbose:
-        print 'Convert from reference coords to the distorted flt frame with iraf.wblot'
+    # fp = open("/tmp/%s.drz_xy" %(root),'w')
+    # #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
+    # xw, yw = old_cat['X_IMAGE'], old_cat['Y_IMAGE']
+    # NOBJ = len(old_cat.id)
+    # for i in range(NOBJ):
+    #     fp.write('%.3f %.3f\n' %(xw[i], yw[i]))
+    # fp.close()
+    # 
+    # if verbose:
+    #     print 'Convert from reference coords to the distorted flt frame with iraf.wblot'
     
     flt = run.flt[0]+'.fits'
     threedhst.process_grism.flprMulti()
-    status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz_sci.fits', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
+    #status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz_sci.fits', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
+    
+    this_drz_head = pyfits.getheader(root+'_drz.fits', 1)
+    wcs_this = wcsutil.WCSObject('dummy', header=this_drz_head)
+    
+    fp = open("/tmp/%s.drz_xy" %(root),'w')
+    #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
+    NOBJ = len(old_cat.id)
+    for i in range(NOBJ):
+        xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
+        fp.write('%.3f %.3f\n' %(xw, yw))
+    
+    fp.close()
+        
+    status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz.fits[1]', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
+    #### To avoid re-running multidrizzle, need to get xy coordinates in the original drz image,
+    #### and *then* run tran
+    
+    ###xxx testing    
     if len(status) < NOBJ:
         threedhst.showMessage('Something went wrong with `iraf.tran`.', warn=True)
         for line in status:
@@ -2043,26 +2085,64 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REFERENCE 
         print 'Make the catalog file: %s' %(pointing+'_inter.cat')
         
     ### Put the x,y coordinates in the FLT frame into the SExtractor catalog
-    status = old_cat.addColumn(np.array(flt_x), name='FLT_X', comment='X pixel in FLT frame', verbose=True)
-    status = old_cat.addColumn(np.array(flt_y), name='FLT_Y', comment='Y pixel in FLT frame', verbose=True)
+    status = old_cat.addColumn(np.array(flt_x), name='X_FLT', comment='X pixel in FLT frame', verbose=True)
+    status = old_cat.addColumn(np.array(flt_y), name='Y_FLT', comment='Y pixel in FLT frame', verbose=True)
     old_cat.write(outfile=pointing+'_inter.cat')
     
-def strip_header(header=None):
+def strip_header(header=None, filter='F140W'):
     """
     BLOT tends to die with a segmentation fault for some reason if I don't
     strip out all but the WCS keywords from the image header.
     """
     new_header = pyfits.Header()
-    copy_keys = ['CTYPE1','CTYPE2','CRVAL1','CRVAL2','CRPIX1','CRPIX2','CD1_1','CD1_2','CD2_1','CD2_2','LTM1_1','LTM2_2']
-    new_header.update('EXPTIME', header.get('EXPTIME'))
+
+    if 'EXPTIME' in header.keys():
+        new_header.update('EXPTIME', header.get('EXPTIME'))
+    else:
+        new_header.update('EXPTIME', 1.)
+    
+    if 'FILTER' in header.keys():
+        new_header.update('FILTER', header.get('FILTER'))
+    else:
+        new_header.update('FILTER', filter)
+            
     new_header.update('CDELT1', header.get('CD1_1'))
     new_header.update('CDELT2', header.get('CD2_2'))
-    for key in copy_keys:
-        new_header.update(key,  header.get(key))
+    new_header.update('LTV1', 0.)
+    new_header.update('LTV2', 0.)
+
+    copy_keys = ['WCSAXES', 'CTYPE1', 'CTYPE2','CRVAL1', 'CRVAL2', 'CRPIX1','CRPIX2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2', 'LTM1_1', 'LTM2_2', 'PA_APER', 'ORIENTAT', 'RA_APER', 'DEC_APER', 'VAFACTOR']
     
+    for key in copy_keys:
+        if key in header.keys():
+            new_header.update(key,  header.get(key))
+        else:
+            new_header.update(key, 0.)
+            
     return new_header
     
-def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', WEIGHT='UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_weight.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', DRZ_ROOT = 'COSMOS-19-F140W', NGROW=125, verbose=True, run_multidrizzle=False):
+def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits'):
+    """
+    Need to strip some header keywords from Multidrizzled images and make sure 
+    certain keywords exist (EXPTIME, CD1_2, etc.)
+    """
+    
+    im_ref = pyfits.open(REFERENCE)
+    new_head = unicorn.reduce.strip_header(im_ref[0].header, filter=filter)
+    pyfits.writeto(REF_ROOT+'_ref.fits', data=im_ref[0].data, header=new_head, output_verify='fix', clobber=True)
+    
+    im_seg = pyfits.open(SEGM)
+    pyfits.writeto(REF_ROOT+'_seg.fits', data=np.cast[np.float32](im_seg[0].data), header=new_head, clobber=True)
+    pyfits.writeto(REF_ROOT+'_ones.fits', data=np.cast[np.float32]((im_seg[0].data > 0)*1.), header=new_head, clobber=True)
+    
+    print '\n\n --- Can ignore "currupted HDU" warnings ---\n\n'
+    
+    fp = open(REF_ROOT+'.info','w')
+    fp.write("%s_ref.fits  %s\n" %(REF_ROOT, REFERENCE))
+    fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
+    fp.close()
+    
+def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W', NGROW=125, verbose=True, run_multidrizzle=False):
     """
     iraf.imcopy('COSMOS-full-F160W_drz_sci.fits[2262:6160,5497:8871]', 'COSMOS-full-F160W_drz_sci_subim.fits')
     hedit 'COSMOS-full-F160W_drz_sci_subim.fits' 'CD1_2' 0. add+ update+ verify-
@@ -2077,22 +2157,28 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
     
     tmpname = threedhst.utils.gen_tempname()
             
-    im_ref = pyfits.open(REFERENCE)
+    im_ref = pyfits.open(REF_ROOT+'_ref.fits')
     
-    if not os.path.exists(DRZ_ROOT+'_drz_sci.fits'):
+    if not os.path.exists(DRZ_ROOT+'.run'):
         run_multidrizzle=True
     else:
-        drz_head = pyfits.getheader(DRZ_ROOT+'_drz_sci.fits')
-        if (drz_head['NAXIS1'],drz_head['NAXIS2']) != (im_ref[0].header['NAXIS1'], im_ref[0].header['NAXIS2']):
+        run = threedhst.prep_flt_files.MultidrizzleRun(DRZ_ROOT)
+        if (run.outnx, run.outny) != (im_ref[0].header['NAXIS1'], im_ref[0].header['NAXIS2']):
             run_multidrizzle=True
     
     if run_multidrizzle:
         if verbose:
-            threedhst.showMessage('Run multidrizzle of pointing %s to match \n%s' %(DRZ_ROOT, REFERENCE))
+            threedhst.showMessage('Get exact shifts needed to match %s to \n%s' %(DRZ_ROOT, REF_ROOT))
         #"refimage" wasn't giving me *exactly* the same image dimensions
         #threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, refimage=REFERENCE, build_drz=False)
-        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=im_ref[0].header['CRVAL1'], dec=im_ref[0].header['CRVAL2'], final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360)
-    
+        if 'CD1_2' not in im_ref[0].header.keys():
+            im_ref[0].header.update('CD1_2',0.)
+        
+        ref_wcs = wcsutil.WCSObject('', header=im_ref[0].header)
+        ra0, dec0 = ref_wcs.xy2rd((im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.))
+        
+        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=True)
+        
     if verbose:
         threedhst.showMessage('Prepare images for `BLOT`')
     
@@ -2100,17 +2186,15 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
     #im_drz = pyfits.open(DRZ_ROOT+'_drz_sci.fits')
     ## DRZ images probably not needed and can be deleted.  If so, they'll be generated
     ## each time "blot_from_reference" is run.
-    os.remove(DRZ_ROOT+'_drz_sci.fits')
-    os.remove(DRZ_ROOT+'_drz_weight.fits')
+    #os.remove(DRZ_ROOT+'_drz_sci.fits')
+    #os.remove(DRZ_ROOT+'_drz_weight.fits')
     
     threedhst.process_grism.flprMulti()
     
     #### Force reference image to have same header as newly-created DRZ image so that
     #### BLOT has all of the necessary keywords
-    new_head = unicorn.reduce.strip_header(im_ref[0].header)
-    pyfits.writeto(tmpname+'_ref.fits', data=im_ref[0].data, header=new_head, output_verify='fix', clobber=True)
     
-    im_wht = pyfits.open(WEIGHT)
+    #im_wht = pyfits.open(WEIGHT)
     
     # ### xxx compare headers
     # for key in im_ref[0].header.keys():
@@ -2119,11 +2203,6 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
             
     #### Segmentation image needs to be float, not int, for blot, also need binary segmentation 
     #### image with 1. for objects, 0 for nothing
-    im_seg = pyfits.open(SEGM)
-    pyfits.writeto(tmpname+'_seg.fits', data=np.cast[np.float32](im_seg[0].data), header=new_head, clobber=True)
-    pyfits.writeto(tmpname+'_ones.fits', data=np.cast[np.float32]((im_seg[0].data > 0)*1.), header=new_head, clobber=True)
-    
-    print '\n\n --- Can ignore "currupted HDU" warnings ---\n\n'
     
     REF_FILTER = im_ref[0].header['FILTER']
     REF_EXPTIME = im_ref[0].header['EXPTIME']
@@ -2137,7 +2216,7 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
     
     asn = threedhst.utils.ASNFile(DRZ_ROOT+'_asn.fits')
     
-    for flt_root in asn.exposures:
+    for iflt, flt_root in enumerate(asn.exposures):
         
         if verbose:
             threedhst.showMessage('Blot sci/weight/seg images for %s' %(flt_root))
@@ -2169,6 +2248,54 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
                 idx = i
                 break
         
+        ##### Re-alignment of blotted images to the FLT frame.  The initial
+        ##### shifts determined from the "prep" stage should have put everything
+        ##### onto the same coordinate system, but there were apparent offsets between
+        ##### the blotted and F140W interlaced images.
+        #####
+        ##### The blotted images **need** to be on the same frame as the FLT images because
+        ##### they determine the reference position of the grism spectra
+        if iflt == 0:
+            fp = open(DRZ_ROOT+'_delta.dat','w')
+            fp.write('# xoff  yoff  roff dx  dy  xrms  yrms\n')
+            
+            xoff, yoff, roff = 0., 0., 0.
+            #for i in range(3):
+            for geom in ['rotate', 'shift', 'rotate', 'shift', 'shift', 'shift']:
+              #
+                threedhst.process_grism.flprMulti()
+                if os.path.exists('align_blot.fits'):
+                    os.remove('align_blot.fits')
+                #
+                status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = 'align_blot.fits', 
+                   outnx = 1014, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+                   coeffs = run.flt[0]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
+                   align = 'center', scale = run.scl, xsh = run.xsh[0]+xoff, ysh = run.ysh[0]+yoff, 
+                   rot = run.rot[0]+roff, shft_un = 'input', shft_fr = 'input', 
+                   refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+                   decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1'], 
+                   yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+                   dr2gpar = '', expkey = 'exptime', expout = 'input', 
+                   in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+                #
+                dx, dy, rot, xrms, yrms = unicorn.reduce.realign_blotted(flt=FLT, blotted='align_blot.fits', fitgeometry=geom)
+                #### Transform the shifts/rotation in the FLT frame to the reference image frame
+                alpha = np.pi+(run.rot[0]+roff)/360*2*np.pi
+                dx_flt = np.cos(alpha)*dx-np.sin(alpha)*dy
+                dy_flt = np.sin(alpha)*dx+np.cos(alpha)*dy
+                #
+                if geom == 'shift':
+                    xoff += dx_flt/np.float(run.scl)
+                    yoff += dy_flt/np.float(run.scl)
+                #
+                roff += rot
+                fp.write('%.3f %.3f %.4f  %.3f %.3f  %.2f %.2f\n' %(xoff, yoff, roff, dx, dy, xrms, yrms))
+                
+                #threedhst.sex.sexcatRegions('direct.cat','direct.reg')
+                #threedhst.sex.sexcatRegions('align.cat','align.reg')
+                
+            fp.close()
+            
         ##################################
         #### Run BLOT for SCI extension
         ##################################
@@ -2179,11 +2306,11 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
             os.remove(FLT.replace('_flt','_blot'))
         
         threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = tmpname+'_ref.fits', outdata = FLT.replace('_flt','_blot'), 
+        status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = FLT.replace('_flt','_blot'), 
            outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
            coeffs = tmpname+'_coeffs.dat', xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
-           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
            refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
            decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
@@ -2200,33 +2327,33 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
         ##################################
         #### Blot for WHT extension
         ##################################
-        if verbose:
-            print unicorn.noNewLine+'sci, weight'
-
-        if os.path.exists(FLT.replace('_flt','_blot_wht')):
-            os.remove(FLT.replace('_flt','_blot_wht'))
-
-        threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = WEIGHT, outdata = FLT.replace('_flt','_blot_wht'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
-           coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
-           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
-           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
-           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
-           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
-           dr2gpar = '', expkey = 'exptime', expout = 'input', 
-           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
-        
-        #### Add NGROW to header
-        im_blt = pyfits.open(FLT.replace('_flt','_blot_wht'), mode='update')
-        
-        #### Weight is inverse variance.  Interlace assumes sigma
-        im_blt[0].data = 1/np.sqrt(im_blt[0].data)
-        im_blt[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
-        im_blt[0].header.update('FILTER', REF_FILTER)
-        im_blt[0].header.update('EXPTIME', REF_EXPTIME)
-        im_blt.flush()
+        # if verbose:
+        #     print unicorn.noNewLine+'sci, weight'
+        # 
+        # if os.path.exists(FLT.replace('_flt','_blot_wht')):
+        #     os.remove(FLT.replace('_flt','_blot_wht'))
+        # 
+        # threedhst.process_grism.flprMulti()
+        # status = iraf.wblot( data = WEIGHT, outdata = FLT.replace('_flt','_blot_wht'), 
+        #    outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+        #    coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
+        #    align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
+        #    rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+        #    refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+        #    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+        #    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+        #    dr2gpar = '', expkey = 'exptime', expout = 'input', 
+        #    in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        # 
+        # #### Add NGROW to header
+        # im_blt = pyfits.open(FLT.replace('_flt','_blot_wht'), mode='update')
+        # 
+        # #### Weight is inverse variance.  Interlace assumes sigma
+        # im_blt[0].data = 1/np.sqrt(im_blt[0].data)
+        # im_blt[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
+        # im_blt[0].header.update('FILTER', REF_FILTER)
+        # im_blt[0].header.update('EXPTIME', REF_EXPTIME)
+        # im_blt.flush()
         
         #################################
         #### Segmentation image
@@ -2238,11 +2365,11 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
             os.remove(FLT.replace('_flt','_seg'))
         
         threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = tmpname+'_seg.fits', outdata = FLT.replace('_flt','_seg'), 
+        status = iraf.wblot( data = REF_ROOT+'_seg.fits', outdata = FLT.replace('_flt','_seg'), 
            outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
            coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
-           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
            refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
            decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
@@ -2257,11 +2384,11 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
             os.remove(FLT.replace('_flt','_ones'))
         
         threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = tmpname+'_ones.fits', outdata = FLT.replace('_flt','_ones'), 
+        status = iraf.wblot( data = REF_ROOT+'_ones.fits', outdata = FLT.replace('_flt','_ones'), 
            outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
            coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx], ysh = run.ysh[idx], 
-           rot = run.rot[idx], shft_un = 'input', shft_fr = 'input', 
+           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
            refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
            decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
@@ -2275,7 +2402,9 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
         keep = ones[0].data > (0.5*xh[:-1][yh == yh.max()])
         
         ratio = im_seg[0].data / ones[0].data
-        test = (np.abs(ratio-np.round(ratio)) < 0.001) & keep
+        #test = (np.abs(np.log(ratio/np.round(ratio))) < 1.e-5) & keep
+        
+        test = (np.abs(ratio-np.round(ratio)) < 0.01) & keep
         ratio[test] = np.round(ratio[test])
         ratio[~test | (ones[0].data == 0)] = 0
         
@@ -2323,4 +2452,160 @@ def blot_from_reference(REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_
         iline += ', '+ifile
         print unicorn.noNewLine+iline
         os.remove(ifile)
+#
+def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeometry='shift'):
+    """
+    Blot wasn't getting the images perfectly aligned, so do a catalog matching alignment
+    on them to get some small additional shifts.
+    """
+    import threedhst
+    import numpy as np
+    import pyraf
+    from pyraf import iraf
+    import os
+    no = iraf.no
+    yes = iraf.yes
+    INDEF = iraf.INDEF
+    
+    verbose = False
+    #fitgeometry='shift'
+    
+    #flt = 'ibhj34h6q_flt.fits'
+    #blt = 'ibhj34h6q_blot.fits'
+    toler = 3
+    
+    try:
+        os.remove('SCI.fits')
+        os.remove('WHT.fits')
+    except:
+        print 'No SCI/WHT'
         
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CHECKIMAGE_TYPE'] = 'NONE'
+    se.options['WEIGHT_TYPE']     = 'MAP_RMS'
+    se.options['WEIGHT_IMAGE']    = 'WHT.fits'
+    se.options['FILTER']    = 'Y'
+    ## Detect thresholds (default = 1.5)
+    se.options['DETECT_THRESH']    = '3' 
+    se.options['ANALYSIS_THRESH']  = '3' 
+    se.options['MAG_ZEROPOINT'] = '26.46'
+
+    #### Run SExtractor on direct and alignment images
+    ## direct image
+    se.options['CATALOG_NAME']    = 'direct.cat'
+    iraf.imcopy('%s[1]' %(flt),"SCI.fits")
+    iraf.imcopy('%s[2]' %(flt),"WHT.fits")
+    status = se.sextractImage('SCI.fits')
+
+    ## alignment image
+    se.options['CATALOG_NAME']    = 'align.cat'
+    status = se.sextractImage(blotted)
+
+    ## Read the catalogs
+    directCat = threedhst.sex.mySexCat('direct.cat')
+    alignCat = threedhst.sex.mySexCat('align.cat')
+        
+    xshift = 0
+    yshift = 0
+    rot = 0
+    scale = 1.
+    
+    xrms = 2
+    yrms = 2
+    
+    NITER = 5
+    IT = 0
+    while (IT < NITER):
+        IT = IT+1
+        
+        #### Get x,y coordinates of detected objects
+        ## direct image
+        fp = open('direct.xy','w')
+        for i in range(len(directCat.X_IMAGE)):
+            fp.write('%s  %s\n' %(directCat.X_IMAGE[i],directCat.Y_IMAGE[i]))
+        fp.close()
+
+        ## alignment image
+        fp = open('align.xy','w')
+        for i in range(len(alignCat.X_IMAGE)):
+            fp.write('%s  %s\n' %(np.float(alignCat.X_IMAGE[i])+xshift,
+                       np.float(alignCat.Y_IMAGE[i])+yshift))
+        fp.close()
+
+        iraf.flpr()
+        iraf.flpr()
+        iraf.flpr()
+        #### iraf.xyxymatch to find matches between the two catalogs
+        pow = toler*1.
+        try:
+            os.remove('align.match')
+        except:
+            pass
+        
+        status1 = iraf.xyxymatch(input="direct.xy", reference="align.xy",
+                       output="align.match",
+                       tolerance=2**pow, separation=0, verbose=yes, Stdout=1)
+        
+        while status1[-1].startswith('0'):
+            pow+=1
+            os.remove('align.match')
+            status1 = iraf.xyxymatch(input="direct.xy", reference="align.xy",
+                           output="align.match",
+                           tolerance=2**pow, separation=0, verbose=yes, Stdout=1)
+            
+        if verbose:
+            for line in status1:
+                print line
+                
+        #### Compute shifts with iraf.geomap
+        iraf.flpr()
+        iraf.flpr()
+        iraf.flpr()
+        try:
+            os.remove("align.map")
+        except:
+            pass
+            
+        status2 = iraf.geomap(input="align.match", database="align.map",
+                    fitgeometry=fitgeometry, interactive=no, 
+                    xmin=INDEF, xmax=INDEF, ymin=INDEF, ymax=INDEF,
+                    maxiter = 10, reject = 2.0, Stdout=1)
+        if verbose:
+            for line in status2:
+                print line
+        
+        #fp = open(root+'.iraf.log','a')
+        #fp.writelines(status1)
+        #fp.writelines(status2)
+        #fp.close()
+                
+        #### Parse geomap.output 
+        fp = open("align.map","r")
+        for line in fp.readlines():
+            spl = line.split()
+            if spl[0].startswith('xshift'):
+                xshift += float(spl[1])    
+            if spl[0].startswith('yshift'):
+                yshift += float(spl[1])    
+            if spl[0].startswith('xrotation'):
+                rot = float(spl[1])    
+            if spl[0].startswith('xmag'):
+                scale = float(spl[1])    
+            if spl[0].startswith('xrms'):
+                xrms = float(spl[1])    
+            if spl[0].startswith('yrms'):
+                yrms = float(spl[1])    
+            
+        fp.close()
+        
+        #os.system('wc align.match')
+        print 'Shift iteration #%d, xshift=%f, yshift=%f, rot=%f, scl=%f (rms: %5.2f,%5.2f)' %(IT, xshift, yshift, rot, scale, xrms, yrms)
+        
+        #clean_files = ['align.cat', 'align.map','align.match', 'align.xy','direct.xy', 'sex_stderr', 'SCI.fits','WHT.fits','direct.cat','threedhst_auto.param','threedhst_auto.sex', 'align_blot.fits','default.conv','default.nnw']
+        #for file in clean_files:
+        #    os.remove(file)
+            
+    return xshift, yshift, rot, xrms, yrms

@@ -331,6 +331,8 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     #### Use ACS alignment images
     ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'
     
+    ALIGN = '/research/HST/GRISM/3DHST/GOODS-N/Interlaced/Ros/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
+    
     #### The ASN files are generated from elsewhere to account for the fact that many of 
     #### the visits with the worst sky background levels and earth-glow were redone in early
     #### 2011.  I can't find the code where I generated the ASN files, however....

@@ -47,7 +47,7 @@ def go_bright(skip_completed=True):
         pointing = point.split('_model')[0]
         #pointing = 'UDS-18'
         model = unicorn.reduce.GrismModel(pointing)
-        bright = model.cat.mag < 22
+        bright = model.cat.mag < 23
         ids = model.cat.id[bright]
         for id in ids:     
             root='%s_%05d' %(pointing, id)
@@ -66,14 +66,14 @@ def go_bright(skip_completed=True):
                 continue
             #
             print '\n'
-            gris.fit_in_steps(dzfirst=0.01, dzsecond=0.0002)
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
             #gris.make_figure()
         
 class GrismSpectrumFit():
     """
     Functions for fitting (redshifts for now) the interlaced grism spectra
     """
-    def __init__(self, root='../GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True):
+    def __init__(self, root='../GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -100,10 +100,15 @@ class GrismSpectrumFit():
         if self.dr > 1:
             self.phot_lnprob *= 0
         else:
-            #### Put less weight on spectra when z_phot < 0.55 and there aren't 
+            #### Put less weight on spectra when z_phot < `lowz_thresh` (0.55) and there aren't 
             #### many features expected in the spectrum.
-            if self.z_peak < 0.55:
+            zgt = self.phot_zgrid > lowz_thresh
+            zprob = np.trapz(self.phot_linear[zgt], self.phot_zgrid[zgt])
+            if zprob < 0.3:
+                if verbose:
+                    print '\n!! p(z < %.2f | phot) = %.3f, I\'ll decrease spectrum weight in fit.\n' %(lowz_thresh, 1-zprob)
                 self.twod.im['WHT'].data *= 3.
+                #self.twod.im['WHT'].data = np.maximum(self.twod.im['WHT'].data, self.twod.im['SCI'].data/5.)
                 
         #### Initialize the continuum and emission line templates    
         self.line_free_template()
@@ -539,7 +544,11 @@ class GrismSpectrumFit():
         self.phot_zgrid = tempfilt['zgrid']
         self.phot_lnprob = -0.5*pz['chi2fit'][:,ix]
         self.phot_lnprob -= self.phot_lnprob.max()
-
+        
+        ### normalized probability
+        self.phot_linear = np.exp(self.phot_lnprob)
+        self.phot_linear /= np.trapz(self.phot_linear, self.phot_zgrid)
+        
         # self.temp_err_x, self.temp_err_y = np.loadtxt(os.getenv('TEMPLATE_DIR')+'/'+eazyParam.params['TEMP_ERR_FILE'], unpack=True)
         # self.temp_err_y *= eazyParam.params['TEMP_ERR_A2']
 

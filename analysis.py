@@ -184,11 +184,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
         ZOUT_FILE = CAT_PATH+'OUTPUT/iter.zout'
         ZOUT_FILE = CAT_PATH+'HIGHRES/OUTPUT/goodsn1.7.zout'
-        if unicorn.hostname().startswith('uni'):
-            ZOUT_FILE = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/EAZY/OUTPUT/goodsn1.7.zout'
             
         #FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
         FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
+        if unicorn.hostname().startswith('uni'):
+            ZOUT_FILE = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/EAZY/OUTPUT/goodsn1.7.zout'
+            FOUT_FILE = '/3DHST/Photometry/Release/GOODS-N/v1.7/FAST/v1.7/goodsn_v1.7.fullz.fout'
+            
         KTOT_COL = 'f_Ks'
     
     # #### Force UDF to use FIREWORKS

@@ -1876,6 +1876,22 @@ def model_stripe():
     #
     pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
 #
+def interlace_goodsn():
+    """
+    Reduce the GOODS-N pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/Interlace_GBB')
+    
+    #### This step is needed to strip all of the excess header keywords from the mosaic for use
+    #### with `blot`.
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-N_F140W_v1', filter='F140W', REFERENCE = 'goodsn_for_arjen/goodsn_f140w_sci_sub.fits', SEGM = 'goodsn_for_arjen/goodsn_f140w_v1.seg.fits')
+    
+    NGROW=125
+    pad=60
+    CATALOG='goodsn_for_arjen/goodsn_f140w_v1.cat'
+    
+
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
     
     import threedhst.prep_flt_files
@@ -2088,53 +2104,34 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     status = old_cat.addColumn(np.array(flt_x), name='X_FLT', comment='X pixel in FLT frame', verbose=True)
     status = old_cat.addColumn(np.array(flt_y), name='Y_FLT', comment='Y pixel in FLT frame', verbose=True)
     old_cat.write(outfile=pointing+'_inter.cat')
-    
-def strip_header(header=None, filter='F140W'):
-    """
-    BLOT tends to die with a segmentation fault for some reason if I don't
-    strip out all but the WCS keywords from the image header.
-    """
-    new_header = pyfits.Header()
-
-    if 'EXPTIME' in header.keys():
-        new_header.update('EXPTIME', header.get('EXPTIME'))
-    else:
-        new_header.update('EXPTIME', 1.)
-    
-    if 'FILTER' in header.keys():
-        new_header.update('FILTER', header.get('FILTER'))
-    else:
-        new_header.update('FILTER', filter)
-            
-    new_header.update('CDELT1', header.get('CD1_1'))
-    new_header.update('CDELT2', header.get('CD2_2'))
-    new_header.update('LTV1', 0.)
-    new_header.update('LTV2', 0.)
-
-    copy_keys = ['WCSAXES', 'CTYPE1', 'CTYPE2','CRVAL1', 'CRVAL2', 'CRPIX1','CRPIX2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2', 'LTM1_1', 'LTM2_2', 'PA_APER', 'ORIENTAT', 'RA_APER', 'DEC_APER', 'VAFACTOR']
-    
-    for key in copy_keys:
-        if key in header.keys():
-            new_header.update(key,  header.get(key))
-        else:
-            new_header.update(key, 0.)
-            
-    return new_header
-    
-def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits'):
+        
+def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', Force=False):
     """
     Need to strip some header keywords from Multidrizzled images and make sure 
     certain keywords exist (EXPTIME, CD1_2, etc.)
     """
+    import shutil
     
     im_ref = pyfits.open(REFERENCE)
+    
     new_head = unicorn.reduce.strip_header(im_ref[0].header, filter=filter)
-    pyfits.writeto(REF_ROOT+'_ref.fits', data=im_ref[0].data, header=new_head, output_verify='fix', clobber=True)
     
+    if not os.path.exists(REF_ROOT+'_ref.fits') | Force:
+        pyfits.writeto(REF_ROOT+'_ref.fits', data=im_ref[0].data, header=new_head, output_verify='fix', clobber=True)
+        
     im_seg = pyfits.open(SEGM)
-    pyfits.writeto(REF_ROOT+'_seg.fits', data=np.cast[np.float32](im_seg[0].data), header=new_head, clobber=True)
-    pyfits.writeto(REF_ROOT+'_ones.fits', data=np.cast[np.float32]((im_seg[0].data > 0)*1.), header=new_head, clobber=True)
     
+    if not os.path.exists(REF_ROOT+'_seg.fits') | Force:
+        pyfits.writeto(REF_ROOT+'_seg.fits', data=np.cast[np.float32](im_seg[0].data), header=new_head, clobber=True)
+
+    #shutil.copy(SEGM, REF_ROOT+'_ones.fits')
+
+    if not os.path.exists(REF_ROOT+'_ones.fits') | Force:
+        test = im_seg[0].data > 0
+        test *= 1.
+        test = np.cast[np.float32](test)
+        pyfits.writeto(REF_ROOT+'_ones.fits', data=test, header=new_head, clobber=True)
+        
     print '\n\n --- Can ignore "currupted HDU" warnings ---\n\n'
     
     fp = open(REF_ROOT+'.info','w')
@@ -2453,6 +2450,40 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         print unicorn.noNewLine+iline
         os.remove(ifile)
 #
+def strip_header(header=None, filter='F140W'):
+    """
+    BLOT tends to die with a segmentation fault for some reason if I don't
+    strip out all but the WCS keywords from the image header.
+    """
+    new_header = pyfits.Header()
+    #new_header.update('NAXIS',2)
+    #new_header.update('SIMPLE',True)
+    
+    if 'EXPTIME' in header.keys():
+        new_header.update('EXPTIME', header.get('EXPTIME'))
+    else:
+        new_header.update('EXPTIME', 1.)
+    
+    if 'FILTER' in header.keys():
+        new_header.update('FILTER', header.get('FILTER'))
+    else:
+        new_header.update('FILTER', filter)
+            
+    new_header.update('CDELT1', header.get('CD1_1'))
+    new_header.update('CDELT2', header.get('CD2_2'))
+    new_header.update('LTV1', 0.)
+    new_header.update('LTV2', 0.)
+
+    copy_keys = ['WCSAXES', 'CTYPE1', 'CTYPE2','CRVAL1', 'CRVAL2', 'CRPIX1','CRPIX2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2', 'LTM1_1', 'LTM2_2', 'PA_APER', 'ORIENTAT', 'RA_APER', 'DEC_APER', 'VAFACTOR']
+    
+    for key in copy_keys:
+        if key in header.keys():
+            new_header.update(key,  header.get(key))
+        else:
+            new_header.update(key, 0.)
+            
+    return new_header
+
 def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeometry='shift'):
     """
     Blot wasn't getting the images perfectly aligned, so do a catalog matching alignment

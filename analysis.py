@@ -171,17 +171,25 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'mods.bc03.fout'
         KTOT_COL = 'ks_ap'
     
-    # ##### Use Ros' new catalog (v1.7)
-    # if goodsn:
-    #     GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
-    #     CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-    #     if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-    #         CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
-    #     #
-    #     CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
-    #     ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
-    #     FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
-    #     KTOT_COL = 'f_Ks'
+    ##### Use Ros' new catalog (v1.7)
+    if goodsn:
+        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
+        CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
+        CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
+        
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
+            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
+        #
+        CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
+        ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/iter.zout'
+        ZOUT_FILE = CAT_PATH+'HIGHRES/OUTPUT/goodsn1.7.zout'
+        if unicorn.hostname().startswith('uni'):
+            ZOUT_FILE = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/EAZY/OUTPUT/goodsn1.7.zout'
+            
+        #FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
+        FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
+        KTOT_COL = 'f_Ks'
     
     # #### Force UDF to use FIREWORKS
     # if udf:

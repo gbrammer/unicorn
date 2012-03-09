@@ -156,6 +156,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     
+    if unicorn.hostname().startswith('uni'):
+        view = False
+    
     if view:
         import threedhst.dq
         ds9 = threedhst.dq.myDS9()

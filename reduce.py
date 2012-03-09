@@ -2088,7 +2088,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     NOBJ = len(old_cat.id)
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
-        xw, yw = ref_wcs.wcs_sky2pix([old_cat.ra[i], old_cat.dec[i]],1)[0]
+        xw, yw = ref_wcs.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
         fp.write('%.3f %.3f\n' %(xw, yw))
     
     fp.close()
@@ -2446,7 +2446,11 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         im_seg[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
         im_seg[0].header.update('FILTER', REF_FILTER)
         im_seg[0].header.update('EXPTIME', REF_EXPTIME)
-        im_seg.flush()
+        
+        if not pyfits.__version__.startswith('3'):
+            pyfits.writeto(im_seg.filename(), data=im_seg[0].data, header=im_seg[0].header, clobber='True')
+        else:
+            im_seg.flush()
     
         os.remove(FLT.replace('_flt','_ones'))
     

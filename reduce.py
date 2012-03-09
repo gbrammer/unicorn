@@ -2088,7 +2088,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     NOBJ = len(old_cat.id)
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
-        ref_wcs.wcs_sky2pix([old_cat.ra[i], old_cat.dec[i]],1)[0]
+        xw, yw = ref_wcs.wcs_sky2pix([old_cat.ra[i], old_cat.dec[i]],1)[0]
         fp.write('%.3f %.3f\n' %(xw, yw))
     
     fp.close()

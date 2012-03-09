@@ -57,12 +57,16 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-try:
-    ### Latest STSCI_PYTHON (Python2.7)
-    import stsci.tools.wcsutil as wcsutil
-except:
-    ### Older STSCI_PYTHON (Python2.5.4)
-    import pytools.wcsutil as wcsutil
+# try:
+#     ### Latest STSCI_PYTHON (Python2.7)
+#     import stsci.tools.wcsutil as wcsutil
+# except:
+#     ### Older STSCI_PYTHON (Python2.5.4)
+#     import pytools.wcsutil as wcsutil
+# 
+#
+
+import pywcs
 
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
     """
@@ -1881,6 +1885,11 @@ def interlace_goodsn():
     Reduce the GOODS-N pointings on Unicorn and extract spectra, using the full
     mosaic as the detection image.
     """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    
     os.chdir(unicorn.GRISM_HOME+'GOODS-N/Interlace_GBB')
     
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
@@ -1891,7 +1900,23 @@ def interlace_goodsn():
     pad=60
     CATALOG='goodsn_for_arjen/goodsn_f140w_v1.cat'
     
+    direct=glob.glob('ib*50_asn.fits')
+    
+    extract_limit = 24
+    skip_completed=True
+    REF_ROOT='GOODS-N_F140W_v1'
 
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
+        #
+        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
+        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
+        #
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
+    
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
     
     import threedhst.prep_flt_files
@@ -2052,13 +2077,15 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz_sci.fits', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
     
     this_drz_head = pyfits.getheader(root+'_drz.fits', 1)
-    wcs_this = wcsutil.WCSObject('dummy', header=this_drz_head)
+    # wcs_this = wcsutil.WCSObject('dummy', header=this_drz_head)
+    wcs_this = pywcs.WCS(header=this_drz_head)
     
     fp = open("/tmp/%s.drz_xy" %(root),'w')
     #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
     NOBJ = len(old_cat.id)
     for i in range(NOBJ):
-        xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
+        #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
+        ref_wcs.wcs_sky2pix([old_cat.ra[i], old_cat.dec[i]],1)[0]
         fp.write('%.3f %.3f\n' %(xw, yw))
     
     fp.close()
@@ -2171,10 +2198,13 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         if 'CD1_2' not in im_ref[0].header.keys():
             im_ref[0].header.update('CD1_2',0.)
         
-        ref_wcs = wcsutil.WCSObject('', header=im_ref[0].header)
-        ra0, dec0 = ref_wcs.xy2rd((im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.))
+        # ref_wcs = wcsutil.WCSObject('', header=im_ref[0].header)
+        # ra0, dec0 = ref_wcs.xy2rd((im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.))
         
-        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=True)
+        ref_wcs = pywcs.WCS(header=im_ref[0].header)
+        ra0, dec0 = ref_wcs.wcs_pix2sky([[im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.]],1)[0]
+        
+        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=False)
         
     if verbose:
         threedhst.showMessage('Prepare images for `BLOT`')

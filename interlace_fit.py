@@ -79,6 +79,7 @@ class GrismSpectrumFit():
         necessary for the spectrum fits.
         """
         self.FIGURE_FORMAT=FIGURE_FORMAT
+        self.root = os.path.basename(root)
         
         #### Get the 1D/2D spectra
         self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
@@ -611,7 +612,64 @@ class GrismSpectrumFit():
             self.twod.im['CONTAM'].data[:,self.twod.im['WAVE'].data < first] += (self.twod.im['SCI'].data-self.twod.model)[:,self.twod.im['WAVE'].data < first]
             print 'Unflagged contamination: lam < %.2f' %(first)
 
+    #
+    def stats(self, return_string=False):
+        """
+        Get some information about the spectrum: contamination, fcover, etc.
+        """
         
+        if self.twod.im['SCI'].data.max() <= 0:
+            print '%s: No valid pixels in 2D spectrum.'
+            return False
+        
+        #
+        self.oned_wave = self.oned.data.wave
+        
+        lower, upper = 1.15e4, 1.6e4
+        wuse = (self.oned_wave > lower) & (self.oned_wave < upper)
+        non_zero = self.oned.data.flux != 0
+        
+        ### Collapse along wave axis for fcover
+        spec = np.sum(self.twod.im['SCI'].data, axis=0)
+        wmin = np.maximum(self.oned_wave[spec != 0].min(), lower) 
+        wmax = np.minimum(self.oned_wave[spec != 0].max(), upper)
+        
+        #### Fraction of bad pixels in 2D spec within wmin < wave < wmax
+        #### -- for the high sky-background GOODS-N images, there might only be one of the
+        ####    four dithered exposures that contributes to the spectrum.
+        wregion = (self.oned_wave >= wmin) & (self.oned_wave <= wmax)
+        test = self.twod.im['SCI'].data[:, wregion] == 0.
+        F_FLAGGED = test.sum()*1./test.size
+        
+        #### Wavelength coverage with respect to the nominal range `lower` > wave > `upper`
+        F_COVER = (wmax-wmin)/(upper-lower)
+        
+        #### Maximum contamination within the nominal wavelength range
+        MAX_CONTAM = (self.oned.data.contam/self.oned.data.flux)[wuse & non_zero].max()
+        
+        #### Average contamination over the spectrum = sum(contam) / sum(flux)
+        sum_flux = np.trapz(self.oned.data.flux[wuse & non_zero], self.oned_wave[wuse & non_zero])
+        sum_contam = np.trapz(self.oned.data.contam[wuse & non_zero], self.oned_wave[wuse & non_zero])
+        
+        INT_CONTAM = sum_contam / sum_flux
+        
+        #### Number of negative contamination-corrected pixels as a proxy for a bad contamination
+        #### correction
+        is_negative = (self.oned.data.flux-self.oned.data.contam) < 0
+        F_NEGATIVE = (is_negative & wuse & non_zero).sum()*1. / (wuse & non_zero).sum()
+        
+        #### Q_z of the photo-z fit
+        Q_Z = self.zout.q_z[self.ix]
+        
+        #### MAG_AUTO from the SExtractor catalog
+        DIRECT_MAG = self.twod.im[0].header['MAG']
+        
+        if return_string:
+            header = '# id       mag   q_z     f_cover f_flagged max_contam int_contam f_negative\n'
+            params = '%s %.3f  %.2e  %.2f  %.2f %6.2f %6.2f  %.2f\n' %(self.root, DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE)
+            return [header, params]
+        else:    
+            return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
         
 def go_MCMC_fit():
     """

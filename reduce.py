@@ -1376,6 +1376,10 @@ class GrismModel():
         
     def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False):
         
+        if id not in self.cat.id:
+            print 'Object #%d not in catalog.' %(id)
+            return False
+            
         seg = self.segm[0].data
         seg_mask = seg == id
         ypix, xpix = self.yf, self.xf
@@ -1909,6 +1913,7 @@ def interlace_goodsn():
     skip_completed=True
     REF_ROOT='GOODS-N_F140W_v1'
 
+    ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
         #
@@ -1916,10 +1921,54 @@ def interlace_goodsn():
         unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
-        #
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+    
+    ##### Generate the spectral model
+    inter = glob.glob('*-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        if not os.path.exists(pointing+'_model.fits') | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+    
+    ##### Extract all spectra 
+    inter = glob.glob('*-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
         model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
     
+    ##### Extract and fit only spec-z objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-N-11')
+    
+    models = glob.glob('*inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        #
+        zsp = zout.z_spec[model.cat.id-1] > 0
+        for id in model.cat.id[zsp]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
     
     import threedhst.prep_flt_files

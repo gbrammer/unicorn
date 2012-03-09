@@ -208,7 +208,7 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.01, dzsecond=0.0002, save=True, make_plot=True):
+    def fit_in_steps(self, dzfirst=0.01, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -222,7 +222,7 @@ class GrismSpectrumFit():
         #################
         #### First iteration, fit full range at low dz resolution
         #################
-        zgrid0, spec_lnprob0 = self.fit_zgrid(zrange=(0.01,6), dz=dzfirst)
+        zgrid0, spec_lnprob0 = self.fit_zgrid(zrange=zrfirst, dz=dzfirst)
 
         #### Interpolate the photometric p(z) to apply it as a prior
         phot_int0 = np.interp(zgrid0, self.phot_zgrid,  self.phot_lnprob)
@@ -350,12 +350,14 @@ class GrismSpectrumFit():
         #### Initialize the figure
         fig = unicorn.catalogs.plot_init(xs=10,aspect=1./3.8, left=0.1, right=0.02, bottom=0.09, top=0.08, NO_GUI=True)
 
+        show = self.oned.data.flux != 0.0
         #### Spectrum in e/s
         ax = fig.add_subplot(141)
         wuse = (self.oned.data.wave > 1.15e4) & (self.oned.data.wave < 1.6e4)
-        ax.plot(self.oned.data.wave/1.e4, self.oned.data.flux, color='black', alpha=0.1)
-        ax.plot(self.oned.data.wave/1.e4, self.oned.data.flux-self.oned.data.contam, color='black')
-        ax.plot(self.oned_wave/1.e4, self.model_oned, color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
+        ax.plot(self.oned_wave[show]/1.e4, self.model_oned[show], color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned_wave/1.e4, self.model_oned, color='red', alpha=0.08, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
         if wuse.sum() > 5:
@@ -367,9 +369,10 @@ class GrismSpectrumFit():
 
         #### Spectrum in f_lambda
         ax = fig.add_subplot(142)
-        ax.plot(self.oned.data.wave/1.e4, self.oned.data.flux/self.oned.data.sensitivity, color='black', alpha=0.1)
-        ax.plot(self.oned.data.wave/1.e4, (self.oned.data.flux-self.oned.data.contam)/self.oned.data.sensitivity, color='black')
-        ax.plot(self.oned_wave/1.e4, self.model_oned/self.oned.data.sensitivity, color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show], color='black')
+        ax.plot(self.oned_wave/1.e4, self.model_oned/self.oned.data.sensitivity, color='red', alpha=0.08, linewidth=2)
+        ax.plot(self.oned_wave[show]/1.e4, self.model_oned[show]/self.oned.data.sensitivity[show], color='red', alpha=0.5, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
         if wuse.sum() > 5:

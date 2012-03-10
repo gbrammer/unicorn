@@ -190,7 +190,7 @@ class GrismSpectrumFit():
             templates[1,:] = line_model.flatten()
             
             ##### Probably no flux in the direct image
-            if templates.max():
+            if templates.max() == 0:
                 self.status = False
                 return False
                 

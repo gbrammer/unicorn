@@ -188,7 +188,12 @@ class GrismSpectrumFit():
             #### Put in the spectral templates
             templates[0,:] = continuum_model.flatten()
             templates[1,:] = line_model.flatten()
-
+            
+            ##### Probably no flux in the direct image
+            if templates.max():
+                self.status = False
+                return False
+                
             #### Compute the non-negative normalizations of the template components
             amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
@@ -223,8 +228,13 @@ class GrismSpectrumFit():
         #################
         #### First iteration, fit full range at low dz resolution
         #################
-        zgrid0, spec_lnprob0 = self.fit_zgrid(zrange=zrfirst, dz=dzfirst)
-
+        result = self.fit_zgrid(zrange=zrfirst, dz=dzfirst)
+        if result is False:
+            self.status = False
+            return False
+        
+        zgrid0, spec_lnprob0 = result
+        
         #### Interpolate the photometric p(z) to apply it as a prior
         phot_int0 = np.interp(zgrid0, self.phot_zgrid,  self.phot_lnprob)
         full_prob0 = phot_int0 + spec_lnprob0 - spec_lnprob0.max()

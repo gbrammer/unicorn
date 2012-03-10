@@ -355,9 +355,7 @@ class GrismSpectrumFit():
         #### Spectrum in e/s
         ax = fig.add_subplot(141)
         wuse = (self.oned.data.wave > 1.15e4) & (self.oned.data.wave < 1.6e4)
-        if wuse.sum() < 3:
-            return False
-            
+
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
         ax.plot(self.oned_wave[show]/1.e4, self.model_oned[show], color='red', alpha=0.5, linewidth=2)
@@ -631,6 +629,10 @@ class GrismSpectrumFit():
         lower, upper = 1.15e4, 1.6e4
         wuse = (self.oned_wave > lower) & (self.oned_wave < upper)
         non_zero = self.oned.data.flux != 0
+        
+        if (wuse & non_zero).sum() < 3:
+            print '%s: No valid pixels in 2D spectrum.'
+            return False
         
         ### Collapse along wave axis for fcover
         spec = np.sum(self.twod.im['SCI'].data, axis=0)

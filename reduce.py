@@ -42,6 +42,9 @@ plt.rcParams['font.size'] = 10
 plt.rcParams['image.origin'] = 'lower'
 plt.rcParams['image.interpolation'] = 'nearest'
 
+plt.rcParams['lines.linestyle'] = 'None'
+plt.rcParams['lines.marker'] = 'o'
+
 USE_PLOT_GUI = False
 
 import pyfits
@@ -57,14 +60,14 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-# try:
-#     ### Latest STSCI_PYTHON (Python2.7)
-#     import stsci.tools.wcsutil as wcsutil
-# except:
-#     ### Older STSCI_PYTHON (Python2.5.4)
-#     import pytools.wcsutil as wcsutil
-# 
-#
+try:
+    ### Latest STSCI_PYTHON (Python2.7)
+    import stsci.tools.wcsutil as wcsutil
+except:
+    ### Older STSCI_PYTHON (Python2.5.4)
+    import pytools.wcsutil as wcsutil
+
+
 
 import pywcs
 
@@ -758,6 +761,7 @@ class Interlace2D():
             m += self.model
         t1 = time.time()
         print '%d steps, WITH model: %.3f s' %(N, t1-t0)
+                
         
 class GrismModel():
     def __init__(self, root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
@@ -1940,9 +1944,11 @@ def interlace_goodsn():
     ##### Extract and fit only spec-z objects
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-N-11')
+        
+    skip_completed = True
     
     models = glob.glob('*inter_model.fits')
-    for file in models:
+    for file in models[::-1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
         #
@@ -1951,7 +1957,9 @@ def interlace_goodsn():
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
                 status = model.twod_spectrum(id)
-                
+                if not status:
+                    continue
+            #
             if os.path.exists(root+'.zfit.png') & skip_completed:
                 continue  
             #gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
@@ -1968,7 +1976,140 @@ def interlace_goodsn():
             #
             print '\n'
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+     
+    ### Get some quality flags on the reduced spectra
+    files = glob.glob('*zfit.dat')
+    fp = open('GOODS-N.dqflag.dat','w')
+    fp2 = open('GOODS-N.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
             
+    fp.close()
+    fp2.close()
+    
+    ###################### Analysis plots ################
+    ## paste GOODS-N.zfit.dat GOODS-N.dqflag.dat > GOODS-N.specz.dat
+    zfit = catIO.Readfile('GOODS-N.specz.dat')
+    dz = (zfit.z_max_spec-zfit.z_spec)/(1+zfit.z_spec)
+    dzphot = (zfit.z_peak_phot - zfit.z_spec)/(1+zfit.z_spec)
+    
+    plt.plot(zfit.z_spec, dz, color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec, dz, NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    zp6 = zfit.z_spec > 0.65
+    keep = zp6
+    
+    plt.plot(zfit.mag[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(16,26)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.mag[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    keep = keep & (zfit.mag < 24)
+    
+    plt.plot(zfit.max_contam[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,1)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.max_contam[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    keep = keep & (zfit.max_contam < 5)
+
+    plt.plot(zfit.int_contam[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,1)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.int_contam[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.int_contam < 0.6)
+    
+    plt.plot(zfit.q_z[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.001,100) ; plt.semilogx()
+    plt.plot(zfit.q_z[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.001,100) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.q_z[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.q_z < 5)
+    
+    plt.plot(zfit.f_cover[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(zfit.f_cover[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.f_cover[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.f_cover > 0.5)
+    
+    plt.plot(zfit.f_flagged[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(zfit.f_flagged[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.f_flagged[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.f_flagged < 0.55)
+    nopartial = zfit.f_flagged < 0.2
+    
+    plt.plot(zfit.f_negative[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(zfit.f_negative[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.f_negative[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.f_negative < 0.55)
+    
+    d99 = ((zout.u99-zout.l99)/(1+zout.z_peak))[zfit.phot_id-1]
+    plt.plot(d99[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(d99[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(d99[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    rf = catIO.Readfile('/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/HIGHRES/OUTPUT/goodsn1.7.153-155.rf')
+    uv = (-2.5*np.log10(rf.l153/rf.l155))[zfit.phot_id-1]
+    plt.plot(uv[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5)
+    plt.plot(uv[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) 
+    xm, ym, ys, N = threedhst.utils.runmed(uv[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    plt.plot(np.abs(dz[~keep]), np.abs(dzphot[~keep]), color='red', alpha=0.2)
+    plt.plot(np.abs(dz[keep]), np.abs(dzphot[keep]), color='blue', alpha=0.4)
+    plt.plot([1.e-6,10],[1e-6,10], color='black', alpha=0.4, linewidth=2, marker='', linestyle='-')
+    plt.plot([1.e-6,10],[1e-5,100], color='black', alpha=0.4, linewidth=2, marker='', linestyle='--')
+    plt.loglog()
+    plt.xlim(1.e-5,8); plt.ylim(1.e-5,8)
+    
+    delta = np.abs(zfit.z_max_spec - zfit.z_peak_phot)/(1+zfit.z_peak_phot)
+    plt.plot(delta[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.001,1.5) ; plt.semilogx()
+    plt.plot(delta[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.001,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(delta[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (delta < 0.1)
+    
+    yh, xh, qq = plt.hist(dz[keep], range=(-0.01, 0.01), bins=40, alpha=0.5)
+    xx = xh[:-1]/2.+xh[1:]/2.
+    import gbb.pymc_gauss as gaussfit
+    fit = gaussfit.init_model(xx, yh, np.maximum(np.sqrt(yh),1))
+    NSAMP,NBURN=11000,1000
+    fit.sample(NSAMP, NBURN)
+    trace = fit.trace('eval_gaussian')[::NSAMP/25,:]
+    plt.errorbar(xx, yh, np.sqrt(yh))
+    for i in range(trace.shape[0]):
+        plt.plot(xx, trace[i,:], color='red', alpha=0.2, linestyle='-', marker='')
+        
+    ###
+    test = keep
+    test = keep & nopartial
+    plt.plot(zfit.z_spec[test], dz[test], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[test], dz[test], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[test], dzphot[test], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    
+    bad = keep & nopartial & (np.abs(dz) > 0.02)
+    fp = open('/tmp/bad','w')
+    for id in zfit.id[bad]:
+        fp.write('/tmp/%s.zfit.png\n' %(id))
+    fp.close()
+    
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
     
     import threedhst.prep_flt_files

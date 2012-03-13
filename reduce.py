@@ -67,8 +67,12 @@ except:
     ### Older STSCI_PYTHON (Python2.5.4)
     import pytools.wcsutil as wcsutil
 
-
-
+###### Globals for compute_model
+conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path=os.getenv('THREEDHST')+'/CONF/').params
+sens_files = {}
+for beam in ['A','B','C','D','E']:
+    sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+    
 import pywcs
 
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
@@ -155,7 +159,7 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
     
     return True
                         
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     
@@ -166,15 +170,21 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         import threedhst.dq
         ds9 = threedhst.dq.myDS9()
 
-    run = threedhst.prep_flt_files.MultidrizzleRun(root)
-    #run.blot_back(ii=0, copy_new=True)
+    #
+    asn = threedhst.utils.ASNFile(root+'_asn.fits')
     
     im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
     PAM = im[1].data
     im.close()
     
-    scl = np.float(run.scl)
-    xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
+    if os.path.exists(root+'.run'):
+        run = threedhst.prep_flt_files.MultidrizzleRun(root)
+        #run.blot_back(ii=0, copy_new=True)
+        scl = np.float(run.scl)
+        xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
+    else:
+        xsh, ysh = np.zeros(len(asn.exposures)), np.zeros(len(asn.exposures))
+        
     yi,xi = np.indices((1014,1014))
     
     pad += NGROW*4
@@ -195,23 +205,35 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
         dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
         dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
-        
+    
+    if root.startswith('TILE41'):
+        dxs = np.array([-4, 9, -8, 5, 5, -8]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([-5, -4, 4, 5, 5, 4]) + np.int(np.round(ysh[0]))*0
+    
+    if root.startswith('GEORGE'):
+        dxs = np.array([0, 9, -4, 5, -8]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([0, -4, -5, 5, 4]) + np.int(np.round(ysh[0]))*0
+    
+    dxs += ddx
+    dys += ddy
+    
     dxi = np.cast[int](np.ceil(dxs/2))
     dyi = np.cast[int](np.ceil(dys/2))
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
     hot_pix = np.zeros((1014,1014),dtype='int')
-    for flt in run.flt:
-        im = pyfits.open(flt+'.fits')
+    
+    for flt in asn.exposures:
+        im = pyfits.open(flt+'_flt.fits')
         hot_pix += (im[3].data & 4096) / 4096
         
     hot_pix = hot_pix > 2
         
-    for i,flt in enumerate(run.flt):
+    for i,flt in enumerate(asn.exposures):
         print flt
-        flt = run.flt[i]
-        im = pyfits.open(flt+'.fits')
+        #flt = run.flt[i]
+        im = pyfits.open(flt+'_flt.fits')
         
         #### Use the pixel area map correction
         im[1].data *= PAM
@@ -241,14 +263,20 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
         
         inter_sci[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
+        N[yi[use]*2+dy,xi[use]*2+dx] += 1
+        
         if use_error:
-            inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]
+            inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]**2
         
         N[yi[use]*2+dy,xi[use]*2+dx] += 1
         #
         if view:
-            ds9.view_array(inter_sci, header=header)
+            ds9.view_array(inter_sci/np.maximum(N,1), header=header)
             ds9.scale(-0.1,5)
+    
+    #### Average for case when dither positions overlap, e.g. CANDELS SN fields
+    inter_sci /= np.maximum(N,1) 
+    inter_err = np.sqrt(inter_err) / np.maximum(N, 1)
     
     if use_error:
         h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
@@ -275,7 +303,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         except:
             pass
         #
-        new_coeffs_dat(input=run.flt[0]+'_coeffs1.dat', output='scale_coeffs.dat')
+        new_coeffs_dat(input=asn.exposures[0]+'_flt_coeffs1.dat', output='scale_coeffs.dat')
 
         im = pyfits.open(root+'_inter.fits', mode='update')
         sf = threedhst.shifts.ShiftFile(root+'_shifts.txt')
@@ -371,8 +399,6 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     import unicorn.reduce as red
     import threedhst.dq
     #ds9 = threedhst.dq.myDS9()
-
-    conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path=os.getenv('THREEDHST')+'/CONF/').params
     
     ## A star in COSMOS-15-F140W
     ##### For interlaced images
@@ -487,9 +513,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             #print 'Yoff_array', xarr.shape, yoff_array.shape
             
         #### Sensitivity
-        sens = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-        #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
-        sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
+        #sens = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+        sens = sens_files[beam]
+        sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        #sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
         
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
@@ -1978,9 +2005,11 @@ def interlace_goodsn():
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
      
     ### Get some quality flags on the reduced spectra
+    root='GOODS-N'
+    
     files = glob.glob('*zfit.dat')
-    fp = open('GOODS-N.dqflag.dat','w')
-    fp2 = open('GOODS-N.zfit.dat','w')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
     first = True
     for file in files:
         print unicorn.noNewLine+file
@@ -2000,9 +2029,13 @@ def interlace_goodsn():
     fp2.close()
     
     ###################### Analysis plots ################
-    ## paste GOODS-N.zfit.dat GOODS-N.dqflag.dat > GOODS-N.specz.dat
-    zfit = catIO.Readfile('GOODS-N.specz.dat')
+    ## 
+    os.system('paste %s.zfit.dat %s.dqflag.dat > %s.specz.dat' %(root, root, root))
+    
+    zfit = catIO.Readfile('%s.specz.dat' %(root))
     dz = (zfit.z_max_spec-zfit.z_spec)/(1+zfit.z_spec)
+    sz = np.maximum((np.abs(dz)/0.001)**(0.8),8)
+    
     dzphot = (zfit.z_peak_phot - zfit.z_spec)/(1+zfit.z_spec)
     
     plt.plot(zfit.z_spec, dz, color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
@@ -2012,14 +2045,17 @@ def interlace_goodsn():
     keep = zp6
     
     plt.plot(zfit.mag[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(16,26)
+    plt.plot(zfit.mag[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(16,26)
     xm, ym, ys, N = threedhst.utils.runmed(zfit.mag[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
     plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.mag[keep], dzphot[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
     keep = keep & (zfit.mag < 24)
     
     plt.plot(zfit.max_contam[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,1)
     xm, ym, ys, N = threedhst.utils.runmed(zfit.max_contam[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
     plt.plot(xm, ys, color='green', linestyle='-')
-    keep = keep & (zfit.max_contam < 5)
+    keep = keep & (zfit.max_contam < 3)
 
     plt.plot(zfit.int_contam[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,1)
     xm, ym, ys, N = threedhst.utils.runmed(zfit.int_contam[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
@@ -2063,11 +2099,30 @@ def interlace_goodsn():
     plt.plot(xm, ys, color='green', linestyle='-')
     
     rf = catIO.Readfile('/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/HIGHRES/OUTPUT/goodsn1.7.153-155.rf')
-    uv = (-2.5*np.log10(rf.l153/rf.l155))[zfit.phot_id-1]
-    plt.plot(uv[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5)
-    plt.plot(uv[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) 
+    
+    rf_uv = catIO.Readfile('/research/HST/GRISM/3DHST/GOODS-S/FIREWORKS/fireworks.153-155.rf')
+    rf_vj = catIO.Readfile('/research/HST/GRISM/3DHST/GOODS-S/FIREWORKS/fireworks.155-161.rf')
+    
+    uv = (-2.5*np.log10(rf_uv.l153/rf_uv.l155))[zfit.phot_id-1]
+    vj = (-2.5*np.log10(rf_vj.l155/rf_vj.l161))[zfit.phot_id-1]
+    
+    plt.plot(uv[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,2.5)
+    plt.plot(uv[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,2.5) 
     xm, ym, ys, N = threedhst.utils.runmed(uv[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
     plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(uv[keep], dzphot[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    
+    plt.scatter(vj[keep], uv[keep], marker='o', s=sz[keep], alpha=0.4)
+    
+    plt.scatter(zfit.z_max_spec[keep], uv[keep], marker='o', s=sz[keep], alpha=0.4)
+
+    plt.scatter(zfit.z_max_spec[keep], zfit.mag[keep], marker='o', s=sz[keep], alpha=0.4)
+
+    plt.scatter(zfit.z_max_spec[keep], cat['[24um]_totf'][zfit.phot_id-1][keep], marker='o', s=sz[keep], alpha=0.4)
+    plt.ylim(0.01,1000); plt.semilogy()
+
+    plt.scatter(zfit.z_max_spec[keep], cat.Kr50[keep], marker='o', s=sz[keep], alpha=0.4)
     
     plt.plot(np.abs(dz[~keep]), np.abs(dzphot[~keep]), color='red', alpha=0.2)
     plt.plot(np.abs(dz[keep]), np.abs(dzphot[keep]), color='blue', alpha=0.4)
@@ -2157,6 +2212,10 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
         dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
         dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
+    
+    if root.startswith('TILE41'):
+        dxs = np.array([-4, 9, -8, 5, 5, -8]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([-5, -4, 4, 5, 5, 4]) + np.int(np.round(ysh[0]))*0
         
     dxi = np.cast[int](np.ceil(dxs/2))
     dyi = np.cast[int](np.ceil(dys/2))

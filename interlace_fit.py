@@ -745,32 +745,72 @@ def objective_twod(params, return_model=False):
     #print "%.3f %.5f %.3f %.3f" %(params[0], params[1], lnprob, prior_z)
     return lnprob+prior_z
     
-def convolve_2d():
+#
+from multiprocessing import Pool
+from threading import Thread
+
+def test_threading(nproc=4, N=5):
     """
     Test idea: convolve spectrum of point source with the thumbnail, faster than generating
     model?
     """
     import stsci.convolve
     
-    ext = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00038.2D.fits')
-    point = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00348.2D.fits')
+    ext = unicorn.reduce.Interlace2D('COSMOS-12_00038.2D.fits')
+    #point = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00348.2D.fits')
+    
+    #N = 200
     
     import time
     t0 = time.time()
-    for i in range(500):
-        point.compute_model()
-    t1 = time.time()
-    
     models = []
-    for i in range(500):
-        current = unicorn.interlace_fit.threadedModel(ext)
-        models.append(current)
-        current.start()
+    for i in range(N):
+        for j in range(5):
+            ext.compute_model()
+            models.append(ext.model.copy())
     
+    t1 = time.time()
+    print t1-t0
+    
+    #### threading
+    for i in range(N):
+        models = []
+        for j in range(5):
+            current = threadedModel(ext)
+            models.append(current)
+            current.start()
+        
+        for model in models:
+            model.join()
+        
+    print np.std(model.model)
+        
     t2 = time.time()
+    print t2-t1
+    
+    #### Multiprocessing
+    for i in range(N):
+        pool = Pool(processes=nproc)
+        results = []
+        for j in range(5):
+            results.append(pool.apply_async(poolModel, [ext,j]))
+        #
+        for result in results:
+            out = result.get(timeout=10)
+    
+    out = results[-1].get(timeout=10)
+    print np.std(out)
+    
+    t3 = time.time()
+    print t3-t2
+    
+    print t1-t0, t2-t1, t3-t2
     
     
-from threading import Thread
+def poolModel(twod, f):
+    twod.compute_model()
+    return twod.model.copy()
+    
 class threadedModel(Thread):
     def __init__(self, spec_2d):
         Thread.__init__(self)
@@ -779,7 +819,7 @@ class threadedModel(Thread):
     #
     def run(self):
         self.spec_2d.compute_model()
-        self.model = self.spec_2d.model*1.
+        self.model = self.spec_2d.model.copy()
         self.status = True
 
     

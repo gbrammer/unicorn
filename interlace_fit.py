@@ -744,3 +744,42 @@ def objective_twod(params, return_model=False):
     
     #print "%.3f %.5f %.3f %.3f" %(params[0], params[1], lnprob, prior_z)
     return lnprob+prior_z
+    
+def convolve_2d():
+    """
+    Test idea: convolve spectrum of point source with the thumbnail, faster than generating
+    model?
+    """
+    import stsci.convolve
+    
+    ext = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00038.2D.fits')
+    point = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00348.2D.fits')
+    
+    import time
+    t0 = time.time()
+    for i in range(500):
+        point.compute_model()
+    t1 = time.time()
+    
+    models = []
+    for i in range(500):
+        current = unicorn.interlace_fit.threadedModel(ext)
+        models.append(current)
+        current.start()
+    
+    t2 = time.time()
+    
+    
+from threading import Thread
+class threadedModel(Thread):
+    def __init__(self, spec_2d):
+        Thread.__init__(self)
+        self.spec_2d = spec_2d
+        self.status = False
+    #
+    def run(self):
+        self.spec_2d.compute_model()
+        self.model = self.spec_2d.model*1.
+        self.status = True
+
+    

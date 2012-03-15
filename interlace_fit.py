@@ -646,7 +646,7 @@ class GrismSpectrumFit():
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
     
-    def fit_free_emlines(self, ztry=None, verbose=True):
+    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS = 1, NSTEP = 100):
         import emcee
 
         if ztry is None:
@@ -756,7 +756,7 @@ class GrismSpectrumFit():
         ndim, nwalkers = len(init), 100
         p0 = [(init+np.random.normal(size=len(coeffs))*step_sig) for i in xrange(nwalkers)]
 
-        NTHREADS, NSTEP = 1, 100
+        #NTHREADS, NSTEP = 1, 100
         if verbose:
             print 'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d)' %(nwalkers, NSTEP)
             
@@ -832,8 +832,8 @@ class GrismSpectrumFit():
         files=glob.glob('GOODS-S-*2D.fits')
         for file in files:
             root = file.replace('.2D.fits','')
-            #if os.path.exists(root+'.linefit.png'):
-            #    continue
+            if os.path.exists(root+'.linefit.png'):
+                continue
             self = unicorn.interlace_fit.GrismSpectrumFit(root)
             if self.status:
                 self.fit_free_emlines()

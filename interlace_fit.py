@@ -80,6 +80,9 @@ class GrismSpectrumFit():
         """
         self.FIGURE_FORMAT=FIGURE_FORMAT
         self.root = os.path.basename(root)
+
+        plt.rcParams['lines.marker'] = ''
+        plt.rcParams['lines.linestyle'] = '-'        
         
         #### Get the 1D/2D spectra
         self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
@@ -91,6 +94,10 @@ class GrismSpectrumFit():
             return None
             
         self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
+        
+        #### Convert to 10**-19 ergs / s / cm**2 / A
+        self.oned.data.sensitivity *= np.diff(self.oned.data.wave)[0] / 100
+        
         self.grism_id = os.path.basename(self.twod.file.split('.2D.fits')[0])
 
         #### Get the photometric match.
@@ -120,6 +127,73 @@ class GrismSpectrumFit():
             if verbose:
                 print 'Read p(z) from %s.zfit.pkl' %(self.grism_id)
                 self.get_best_fit()
+    
+    def get_photometric_constraints(self, ra=0., dec=0., verbose=True):
+        """ 
+        Read the overlapping photometric catalog and retrieve the photometry and EAZY fit.
+
+        """
+        # GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
+        # CAT_PATH = GRISM_PATH+'FIREWORKS/'
+        # if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
+        #     CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
+        # #
+        # CAT_FILE = CAT_PATH+'fireworks.cat'
+        # ZOUT_FILE = CAT_PATH+'fireworks.zout'
+        # FOUT_FILE = CAT_PATH + 'fireworks.fout'
+        # KTOT_COL = 'Ks_totf'
+
+        #### Read in EAZY files
+        cat, zout, fout = unicorn.analysis.read_catalogs(root=self.grism_id)
+        #cat.kmag = 23.86-2.5*np.log10(cat.field(KTOT_COL))
+        CAT_PATH = os.path.dirname(cat.filename)
+        
+        root = os.path.basename(zout.filename).split('.zout')[0]
+        ZOUT_PATH = os.path.dirname(zout.filename)
+        
+        tempfilt, self.eazy_coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
+
+        # eazyParam = eazy.EazyParam(ZOUT_PATH+'/'+root+'.param')
+
+        # id = 6187
+        # ix = np.arange(cat.id.shape[0])[cat.id == id][0]
+
+        dr = np.sqrt((cat.ra-ra)**2*np.cos(dec/360.*2*np.pi)**2+(cat.dec-dec)**2)*3600.
+        ix = np.arange(cat.id.shape[0])[dr == dr.min()][0]
+
+        self.eazy_fit = eazy.getEazySED(ix, MAIN_OUTPUT_FILE=root, OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
+
+        self.ix = ix
+        self.zout = zout
+        self.cat = cat
+        self.z_peak = zout.z_peak[ix]
+        self.dz = (zout.u68[ix]-zout.l68[ix])/2.
+
+        self.dr = dr.min()
+        
+        if verbose:
+            print 'Match in %s\n #%d  dr=%.2f"  z_spec=%7.3f  z_peak=%7.3f' %(cat.filename, cat.id[ix], self.dr, zout.z_spec[ix], self.z_peak)
+            
+        self.best_fit = np.dot(temp_sed['temp_seds'], self.eazy_coeffs['coeffs'][:,ix])
+        self.templam = temp_sed['templam']*1.
+
+        # self.phot_fnu = tempfilt['fnu'][:,ix]
+        # self.phot_efnu = tempfilt['efnu'][:,ix]
+        # self.phot_lc = tempfilt['lc']
+        # 
+        # self.tempfilt = tempfilt
+        # self.tempgrid = tempfilt['tempfilt']
+
+        self.phot_zgrid = tempfilt['zgrid']
+        self.phot_lnprob = -0.5*pz['chi2fit'][:,ix]
+        self.phot_lnprob -= self.phot_lnprob.max()
+        
+        ### normalized probability
+        self.phot_linear = np.exp(self.phot_lnprob)
+        self.phot_linear /= np.trapz(self.phot_linear, self.phot_zgrid)
+        
+        # self.temp_err_x, self.temp_err_y = np.loadtxt(os.getenv('TEMPLATE_DIR')+'/'+eazyParam.params['TEMP_ERR_FILE'], unpack=True)
+        # self.temp_err_y *= eazyParam.params['TEMP_ERR_A2']
                     
     def fit_zgrid(self, zrange = (0.01,6), dz = 0.02, get_model_at_z=None, verbose=True):
         """
@@ -202,11 +276,18 @@ class GrismSpectrumFit():
             #### If `get_model_at_z`, return the model at that redshift
             if (get_model):
                 ixc = np.array([0,2,3])
-                cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
-                line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
-                flux_model = flux_fit.reshape(line_model.shape)
-                oned_wave, model_oned = self.twod.optimal_extract(flux_model)
-                return flux_model, cont_model, line_model, oned_wave, model_oned
+                self.cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
+                self.slope_model = np.dot(coeffs[2:].reshape((1,-1)), templates[2:,:]).reshape(line_model.shape)
+                self.line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
+                self.flux_model = flux_fit.reshape(line_model.shape)
+                self.oned_wave, self.model_1D = self.twod.optimal_extract(self.flux_model)
+                oned_wave_x, self.cont_1D = self.twod.optimal_extract(self.cont_model)
+                oned_wave_x, self.slope_1D = self.twod.optimal_extract(self.slope_model)
+                oned_wave_x, self.line_1D = self.twod.optimal_extract(self.line_model)
+                
+                return True
+                
+                #return flux_model, cont_model, line_model, oned_wave, model_1D, cont_1D, line_1D, slope_1D
 
             #### Log likelihood at redshift zgrid[i] (-0.5*chi2)
             spec_lnprob[i] = -0.5*np.sum((flux-flux_fit)**2/var)
@@ -278,6 +359,7 @@ class GrismSpectrumFit():
             ### Make diagnostic figure
             self.make_figure()
             self.twod_figure()
+            self.make_fits()
             
     def save_results(self, verbose=True):
         """
@@ -346,13 +428,40 @@ class GrismSpectrumFit():
         """
         z_max_spec = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
         
-        self.flux_model, self.cont_model, self.line_model, self.oned_wave, self.model_oned = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
+        #self.flux_model, self.cont_model, self.line_model, self.oned_wave, self.model_1D, self.cont_1D, self.line_1D, self.slope_1D = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
+        status = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
     
+    def make_fits(self):
+        """
+        Make an output FITS file containing the continuum and line models, 1D and 2D
+        """
+        zout = self.zout
+        zgrid0, full_prob0, zgrid1, full_prob1 = self.zgrid0, self.full_prob0, self.zgrid1, self.full_prob1
+        
+        prim = pyfits.PrimaryHDU()
+        prim.header = self.twod.im[0].header.copy()
+        hdus = [prim]
+        
+        twod_header = self.twod.im['SCI'].header.copy()
+        
+        #self.model_1D
+        #self.oned.data.sensitivity
+        #self.cont_model
+        #self.line_model
+        
+        hdus.append(pyfits.ImageHDU(data=self.cont_model, header=twod_header, name='CONT2D'))
+        hdus.append(pyfits.ImageHDU(data=self.line_model, header=twod_header, name='LINE2D'))
+        hdus.append(pyfits.ImageHDU(data=self.cont_1D, name='CONT1D'))
+        hdus.append(pyfits.ImageHDU(data=self.line_1D, name='LINE1D'))
+        
+        pyfits.HDUList(hdus).writeto(self.grism_id+'.zfit.fits', clobber=True)
+        
     def make_figure(self):
         """
         Make a plot showing the fit in e/s and f_lambda units, along with p(z) and the
         photometric SED
-
+        
+        xxx To do: store continuum and 1D fits, fit emission lines fixed at z_grism
         """
         zout = self.zout
         
@@ -368,8 +477,8 @@ class GrismSpectrumFit():
 
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
-        ax.plot(self.oned_wave[show]/1.e4, self.model_oned[show], color='red', alpha=0.5, linewidth=2)
-        ax.plot(self.oned_wave/1.e4, self.model_oned, color='red', alpha=0.08, linewidth=2)
+        ax.plot(self.oned_wave[show]/1.e4, self.model_1D[show], color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned_wave/1.e4, self.model_1D, color='red', alpha=0.08, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
         if wuse.sum() > 5:
@@ -382,9 +491,16 @@ class GrismSpectrumFit():
         #### Spectrum in f_lambda
         ax = fig.add_subplot(142)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
-        ax.plot(self.oned.data.wave[show]/1.e4, (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show], color='black')
-        ax.plot(self.oned_wave/1.e4, self.model_oned/self.oned.data.sensitivity, color='red', alpha=0.08, linewidth=2)
-        ax.plot(self.oned_wave[show]/1.e4, self.model_oned[show]/self.oned.data.sensitivity[show], color='red', alpha=0.5, linewidth=2)
+        
+        show_flux = (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show]
+        show_err = self.oned.data.error[show]/self.oned.data.sensitivity[show]
+        ax.plot(self.oned.data.wave[show]/1.e4, show_flux, color='black')
+        #ax.fill_between(self.oned.data.wave[show]/1.e4, show_flux+show_err, show_flux-show_err, color='0.5', alpha=0.2)
+        
+        ax.plot(self.oned_wave/1.e4, self.model_1D/self.oned.data.sensitivity, color='red', alpha=0.08, linewidth=2)
+        ax.plot(self.oned_wave[show]/1.e4, self.model_1D[show]/self.oned.data.sensitivity[show], color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned_wave[show]/1.e4, self.slope_1D[show]/self.oned.data.sensitivity[show], color='orange', alpha=0.2, linewidth=1)
+        
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
         if wuse.sum() > 5:
@@ -425,12 +541,15 @@ class GrismSpectrumFit():
 
         temp_sed_int = np.interp(self.oned.data.wave, lambdaz, temp_sed)
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
-        flux_spec = (self.oned.data.flux-self.oned.data.contam)/self.oned.data.sensitivity
+        flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D)/self.oned.data.sensitivity
         anorm = np.sum(temp_sed_int[keep]*flux_spec[keep])/np.sum(flux_spec[keep]**2)
-
-        ax.plot(lambdaz, temp_sed, color='blue', alpha=0.5)
-        ax.plot(lci, fobs, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
-        ax.plot(self.oned.data.wave, flux_spec*anorm, color='red', alpha=0.5)
+        
+        ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
+        scale = 100
+        
+        ax.plot(lambdaz, temp_sed*scale, color='blue', alpha=0.5)
+        ax.errorbar(lci, fobs*scale, efobs*scale, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
+        ax.plot(self.oned.data.wave, flux_spec*anorm*100, color='red', alpha=0.5)
         ax.set_xlabel(r'$\lambda$')
         ax.set_ylabel(r'$f_\lambda$')
         
@@ -439,9 +558,12 @@ class GrismSpectrumFit():
             ymax = fobs[good].max()
         else:
             ymax = fobs.max()
-            
+        
+        ymax *= scale
+        
         ax.semilogx(); ax.set_xlim(3000.,8.e4); ax.set_ylim(-0.05*ymax, 1.1*ymax)
-
+        #ax.set_xlim(0.8e4,2.e4)
+        
         #### Save the result to a file
         unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
 
@@ -479,7 +601,8 @@ class GrismSpectrumFit():
         ax.set_xticklabels([])
         ax.set_xticks(ax_int)
         ax.set_ylabel('Raw')
-        ax.text(0.95,1+0.1*aspect,self.grism_id, transform=ax.transAxes, horizontalalignment='right', verticalalignment='bottom')
+        #ax.text(0.95,1+0.1*aspect,self.grism_id, transform=ax.transAxes, horizontalalignment='right', verticalalignment='bottom')
+        ax.set_title(self.grism_id)
         
         #### Contam-subtracted spectrum
         ax = fig.add_subplot(312)
@@ -500,73 +623,6 @@ class GrismSpectrumFit():
         
         unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.2D.%s' %(self.FIGURE_FORMAT))
         
-    def get_photometric_constraints(self, ra=0., dec=0., verbose=True):
-        """ 
-        Read the overlapping photometric catalog and retrieve the photometry and EAZY fit.
-
-        """
-        # GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
-        # CAT_PATH = GRISM_PATH+'FIREWORKS/'
-        # if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-        #     CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
-        # #
-        # CAT_FILE = CAT_PATH+'fireworks.cat'
-        # ZOUT_FILE = CAT_PATH+'fireworks.zout'
-        # FOUT_FILE = CAT_PATH + 'fireworks.fout'
-        # KTOT_COL = 'Ks_totf'
-
-        #### Read in EAZY files
-        cat, zout, fout = unicorn.analysis.read_catalogs(root=self.grism_id)
-        #cat.kmag = 23.86-2.5*np.log10(cat.field(KTOT_COL))
-        CAT_PATH = os.path.dirname(cat.filename)
-        
-        root = os.path.basename(zout.filename).split('.zout')[0]
-        ZOUT_PATH = os.path.dirname(zout.filename)
-        
-        tempfilt, self.eazy_coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
-
-        # eazyParam = eazy.EazyParam(ZOUT_PATH+'/'+root+'.param')
-
-        # id = 6187
-        # ix = np.arange(cat.id.shape[0])[cat.id == id][0]
-
-        dr = np.sqrt((cat.ra-ra)**2*np.cos(dec/360.*2*np.pi)**2+(cat.dec-dec)**2)*3600.
-        ix = np.arange(cat.id.shape[0])[dr == dr.min()][0]
-
-        self.eazy_fit = eazy.getEazySED(ix, MAIN_OUTPUT_FILE=root, OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
-
-        self.ix = ix
-        self.zout = zout
-        self.cat = cat
-        self.z_peak = zout.z_peak[ix]
-        self.dz = (zout.u68[ix]-zout.l68[ix])/2.
-
-        self.dr = dr.min()
-        
-        if verbose:
-            print 'Match in %s\n #%d  dr=%.2f"  z_spec=%7.3f  z_peak=%7.3f' %(cat.filename, cat.id[ix], self.dr, zout.z_spec[ix], self.z_peak)
-            
-        self.best_fit = np.dot(temp_sed['temp_seds'], self.eazy_coeffs['coeffs'][:,ix])
-        self.templam = temp_sed['templam']*1.
-
-        # self.phot_fnu = tempfilt['fnu'][:,ix]
-        # self.phot_efnu = tempfilt['efnu'][:,ix]
-        # self.phot_lc = tempfilt['lc']
-        # 
-        # self.tempfilt = tempfilt
-        # self.tempgrid = tempfilt['tempfilt']
-
-        self.phot_zgrid = tempfilt['zgrid']
-        self.phot_lnprob = -0.5*pz['chi2fit'][:,ix]
-        self.phot_lnprob -= self.phot_lnprob.max()
-        
-        ### normalized probability
-        self.phot_linear = np.exp(self.phot_lnprob)
-        self.phot_linear /= np.trapz(self.phot_linear, self.phot_zgrid)
-        
-        # self.temp_err_x, self.temp_err_y = np.loadtxt(os.getenv('TEMPLATE_DIR')+'/'+eazyParam.params['TEMP_ERR_FILE'], unpack=True)
-        # self.temp_err_y *= eazyParam.params['TEMP_ERR_A2']
-
     def line_free_template(self):
         """
         Assuming that the v1.1 line templates were used in the fit, generate the best-fit template
@@ -590,6 +646,198 @@ class GrismSpectrumFit():
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
     
+    def fit_free_emlines(self, ztry=None, verbose=True):
+        import emcee
+
+        if ztry is None:
+            ztry = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
+        
+        if verbose:
+            print 'Fit lines: z=%.4f' %(ztry)
+            
+        var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
+        var[var == 0] = 1.e6
+        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+
+        flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
+        use = np.isfinite(flux)
+
+        ### Continuum at z=ztry
+        status = self.fit_zgrid(get_model_at_z=ztry, verbose=False)
+        
+        line_wavelengths = {} ; line_ratios = {}
+        line_wavelengths['Ha'] = [6564.61]; line_ratios['Ha'] = [1.]
+        line_wavelengths['Hb'] = [4862.68]; line_ratios['Hb'] = [1.]
+        line_wavelengths['Hg'] = [4341.68]; line_ratios['Hg'] = [1.]
+        line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
+        line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
+        line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
+        line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
+        line_wavelengths['HeI'] = [3889.0]; line_ratios['HeI'] = [1.]
+        line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
+        line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
+        line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
+        
+        fancy = {}
+        fancy['Ha'] = r'H$\alpha$'
+        fancy['Hb'] = r'H$\beta$'
+        fancy['Hg'] = r'H$\gamma$'
+        fancy['OIII'] =  'O III'
+        fancy['OII']  =  'O II' 
+        fancy['SII']  =  'S II' 
+        fancy['SIII'] =  'S III'
+        fancy['HeI']  =  'He I' 
+        fancy['MgII'] =  'Mg II'
+        fancy['CIV']  =  'C IV' 
+        fancy['Lya'] = r'Ly$\alpha$'
+        
+        use_lines = []
+        for line in line_wavelengths.keys():
+            lam = line_wavelengths[line][0]
+            if (lam*(1+ztry) > self.oned_wave[self.oned_wave > 0.9e4].min()) & (lam*(1+ztry) < self.oned_wave.max()):
+                use_lines.append(line)
+        
+        templates = np.ones((1+len(use_lines), flux.size))
+        templates[0,:] = self.cont_model.flatten()
+        
+        line_width = 100 # km/s
+        xline = np.exp(np.arange(np.log(900), np.log(1.e4), line_width/3.e5/3.))
+        sens_int = {}
+        
+        has_line_flux = np.ones(1+len(use_lines)) > 0
+        
+        for i,line in enumerate(use_lines):
+            yline = xline*0.
+            nmult = len(line_wavelengths[line])
+            for j in range(nmult):
+                lam = line_wavelengths[line][j]
+                norm = line_ratios[line][j]
+                dlam = lam*line_width/3.e5
+                yline += 1./np.sqrt(np.pi*2*dlam**2)*np.exp(-(xline-lam)**2/2/dlam**2)*norm
+            # 
+            sens_int[line] = np.interp(lam, self.oned_wave, self.oned.data.sensitivity)
+            #print lam
+            #
+            self.twod.compute_model(xline*(1+ztry), yline)
+            self.twod.model = np.maximum(self.twod.model, 0.)
+            #
+            #### templates normalized to  total flux 1.e-17 erg / s / cm2 / A
+            wave_model, flux_model = self.twod.optimal_extract(self.twod.model)
+            cgs_model = flux_model/self.oned.data.sensitivity
+            bad = ~np.isfinite(cgs_model)
+            if bad.sum() > 0:
+                cgs_model[bad] = 0.
+            #
+            if cgs_model.max() == 0.:
+                has_line_flux[i+1] = False
+            #
+            norm_flux = np.trapz(cgs_model, self.oned_wave) / 100.
+            templates[i+1,:] = self.twod.model.flatten() / norm_flux
+        
+        #### Some lines might not actually have any flux, so remove them
+        for i, line in enumerate(use_lines):
+            if not has_line_flux[-(i+1)]:
+                out = use_lines.pop(-(i+1))
+        
+        templates = templates[has_line_flux,:]
+        
+        #### Initialize fit
+        amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
+        coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
+        flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.twod.im['SCI'].data.shape))
+        
+        coeffs = np.maximum(coeffs, 1.e-5)
+        #### MCMC fit with EMCEE sampler
+        init = np.log(coeffs)
+        step_sig = np.ones(len(coeffs))*np.log(1.05)
+        obj_fun = unicorn.interlace_fit._objective
+
+        #### Run the Markov chain
+        ndim, nwalkers = len(init), 100
+        p0 = [(init+np.random.normal(size=len(coeffs))*step_sig) for i in xrange(nwalkers)]
+
+        NTHREADS, NSTEP = 1, 100
+        if verbose:
+            print 'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d)' %(nwalkers, NSTEP)
+            
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, obj_fun, threads=NTHREADS, args=[flux, var, templates])
+        result = sampler.run_mcmc(p0, NSTEP)
+        chain = np.exp(sampler.flatchain)
+        
+        if verbose:
+            print unicorn.noNewLine+'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d) ==> Done.\nMake figure.' %(nwalkers, NSTEP)
+        
+        #### Store the results
+        fig = unicorn.catalogs.plot_init(xs=5,aspect=1./1.65, left=0.15, right=0.02, bottom=0.09, top=0.02, NO_GUI=True)
+        ax = fig.add_subplot(111)
+        
+        wok = (self.oned_wave > 1.e4)
+        ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
+        
+        temps = []
+        
+        for i in range(ndim):
+            t2d = templates[i,:].reshape(self.flux_model.shape)
+            wave_model, flux_model = self.twod.optimal_extract(t2d)
+            temps.append(flux_model)
+        
+        #### Line equivalent widths
+        eqw = np.ones(ndim-1)
+        #halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]
+        ok = temps[0] > 0
+        for i in range(ndim-1):
+            eqw[i] = np.median(-np.trapz(-temps[i+1][ok]/temps[0][ok], wave_model[ok])*chain[:,i+1]/chain[:,0])
+        
+        NSHOW = 100; ix_show = np.cast[int](np.random.rand(NSHOW)*NSTEP*nwalkers)
+        for i in ix_show:
+            mc_model = temps[0]*chain[i,0]
+            for j in range(1,ndim):
+                mc_model += temps[j]*chain[i,j]
+            #
+            aa = ax.plot(self.oned_wave[wok]/1.e4, mc_model[wok], color='red', alpha=0.05)
+        
+        ax.plot(self.oned_wave[wok]/1.e4, self.model_1D[wok], color='green', alpha=0.5, linewidth=2, zorder=1)
+        
+        fp = open(self.grism_id+'.linefit.dat','w')
+        fp.write('# line  flux  error  EQW_obs \n# z=%.5f\n# flux: 10**-17 ergs / s / cm**2\n' %(ztry))
+        
+        print use_lines
+        for i, line in enumerate(use_lines):
+            #hist = plt.hist(chain[:,i+1], bins=50)
+            stats = threedhst.utils.biweight(chain[:,i+1], both=True)
+            #median = np.median(chain[:,i+1])
+            #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
+            fp.write('%4s  %6.2f  %.2f  %.2f  %.2f\n' %(line, stats[0], stats[1], stats[0]/stats[1], eqw[i]))
+            ax.fill_between([0.03,0.53],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+            
+            ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line], stats[0], stats[1], stats[0]/stats[1], eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20)
+            
+        ax.fill_between([0.61,0.96],np.array([0.95,0.95]), np.array([0.88, 0.88]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.95, self.grism_id, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        ax.fill_between([0.8,0.96],np.array([0.85,0.85]), np.array([0.78, 0.78]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.85, r'$z=%.4f$' %(ztry), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        
+        ax.set_xlim(1.0,1.73)
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        ax.set_ylabel(r'Flux (e - / s)')
+        ymax = self.model_1D.max()
+        ax.set_ylim(-0.1*ymax, 1.5*ymax)
+        
+        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
+        
+        fp.close()
+        
+        return True
+        ###
+        files=glob.glob('GOODS-S-*2D.fits')
+        for file in files:
+            root = file.replace('.2D.fits','')
+            #if os.path.exists(root+'.linefit.png'):
+            #    continue
+            self = unicorn.interlace_fit.GrismSpectrumFit(root)
+            if self.status:
+                self.fit_free_emlines()
+            
     def flag_contamination(self, FEXCESS=2.5):
         # import threedhst.dq
         # 
@@ -685,6 +933,12 @@ class GrismSpectrumFit():
             return [header, params]
         else:    
             return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
+#
+def _objective(coeffs, observed, var, templates):
+    ### The "minimum" function limits the exponent to acceptable float values
+    flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)
+    lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
+    return lnprob
         
 def go_MCMC_fit():
     """
@@ -746,13 +1000,12 @@ def objective_twod(params, return_model=False):
     return lnprob+prior_z
     
 #
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 from threading import Thread
 
 def test_threading(nproc=4, N=5):
     """
-    Test idea: convolve spectrum of point source with the thumbnail, faster than generating
-    model?
+    Testing parallel threading, nothing promising because it seems like the threading/multiprocessing bookkeeping overhead is significant compared to the "model.compute_model()" execution time.
     """
     import stsci.convolve
     
@@ -788,21 +1041,40 @@ def test_threading(nproc=4, N=5):
     t2 = time.time()
     print t2-t1
     
+    #### Multi Process
+    for i in range(N):
+        models = []
+        for j in range(5):
+            current = multiModel(ext)
+            models.append(current)
+            current.start()
+        
+        for model in models:
+            model.join()
+        
+    print np.std(model.model)
+        
+    t3 = time.time()
+    print t3-t2
+    
     #### Multiprocessing
     for i in range(N):
         pool = Pool(processes=nproc)
         results = []
         for j in range(5):
-            results.append(pool.apply_async(poolModel, [ext,j]))
-        #
-        for result in results:
-            out = result.get(timeout=10)
+            result = pool.apply_async(poolModel, [ext,j])
+            out = result.get()
+        pool.terminate()
+        
+        # #
+        # for result in results:
+        #     out = result.get(timeout=10)
     
-    out = results[-1].get(timeout=10)
+    #out = results[-1].get(timeout=10)
     print np.std(out)
     
-    t3 = time.time()
-    print t3-t2
+    t4 = time.time()
+    print t4-t3
     
     print t1-t0, t2-t1, t3-t2
     
@@ -810,6 +1082,17 @@ def test_threading(nproc=4, N=5):
 def poolModel(twod, f):
     twod.compute_model()
     return twod.model.copy()
+#
+class multiModel(Process):
+    def __init__(self, spec_2d):
+        Process.__init__(self)
+        self.spec_2d = spec_2d
+        self.status = False
+    #
+    def run(self):
+        self.spec_2d.compute_model()
+        self.model = self.spec_2d.model.copy()
+        self.status = True
     
 class threadedModel(Thread):
     def __init__(self, spec_2d):

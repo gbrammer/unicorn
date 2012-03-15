@@ -807,7 +807,7 @@ class GrismSpectrumFit():
             stats = threedhst.utils.biweight(chain[:,i+1], both=True)
             #median = np.median(chain[:,i+1])
             #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
-            fp.write('%4s  %6.2f  %.2f  %.2f  %.2f\n' %(line, stats[0], stats[1], stats[0]/stats[1], eqw[i]))
+            fp.write('%4s  %6.2f  %.2f  %6.2f\n' %(line, stats[0], stats[1], eqw[i]))
             ax.fill_between([0.03,0.53],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
             
             ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line], stats[0], stats[1], stats[0]/stats[1], eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20)

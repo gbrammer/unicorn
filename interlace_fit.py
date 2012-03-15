@@ -750,7 +750,6 @@ class GrismSpectrumFit():
         #### MCMC fit with EMCEE sampler
         init = np.log(coeffs)
         step_sig = np.ones(len(coeffs))*np.log(1.05)
-        obj_fun = unicorn.interlace_fit._objective
 
         #### Run the Markov chain
         ndim, nwalkers = len(init), 100
@@ -760,7 +759,7 @@ class GrismSpectrumFit():
         if verbose:
             print 'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d)' %(nwalkers, NSTEP)
             
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, obj_fun, threads=NTHREADS, args=[flux, var, templates])
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, unicorn.interlace_fit._objective_lineonly, threads=NTHREADS, args=[flux, var, templates])
         result = sampler.run_mcmc(p0, NSTEP)
         chain = np.exp(sampler.flatchain)
         
@@ -934,7 +933,13 @@ class GrismSpectrumFit():
         else:    
             return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
 #
-def _objective(coeffs, observed, var, templates):
+def _objective_lineonly(coeffs, observed, var, templates):
+    ### The "minimum" function limits the exponent to acceptable float values
+    flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)
+    lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
+    return lnprob
+#
+def _objective_z_line(coeffs, observed, var, templates):
     ### The "minimum" function limits the exponent to acceptable float values
     flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)
     lnprob = -0.5*np.sum((observed-flux_fit)**2/var)

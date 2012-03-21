@@ -60,8 +60,6 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-"""THIS IS A TEST"""
-
 try:
     ### Latest STSCI_PYTHON (Python2.7)
     import stsci.tools.wcsutil as wcsutil

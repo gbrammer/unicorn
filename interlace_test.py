@@ -20,7 +20,9 @@ def prepare():
         pair(direct, grism, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=0, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
 
 def reduce_interlace():
-    
+    """
+    Reduce an interlaced dataset
+    """
     import unicorn
     
     clean_all=True

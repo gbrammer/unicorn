@@ -84,6 +84,8 @@ class GrismSpectrumFit():
         plt.rcParams['lines.marker'] = ''
         plt.rcParams['lines.linestyle'] = '-'        
         
+        self.use_lines = None
+        
         #### Get the 1D/2D spectra
         self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
         self.status = True
@@ -646,7 +648,7 @@ class GrismSpectrumFit():
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
     
-    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS = 1, NSTEP = 100):
+    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=100, NSTEP=100, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
 
         if ztry is None:
@@ -661,7 +663,126 @@ class GrismSpectrumFit():
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
+        
+        (use_lines, fancy), templates = self.get_emline_templates(ztry=ztry, line_width=line_width0)
+        
+        #### Initialize fit
+        amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
+        coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
+        flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.twod.im['SCI'].data.shape))
+        
+        coeffs = np.maximum(coeffs, 1.e-5)
+        #### MCMC fit with EMCEE sampler
+        init = np.log(coeffs)
+        step_sig = np.ones(len(coeffs))*np.log(1.05)
+        
+        #### Fit just emission lines, z fixed to z_grism
+        obj_fun = unicorn.interlace_fit._objective_lineonly
+        obj_args = [flux, var, templates]
+        
+        #### Try to fit the redshift, maybe will take forever
+        if FIT_REDSHIFT | FIT_WIDTH:
+            obj_fun = unicorn.interlace_fit._objective_z_line
+            obj_args = [flux, var, self]
+            ### Add redshift as parameter
+            init = np.append(init, ztry)
+            step_sig = np.append(step_sig, 0.003*FIT_REDSHIFT)
+            ### Add (log) line width as parameter
+            init = np.append(init, np.log(line_width0))
+            step_sig = np.append(step_sig, 0.4*FIT_WIDTH)
+        
+        #### Run the Markov chain
+        ndim = len(init)
+        p0 = [(init+np.random.normal(size=len(init))*step_sig) for i in xrange(NWALKERS)]
 
+        # NTHREADS, NSTEP = 1, 100
+        if verbose:
+            print 'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d)' %(NWALKERS, NSTEP)
+            
+        self.sampler = emcee.EnsembleSampler(NWALKERS, ndim, obj_fun, threads=NTHREADS, args=obj_args)
+        result = self.sampler.run_mcmc(p0, NSTEP)
+        chain = np.exp(self.sampler.flatchain)
+        
+        if verbose:
+            print unicorn.noNewLine+'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d) ==> Done.\nMake figure.' %(NWALKERS, NSTEP)
+        
+        #### Store the results
+        fig = unicorn.catalogs.plot_init(xs=5,aspect=1./1.65, left=0.15, right=0.02, bottom=0.09, top=0.02, NO_GUI=True)
+        ax = fig.add_subplot(111)
+        
+        wok = (self.oned_wave > 1.e4)
+        ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
+        
+        temps = []
+        
+        ntemp = templates.shape[0]
+        for i in range(ntemp):
+            t2d = templates[i,:].reshape(self.flux_model.shape)
+            wave_model, flux_model = self.twod.optimal_extract(t2d)
+            temps.append(flux_model)
+        
+        #### Line equivalent widths
+        eqw = np.ones(ntemp-1)
+        eqw_err = np.ones(ntemp-1)
+        #halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]
+        ok = temps[0] > 0
+        for i in range(ntemp-1):
+            eqw_post = -np.trapz(-temps[i+1][ok]/temps[0][ok], wave_model[ok])*chain[:,i+1]/chain[:,0]
+            eqw[i] = np.median(eqw_post)
+            eqw_err[i] = threedhst.utils.biweight(eqw_post)
+        
+        NSHOW = 100; ix_show = np.cast[int](np.random.rand(NSHOW)*NSTEP*NWALKERS)
+        for i in ix_show:
+            mc_model = temps[0]*chain[i,0]
+            for j in range(1,ntemp):
+                mc_model += temps[j]*chain[i,j]
+            #
+            aa = ax.plot(self.oned_wave[wok]/1.e4, mc_model[wok], color='red', alpha=0.05)
+        
+        ax.plot(self.oned_wave[wok]/1.e4, self.model_1D[wok], color='green', alpha=0.5, linewidth=2, zorder=1)
+        
+        fp = open(self.grism_id+'.linefit.dat','w')
+        fp.write('# line  flux  error  EQW_obs EQW_obs_err \n# z=%.5f\n# flux: 10**-17 ergs / s / cm**2\n' %(ztry))
+        
+        print use_lines
+        for i, line in enumerate(use_lines):
+            #hist = plt.hist(chain[:,i+1], bins=50)
+            stats = threedhst.utils.biweight(chain[:,i+1], both=True)
+            #median = np.median(chain[:,i+1])
+            #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
+            fp.write('%4s  %6.2f  %.2f  %6.2f %6.2f\n' %(line, stats[0], stats[1], eqw[i], eqw_err[i]))
+            ax.fill_between([0.03,0.53],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+            
+            ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line], stats[0], stats[1], stats[0]/stats[1], eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20)
+            
+        ax.fill_between([0.61,0.96],np.array([0.95,0.95]), np.array([0.88, 0.88]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.95, self.grism_id, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        ax.fill_between([0.8,0.96],np.array([0.85,0.85]), np.array([0.78, 0.78]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.85, r'$z=%.4f$' %(ztry), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        
+        ax.set_xlim(1.0,1.73)
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        ax.set_ylabel(r'Flux (e - / s)')
+        ymax = self.model_1D.max()
+        ax.set_ylim(-0.1*ymax, 1.5*ymax)
+        
+        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
+        
+        fp.close()
+        
+        return True
+        ###
+        files=glob.glob('GOODS-S-*2D.fits')
+        for file in files:
+            root = file.replace('.2D.fits','')
+            if os.path.exists(root+'.linefit.png'):
+                continue
+            self = unicorn.interlace_fit.GrismSpectrumFit(root)
+            if self.status:
+                self.fit_free_emlines()
+    
+    def get_emline_templates(self, ztry=0., use_determined_lines=True, line_width=100):
+        
         ### Continuum at z=ztry
         status = self.fit_zgrid(get_model_at_z=ztry, verbose=False)
         
@@ -691,16 +812,19 @@ class GrismSpectrumFit():
         fancy['CIV']  =  'C IV' 
         fancy['Lya'] = r'Ly$\alpha$'
         
-        use_lines = []
-        for line in line_wavelengths.keys():
-            lam = line_wavelengths[line][0]
-            if (lam*(1+ztry) > self.oned_wave[self.oned_wave > 0.9e4].min()) & (lam*(1+ztry) < self.oned_wave.max()):
-                use_lines.append(line)
+        if use_determined_lines & (self.use_lines is not None):
+            use_lines = self.use_lines
+        else:
+            use_lines = []
+            for line in line_wavelengths.keys():
+                lam = line_wavelengths[line][0]
+                if (lam*(1+ztry) > self.oned_wave[self.oned_wave > 0.9e4].min()) & (lam*(1+ztry) < self.oned_wave.max()):
+                    use_lines.append(line)
         
-        templates = np.ones((1+len(use_lines), flux.size))
+        templates = np.ones((1+len(use_lines), self.twod.im['SCI'].data.size))
         templates[0,:] = self.cont_model.flatten()
         
-        line_width = 100 # km/s
+        #line_width = 100 # km/s
         xline = np.exp(np.arange(np.log(900), np.log(1.e4), line_width/3.e5/3.))
         sens_int = {}
         
@@ -735,107 +859,16 @@ class GrismSpectrumFit():
             templates[i+1,:] = self.twod.model.flatten() / norm_flux
         
         #### Some lines might not actually have any flux, so remove them
-        for i, line in enumerate(use_lines):
-            if not has_line_flux[-(i+1)]:
-                out = use_lines.pop(-(i+1))
+        if ~use_determined_lines | (self.use_lines is None):
+            for i, line in enumerate(use_lines):
+                if not has_line_flux[-(i+1)]:
+                    out = use_lines.pop(-(i+1))
         
         templates = templates[has_line_flux,:]
         
-        #### Initialize fit
-        amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
-        coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
-        flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.twod.im['SCI'].data.shape))
+        self.use_lines = use_lines
         
-        coeffs = np.maximum(coeffs, 1.e-5)
-        #### MCMC fit with EMCEE sampler
-        init = np.log(coeffs)
-        step_sig = np.ones(len(coeffs))*np.log(1.05)
-
-        #### Run the Markov chain
-        ndim, nwalkers = len(init), 100
-        p0 = [(init+np.random.normal(size=len(coeffs))*step_sig) for i in xrange(nwalkers)]
-
-        #NTHREADS, NSTEP = 1, 100
-        if verbose:
-            print 'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d)' %(nwalkers, NSTEP)
-            
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, unicorn.interlace_fit._objective_lineonly, threads=NTHREADS, args=[flux, var, templates])
-        result = sampler.run_mcmc(p0, NSTEP)
-        chain = np.exp(sampler.flatchain)
-        
-        if verbose:
-            print unicorn.noNewLine+'emcee MCMC fit: (nwalkers x NSTEPS) = (%d x %d) ==> Done.\nMake figure.' %(nwalkers, NSTEP)
-        
-        #### Store the results
-        fig = unicorn.catalogs.plot_init(xs=5,aspect=1./1.65, left=0.15, right=0.02, bottom=0.09, top=0.02, NO_GUI=True)
-        ax = fig.add_subplot(111)
-        
-        wok = (self.oned_wave > 1.e4)
-        ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
-        
-        temps = []
-        
-        for i in range(ndim):
-            t2d = templates[i,:].reshape(self.flux_model.shape)
-            wave_model, flux_model = self.twod.optimal_extract(t2d)
-            temps.append(flux_model)
-        
-        #### Line equivalent widths
-        eqw = np.ones(ndim-1)
-        #halpha_eqw = -np.trapz((-halpha/continuum)[1:-1], temp_seds['templam'][1:-1]
-        ok = temps[0] > 0
-        for i in range(ndim-1):
-            eqw[i] = np.median(-np.trapz(-temps[i+1][ok]/temps[0][ok], wave_model[ok])*chain[:,i+1]/chain[:,0])
-        
-        NSHOW = 100; ix_show = np.cast[int](np.random.rand(NSHOW)*NSTEP*nwalkers)
-        for i in ix_show:
-            mc_model = temps[0]*chain[i,0]
-            for j in range(1,ndim):
-                mc_model += temps[j]*chain[i,j]
-            #
-            aa = ax.plot(self.oned_wave[wok]/1.e4, mc_model[wok], color='red', alpha=0.05)
-        
-        ax.plot(self.oned_wave[wok]/1.e4, self.model_1D[wok], color='green', alpha=0.5, linewidth=2, zorder=1)
-        
-        fp = open(self.grism_id+'.linefit.dat','w')
-        fp.write('# line  flux  error  EQW_obs \n# z=%.5f\n# flux: 10**-17 ergs / s / cm**2\n' %(ztry))
-        
-        print use_lines
-        for i, line in enumerate(use_lines):
-            #hist = plt.hist(chain[:,i+1], bins=50)
-            stats = threedhst.utils.biweight(chain[:,i+1], both=True)
-            #median = np.median(chain[:,i+1])
-            #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
-            fp.write('%4s  %6.2f  %.2f  %6.2f\n' %(line, stats[0], stats[1], eqw[i]))
-            ax.fill_between([0.03,0.53],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
-            
-            ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line], stats[0], stats[1], stats[0]/stats[1], eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20)
-            
-        ax.fill_between([0.61,0.96],np.array([0.95,0.95]), np.array([0.88, 0.88]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
-        ax.text(0.95, 0.95, self.grism_id, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
-        ax.fill_between([0.8,0.96],np.array([0.85,0.85]), np.array([0.78, 0.78]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
-        ax.text(0.95, 0.85, r'$z=%.4f$' %(ztry), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
-        
-        ax.set_xlim(1.0,1.73)
-        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
-        ax.set_ylabel(r'Flux (e - / s)')
-        ymax = self.model_1D.max()
-        ax.set_ylim(-0.1*ymax, 1.5*ymax)
-        
-        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
-        
-        fp.close()
-        
-        return True
-        ###
-        files=glob.glob('GOODS-S-*2D.fits')
-        for file in files:
-            root = file.replace('.2D.fits','')
-            if os.path.exists(root+'.linefit.png'):
-                continue
-            self = unicorn.interlace_fit.GrismSpectrumFit(root)
-            if self.status:
-                self.fit_free_emlines()
+        return (use_lines, fancy), templates
             
     def flag_contamination(self, FEXCESS=2.5):
         # import threedhst.dq
@@ -939,10 +972,17 @@ def _objective_lineonly(coeffs, observed, var, templates):
     lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
     return lnprob
 #
-def _objective_z_line(coeffs, observed, var, templates):
+def _objective_z_line(params, observed, var, GrisModel):
+    
+    #### Get the lines at the new redshift    
+    (use_lines, fancy), templates = GrisModel.get_emline_templates(ztry=params[-2], line_width=np.exp(params[-1]), use_determined_lines=True)
+    
     ### The "minimum" function limits the exponent to acceptable float values
-    flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)
+    flux_fit = np.dot(np.exp(np.minimum(params[:-2],345)).reshape((1,-1)), templates)
     lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
+    
+    print 'z_try: %.4f, dv = %.1f, lnprob: %.2f' %(params[-2], np.exp(params[-1]), lnprob)
+    
     return lnprob
         
 def go_MCMC_fit():

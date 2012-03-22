@@ -36,14 +36,6 @@ import time
 
 import numpy as np
 import matplotlib.pyplot as plt
-plt.rcParams['patch.edgecolor'] = 'None'
-plt.rcParams['font.size'] = 10
-
-plt.rcParams['image.origin'] = 'lower'
-plt.rcParams['image.interpolation'] = 'nearest'
-
-plt.rcParams['lines.linestyle'] = 'None'
-plt.rcParams['lines.marker'] = 'o'
 
 USE_PLOT_GUI = False
 
@@ -238,8 +230,8 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         #### Use the pixel area map correction
         im[1].data *= PAM
         #### Divide by 4 to conserve surface brightness with smaller output pixels
-        im[1].data /= 4
-        im[2].data /= 4
+        im[1].data /= 4.
+        im[2].data /= 4.
         
         ### Mask cosmic rays
         if i == 0:
@@ -268,8 +260,6 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         if use_error:
             inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]**2
         
-        N[yi[use]*2+dy,xi[use]*2+dx] += 1
-        #
         if view:
             ds9.view_array(inter_sci/np.maximum(N,1), header=header)
             ds9.scale(-0.1,5)
@@ -472,15 +462,18 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         #### Improve alignment of zeroth order
         if beam == 'B':
-            #dydx_1 = 0.0
-            dydx_1 = 0.1
-            dydx_0 -= 2/grow_factor
-            dydx_0 += dydx_1 * 192 * grow_factor
+            dldp_0+=1500
             
-            dldp_x = dldp_1*1.
-            f = 0.9*(1+np.abs(bigY-507)/507.*0.2)
-            dldp_1 *= f
-            dldp_0 += (1-f)*dldp_1*-213*2*(2-(1.02-0.02*np.abs(bigY-507)/507.))
+        # if beam == 'Bx':
+        #     #dydx_1 = 0.0
+        #     dydx_1 = 0.1
+        #     dydx_0 -= 2/grow_factor
+        #     dydx_0 += dydx_1 * 192 * grow_factor
+        #     
+        #     dldp_x = dldp_1*1.
+        #     f = 0.9*(1+np.abs(bigY-507)/507.*0.2)
+        #     dldp_1 *= f
+        #     dldp_0 += (1-f)*dldp_1*-213*2*(2-(1.02-0.02*np.abs(bigY-507)/507.))
             
         #print 'BEAM_%s: %5.2f %5.2f, %6.3f %5.3f, %9.2f %6.2f' %(beam, xoff_beam / grow_factor, yoff_beam / grow_factor, dydx_0, dydx_1*grow_factor, dldp_0, dldp_1*grow_factor)
 
@@ -518,6 +511,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
         #sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
         
+        #### Sensitivity curve is defined "per A" not "per pixel" so multiply by A / pixel and 
+        #### the grow_factor term accounts for the fact that the pixels are smaller in the 
+        #### spatial axis as well in the interlaced images
+        #print '%s DLAM: %.3f %.3f' %(beam, np.median(np.diff(lam)), np.std(np.diff(lam)))
+        sens_interp *= np.median(np.diff(lam))/grow_factor**2
+        
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
             full_sens[y0[keep]+NY+1,xpix[keep]] += sens_interp[keep]
@@ -528,20 +527,26 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             spec_interp[~np.isfinite(spec_interp)] = 0
             spec_interp[lam < np.min(lam_spec)] = 0
             sens_interp *= spec_interp
-        #
-        if beam == 'A':
-            sens_interp *= 0.5
         
+        ##### Needed these factors when I was having unit problems and not including
+        ##### the "sensitivity per A" but instead assuming "sensitivity per pixel"
+        #if beam == 'A':
+        #    sens_interp *= 0.5
+        
+        #### Increase response in the zeroth order to match observations
         if beam == 'B':
-            sens_interp *= 3.6 * 10
+            sens_interp *= 1.5 #3.6 * 10
         
-        if beam in ['C','D','E']:
-            sens_interp *= 0.25
+        # if beam in ['C','D','E']:
+        #     sens_interp *= 0.25
                 
         stripe *= np.dot(np.ones((NY*2+1,1)), sens_interp.reshape(1,NX)) * grow_factor**2
         
         model += stripe
         #print beam, model.max()
+        
+    if 'A' not in BEAMS:
+        yoff_array = np.array([0,0])
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
@@ -554,6 +559,11 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
     
     test = model.load_model_spectra()
     if not test:
+        ### "zeroth" iteration to flag 0th order contamination, no color / norm iteration
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'])   
+        ### Reset the model
+        model.init_object_spectra()
+        model.model*=0
         ### First iteration with flat spectra and the object flux
         model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
@@ -800,8 +810,14 @@ class GrismModel():
         
         #### Read the direct interlaced image        
         self.direct = pyfits.open(self.root+'-F140W_inter.fits')
+        self.direct[1].data = np.cast[np.double](self.direct[1].data)
+        
         self.filter = self.direct[0].header['FILTER']
-        self.pad = self.direct[1].header['PAD']
+        if 'PAD' in self.direct[1].header.keys():
+            self.pad = self.direct[1].header['PAD']
+        else:
+            self.pad = 0.
+            
         self.REF_INTER = False
         
         #### If a "reference" interlaced image exists, use that
@@ -1142,18 +1158,19 @@ class GrismModel():
         #
         self.object *= 0.
     
-        # mask = self.segm[0].data == id
-        # xpix = self.xf[mask]
-        # ypix = self.yf[mask]
-        # 
-        # #### Loop through pixels defined within the segmentation region, summing
-        # #### dispersed flux
+        mask = self.segm[0].data == id
+        xpix = self.xf[mask]
+        ypix = self.yf[mask]
+        
+        #### Loop through pixels defined within the segmentation region, summing
+        #### dispersed flux
+        # test_object = self.object*0.
         # for jj in range(xpix.size):
         #     x, y = xpix[jj], ypix[jj]
         #     xxi = x+xord
         #     yyi = y+yord
         #     use = (xxi >= 0) & (xxi < self.sh[1]) & (yyi >= 0) & (yyi < self.sh[0])
-        #     self.object[yyi[use], xxi[use]] += ford[use]*self.flux[y,x]*10
+        #     test_object[yyi[use], xxi[use]] += ford[use]*self.flux[y,x] #*10
         # 
         # self.test_object = self.object*1.
         # self.object *= 0.
@@ -1314,7 +1331,7 @@ class GrismModel():
             self.model += self.object
             self.obj_in_model[id] = True
 
-    def show_ratio_spectrum(self, id, flux=True):
+    def show_ratio_spectrum(self, id, flux=False):
         if id not in self.cat['NUMBER']:
             print '#%d not in the catalog.' %(id)
             return False
@@ -1366,11 +1383,21 @@ class GrismModel():
                 self.obj_in_model[id] = True
                 
         if save_pickle:
-            self.save_model_spectra()
+            self.save_model_spectra(BEAMS=BEAMS)
             
-    def save_model_spectra(self):
+    def save_model_spectra(self, BEAMS=['A','B','C','D']):
+        """
+        Save model "pickle" and the 2D model image.
+        
+        If just BEAM ["B"] is specified, save the 0th order contamination image.
+        """
         import pickle
         
+        ####
+        if BEAMS == ['B']:
+            pyfits.writeto(self.root+'_inter_0th.fits', data=self.model, header=self.gris[1].header, clobber=True)
+            return
+            
         fp = open(self.root+'_inter_model.pkl','wb')
         pickle.dump(self.cat.id, fp)
         pickle.dump(self.obj_in_model, fp)
@@ -1382,7 +1409,8 @@ class GrismModel():
         
     def load_model_spectra(self):
         import pickle
-        if not os.path.exists(self.root+'_inter_model.pkl'):
+        if ((not os.path.exists(self.root+'_inter_model.pkl')) | 
+            (not os.path.exists(self.root+'_inter_model.fits'))):
             return False
             
         fp = open(self.root+'_inter_model.pkl','rb')
@@ -2929,3 +2957,18 @@ def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeom
         #    os.remove(file)
             
     return xshift, yshift, rot, xrms, yrms
+    
+def plot_defaults(point=True):
+    plt.rcParams['patch.edgecolor'] = 'None'
+    plt.rcParams['font.size'] = 10
+
+    plt.rcParams['image.origin'] = 'lower'
+    plt.rcParams['image.interpolation'] = 'nearest'
+
+    if point:
+        plt.rcParams['lines.linestyle'] = 'None'
+        plt.rcParams['lines.marker'] = 'o'
+    else:
+        plt.rcParams['lines.linestyle'] = '-'
+        plt.rcParams['lines.marker'] = 'None'
+        

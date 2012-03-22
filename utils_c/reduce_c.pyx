@@ -32,7 +32,7 @@ def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.
     for x in range(NX):
         for y in range(NY):
             if segm[y,x] == id:
-                flux_i = flux[y,x]*10.
+                flux_i = flux[y,x] #*10.
                 for iord in range(Nord):
                     xxi = x+xord[iord]
                     yyi = y+yord[iord]

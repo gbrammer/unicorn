@@ -150,7 +150,20 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
     del(model)
     
     return True
-                        
+
+def combine_all(FORCE=False):
+    import unicorn
+    import glob
+    
+    files=glob.glob('[AUGC]*[0-9]-G141_asn.fits')
+    for file in files:
+        pointing=file.split('-G141')[0]
+        if (not os.path.exists(pointing+'-F140W_inter.fits')) | FORCE:
+            unicorn.reduce.interlace_combine(pointing+'-F140W', view=False, pad=60, NGROW=125)
+        #
+        if (not os.path.exists(pointing+'-G141_inter.fits')) | FORCE:
+            unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
+                                
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0):
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -181,7 +194,8 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     
     pad += NGROW*4
     
-    N = np.zeros((2028+pad,2028+pad))
+    N = np.zeros((2028+pad,2028+pad), dtype=np.int)
+    
     inter_sci = np.zeros((2028+pad,2028+pad))
     if use_error:
         inter_err = np.zeros((2028+pad,2028+pad))
@@ -267,6 +281,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     #### Average for case when dither positions overlap, e.g. CANDELS SN fields
     inter_sci /= np.maximum(N,1) 
     inter_err = np.sqrt(inter_err) / np.maximum(N, 1)
+    inter_err[N == 0] = 0.
     
     if use_error:
         h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
@@ -274,11 +289,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         h0.update('WHTERROR',False,comment='WHT extension is 0/1 flagged bad pix')
         
     hdu = pyfits.PrimaryHDU(header=h0)
-    sci = pyfits.ImageHDU(data=inter_sci, header=header)
+    sci = pyfits.ImageHDU(data=np.cast[np.float32](inter_sci), header=header)
     if use_error:
-        wht = pyfits.ImageHDU(data=inter_err*N, header=header_wht)
+        wht = pyfits.ImageHDU(data=np.cast[np.float32](inter_err), header=header_wht)
     else:
-        wht = pyfits.ImageHDU(data=N, header=header_wht)
+        wht = pyfits.ImageHDU(data=np.cast[np.int](N), header=header_wht)
         
     image = pyfits.HDUList([hdu,sci,wht])
     if 'EXTEND' not in hdu.header.keys():
@@ -1554,7 +1569,10 @@ class GrismModel():
             fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
             fp.write('%.2f %.2f  %d %d\n' %(xc, yc, -1, -1))
             fp.close()
+            self.twod_status = False
             return False
+        
+        self.twod_status = True
         
         xmin = xarr[wavelength_region].min()
         xmax = xarr[wavelength_region].max()
@@ -1796,7 +1814,8 @@ class GrismModel():
         c4 = pyfits.Column(name='contam', format='D', unit='ELECTRONS/S', array=optimal_sum_contam)
         c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=trace_spec)
         c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=trace_sig)
-        c7 = pyfits.Column(name='sensitivity', format='D', unit='COUNTS / 1E-17 CGS', array=self.sens)
+        c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*self.grow_factor**2)
+        print 'MAX SENS: %.f' %(self.sens.max())
         
         coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
         head = pyfits.Header()

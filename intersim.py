@@ -153,7 +153,7 @@ def simspec(root='COSMOS-19'):
         print '\n -- input --\nSII  %6.2f  %6.2f' %(s2_flux/1.e-17, s2_eqw)
         print ' Ha  %6.2f  %6.2f' %(ha_flux/1.e-17, ha_eqw)
     
-def results():
+def get_results():
     import threedhst.catIO as catIO
     
     files=glob.glob('*linefit.dat')
@@ -209,6 +209,9 @@ def results():
         fp.write(' %s  %6.3f  %6.2f %6.2f %6.4f %6.2f  %6.2f %6.2f %6.2f %6.2f   %6.2f %6.2f %6.2f %6.2f\n' %(root, DIRECT_MAG, float(cat.FLUX_RADIUS[ic]), float(cat.FLUX_RADIUS2[ic]), gris.z_max_spec, continuum_sn, ha_flux, ha_flux_err, ha_eqw, ha_eqw_err, s2_flux, s2_flux_err, s2_eqw, s2_eqw_err))
         #
         fp.close()
+    
+def show_results():
+    import threedhst.catIO as catIO
     
     stats = catIO.Readfile('simspec_full.dat')
     ha_model, s2_model = unicorn.intersim.get_line_fluxes(z0=1.0, mag=stats.mag)

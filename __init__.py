@@ -42,5 +42,6 @@ import go_acs
 import fast
 
 import interlace_fit
-    
+import intersim
+
 noNewLine = '\x1b[1A\x1b[1M'

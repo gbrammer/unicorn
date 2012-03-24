@@ -174,7 +174,7 @@ def get_results():
         if cat is None:
             cat = threedhst.sex.mySexCat(pointing+'_inter.cat')
         else:
-            if not cat.filename.startswith(pointing):
+            if not cat.filename.startswith(pointing+'-'):
                 cat = threedhst.sex.mySexCat(pointing+'_inter.cat')
         #        
         gris = unicorn.interlace_fit.GrismSpectrumFit(root, verbose=False)

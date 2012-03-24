@@ -153,8 +153,22 @@ def simspec(root='COSMOS-19'):
         status = os.system('cat %s.linefit.dat' %(obj))
         print '\n -- input --\nSII  %6.2f  %6.2f' %(s2_flux/1.e-17, s2_eqw)
         print ' Ha  %6.2f  %6.2f' %(ha_flux/1.e-17, ha_eqw)
+
     
 def get_results():
+    """
+    Collate the results from the simulated spectra and the input catalogs into single output 
+    catalogs suitable for reading and plotting.
+    
+    for field in ['AEGIS','COSMOS','UDS','GOODS-S']:
+        os.chdir(unicorn.GRISM_HOME+'%s/PREP_FLT' %(field))
+        unicorn.intersim.get_results()
+    
+    os.chdir(unicorn.GRISM_HOME+'SIMULATIONS')
+    status = os.system('cat AEGIS/PREP_FLT/simspec.dat COSMOS/PREP_FLT/simspec.dat GOODS-S/PREP_FLT/simspec.dat UDS/PREP_FLT/simspec.dat > all_simspec.dat')
+    
+    """
+    
     import threedhst.catIO as catIO
     
     files=glob.glob('*linefit.dat')
@@ -194,6 +208,10 @@ def get_results():
         continuum_sn = np.median((gris.oned.data.flux/gris.oned.data.error)[lwindow])
         #
         lfit = catIO.Readfile(root+'.linefit.dat')
+        if lfit.status is None:
+            fp.close()
+            continue
+        #
         if 'Ha' in lfit.line:
             ix = np.arange(len(lfit.line))[lfit.line == 'Ha'][0]
             ha_flux, ha_flux_err, ha_eqw, ha_eqw_err = lfit.flux[ix], lfit.error[ix], lfit.eqw_obs[ix], lfit.eqw_obs_err[ix]

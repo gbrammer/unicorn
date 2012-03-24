@@ -206,7 +206,7 @@ def get_results():
         else:
             s2_flux, s2_flux_err, s2_eqw, s2_eqw_err = -1,-1,-1,-1
         #
-        ic = np.arange(cat.nrows)[cat.id == id]
+        ic = np.arange(cat.nrows)[cat.id == id][0]
         fp.write(' %s  %6.3f  %6.2f %6.2f %6.4f %6.2f  %6.2f %6.2f %6.2f %6.2f   %6.2f %6.2f %6.2f %6.2f\n' %(root, DIRECT_MAG, float(cat.FLUX_RADIUS[ic]), float(cat.FLUX_RADIUS2[ic]), gris.z_max_spec, continuum_sn, ha_flux, ha_flux_err, ha_eqw, ha_eqw_err, s2_flux, s2_flux_err, s2_eqw, s2_eqw_err))
         #
         fp.close()

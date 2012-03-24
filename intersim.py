@@ -19,9 +19,10 @@ def sim_all():
     """
     import glob
     
+    import unicorn
     import unicorn.intersim
     
-    files = glob.glob('COSMOS*G141_inter.fits')
+    files = glob.glob('*G141_inter.fits')
     for file in files:
         root=file.split('-G141')[0]
         unicorn.intersim.simspec(root=root)
@@ -143,8 +144,11 @@ def simspec(root='COSMOS-19'):
             continue
             
         #### Emission line fit
-        gris.fit_free_emlines(ztry=gris.z_max_spec, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=100, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100)
-        
+        try:
+            gris.fit_free_emlines(ztry=gris.z_max_spec, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=100, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100)
+        except:
+            pass
+            
         status = os.system('cat %s.linefit.dat' %(obj))
         print '\n -- input --\nSII  %6.2f  %6.2f' %(s2_flux/1.e-17, s2_eqw)
         print ' Ha  %6.2f  %6.2f' %(ha_flux/1.e-17, ha_eqw)

@@ -139,8 +139,11 @@ def simspec(root='COSMOS-19'):
 
         gris.phot_zgrid = zgrid
         gris.phot_lnprob = lnprob
-        gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0005, zrfirst=(z0-0.2,z0+0.2))
-        
+        try:
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0005, zrfirst=(z0-0.2,z0+0.2))
+        except:
+            continue
+            
         if not gris.status:
             continue
             
@@ -148,7 +151,7 @@ def simspec(root='COSMOS-19'):
         try:
             gris.fit_free_emlines(ztry=gris.z_max_spec, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=100, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100)
         except:
-            pass
+            continue
             
         status = os.system('cat %s.linefit.dat' %(obj))
         print '\n -- input --\nSII  %6.2f  %6.2f' %(s2_flux/1.e-17, s2_eqw)

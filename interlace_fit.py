@@ -96,9 +96,13 @@ class GrismSpectrumFit():
             return None
             
         self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
-        
-        #### Convert to 10**-19 ergs / s / cm**2 / A
-        self.oned.data.sensitivity *= np.diff(self.oned.data.wave)[0] / 100
+        if self.oned.data.flux.max() <= 0:
+            print '%s: No valid pixels in 1D spectrum.' %(root)
+            self.status = False
+            return None
+            
+        #### Convert to 10**-17 ergs / s / cm**2 / A
+        #self.oned.data.sensitivity *= np.diff(self.oned.data.wave)[0]
         
         self.grism_id = os.path.basename(self.twod.file.split('.2D.fits')[0])
 
@@ -855,7 +859,7 @@ class GrismSpectrumFit():
             if cgs_model.max() == 0.:
                 has_line_flux[i+1] = False
             #
-            norm_flux = np.trapz(cgs_model, self.oned_wave) / 100.
+            norm_flux = np.trapz(cgs_model, self.oned_wave)
             templates[i+1,:] = self.twod.model.flatten() / norm_flux
         
         #### Some lines might not actually have any flux, so remove them
@@ -910,7 +914,8 @@ class GrismSpectrumFit():
         """
         
         if self.twod.im['SCI'].data.max() <= 0:
-            print '%s: No valid pixels in 2D spectrum.'
+            print '%s: No valid pixels in 2D spectrum.' %(self.twod.im.filename())
+            self.status = False
             return False
         
         #
@@ -921,7 +926,8 @@ class GrismSpectrumFit():
         non_zero = self.oned.data.flux != 0
         
         if (wuse & non_zero).sum() < 3:
-            print '%s: No valid pixels in 2D spectrum.'
+            print '%s: No valid pixels in 2D spectrum.' %(self.twod.im.filename())
+            self.status = False
             return False
         
         ### Collapse along wave axis for fcover

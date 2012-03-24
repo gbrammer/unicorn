@@ -168,7 +168,7 @@ def get_results():
         unicorn.intersim.get_results()
     
     os.chdir(unicorn.GRISM_HOME+'SIMULATIONS')
-    status = os.system('cat AEGIS/PREP_FLT/simspec.dat COSMOS/PREP_FLT/simspec.dat GOODS-S/PREP_FLT/simspec.dat UDS/PREP_FLT/simspec.dat > all_simspec.dat')
+    status = os.system('cat ../AEGIS/PREP_FLT/simspec.dat ../COSMOS/PREP_FLT/simspec.dat ../GOODS-S/PREP_FLT/simspec.dat ../UDS/PREP_FLT/simspec.dat > all_simspec.dat')
     
     """
     
@@ -179,7 +179,7 @@ def get_results():
     cat = None
     
     fp = open('simspec.dat','w')
-    fp.write('# object mag r50 r90 z_fit continuum_sn ha_flux ha_flux_err ha_eqw ha_eq_err s2_flux s2_flux_err s2_eqw s2_eq_err\n')
+    fp.write('# object sky_avg sky_lo sky_hi mag r50 r90 z_fit continuum_sn ha_flux ha_flux_err ha_eqw ha_eq_err s2_flux s2_flux_err s2_eqw s2_eq_err\n')
     fp.close()
     
     for ii, file in enumerate(files):
@@ -190,9 +190,28 @@ def get_results():
         id = int(root.split('_')[1])
         if cat is None:
             cat = threedhst.sex.mySexCat(pointing+'_inter.cat')
+            ### Get sky background
+            asn = threedhst.utils.ASNFile(pointing+'-G141_asn.fits')
+            bg = []
+            for exp in asn.exposures:
+                flt = pyfits.open(exp+'_flt.fits')
+                bg.append(flt[0].header['SKYSCALE'])
+            #
+            bg_avg = np.mean(bg)
+            bg_lo = np.min(bg)
+            bg_hi = np.max(bg)
         else:
             if not cat.filename.startswith(pointing+'-'):
                 cat = threedhst.sex.mySexCat(pointing+'_inter.cat')
+                asn = threedhst.utils.ASNFile(pointing+'-G141_asn.fits')
+                bg = []
+                for exp in asn.exposures:
+                    flt = pyfits.open(exp+'_flt.fits')
+                    bg.append(flt[0].header['SKYSCALE'])
+                #
+                bg_avg = np.mean(bg)
+                bg_lo = np.min(bg)
+                bg_hi = np.max(bg)
         #        
         gris = unicorn.interlace_fit.GrismSpectrumFit(root, verbose=False)
         if not gris.status:
@@ -231,14 +250,14 @@ def get_results():
             s2_flux, s2_flux_err, s2_eqw, s2_eqw_err = -1,-1,-1,-1
         #
         ic = np.arange(cat.nrows)[cat.id == id][0]
-        fp.write(' %s  %6.3f  %6.2f %6.2f %6.4f %6.2f  %6.2f %6.2f %6.2f %6.2f   %6.2f %6.2f %6.2f %6.2f\n' %(root, DIRECT_MAG, float(cat.FLUX_RADIUS[ic]), float(cat.FLUX_RADIUS2[ic]), gris.z_max_spec, continuum_sn, ha_flux, ha_flux_err, ha_eqw, ha_eqw_err, s2_flux, s2_flux_err, s2_eqw, s2_eqw_err))
+        fp.write(' %s  %5.2f %5.2f %5.2f  %6.3f  %6.2f %6.2f %6.4f %6.2f  %6.2f %6.2f %6.2f %6.2f   %6.2f %6.2f %6.2f %6.2f\n' %(root, bg_avg, bg_lo, bg_hi, DIRECT_MAG, float(cat.FLUX_RADIUS[ic]), float(cat.FLUX_RADIUS2[ic]), gris.z_max_spec, continuum_sn, ha_flux, ha_flux_err, ha_eqw, ha_eqw_err, s2_flux, s2_flux_err, s2_eqw, s2_eqw_err))
         #
         fp.close()
     
 def show_results():
     import threedhst.catIO as catIO
     
-    stats = catIO.Readfile('simspec_full.dat')
+    stats = catIO.Readfile('all_simspec.dat')
     ha_model, s2_model = unicorn.intersim.get_line_fluxes(z0=1.0, mag=stats.mag)
     
     #### Color by r50/r90 concentration
@@ -251,7 +270,7 @@ def show_results():
     #### Continuum depth
     BINWIDTH=92
     bin_sn = np.sqrt(BINWIDTH/22)
-    plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.8, c=mcol)
+    plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=mcol)
     plt.ylim(0.1,2000)
     plt.plot([17,24],[5,5], color='black', alpha=0.4)
     plt.xlim(17,24)

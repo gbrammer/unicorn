@@ -158,7 +158,7 @@ def simspec(root='COSMOS-19'):
         print ' Ha  %6.2f  %6.2f' %(ha_flux/1.e-17, ha_eqw)
 
     
-def get_results():
+def get_results(force_new=False):
     """
     Collate the results from the simulated spectra and the input catalogs into single output 
     catalogs suitable for reading and plotting.
@@ -178,14 +178,21 @@ def get_results():
     
     cat = None
     
-    fp = open('simspec.dat','w')
-    fp.write('# object sky_avg sky_lo sky_hi mag r50 r90 z_fit continuum_sn ha_flux ha_flux_err ha_eqw ha_eq_err s2_flux s2_flux_err s2_eqw s2_eq_err\n')
-    fp.close()
+    if (not os.path.exists('simspec.dat')) | force_new:
+        fp = open('simspec.dat','w')
+        fp.write('# object sky_avg sky_lo sky_hi mag r50 r90 z_fit continuum_sn ha_flux ha_flux_err ha_eqw ha_eq_err s2_flux s2_flux_err s2_eqw s2_eq_err\n')
+        fp.write('dummy 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n')
+        fp.close()
+    
+    log = catIO.Readfile('simspec.dat')
     
     for ii, file in enumerate(files):
-        fp = open('simspec.dat','a')
         root = file.split('.linefit')[0]
         print unicorn.noNewLine+'%s (%d/%d)' %(root, ii+1, len(files))
+        if root in log.object:
+            continue
+        #
+        fp = open('simspec.dat','a')
         pointing = root.split('_')[0]
         id = int(root.split('_')[1])
         if cat is None:
@@ -263,21 +270,56 @@ def show_results():
     #### Color by r50/r90 concentration
     concentration = stats.r50/stats.r90
     msize = np.maximum((concentration/0.2)**4,4)
-    mcol = np.minimum((np.maximum(concentration,0.3)-0.3)/0.3,1)
+    mcol = np.minimum((np.maximum(concentration,0.3)-0.3)/0.2,1)
     plt.scatter(stats.mag, concentration, c=mcol, alpha=0.5)
 
+    stats.sky_avg += np.random.normal(size=stats.sky_avg.shape)*0.01
+    sky_col = (stats.sky_avg - 0.8)/0.8
+    plt.scatter(stats.mag, stats.sky_avg, c=sky_col, alpha=0.5)
     
     #### Continuum depth
     BINWIDTH=92
     bin_sn = np.sqrt(BINWIDTH/22)
-    plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=mcol)
+    #plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=mcol)
+    plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=sky_col)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.mag, stats.continuum_sn*bin_sn, NBIN=20)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
     plt.ylim(0.1,2000)
     plt.plot([17,24],[5,5], color='black', alpha=0.4)
     plt.xlim(17,24)
     plt.semilogy()
     
-    sub = np.abs(stats.mag-23) < 0.5
-    plt.scatter(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, c=mcol[sub], alpha=0.8)
+    yi = np.interp(stats.mag, xm, ym)
+    yi = stats.continuum_sn*bin_sn/yi
+    plt.scatter(stats.mag, yi, alpha=0.5, c=sky_col)
+    
+    sub = (np.abs(stats.mag-22.5) < 0.5) & (stats.continuum_sn > 0)
+    #plt.scatter(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, c=mcol[sub], alpha=0.5)
+    plt.scatter(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, c=sky_col[sub], alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, NBIN=5)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    
+    plt.scatter(stats.sky_avg[sub], stats.continuum_sn[sub]*bin_sn, c=mcol[sub], alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], stats.continuum_sn[sub]*bin_sn, NBIN=5)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    plt.semilogy()
+    
+    sub = (stats.mag > 18) & (stats.continuum_sn > 0)
+    
+    plt.scatter(stats.r50[sub], yi[sub], c=sky_col[sub], alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], yi[sub], NBIN=10)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    
+    yi2 = np.interp(stats.r50, xm, ym)
+    yi2 = yi/yi2
+
+    plt.scatter(stats.r50[sub], yi2[sub], c=sky_col[sub], alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], yi2[sub], NBIN=10)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+
+    plt.scatter(stats.sky_avg[sub], yi2[sub], c=sky_col[sub], alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], yi2[sub], NBIN=10)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
     
     #### Line fluxes
     plt.errorbar(ha_model, stats.ha_flux, stats.ha_flux_err, marker='o', markersize=0.1, linestyle='None', color='0.5')
@@ -290,17 +332,39 @@ def show_results():
     
     ha_sn = stats.ha_flux/stats.ha_flux_err
     plt.scatter(stats.ha_flux, ha_sn, c=mcol, zorder=100, alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.ha_flux, ha_sn, NBIN=10)
+    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
     plt.plot([0.5,1000],[5,5], color='black', alpha=0.4)
     plt.xlim(0.5,1000)
     plt.ylim(0.5,1000)
     plt.loglog()
     
+    yi_line = np.interp(stats.ha_flux, xm, ym)
+    yi_line = ha_sn / yi_line
+    plt.scatter(stats.ha_flux, yi_line, c=mcol, alpha=0.2)
+    #### Nice:  line flux with respect to concentration after taking out the overall trend with
+    #### line strength
+    sub = (stats.ha_flux > 10) & (stats.ha_flux < 100)
+    plt.scatter(concentration[sub], yi_line[sub], c=mcol[sub], alpha=0.5)
+    plt.semilogy()
+    
+    #
+    plt.scatter(stats.mag, stats.ha_flux, c=mcol, zorder=100, alpha=0.5)
+    plt.ylim(0.1,5000)
+    plt.semilogy()
+    
     #### EQW 
     dha = stats.ha_eqw-130.
-    hi = plt.hist(dha/stats.ha_eq_err, range=(-5,5), bins=50, alpha=0.7)
+    hy, hx, hh = plt.hist(dha/stats.ha_eq_err, range=(-5,5), bins=50, alpha=0.7)
+    threedhst.utils.biweight(dha/stats.ha_eq_err, both=True)
     
     #### redshift
     dz = (stats.z_fit-1)/2.
+    plt.scatter(stats.mag, dz, c=mcol, alpha=0.5)
+    
+    plt.scatter(stats.ha_flux, dz, c=mcol, alpha=0.5)
+    plt.xlim(0.1,5000)
+    plt.semilogx()
     
     #### surface density
     mu = stats.mag-2*np.log(stats.r90*0.06)

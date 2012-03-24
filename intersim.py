@@ -193,16 +193,19 @@ def get_results():
         #        
         gris = unicorn.interlace_fit.GrismSpectrumFit(root, verbose=False)
         if not gris.status:
+            fp.close()
             continue
         #
         result = gris.stats()
         if result is False:
+            fp.close()
             continue
         #
         DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE = result
         #
         lwindow = (gris.oned.data.wave > 1.4e4) & (gris.oned.data.wave < 1.6e4)
         if (lwindow.sum() < 10) | (INT_CONTAM > 0.3):
+            fp.close()
             continue
         #
         continuum_sn = np.median((gris.oned.data.flux/gris.oned.data.error)[lwindow])

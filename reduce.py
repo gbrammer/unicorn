@@ -152,8 +152,10 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
     return True
 
 def combine_all(FORCE=False):
-    import unicorn
+    import os
     import glob
+    
+    import unicorn
     
     files=glob.glob('[AUGC]*[0-9]-G141_asn.fits')
     for file in files:
@@ -565,7 +567,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=27, make_zeroth_model=True):
     import unicorn.reduce
     
     model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, MAG_LIMIT=MAG_LIMIT)
@@ -574,11 +576,13 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
     
     test = model.load_model_spectra()
     if not test:
-        ### "zeroth" iteration to flag 0th order contamination, no color / norm iteration
-        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'])   
-        ### Reset the model
-        model.init_object_spectra()
-        model.model*=0
+        if make_zeroth_model:
+            ### "zeroth" iteration to flag 0th order contamination, no color / norm iteration
+            model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'])   
+            ### Reset the model
+            model.init_object_spectra()
+            model.model*=0
+        
         ### First iteration with flat spectra and the object flux
         model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
@@ -1815,7 +1819,7 @@ class GrismModel():
         c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=trace_spec)
         c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=trace_sig)
         c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*self.grow_factor**2)
-        print 'MAX SENS: %.f' %(self.sens.max())
+        #print 'MAX SENS: %.f' %(self.sens.max())
         
         coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
         head = pyfits.Header()
@@ -2991,3 +2995,64 @@ def plot_defaults(point=True):
         plt.rcParams['lines.linestyle'] = '-'
         plt.rcParams['lines.marker'] = 'None'
         
+def deep_model(root='COSMOS-19'):
+    """ 
+    Use the model generator to make a full model of all objects in a pointing down to 
+    very faint limits to test the grism background subtraction.
+    """
+    import matplotlib 
+    
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=27)
+    
+    if model.cat.mag.max() < 28:
+        model.find_objects(MAG_LIMIT=28)
+        
+    model.get_corrected_wcs(verbose=True)
+    model.load_model_spectra()
+    
+    ### First iteration with flat spectra and the object flux
+    model.compute_full_model(refine=False, MAG_LIMIT=28, save_pickle=False)   
+    ### For the brighter galaxies, refine the model with the observed spectrum         
+    model.compute_full_model(refine=True, MAG_LIMIT=24, save_pickle=True)
+    
+    err = np.random.normal(size=model.model.shape)*model.gris[2].data
+    
+    factors = [1,0.1,0.01,0.001,0.000001]
+    
+    yi, xi = np.indices(model.model.shape)
+    
+    fig = unicorn.catalogs.plot_init(xs=6, aspect=1, left=0.18)
+    ax = fig.add_subplot(211)
+    #ax.plot([0,0])
+    
+    for factor in factors:
+        mask = (model.model < (model.gris[2].data*factor)) & (model.gris[2].data != 0) & (xi > 350) & (yi > 120)
+        #
+        yh, xh = np.histogram(model.gris[1].data[mask].flatten(), range=(-0.05,0.05), bins=200, normed=True)
+        stats = threedhst.utils.biweight(model.gris[1].data[mask].flatten(), both=True)
+        a = ax.plot(xh[1:]*4, yh, linestyle='steps-', alpha=0.8, label=r'%5.3f %7.5f$\pm$%.3f' %(factor, stats[0]*4, stats[1]*4))
+    
+    #
+    ax.legend(prop=matplotlib.font_manager.FontProperties(size=10))
+    ax.set_xlabel(r'$\delta$ electrons / s')
+    ax.set_ylabel('N')
+    
+    # import gbb.pymc_gauss
+    # gfit = gbb.pymc_gauss.init_model(xh[1:], yh, yh*0.+0.1)
+    # gfit.sample(5000,1000)
+    # plt.plot(xh[1:], yh-gfit.stats()['eval_gaussian']['mean'])
+    
+    ax = fig.add_subplot(212)
+    ### See the flux level that corresponds to the over-subtraction
+    wave = unicorn.reduce.sens_files['A'].field('WAVELENGTH')
+    flam = np.abs(stats[0])*4/(unicorn.reduce.sens_files['A'].field('SENSITIVITY')*46.5)
+    fnu = flam*wave**2/3.e18
+    mag = -2.5*np.log10(fnu)-48.6
+    ax.plot(wave, mag)
+    ax.set_xlim(1.05e4,1.7e4)
+    ran = (wave > 1.05e4) & (wave < 1.7e4)
+    ax.set_ylim(mag[ran].min()-0.2, mag[ran].max()+0.2)
+    ax.set_xlabel(r'$\lambda$') 
+    ax.set_ylabel(r'mag of offset')
+    
+    unicorn.catalogs.savefig(fig, root+'_inter_deep_residuals.png')

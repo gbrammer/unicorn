@@ -4,7 +4,11 @@ Simulate interlaced spectra.
 import os
 import glob
 
+from pylab import cm
+
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+
 import numpy as np
 import pyfits
 
@@ -267,61 +271,162 @@ def show_results():
     stats = catIO.Readfile('all_simspec.dat')
     ha_model, s2_model = unicorn.intersim.get_line_fluxes(z0=1.0, mag=stats.mag)
     
+    xstar = [14.5, 24.1]
+    ystar = [3.00, 2.13]
+    yi = np.interp(stats.mag, xstar, ystar)
+    #plt.scatter(stats.mag, yi, s=0.1, color='black')
+    is_star = stats.r50 < yi
+    plt.scatter(stats.mag[is_star], stats.r50[is_star], alpha=0.5)
+    plt.scatter(stats.mag[~is_star], stats.r50[~is_star], alpha=0.2, color='red')
+    
     #### Color by r50/r90 concentration
     concentration = stats.r50/stats.r90
     msize = np.maximum((concentration/0.2)**4,4)
     mcol = np.minimum((np.maximum(concentration,0.3)-0.3)/0.2,1)
     plt.scatter(stats.mag, concentration, c=mcol, alpha=0.5)
-
+    
+    mcol = np.minimum(np.log10(stats.r50-1.1),1)
+    
     stats.sky_avg += np.random.normal(size=stats.sky_avg.shape)*0.01
-    sky_col = (stats.sky_avg - 0.8)/0.8
+    sky_col = np.minimum((stats.sky_avg - 0.8)/0.8,1)
     plt.scatter(stats.mag, stats.sky_avg, c=sky_col, alpha=0.5)
     
     #### Continuum depth
+    
     BINWIDTH=92
     bin_sn = np.sqrt(BINWIDTH/22)
+    binned = stats.continuum_sn*bin_sn
+    
+    #### Get correction functions
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.mag, binned, NBIN=80)
+    ymag = np.interp(stats.mag, xm, ym)
+
+    sub = (stats.mag > 18) & (stats.mag < 23) & (stats.continuum_sn > 0) # & (~is_star)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], (binned/ymag)[sub], NBIN=20)
+    ysize = np.interp(stats.r50, xm, ym)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], (binned/ymag/ysize)[sub], NBIN=25)
+    ysky = np.interp(stats.sky_avg, xm, ym)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(concentration[sub], (binned/ymag/ysize/ysky)[sub], NBIN=25)
+    ycons = np.interp(concentration, xm, ym)
+    
+    fig = unicorn.catalogs.plot_init(xs=8, aspect=1./4, left=0.07)
+    #fig.subplots_adjust(wspace=0.27, hspace=0.25, left=0.12)  # 2x2
+    fig.subplots_adjust(wspace=0.38, hspace=0.25, left=0.074, bottom=0.22)
+        
+    si = 4
+    mark = 'o'
+    cmap = cm.jet
+    bins = [80,80]
+    
+    ax = fig.add_subplot(141)
+    
     #plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=mcol)
-    plt.scatter(stats.mag, stats.continuum_sn*bin_sn, alpha=0.5, c=sky_col)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.mag, stats.continuum_sn*bin_sn, NBIN=20)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
-    plt.ylim(0.1,2000)
-    plt.plot([17,24],[5,5], color='black', alpha=0.4)
-    plt.xlim(17,24)
+    use = np.isfinite(binned) & (binned > 0)
+    #plt.scatter(stats.mag[use], (binned/ysize/ysky)[use], alpha=0.5, c=mcol[use], s=si, marker=mark)
+    unicorn.intersim.show_hist_contour(stats.mag[use], (binned/ysize/ysky)[use], axrange=[[20,24],[0.5,100]], ylog=True, cmap=cmap, bins=bins)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.mag[use], (binned/ysize/ysky)[use], NBIN=80)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.ylim(0.5,100)
+    plt.plot([20,24],[5,5], color='black', alpha=0.4)
+    plt.xlim(20,24)
     plt.semilogy()
+    plt.xlabel(r'MAG_AUTO $m_{140}$')
+    plt.ylabel('cont. S/N')
+    ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(6, integer=True))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax.set_yticks([1,10,100]); ax.set_yticklabels(['1','10','100'])
     
-    yi = np.interp(stats.mag, xm, ym)
-    yi = stats.continuum_sn*bin_sn/yi
-    plt.scatter(stats.mag, yi, alpha=0.5, c=sky_col)
+    ax = fig.add_subplot(142)
     
-    sub = (np.abs(stats.mag-22.5) < 0.5) & (stats.continuum_sn > 0)
-    #plt.scatter(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, c=mcol[sub], alpha=0.5)
-    plt.scatter(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, c=sky_col[sub], alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], stats.continuum_sn[sub]*bin_sn, NBIN=5)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    #plt.scatter(stats.r50[sub], (binned/ymag/ysky)[sub], c=mcol[sub], alpha=0.5, s=si)
+    unicorn.intersim.show_hist_contour(stats.r50[sub], (binned/ymag/ysky)[sub], axrange=[[0,20],[0.3,1.7]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], (binned/ymag/ysky)[sub], NBIN=20)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.fill_betweenx([0,10],[1.7,1.7],[2.5,2.5], alpha=0.15, color='red')
+    plt.xlabel(r'$R_{50}$ [pix]')
+    plt.ylabel(r'$\delta$ cont. S/N')
+    plt.ylim(0.3,1.7)
+    plt.xlim(0,15)
+        
+    ysize = np.interp(stats.r50, xm, ym)
     
-    plt.scatter(stats.sky_avg[sub], stats.continuum_sn[sub]*bin_sn, c=mcol[sub], alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], stats.continuum_sn[sub]*bin_sn, NBIN=5)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
-    plt.semilogy()
+    # plt.scatter(stats.r50[sub], (binned/ymag/ysize)[sub], c=sky_col[sub], alpha=0.5)
+    # xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], (binned/ymag/ysize)[sub], NBIN=10)
+    # plt.plot(xm, ym, linewidth=2, color='black', alpha=0.5)
     
-    sub = (stats.mag > 18) & (stats.continuum_sn > 0)
+    ax = fig.add_subplot(143)
     
-    plt.scatter(stats.r50[sub], yi[sub], c=sky_col[sub], alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], yi[sub], NBIN=10)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    #plt.scatter(stats.sky_avg[sub], (binned/ymag/ysize)[sub], c=mcol[sub], alpha=0.5, s=si)
+    unicorn.intersim.show_hist_contour(stats.sky_avg[sub], (binned/ymag/ysize)[sub], axrange=[[0.5,3.5],[0.3,1.7]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], (binned/ymag/ysize)[sub], NBIN=25)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.ylim(0.3,1.7)
+    plt.xlim(0.5,3.5)
+    plt.xlabel(r'Sky Bkg. (e / s)')
+    plt.ylabel(r'$\delta$ cont S/N')
+    ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(6, integer=True))
     
-    yi2 = np.interp(stats.r50, xm, ym)
-    yi2 = yi/yi2
-
-    plt.scatter(stats.r50[sub], yi2[sub], c=sky_col[sub], alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], yi2[sub], NBIN=10)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
-
-    plt.scatter(stats.sky_avg[sub], yi2[sub], c=sky_col[sub], alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], yi2[sub], NBIN=10)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
+    ysky = np.interp(stats.sky_avg, xm, ym)
+    
+    ### Very little residual trend with concentration
+    ax = fig.add_subplot(144)
+    
+    #plt.scatter(concentration[sub], (binned/ymag/ysize/ysky)[sub], c=mcol[sub], s=si, alpha=0.5)
+    unicorn.intersim.show_hist_contour(concentration[sub], (binned/ymag/ysize/ysky)[sub], axrange=[[0.25,0.60],[0.3,1.7]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(concentration[sub], (binned/ymag/ysize/ysky)[sub], NBIN=25)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.xlim(0.25,0.60)
+    plt.ylim(0.3,1.7)
+    #plt.ylim(0.5,1.5)
+    plt.xlabel(r'$C = R_{50}/R_{90}$')
+    plt.ylabel(r'$\delta$ cont S/N')
+    #ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(5, prune=None))
+    ax.xaxis.set_major_locator(MultipleLocator(0.1))
+    
+    ycons = np.interp(concentration, xm, ym)
+    
+    plt.savefig('grism_cont_sensitivity.pdf')
+    
+    # #### Test
+    # plt.scatter(stats.mag, binned, alpha=0.5, c=sky_col, s=4)
+    # xm, ym, ys, nn = threedhst.utils.runmed(stats.mag, binned, NBIN=80)
+    # plt.errorbar(xm, ym, ys, linewidth=2, color='black', alpha=0.5)
+    # plt.ylim(0.1,2000)
+    # plt.plot([17,24],[5,5], color='black', alpha=0.4)
+    # plt.xlim(17,24)
+    # plt.semilogy()
     
     #### Line fluxes
+    ha_sn = stats.ha_flux/stats.ha_flux_err
+    
+    show = np.isfinite(ha_sn) & (ha_sn > 0) & (stats.ha_flux > 0)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.ha_flux[~is_star & show], ha_sn[~is_star & show], NBIN=25)
+    yline_flux = np.interp(stats.ha_flux, xm, ym)
+    
+    sub = (stats.ha_flux > 6) & (stats.ha_flux < 100) & (stats.mag > 18) & (np.isfinite(ha_sn)) # & (~is_star)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], (ha_sn/yline_flux)[sub], NBIN=30)
+    yline_r50 = np.interp(stats.r50, xm, ym)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], (ha_sn/yline_flux/yline_r50)[sub], NBIN=20)
+    yline_sky = np.interp(stats.sky_avg, xm, ym)
+    
+    xm, ym, ys, nn = threedhst.utils.runmed(concentration[sub], (ha_sn/yline_flux/yline_r50/yline_sky)[sub], NBIN=10)
+    yline_con = np.interp(concentration, xm, ym)
+    
     plt.errorbar(ha_model, stats.ha_flux, stats.ha_flux_err, marker='o', markersize=0.1, linestyle='None', color='0.5')
     plt.scatter(ha_model, stats.ha_flux, c=mcol, zorder=100, alpha=0.5)
     #plt.scatter(stats.s2_flux, s2_model, alpha=0.8, c=mc)
@@ -329,24 +434,101 @@ def show_results():
     plt.xlim(0.5,1000)
     plt.ylim(0.5,1000)
     plt.loglog()
+     
+    # 2x2   
+    #fig = unicorn.catalogs.plot_init(xs=5.5, aspect=1, left=0.08)
+    #fig.subplots_adjust(wspace=0.27, hspace=0.25, left=0.12)
+    fig = unicorn.catalogs.plot_init(xs=8, aspect=1./4, left=0.07)
+    fig.subplots_adjust(wspace=0.38, hspace=0.25, left=0.074, bottom=0.22)
     
-    ha_sn = stats.ha_flux/stats.ha_flux_err
-    plt.scatter(stats.ha_flux, ha_sn, c=mcol, zorder=100, alpha=0.5)
-    xm, ym, ys, nn = threedhst.utils.runmed(stats.ha_flux, ha_sn, NBIN=10)
-    plt.plot(xm, ym, linewidth=3, color='black', alpha=0.5)
-    plt.plot([0.5,1000],[5,5], color='black', alpha=0.4)
-    plt.xlim(0.5,1000)
-    plt.ylim(0.5,1000)
+    ax = fig.add_subplot(141)
+    
+    si = 4
+    
+    show = np.isfinite(ha_sn) & (ha_sn > 0) & (stats.ha_flux > 0)
+    #plt.scatter(stats.ha_flux[show], ha_sn[show], c=mcol[show], s=si, zorder=100, alpha=0.3)
+    unicorn.intersim.show_hist_contour(stats.ha_flux[show], (ha_sn/yline_r50/yline_sky/yline_con)[show], axrange=[[0.5,100],[0.5,100]], bins=bins, cmap=cmap, xlog=True, ylog=True)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.ha_flux[~is_star & show], (ha_sn/yline_r50/yline_sky/yline_con)[~is_star & show], NBIN=25)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.plot([0.5,100],[5,5], color='black', alpha=0.4)
+    plt.xlim(0.5,100)
+    plt.ylim(0.5,100)
     plt.loglog()
+    plt.xlabel(r'line flux [$10^{-17}$ ergs / s / cm$^2$]')
+    plt.ylabel('line S/N')
     
-    yi_line = np.interp(stats.ha_flux, xm, ym)
-    yi_line = ha_sn / yi_line
-    plt.scatter(stats.ha_flux, yi_line, c=mcol, alpha=0.2)
+    ax.set_yticks([1,10,100]); ax.set_yticklabels(['1','10','100'])
+    ax.set_xticks([1,10,100]); ax.set_xticklabels(['1','10','100'])
+    
+    yline_flux = np.interp(stats.ha_flux, xm, ym)
+    #plt.scatter(stats.ha_flux, ha_sn/yline_flux, c=mcol, alpha=0.2)
+
     #### Nice:  line flux with respect to concentration after taking out the overall trend with
     #### line strength
-    sub = (stats.ha_flux > 10) & (stats.ha_flux < 100)
-    plt.scatter(concentration[sub], yi_line[sub], c=mcol[sub], alpha=0.5)
-    plt.semilogy()
+    ax = fig.add_subplot(142)
+    
+    #plt.scatter(stats.r50[sub], (ha_sn/yline_flux)[sub], c=mcol[sub], s=si, alpha=0.3)
+    unicorn.intersim.show_hist_contour(stats.r50[sub], (ha_sn/yline_flux/yline_sky/yline_con)[sub], axrange=[[0,15],[0.3,2.5]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.r50[sub], (ha_sn/yline_flux/yline_sky/yline_con)[sub], NBIN=30)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.fill_betweenx([0,10],[1.7,1.7],[2.5,2.5], alpha=0.15, color='red')
+    plt.ylim(0.3,2.5)
+    plt.xlim(0,15)
+    plt.xlabel(r'$R_{50}$ [pix]')
+    plt.ylabel(r'$\delta$ line S/N')
+    #plt.semilogy()
+    
+    yline_r50 = np.interp(stats.r50, xm, ym)
+    
+    ax = fig.add_subplot(143)
+    
+    #plt.scatter(stats.sky_avg[sub], (ha_sn/yline_flux/yline_r50)[sub], c=mcol[sub], s=si, alpha=0.3)
+    unicorn.intersim.show_hist_contour(stats.sky_avg[sub], (ha_sn/yline_flux/yline_r50/yline_con)[sub], axrange=[[0.5,3.5],[0.3,1.7]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(stats.sky_avg[sub], (ha_sn/yline_flux/yline_r50/yline_con)[sub], NBIN=20)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.ylim(0.3,1.7)
+    plt.xlim(0.5,3.5)
+    plt.xlabel(r'Sky Bkg. (e / s)')
+    plt.ylabel(r'$\delta$ line S/N')
+    ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(6, integer=True))
+
+    yline_sky = np.interp(stats.sky_avg, xm, ym)
+    
+    ax = fig.add_subplot(144)
+
+    #plt.scatter(concentration[sub], (ha_sn/yline_flux/yline_r50/yline_sky)[sub], c=mcol[sub], s=si, alpha=0.3)
+    unicorn.intersim.show_hist_contour(concentration[sub], (ha_sn/yline_flux/yline_r50/yline_sky)[sub], axrange=[[0.25,0.60],[0.3,1.7]], bins=bins, cmap=cmap)
+    xm, ym, ys, nn = threedhst.utils.runmed(concentration[sub], (ha_sn/yline_flux/yline_r50/yline_sky)[sub], NBIN=10)
+    plt.plot(xm, ym, linewidth=2, color='white', alpha=0.5, zorder=100)
+    plt.plot(xm, ym, linewidth=1, color='black', alpha=0.8, zorder=100)
+    plt.plot([0,20],[1,1], linewidth=1, alpha=0.4, zorder=101, color='black')
+    plt.xlim(0.25,0.60)
+    plt.ylim(0.3,1.7)
+    plt.xlabel(r'$C = R_{50}/R_{90}$')
+    plt.ylabel(r'$\delta$ line S/N')
+    ax.xaxis.set_major_locator(MultipleLocator(0.1))
+    
+    yline_con = np.interp(concentration, xm, ym)
+    
+    plt.savefig('grism_line_sensitivity.pdf')
+    
+    # #### Test:
+    # show = (np.isfinite(ha_sn)) & (stats.ha_flux > 0)
+    # plt.scatter(stats.ha_flux[show], (ha_sn/yline_sky)[show], c=mcol[show], zorder=100, alpha=0.2)
+    # xm, ym, ys, nn = threedhst.utils.runmed(stats.ha_flux[show],  (ha_sn/yline_sky)[show], NBIN=25)
+    # plt.plot(xm, ym, linewidth=2, color='black', alpha=0.5, zorder=100)
+    # plt.plot([0.5,1000],[5,5], color='black', alpha=0.4)
+    # plt.xlim(0.5,1000)
+    # plt.ylim(0.5,300)
+    # plt.loglog()
+    
+    #plt.semilogy()
     
     #
     plt.scatter(stats.mag, stats.ha_flux, c=mcol, zorder=100, alpha=0.5)
@@ -369,7 +551,55 @@ def show_results():
     #### surface density
     mu = stats.mag-2*np.log(stats.r90*0.06)
     plt.scatter(stats.mag, mu, c=mcol)
+
+def show_hist_contour(xin, yin, axrange=None, bins=[50,50], xlog=False, ylog=False, ax=None, Vbins=[2, 4, 8, 16, 32, 64, 128, 256, 512, 4096], cmap=cm.jet):
+    import matplotlib.colors as co
     
+    if xlog:
+        xdata = np.log10(xin)
+    else:
+        xdata = xin
+    
+    if ylog:
+        ydata = np.log10(yin)
+    else:
+        ydata = yin
+    
+    if axrange is None:
+        axrange = [[np.min(xdata),np.max(xdata)],[np.min(ydata),np.max(ydata)]]
+    
+    if xlog:
+        for i in range(2):
+            axrange[0][i] = np.log10(axrange[0][i])
+
+    if ylog:
+        for i in range(2):
+            axrange[1][i] = np.log10(axrange[1][i])
+                        
+    hist, xedge, yedge = np.histogram2d(xdata, ydata, bins=bins, range=axrange)
+    #Vbins = [2, 4, 8, 16, 32, 64, 128, 256, 512, 4096]
+    values =   1.-np.arange(len(Vbins))*1./len(Vbins)
+    Vcolors = []
+    for i in range(len(Vbins)):
+        Vcolors.append('%f' %(values[i]))
+    
+    if xlog:
+        xx = 10**((xedge[:-1]+xedge[1:])/2.)
+    else:
+        xx = (xedge[:-1]+xedge[1:])/2.
+    
+    if ylog:
+        yy = 10**((yedge[:-1]+yedge[1:])/2.)
+    else:
+        yy = (yedge[:-1]+yedge[1:])/2.
+        
+    norml = co.BoundaryNorm(Vbins, 312)
+    
+    if ax is None:
+        plt.contourf(xx, yy, hist.transpose(), Vbins, alpha=1.0, linethick=2, norm=norml, cmap=cmap)
+    else:
+        ax.contourf(xx, yy, hist.transpose(), Vbins, alpha=1.0, linethick=2, norm=norml, cmap=cmap)
+            
 def get_line_fluxes(z0=1.0, mag=21):
     """ 
     Get emission line fluxes for a given continuum magnitude.

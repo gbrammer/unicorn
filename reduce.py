@@ -2995,18 +2995,24 @@ def plot_defaults(point=True):
         plt.rcParams['lines.linestyle'] = '-'
         plt.rcParams['lines.marker'] = 'None'
         
-def deep_model(root='COSMOS-19'):
+def all_deep():
+    files = glob.glob('*G141_inter.fits')
+    for file in files: 
+        root=file.split('-G141')[0]
+        deep_model(root=root, MAG_LIMIT=28)
+        
+def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     """ 
     Use the model generator to make a full model of all objects in a pointing down to 
     very faint limits to test the grism background subtraction.
     """
     import matplotlib 
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=27)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=MAG_LIMIT)
     
-    if model.cat.mag.max() < 28:
-        model.find_objects(MAG_LIMIT=28)
-        model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=27)
+    if model.cat.mag.max() < (MAG_LIMIT-0.3):
+        model.find_objects(MAG_LIMIT=MAG_LIMIT)
+        model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=MAG_LIMIT)
         
     model.get_corrected_wcs(verbose=True)
     model.load_model_spectra()
@@ -3026,14 +3032,18 @@ def deep_model(root='COSMOS-19'):
     ax = fig.add_subplot(211)
     #ax.plot([0,0])
     
+    fp = open(root+'_inter_deep_residuals.dat','w')
+    fp.write('# pointing  sn_factor   mean  sigma\n')
     for factor in factors:
         mask = (model.model < (model.gris[2].data*factor)) & (model.gris[2].data != 0) & (xi > 350) & (yi > 120)
         #
         yh, xh = np.histogram(model.gris[1].data[mask].flatten(), range=(-0.05,0.05), bins=200, normed=True)
         stats = threedhst.utils.biweight(model.gris[1].data[mask].flatten(), both=True)
         a = ax.plot(xh[1:]*4, yh, linestyle='steps-', alpha=0.8, label=r'%5.3f %7.5f$\pm$%.3f' %(factor, stats[0]*4, stats[1]*4))
-    
+        fp.write('%s  %.2e  %.3e  %.3e\n' %(root, factor, stats[0]*4, stats[1]*4))
     #
+    fp.close()
+    
     ax.legend(prop=matplotlib.font_manager.FontProperties(size=10))
     ax.set_xlabel(r'$\delta$ electrons / s')
     ax.set_ylabel('N')

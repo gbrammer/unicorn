@@ -3006,6 +3006,7 @@ def deep_model(root='COSMOS-19'):
     
     if model.cat.mag.max() < 28:
         model.find_objects(MAG_LIMIT=28)
+        model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=27)
         
     model.get_corrected_wcs(verbose=True)
     model.load_model_spectra()

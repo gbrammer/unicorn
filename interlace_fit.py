@@ -1130,30 +1130,30 @@ def test_threading(nproc=4, N=5):
     print t1-t0, t2-t1, t3-t2
     
     
-def poolModel(twod, f):
-    twod.compute_model()
-    return twod.model.copy()
-#
-class multiModel(Process):
-    def __init__(self, spec_2d):
-        Process.__init__(self)
-        self.spec_2d = spec_2d
-        self.status = False
-    #
-    def run(self):
-        self.spec_2d.compute_model()
-        self.model = self.spec_2d.model.copy()
-        self.status = True
-    
-class threadedModel(Thread):
-    def __init__(self, spec_2d):
-        Thread.__init__(self)
-        self.spec_2d = spec_2d
-        self.status = False
-    #
-    def run(self):
-        self.spec_2d.compute_model()
-        self.model = self.spec_2d.model.copy()
-        self.status = True
+# def poolModel(twod, f):
+#     twod.compute_model()
+#     return twod.model.copy()
+# #
+# class multiModel(Process):
+#     def __init__(self, spec_2d):
+#         Process.__init__(self)
+#         self.spec_2d = spec_2d
+#         self.status = False
+#     #
+#     def run(self):
+#         self.spec_2d.compute_model()
+#         self.model = self.spec_2d.model.copy()
+#         self.status = True
+#     
+# class threadedModel(Thread):
+#     def __init__(self, spec_2d):
+#         Thread.__init__(self)
+#         self.spec_2d = spec_2d
+#         self.status = False
+#     #
+#     def run(self):
+#         self.spec_2d.compute_model()
+#         self.model = self.spec_2d.model.copy()
+#         self.status = True
 
     

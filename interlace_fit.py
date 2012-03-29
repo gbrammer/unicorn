@@ -1051,14 +1051,14 @@ def objective_twod(params, return_model=False):
     return lnprob+prior_z
     
 #
-from multiprocessing import Pool, Process
-from threading import Thread
-
 def test_threading(nproc=4, N=5):
     """
     Testing parallel threading, nothing promising because it seems like the threading/multiprocessing bookkeeping overhead is significant compared to the "model.compute_model()" execution time.
     """
     import stsci.convolve
+ 
+    from multiprocessing import Pool, Process
+    from threading import Thread
     
     ext = unicorn.reduce.Interlace2D('COSMOS-12_00038.2D.fits')
     #point = unicorn.reduce.Interlace2D('zSPEC/COSMOS-12_00348.2D.fits')

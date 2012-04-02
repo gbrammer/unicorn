@@ -857,7 +857,7 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     """
     
     if unicorn.hostname().startswith('unicorn'):
-        os.chdir('/Library/WebServer/Documents/P/GRISM_v1.6/ANALYSIS')
+        os.chdir('/Library/WebServer/Documents/P/GRISM_v1.7/ANALYSIS')
         scripts="../scripts"
         files = glob.glob('../SED/*match.cat')
         matches = []

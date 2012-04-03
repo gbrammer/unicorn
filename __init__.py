@@ -36,7 +36,9 @@ import candels
 import analysis
 import go_3dhst
 import galfit
+import plotting
 import catalogs
+
 import survey_paper
 import go_acs
 import fast

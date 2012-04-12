@@ -329,10 +329,11 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT')
     
     #### Use ACS alignment images
-    ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'
-    
-    ALIGN = '/research/HST/GRISM/3DHST/GOODS-N/Interlaced/Ros/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
-    
+    #ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'   
+    #ALIGN = '/research/HST/GRISM/3DHST/GOODS-N/Interlaced/Ros/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
+    ALIGN = '/3DHST/Photometry/Work/GOODS-N/fullF140/images/goodsn_f140w_sci.fits'
+
+
     #### The ASN files are generated from elsewhere to account for the fact that many of 
     #### the visits with the worst sky background levels and earth-glow were redone in early
     #### 2011.  I can't find the code where I generated the ASN files, however....
@@ -431,9 +432,10 @@ def COSMOS(FORCE=False):
         
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
     #ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
-    ALIGN = '/research/HST/CANDELS/COSMOS/PREP_FLT/HUDF09/*sci.fits'
-    ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
-    #ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
+    #ALIGN = '/research/HST/CANDELS/COSMOS/PREP_FLT/HUDF09/*sci.fits'
+    #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
+    ALIGN = '/3DHST/Ancillary/COSMOS/CANDELS/UCSC/cosmos_sect*_wfc3ir_F160W_wfc3ir_drz_sci.fits'
+	#ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -545,8 +547,9 @@ def GOODSS(FORCE=False):
 
     os.chdir(unicorn.GRISM_HOME+'GOODS-S/PREP_FLT')
     
-    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
-    
+    #ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+    ALIGN_FILES=['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits','/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+
     #### Main preparation loop
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
@@ -931,8 +934,8 @@ def UDS(FORCE=False):
     ALIGN_EXT=0
     #ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
     #ALIGN_EXT=1
-    ALIGN = '/research/HST/CANDELS/UDS/UKIDSS/UDS_K.fits'
-    ALIGN_EXTENSION=0
+    #ALIGN = '/research/HST/CANDELS/UDS/UKIDSS/UDS_K.fits'
+    #ALIGN_EXTENSION=0
     
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
@@ -1424,7 +1427,8 @@ def GOODS_ERS():
     # reload threedhst.grism_sky   #### Reset the flat-field for F140W/G141
     
     os.chdir(unicorn.GRISM_HOME+'ERS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    #ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    ALIGN_FILES=['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits']
     
     direct = glob.glob('../RAW/ib*20_asn.fits')
     grism = glob.glob('../RAW/ib*10_asn.fits')

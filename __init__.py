@@ -30,13 +30,13 @@ try:
 except:
     print """Couldn't import "utils_c" """
 
+import plotting
 import prepare
 import reduce
 import candels
 import analysis
 import go_3dhst
 import galfit
-import plotting
 import catalogs
 
 import survey_paper

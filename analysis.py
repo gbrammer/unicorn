@@ -1587,7 +1587,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
     
     ####
-    print 'XXX %s' %(eazy_working_directory)
+    #print 'XXX %s' %(eazy_working_directory)
         
     os.chdir(eazy_working_directory)
     
@@ -1890,7 +1890,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
     #
-    print 'XXX %s' %(eazy_working_directory)
+    #print 'XXX %s' %(eazy_working_directory)
     os.chdir(eazy_working_directory)
     
     if ('MARSHALL' in root) | ('UDS' in root):
@@ -2018,7 +2018,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     
     t0 = time.time()
     
-    print 'XXX %s' %(eazy_working_directory)
+    #print 'XXX %s' %(eazy_working_directory)
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
@@ -2984,7 +2984,7 @@ def pre_release():
     Run redshift fits for the v0.5 data release
     """    
 
-    object = 'COSMOS-1-G141_00331'
+    object = 'COSMOS-1-G141_00456'
     ### EW(Matt) =75.043951 \pm 3.8351794, EW(Gabe) = 47.080000 \pm 2.4630000
     unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
         TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.7, zmax=1.2,

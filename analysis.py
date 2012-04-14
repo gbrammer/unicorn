@@ -2090,7 +2090,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             ##### No photometry found.  Look for emission lines in the spectrum, 
             ##### and if one line found, fit it assuming OIII.  If more than one line
             ##### found, fit full redshift range.
-            spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
+            spec = catIO.Readfile(PATH+'/HTML/ascii/%s_%05d.dat' %(root, id))
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE

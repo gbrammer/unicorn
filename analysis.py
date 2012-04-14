@@ -1609,7 +1609,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)
     MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
     
-    grismCat, SPC = unicorn.analysis.read_grism_files(root=root)
+    grismCat, SPC = unicorn.analysis.read_grism_files(root=root, BASE_PATH=PATH+'/')
     
     match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
     
@@ -2984,7 +2984,7 @@ def pre_release():
     Run redshift fits for the v0.5 data release
     """    
 
-    object = 'COSMOS-1-G141_00170'
+    object = 'COSMOS-1-G141_00331'
     ### EW(Matt) =75.043951 \pm 3.8351794, EW(Gabe) = 47.080000 \pm 2.4630000
     unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
         TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.7, zmax=1.2,

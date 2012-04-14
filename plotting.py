@@ -15,6 +15,7 @@ USE_PLOT_GUI=False
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib.ticker as mticker
 
 import threedhst
 
@@ -84,6 +85,18 @@ def savefig(fig, filename='figure.png', no_tex=True):
     if no_tex:
         plt.rcParams['text.usetex'] = False
         plt.rcParams['font.family'] = 'sans-serif'
+
+class MyLocator(mticker.MaxNLocator):
+    """
+    Set maximum number of ticks, from
+    http://matplotlib.sourceforge.net/examples/pylab_examples/finance_work2.html
+    """
+    def __init__(self, *args, **kwargs):
+        mticker.MaxNLocator.__init__(self, *args, **kwargs)
+    
+    def __call__(self, *args, **kwargs):
+        return mticker.MaxNLocator.__call__(self, *args, **kwargs)
+
 
 def scatter_annotate(x, y, labels, xtol=None, ytol=None, ax=None,*args, **kwargs):
     if ax is None:

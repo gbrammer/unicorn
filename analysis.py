@@ -1585,6 +1585,9 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
+    
+    ####
+    print 'XXX %s' %(eazy_working_directory)
         
     os.chdir(eazy_working_directory)
     
@@ -1886,6 +1889,8 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
+    #
+    print 'XXX %s' %(eazy_working_directory)
     os.chdir(eazy_working_directory)
     
     if ('MARSHALL' in root) | ('UDS' in root):
@@ -2013,6 +2018,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     
     t0 = time.time()
     
+    print 'XXX %s' %(eazy_working_directory)
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
@@ -2031,7 +2037,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     if run:
         ########################### Scale to photometry
         if COMPUTE_TILT:
-            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe, PATH=PATH)
+            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe, PATH=PATH, eazy_working_directory=eazy_working_directory)
         else:
             tilt = [0, 1]
         
@@ -2972,7 +2978,20 @@ def make_line_templates():
     fp = open('templates/fit_lines.spectra.param','w')
     fp.writelines(spec_list)
     fp.close()
-    
+
+def pre_release():
+    """
+    Run redshift fits for the v0.5 data release
+    """    
+
+    object = 'COSMOS-1-G141_00170'
+    ### EW(Matt) =75.043951 \pm 3.8351794, EW(Gabe) = 47.080000 \pm 2.4630000
+    unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
+        TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.7, zmax=1.2,
+        id=int(object.split('_')[1]), force_zrange=True, COMPUTE_TILT=True,
+        PATH='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/', eazy_working_directory='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/REDSHIFT_FITS')
+
+
 def test_equivalent_widths():
     """
     Mattia pointed out that he gets equivalent widths somewhat larger than the catalog values when he measures them with his own code.  

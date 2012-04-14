@@ -2983,13 +2983,30 @@ def pre_release():
     """
     Run redshift fits for the v0.5 data release
     """    
-
-    object = 'COSMOS-1-G141_00456'
-    ### EW(Matt) =75.043951 \pm 3.8351794, EW(Gabe) = 47.080000 \pm 2.4630000
-    unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
-        TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.7, zmax=1.2,
-        id=int(object.split('_')[1]), force_zrange=True, COMPUTE_TILT=True,
-        PATH='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/', eazy_working_directory='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/REDSHIFT_FITS')
+    import glob
+    
+    object = 'COSMOS-1-G141_00331'
+    
+    os.chdir('/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE')
+    
+    files = glob.glob('HTML/ascii/COSMOS*.dat')
+    files = glob.glob('HTML/ascii/GOODS-S-2*.dat')
+    files = glob.glob('HTML/ascii/UDS*.dat')
+    files = glob.glob('HTML/ascii/WFC*.dat')
+     
+    ### GOODS-N didn't work becuase no match file found in HTML/SED dir
+    ### did the "sed" scripts at the end of threedhst.process_grism fail?
+    files = glob.glob('HTML/ascii/GOODS-N*.dat') 
+    
+    files = glob.glob('HTML/ascii/AEGIS*.dat')
+    
+    for file in files:
+        object = os.path.basename(file).split('.dat')[0]
+        print object
+        unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
+          TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.1, zmax=4,
+          id=int(object.split('_')[1]), force_zrange=False, COMPUTE_TILT=True,
+          PATH='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/', eazy_working_directory='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/REDSHIFT_FITS')
 
 
 def test_equivalent_widths():

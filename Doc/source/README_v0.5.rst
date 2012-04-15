@@ -60,7 +60,7 @@ In the maps, one can
 - Change the displayed image to different observed wavelengths (Xray, Radio, mid-IR, etc), depending on the availability in each field, by clicking on the labeled tabs at upper right.
 
 .. image:: fig1.png
-        :width: 4in
+        :width: 5in
         :align: center
         
 Pointing Browser
@@ -76,6 +76,9 @@ Most of the navigation features of the Field Browser are replicated for the indi
 
 - Clicking on the small "=" icon at upper left changes the layout of the display to show the products for a single object (default) or for 25 objects simultaneously, ordered by magnitude.  In both cases, clicking on the "ID" field for a given object recenters the map on that object.  In the multi-object view, one can page to the next set of brighter or fainter objects by clicking on the "+" and "-" buttons in the header of the ID column.
 
+.. image:: fig2.png
+        :width: 5in
+        :align: center
 
 Contact
 =======

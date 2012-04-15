@@ -344,7 +344,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
     
     #### Refine one set of shifts
     threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
@@ -408,7 +408,8 @@ def GOODSN_mosaic():
     threedhst.prep_flt_files.startMultidrizzle('GOODS-N-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=0.6, driz_cr=False,
-             updatewcs=False, clean=True, median=False)
+             updatewcs=False, clean=True, median=False,ra=189.17736, dec=62.23892,
+             final_outnx = NX, final_outny=NY, ivar_weights=False)
 
     #### Make full alignment mosaic
     threedhst.shifts.matchImagePixels(input=glob.glob(ALIGN), matchImage='GOODS-N-F140W_drz.fits', match_extension=1, output='GOODS-N-F850LP.fits')
@@ -417,6 +418,9 @@ def GOODSN_mosaic():
     
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*2', 'GOODS-N-F850LP.fits[0]*6','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]'], aper_list=zooms, tileroot=['F140W', 'G141', 'GOODS-z850','0.5-8keV'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
+
+    zooms=[12,13,14,15,16]
+    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-G141_drz.fits[1]*2', '/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsb_trim.fits[0]*15','/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsz_trim.fits[0]*6','/3DHST/Ancillary/GOODS-N/MIPS/n_mips_1_s1_v0.36_sci.fits[0]*100','/3DHST/Ancillary/GOODS-N/HERSCHEL/L2_GOODS-N_All500_DR1/L2_GOODS-N_image_SMAP500_dr1.fits[1]*100000.','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]*8','/3DHST/Ancillary/GOODS-N/VLA/GOODSN_1_4GHz.fits[0]*60000.'], aper_list=zooms, tileroot=['F140W', 'G141', 'ACSb-F435W','ACSz-F850LP','MIPS-24','Herschel500','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-N/MOSAIC_HTML/')
     
     iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-10-06_sci.fits')
     iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-10-06_wht.fits')
@@ -533,6 +537,9 @@ def COSMOS_mosaic():
         
     zooms = [13,14,15]
     threedhst.gmap.makeImageMap(['../MOSAIC/COSMOS-F140w_11-07-31_sci.fits[0]', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*40000'], aper_list=zooms, tileroot=['F140W','ACS','WIRDS-K','0.5-7keV', 'MIPS-24', 'VLA-20cm'], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
+
+	zooms = [12,13,14,15,16]
+    threedhst.gmap.makeImageMap(['/3DHST/Spectra/Work/COSMOS/INTERLACE/COSMOS-F140W_drz.fits[1]','/3DHST/Spectra/Work/COSMOS/INTERLACE/COSMOS-G141_drz.fits[1]', '/3DHST/Ancillary/COSMOS/CANDELS/Gabe/COSMOS-full-F160W_drz_sci.fits[0]','/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3', '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/Chandra/CC0570_img.fits[0]*1.5', '/3DHST/Ancillary/COSMOS/Spitzer/mips_24_GO3_sci_10.fits[0]*400', '/3DHST/Ancillary/COSMOS/VLA/vla_20cm_dp_sin_10.fits[0]*60000'], aper_list=zooms, tileroot=['F140W','G141','F160W','ACS 814W','WIRDS-Ks','0.5-7keV', 'MIPS-24', 'VLA-20cm'], polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/COSMOS/MOSAIC_HTML/')
     
     ### don't need high-res tiles of lo-res images sitting around
     os.system('rm ~/Sites/FITS/tiles/MIPS*1[67].png')
@@ -625,6 +632,10 @@ def GOODSS_mosaic():
     
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['GOODS-S-F140W_drz.fits', 'GOODS-S-G141_drz.fits','/3DHST/Ancillary//GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','F125W','0.5-8keV'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
+
+    zooms=[12,13,14,15,16]
+    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-G141_drz.fits[1]','/3DHST/Ancillary/GOODS-S/CANDELS/candels_release/hlsp_candels_hst_wfc3_gsd04_f160w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/ISAAC/GOODS_ISAAC_mosaic_KS_V2.0.fits[0]','/3DHST/Photometry/Work/GOODS-S/DATA/mips/s_mips_1_s1_v0.30_sci.fits[0]*100','/3DHST/Ancillary/GOODS-S/HERSCHEL/L2_ECDFS_All500_DR1/L2_ECDFS_image_SMAP500_dr1.fits[1]*200000.','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]','/3DHST/Ancillary/GOODS-S/VLA/ECDFS_DR1.FITS[0]*60000.'], aper_list=zooms, tileroot=['F140W','G141','F160W','ISAAC Ks','MIPS-24','Herschel500','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-S/MOSAIC_HTML/')
+
     
 def UDF():
     import threedhst
@@ -860,13 +871,12 @@ def AEGIS(FORCE=False):
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
-    
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
-        if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
-    
+        
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*4', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
+    threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 
+'AEGIS-1-F140W_align.fits[0]*4', 
+'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
+
     
     #### Make direct image for each pointing that also include 
     #### neighboring pointings, not coded yet but need to regenerate the original 
@@ -903,7 +913,7 @@ def AEGIS_mosaic():
     SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
-    NX, NY = int(7547*0.06/SCALE), int(31900*0.06/SCALE)
+    NX, NY = int(8047*0.06/SCALE), int(31900*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
@@ -921,6 +931,10 @@ def AEGIS_mosaic():
     #
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
+
+	zoom=[12,13,14,15,16]
+	threedhst.gmap.makeImageMap(['AEGIS-F140W_drz_sci.fits[0]','AEGIS-G141_drz_sci.fits[0]','/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits[1]'], aper_list=zooms, tileroot=['F140W','G141','F160W'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/AEGIS/MOSAIC_HTML/')
+	threedhst.gmap.makeImageMap(['AEGIS-F140W_drz_sci.fits[0]','AEGIS-G141_drz_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/AEGIS/MOSAIC_HTML/')
 
 #
 def UDS(FORCE=False):
@@ -987,11 +1001,13 @@ def UDS_mosaic():
     
     #### Direct mosaic
     direct_files = glob.glob('UDS-*-F140W_asn.fits')
+	direct_files.remove('UDS-18-F140W_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-F140W',
                        path_to_FLT='./', run_multidrizzle=False)
     
     #### Gris mosaic
     direct_files = glob.glob('UDS-*-G141_asn.fits')
+	direct_files.remove('UDS-18-G141_asn.fits')
     threedhst.utils.combine_asn_shifts(direct_files, out_root='UDS-G141',
                        path_to_FLT='./', run_multidrizzle=False)
     
@@ -1013,6 +1029,10 @@ def UDS_mosaic():
              updatewcs=False, clean=True, median=False,
              ra=ra, dec=dec,
              final_outnx = nx, final_outny=ny, build_drz=False)
+
+			zooms=[12,13,14,15,16]
+			threedhst.gmap.makeImageMap(['UDS-F140W_drz_sci.fits[0]','UDS-G141_drz_sci.fits[0]','/3DHST/Ancillary/UDS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits[1]'], aper_list=zooms, tileroot=['F140W','G141','F160W'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/UDS/MOSAIC_HTML/')
+
 
 def SN_TILE41():
     """ Supernova in COSMOS """

@@ -59,7 +59,10 @@ In the maps, one can
 
 - Change the displayed image to different observed wavelengths (Xray, Radio, mid-IR, etc), depending on the availability in each field, by clicking on the labeled tabs at upper right.
 
- 
+.. image:: fig1.png
+        :width: 4in
+        :align: center
+        
 Pointing Browser
 ----------------
 
@@ -76,6 +79,6 @@ Most of the navigation features of the Field Browser are replicated for the indi
 
 Contact
 =======
-For data questions, please contact Gabriel Brammer (gbrammer@eso.org), Ivelina Momcheva (ivelina.momcheva@yale.edu).  Additional general contact information can be found at http://3dhst.research.yale.edu/Team.html.
+For data questions, please contact Gabriel Brammer (gbrammer@eso.org) or Ivelina Momcheva (ivelina.momcheva@yale.edu).  Additional general contact information can be found at http://3dhst.research.yale.edu/Team.html.
 
 

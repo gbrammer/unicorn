@@ -420,7 +420,7 @@ def GOODSN_mosaic():
     threedhst.gmap.makeImageMap(['GOODS-N-F140W_drz.fits', 'GOODS-N-G141_drz.fits*2', 'GOODS-N-F850LP.fits[0]*6','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]'], aper_list=zooms, tileroot=['F140W', 'G141', 'GOODS-z850','0.5-8keV'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg')) #, zmin=-0.1, zmax=3)
 
     zooms=[12,13,14,15,16]
-    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-G141_drz.fits[1]*2', '/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsb_trim.fits[0]*15','/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsz_trim.fits[0]*6','/3DHST/Ancillary/GOODS-N/MIPS/n_mips_1_s1_v0.36_sci.fits[0]*100','/3DHST/Ancillary/GOODS-N/HERSCHEL/L2_GOODS-N_All500_DR1/L2_GOODS-N_image_SMAP500_dr1.fits[1]*100000.','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]*8','/3DHST/Ancillary/GOODS-N/VLA/GOODSN_1_4GHz.fits[0]*60000.'], aper_list=zooms, tileroot=['F140W', 'G141', 'ACSb-F435W','ACSz-F850LP','MIPS-24','Herschel500','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-N/MOSAIC_HTML/')
+    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-G141_drz.fits[1]*2', '/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsb_trim.fits[0]*15','/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsz_trim.fits[0]*6','/3DHST/Ancillary/GOODS-N/MIPS/n_mips_1_s1_v0.36_sci.fits[0]*100','/3DHST/Ancillary/GOODS-N/HERSCHEL/L2_GOODS-N_All250_DR1/L2_GOODS-N_image_SMAP250_dr1.fits[1]*20000.','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]*8','/3DHST/Ancillary/GOODS-N/VLA/GOODSN_1_4GHz.fits[0]*60000.'], aper_list=zooms, tileroot=['F140W', 'G141', 'ACSb-F435W','ACSz-F850LP','MIPS-24','SPIRE-250','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-N/MOSAIC_HTML/')
     
     iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-10-06_sci.fits')
     iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-10-06_wht.fits')
@@ -634,7 +634,7 @@ def GOODSS_mosaic():
     threedhst.gmap.makeImageMap(['GOODS-S-F140W_drz.fits', 'GOODS-S-G141_drz.fits','/3DHST/Ancillary//GOODS-S/CANDELS/hlsp_candels_hst_wfc3_gsd01_f125w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','F125W','0.5-8keV'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
 
     zooms=[12,13,14,15,16]
-    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-G141_drz.fits[1]','/3DHST/Ancillary/GOODS-S/CANDELS/candels_release/hlsp_candels_hst_wfc3_gsd04_f160w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/ISAAC/GOODS_ISAAC_mosaic_KS_V2.0.fits[0]','/3DHST/Photometry/Work/GOODS-S/DATA/mips/s_mips_1_s1_v0.30_sci.fits[0]*100','/3DHST/Ancillary/GOODS-S/HERSCHEL/L2_ECDFS_All500_DR1/L2_ECDFS_image_SMAP500_dr1.fits[1]*200000.','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]','/3DHST/Ancillary/GOODS-S/VLA/ECDFS_DR1.FITS[0]*60000.'], aper_list=zooms, tileroot=['F140W','G141','F160W','ISAAC Ks','MIPS-24','Herschel500','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-S/MOSAIC_HTML/')
+    threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-S/INTERLACE/GOODS-S-G141_drz.fits[1]','/3DHST/Ancillary/GOODS-S/CANDELS/candels_release/hlsp_candels_hst_wfc3_gsd04_f160w_v0.5_drz.fits[0]','/3DHST/Ancillary/GOODS-S/ISAAC/GOODS_ISAAC_mosaic_KS_V2.0.fits[0]','/3DHST/Photometry/Work/GOODS-S/DATA/mips/s_mips_1_s1_v0.30_sci.fits[0]*100','/3DHST/Ancillary/GOODS-S/HERSCHEL/L2_ECDFS_All250_DR1/L2_ECDFS_image_SMAP250_dr1.fits[1]*50000.','/3DHST/Ancillary/GOODS-S/CDFS/CDFS-4Ms-0p5to8-asca-im-bin1.fits[0]','/3DHST/Ancillary/GOODS-S/VLA/ECDFS_DR1.FITS[0]*60000.'], aper_list=zooms, tileroot=['F140W','G141','F160W','ISAAC Ks','MIPS-24','SPIRE-250','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-S/MOSAIC_HTML/')
 
     
 def UDF():
@@ -913,28 +913,29 @@ def AEGIS_mosaic():
     SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
-    NX, NY = int(8047*0.06/SCALE), int(31900*0.06/SCALE)
+    NX, NY = int(20047*0.06/SCALE), int(20900*0.06/SCALE)
     
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=214.92061, dec=52.878457,
-             final_outnx = NX, final_outny=NY, final_rot=42, build_drz=False)
+             ra=214.86, dec=52.84,
+             final_outnx = NX, final_outny=NY)
     
+
     threedhst.prep_flt_files.startMultidrizzle('AEGIS-G141_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=214.92061, dec=52.878457,
-             final_outnx = NX, final_outny=NY, final_rot=42, build_drz=False)
+             ra=214.86, dec=52.84,
+             final_outnx = NX, final_outny=NY)
+
     #
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
 
-	zoom=[12,13,14,15,16]
-	threedhst.gmap.makeImageMap(['AEGIS-F140W_drz_sci.fits[0]','AEGIS-G141_drz_sci.fits[0]','/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits[1]'], aper_list=zooms, tileroot=['F140W','G141','F160W'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/AEGIS/MOSAIC_HTML/')
-	threedhst.gmap.makeImageMap(['AEGIS-F140W_drz_sci.fits[0]','AEGIS-G141_drz_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/AEGIS/MOSAIC_HTML/')
+	zooms=[12,13,14,15,16]
+	threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits[1]*5.','AEGIS-G141_drz.fits[1]*10.'], aper_list=zooms, tileroot=['F140W','G141'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/AEGIS/MOSAIC_HTML/')
 
 #
 def UDS(FORCE=False):

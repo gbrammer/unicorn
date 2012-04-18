@@ -495,6 +495,8 @@ class GrismSpectrumFit():
         ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
 
         #### Spectrum in f_lambda
+        self.oned.data.sensitivity /= 100
+        
         ax = fig.add_subplot(142)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
         
@@ -547,15 +549,21 @@ class GrismSpectrumFit():
 
         temp_sed_int = np.interp(self.oned.data.wave, lambdaz, temp_sed)
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
-        flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D)/self.oned.data.sensitivity
-        anorm = np.sum(temp_sed_int[keep]*flux_spec[keep])/np.sum(flux_spec[keep]**2)
+        flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
         ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
+        #anorm = np.sum(temp_sed_int[keep]*flux_spec[keep])/np.sum(flux_spec[keep]**2)
+        #scale = 100.
+        anorm = 1
         scale = 100
         
         ax.plot(lambdaz, temp_sed*scale, color='blue', alpha=0.5)
         ax.errorbar(lci, fobs*scale, efobs*scale, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
-        ax.plot(self.oned.data.wave, flux_spec*anorm*100, color='red', alpha=0.5)
+        ax.plot(self.oned.data.wave, flux_spec*anorm, color='red', alpha=0.3)
+        bin = 4
+        binned = unicorn.utils_c.interp_conserve(self.oned.data.wave[::4], self.oned.data.wave, flux_spec)
+        ax.plot(self.oned.data.wave[::4], binned, color='red', alpha=0.7)
+        
         ax.set_xlabel(r'$\lambda$')
         ax.set_ylabel(r'$f_\lambda$')
         
@@ -652,7 +660,7 @@ class GrismSpectrumFit():
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
     
-    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=100, NSTEP=100, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
+    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=40, NSTEP=250, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
 
         if ztry is None:
@@ -1129,11 +1137,10 @@ def test_threading(nproc=4, N=5):
     
     print t1-t0, t2-t1, t3-t2
     
-    
-# def poolModel(twod, f):
-#     twod.compute_model()
-#     return twod.model.copy()
-# #
+def poolModel(twod, f):
+    twod.compute_model()
+    return twod.model.copy()
+
 # class multiModel(Process):
 #     def __init__(self, spec_2d):
 #         Process.__init__(self)

@@ -567,7 +567,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=27, make_zeroth_model=True):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True):
     import unicorn.reduce
     
     model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, MAG_LIMIT=MAG_LIMIT)
@@ -586,7 +586,7 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=27, make_zero
         ### First iteration with flat spectra and the object flux
         model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
-        model.compute_full_model(refine=True, MAG_LIMIT=23, save_pickle=True)
+        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True)
         
     return model
     

@@ -127,12 +127,21 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'cosmos-1.v4.6.zout'
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
+                
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/cosmos-1.deblend.redshifts/cosmos-1.deblend.v5.1.zout'
             FOUT_FILE = CAT_PATH+'cosmos-1.deblend.sps/cosmos-1.bc03.del.deblend.v5.1.fout'
             KTOT_COL = 'K'
+         
+        #### ZFOURGE
+        if unicorn.hostname().startswith('850dhcp'):
+            CAT_PATH = unicorn.GRISM_HOME+'COSMOS/ZFOURGE/gabe/'        
+            CAT_FILE = CAT_PATH + 'cosmos-1.v0.7.2.cat'
+            ZOUT_FILE = CAT_PATH + 'cosmos-1.v0.7.2.zout'
+            FOUT_FILE = CAT_PATH+'cosmos-1.v0.7.2.fout'
+            KTOT_COL = 'Kstot'
             
     if aegis:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'

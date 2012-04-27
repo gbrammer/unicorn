@@ -459,6 +459,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     xi += xmi
     yi -= NY
     xarr, xpix, yarr = np.arange(xma-xmi)+xmi, np.arange(xma-xmi), np.arange(NY*2+1)-NY
+    xarr += 1
     
     for ib,beam in enumerate(BEAMS):
        
@@ -655,7 +656,8 @@ class Interlace2D():
         self.pad = self.im[0].header['PAD']
         self.grow_factor = 2 ### add these parameters to 2D header
         self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
-        self.total_flux = np.sum(self.flux*(self.seg > 0))
+        self.total_flux = np.sum(self.flux*(self.seg == self.id))
+        #self.total_flux = np.sum(self.flux*(self.seg > 0))
         
         self.init_model()
         
@@ -1149,6 +1151,8 @@ class GrismModel():
             #y_filt_int = np.interp(lam_spec, x_filt, y_filt)
             y_filt_int = utils_c.interp_c(lam_spec, x_filt, y_filt)
             filt_norm = np.trapz(y_filt_int*flux_spec, lam_spec) / np.trapz(y_filt_int, lam_spec)
+            if verbose:
+                print 'Norm: %f' %(filt_norm)
             flux_spec /= filt_norm
             if verbose:
                 t1 = time.time(); dt = t1-t0; t0=t1
@@ -1563,7 +1567,7 @@ class GrismModel():
         else:
             self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
             self.model += self.object
-            self.obj_in_model[idi] = True
+            self.obj_in_model[id] = True
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[0])

@@ -8,10 +8,8 @@ import time
 
 import matplotlib.pyplot as plt
 
-USE_PLOT_GUI=False
-
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+# from matplotlib.figure import Figure
+# from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from pyraf import iraf
 from iraf import iraf
@@ -33,6 +31,11 @@ rest = None
 gfit = None
 zsp = None
 selection_params = None
+
+#### These scripts moved to plotting.py, make aliases here to avoid breaking earlier code
+plot_init = unicorn.plotting.plot_init
+savefig = unicorn.plotting.savefig
+USE_PLOT_GUI = unicorn.plotting.USE_PLOT_GUI
 
 ## from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
 
@@ -1095,6 +1098,27 @@ def test_plots():
     plt.ylabel(r'$\log\ \mathrm{EQW\ H}\alpha$')    
     plt.savefig('eqw_mass9_morph_B.pdf')
 
+def line_emitting_sample():
+    import unicorn.catalogs
+    
+    unicorn.catalogs.read_catalogs()
+    
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit
+    
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/')
+    #### Selection
+    keep = unicorn.catalogs.run_selection(zmin=1.2, zmax=2.2, fcontam=0.05, qzmin=0., qzmax=10, dr=1.0, has_zspec=True, fcovermin=0.9, fcovermax=1.0, massmin=9.5, massmax=15, magmin=20.5, magmax=22.5)    
+    
+    ha_sn = (lines.halpha_eqw/lines.halpha_eqw_err)[lines.idx]
+    oiii_sn = (lines.oiii_eqw/lines.oiii_eqw_err)[lines.idx]
+    
+    sn_lim = (3,8)
+    lines_sn = ((ha_sn >= sn_lim[0]) & (ha_sn <= sn_lim[1])) | ((oiii_sn >= sn_lim[0]) & (oiii_sn <= sn_lim[1]))
+
+    field = phot.field[phot.idx] != 'GOODS-N'
+    
+    unicorn.catalogs.make_selection_catalog(keep & lines_sn & field, filename='weak_line_emitters.cat', make_html=True)
+    
 def uvj_test():
     """
     ################################################
@@ -1276,56 +1300,6 @@ def composite_spectra(objects, color='red', alpha=0.1, lnorm=8.e3, NITER=3, show
     if show_lines:
         for line in [4861, 4959, 5007, 5178, 5891, 6563, 6585, 6718, 6731]:
             plt.plot(line*np.array([1,1]), [0,10], color='black', linestyle='--', alpha=0.5)
-            
-def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, fontsize=10, NO_GUI=False):
-
-    import unicorn
-    
-    if unicorn.hostname().startswith('uni') | NO_GUI:
-        unicorn.catalogs.USE_PLOT_GUI = False
-    else:
-        unicorn.catalogs.USE_PLOT_GUI = True
-
-    # plt.rcParams['font.family'] = 'serif'
-    # plt.rcParams['font.serif'] = ['Times']
-    plt.rcParams['patch.edgecolor'] = 'None'
-    plt.rcParams['font.size'] = fontsize
-
-    plt.rcParams['image.origin'] = 'lower'
-    plt.rcParams['image.interpolation'] = 'nearest'
-
-    if square:
-        #xs=5
-        lrbt = np.array([left,right,bottom,top])*5./xs     
-        ys = (1-lrbt[1]-lrbt[0])/(1-lrbt[3]-lrbt[2])*xs*aspect
-        lrbt[[2,3]] /= aspect
-
-        if USE_PLOT_GUI:
-            fig = plt.figure(figsize=(xs,ys), dpi=100)
-        else:
-            fig = Figure(figsize=(xs,ys), dpi=100)
-            
-        fig.subplots_adjust(left=lrbt[0],bottom=lrbt[2],right=1-lrbt[1],top=1-lrbt[3])
-
-    else:
-        if USE_PLOT_GUI:
-            fig = plt.figure(figsize=(7,5), dpi=100)
-        else:
-            fig = Figure(figsize=(7,5), dpi=100)
-            
-        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.10,
-                        bottom=0.10,right=0.99,top=0.97)        
-    
-    return fig
-    
-def savefig(fig, filename='figure.png'):
-    
-    if USE_PLOT_GUI:
-        fig.savefig(filename,dpi=100,transparent=False)
-    else:
-        canvas = FigureCanvasAgg(fig)
-        canvas.print_figure(filename, dpi=100, transparent=False)
-    
     
 def make_object_tarfiles(objects, thumbs=False):
     """

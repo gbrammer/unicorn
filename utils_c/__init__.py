@@ -9,3 +9,4 @@ Copyright (c) 2012 __MyCompanyName__. All rights reserved.
 
 from interp_c import *
 from reduce_c import *
+from redden_c import *

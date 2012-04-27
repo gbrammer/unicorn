@@ -39,6 +39,129 @@ from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
 
 USE_TEX = True
 
+def fainter_examples():
+    """
+    AEGIS-15-G141_00120 lines, z=2
+    AEGIS-14-G141_00426, z=2.3, continuum break
+    AEGIS-1-G141_00891, z=1.6, continuum break
+    AEGIS-28-G141_00684, H=23, continuum break
+    COSMOS-17-G141_00451, H=22.1, continuum break
+    COSMOS-18-G141_00996, H=22.8 continuum break
+    COSMOS-2-G141_00335, H=22.6, faint continuum + line in massive, dusty galaxy
+    COSMOS-25-G141_00280, H=22.8, faint continuum break + OIII line, again line looks like comes from elsewhere
+    COSMOS-25-G141_01354, H=22, nice continuum break
+    COSMOS-6-G141_00325, H=22.9, high eqw OIII + Hb,  xxxx lines come from nearby high eqw object
+    COSMOS-6-G141_0330, High eqw, H=24.03 (this is the object contaminating the object above)
+    GOODS-S-23-G141_00780, H=22.6, contamination removal, continuum break, OIII + OII
+    MARSHALL-225-G141_00356, H=22.9, morphology mess, IR excess, OIII
+    
+    x = ['AEGIS-15-G141_00120', 'AEGIS-14-G141_00426', 'AEGIS-1-G141_00891','AEGIS-28-G141_00684', 'COSMOS-17-G141_00451','COSMOS-18-G141_00996']
+    """
+    import unicorn.object_examples
+    
+    unicorn.object_examples.lrange = np.array([1.08e4,1.75e4])
+    unicorn.object_examples.general_plot(object='MARSHALL-225-G141_00356', show_SED=True, sync=False, y0=14, y1=None, SED_voffset=0.40, SED_hoffset=0.05, plot_min=0.0, plot_max=9.5, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=-9, remove_contamination=True, vscale=0.1, vthumb=(-0.1,0.01), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, show_line_stats=True, line_stats_pos=(-0.2, 0.05))
+    
+    unicorn.object_examples.lrange = np.array([1.08e4,1.75e4])
+    unicorn.object_examples.general_plot(object='GOODS-S-23-G141_00780', show_SED=True, sync=False, y0=13, y1=70, SED_voffset=0.07, SED_hoffset=0.05, plot_min=-0.1, plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=-2, remove_contamination=True, vscale=0.2, vthumb=(-0.2,0.02), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, show_line_stats=True, line_stats_pos=(-0.2, 0.05))
+
+    unicorn.object_examples.lrange = np.array([1.08e4,1.68e4])
+    unicorn.object_examples.general_plot(object='COSMOS-6-G141_00330', show_SED=False, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=4, yticks=[0,1,2,3,4], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.5, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-18, scale_to_f140_mag=True)
+
+    unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+    unicorn.object_examples.general_plot(object='COSMOS-25-G141_01354', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=13, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+
+    unicorn.object_examples.lrange = np.array([1.08e4,1.75e4])
+    unicorn.object_examples.general_plot(object='COSMOS-25-G141_00280', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.12, SED_hoffset=0.05, plot_min=0, plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+    
+    unicorn.object_examples.lrange = np.array([1.08e4,1.75e4])
+    unicorn.object_examples.general_plot(object='COSMOS-2-G141_00335', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=30, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+
+    unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+    unicorn.object_examples.general_plot(object='COSMOS-18-G141_00996', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+    
+    unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+    unicorn.object_examples.general_plot(object='AEGIS-28-G141_00684', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+
+    unicorn.object_examples.lrange = np.array([1.08e4,1.8e4])
+    unicorn.object_examples.general_plot(object='AEGIS-15-G141_00120', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=3, plot_max=12, yticks=[4,6,8,10,12], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+    
+    unicorn.object_examples.lrange = np.array([1.00e4,1.8e4])
+    unicorn.object_examples.general_plot(object='AEGIS-1-G141_00891', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=8, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-14-G141_00426', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=-0.5, plot_max=5.8, yticks=[0,2,4], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+    
+    unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+    unicorn.object_examples.general_plot(object='COSMOS-17-G141_00451', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=14, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.4, vthumb=(-0.8,0.08), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True, line_stats_pos=(-0.2, 0.05))
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-28-G141_00684', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.07, SED_hoffset=0.05, plot_min=-0.5, plot_max=6.2, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.5,0.05), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+    
+    
+    ids = ['AEGIS-15-G141_00120', 'AEGIS-14-G141_00426', 'AEGIS-1-G141_00891','AEGIS-28-G141_00684', 'COSMOS-17-G141_00451','COSMOS-18-G141_00996']
+    for id in ids:
+        unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+        unicorn.object_examples.general_plot(object=id, show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True)
+        
+    xx = """
+    Line emitters:
+    AEGIS-12-G141_00566, H=23.05
+    AEGIS-12-G141_00702, H=23.29
+    AEGIS-28-G141_00159
+    """
+    ids = ['AEGIS-12-G141_00566','AEGIS-12-G141_00702','AEGIS-28-G141_00159','AEGIS-4-G141_00202','COSMOS-11-G141_00650','COSMOS-13-G141_01167','COSMOS-15-G141_00275','COSMOS-15-G141_00284','COSMOS-18-G141_00556','COSMOS-23-G141_00521','COSMOS-4-G141_00596','COSMOS-9-G141_01078','GOODS-S-27-G141_00387','PRIMO-1026-G141_00196','AEGIS-4-G141_00432','PRIMO-1026-G141_00491','PRIMO-1101-G141_00280']
+    for id in ids:
+        unicorn.object_examples.lrange = np.array([1.0e4,1.75e4])
+        unicorn.object_examples.general_plot(object=id, show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.08, SED_hoffset=0.05, plot_min=0, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+    
+    #
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-4-G141_00202', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=14, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-4-G141_00432', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=18, yticks=[0,5,10,15], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-12-G141_00566', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=11, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-12-G141_00702', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='AEGIS-28-G141_00159', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-4-G141_00596', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=16, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.00e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-9-G141_01078', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-11-G141_00650', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0., plot_max=12, yticks=[0,2,4,6,8,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-13-G141_01167', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-15-G141_00275', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+    
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-18-G141_00556', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-2, plot_max=14, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='COSMOS-23-G141_00521', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=7, yticks=[0,2,4,6], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='GOODS-S-27-G141_00387', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=-0.5, plot_max=9, yticks=[0,2,4,6,8], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='PRIMO-1026-G141_00196', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=0, plot_max=14, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    unicorn.object_examples.lrange = np.array([1.01e4,1.79e4])
+    unicorn.object_examples.general_plot(object='PRIMO-1026-G141_00491', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.4, SED_hoffset=0.05, plot_min=0, plot_max=16, yticks=[0,5,10], fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=0.3, vthumb=(-0.3,0.03), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-19, scale_to_f140_mag=True, show_line_stats=True)
+
+    
 def run_all():
     import unicorn.object_examples
     unicorn.object_examples.agn_group()
@@ -783,7 +906,10 @@ def misc_objects():
     unicorn.object_examples.general_plot('UDF-Full-G141_00624', flam_norm=-19, vscale=0.1, vthumb=(-0.08*0.3,0.01*0.3), SED_voffset=0.42, SED_hoffset=0.05, remove_contamination=False)
 
     
-def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.1, SED_hoffset=0, plot_min=None, plot_max=None, yticks=None, fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=1, vthumb=(-1,0.1), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-18):
+def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None, y1=None, SED_voffset=0.1, SED_hoffset=0, plot_min=None, plot_max=None, yticks=None, fit_path='REDSHIFT_FITS_v1.6', dy_thumb=0, dx_thumb=0, remove_contamination=True, vscale=1, vthumb=(-1,0.1), fit_version=0, show_2D = True, show_Thumb=True, show_Fit=True, flam_norm=-18, scale_to_f140_mag=True, show_line_stats=False, line_stats_pos=(0.05, 0.05)):
+    
+    import unicorn.catalogs
+    lines = unicorn.catalogs.lines
     
     import unicorn.object_examples
     dy2d = unicorn.object_examples.dy2d
@@ -792,10 +918,13 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
         
     ### F_lambda
     ## obs_convert = 10**(-0.4*(abzp+48.6))*3.e18/lc**2/10.**-18
+    
+    if not os.path.exists('DATA/%s.zout' %(object)):
+        sync=True
         
     if sync:
-        os.system('rsync -avz $UNICORN:/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/images/%s* DATA/' %(object))
-        os.system('rsync -avz $UNICORN:/3DHST/Spectra/Work/ANALYSIS/%s/OUTPUT/%s* DATA/' %(fit_path, object))
+        os.system('rsync -avz --progress $UNICORN:/Users/gbrammer/Sites_GLOBAL/P/GRISM_v1.6/images/%s* DATA/' %(object))
+        os.system('rsync -avz --progress $UNICORN:/3DHST/Spectra/Work/ANALYSIS/%s/OUTPUT/%s* DATA/' %(fit_path, object))
     
     zout_file = catIO.Readfile('DATA/%s.zout' %(object))
     
@@ -812,7 +941,7 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
         y1 = spec2d.shape[0]
         print 'NY: %d' %(spec2d.shape[0])
         
-    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12)
+    fig = unicorn.catalogs.plot_init(square=True, xs=5, aspect=aspect, left=0.12, use_tex=USE_TEX)
     
     #### Twod
     if show_2D:
@@ -855,12 +984,31 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     axSpec = fig.add_axes((left, bottom, 0.99-left, dy2d))
     
     ## Primary
-    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(fit_version, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='DATA', CACHE_FILE = 'Same')
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy.getEazySED(fit_version, MAIN_OUTPUT_FILE=object, OUTPUT_DIRECTORY='DATA', CACHE_FILE = 'Same', scale_flambda=False)
     dlam_spec = lci[-1]-lci[-2]
     is_spec = np.append(np.abs(1-np.abs(lci[1:]-lci[0:-1])/dlam_spec) < 0.05,True)
     obs_convert = 10**(-0.4*(25+48.6))*3.e18/lci**2/10.**flam_norm*(lci/5500.)**2
+    #obs_convert = 10**-17/10**flam_norm  # now comes out of getEazySED in units of 10**-17 flam 
     fobs, efobs, obs_sed = fobs*obs_convert, efobs*obs_convert, obs_sed*obs_convert
     
+    #### Try integrating the spectrum and comparing to mag
+    fnu = fobs*lci**2/3.e18*10**(flam_norm)
+    xfilt, yfilt = np.loadtxt(os.getenv('iref')+'/F140W.dat', unpack=True)
+    yint = np.interp(lci[is_spec], xfilt, yfilt)
+    m140_int = -2.5*np.log10(np.trapz(yint*fnu[is_spec],lci[is_spec])/np.trapz(yint,lci[is_spec]))-48.6
+    
+    try:
+        mag = phot.mag_f1392w[phot.id == object][0]
+    except:
+        mag = -1
+    #
+    print m140_int, mag
+    
+    if (mag > 0) & scale_to_f140_mag:
+        scale_to_f140 = 10**(-0.4*(mag-m140_int))
+        fobs, efobs, obs_sed = fobs*scale_to_f140, efobs*scale_to_f140, obs_sed*scale_to_f140
+        temp_sed = temp_sed * scale_to_f140
+        
     temp_sed *= 10**(-0.4*(25+48.6))*3.e18/lambdaz**2/10.**flam_norm*(lambdaz/5500.)**2
     
     ymax = max(fobs[is_spec & (fobs > 0)])
@@ -874,13 +1022,14 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     #zspec = zout.z_peak[0::3][zout.id[0::3] == object]
     zspec = zout_file.z_peak[fit_version]
     
-    try:
-        mag = phot.mag_f1392w[phot.id == object][0]
-    except:
-        mag = -1
+    if USE_TEX:
+        object_str = object.replace('_','\_')
+    else:
+        object_str = object
         
-    axSpec.text(0.05,0.9,object, transform=axSpec.transAxes, fontsize=9)
+    axSpec.text(0.05,0.9, object_str, transform=axSpec.transAxes, fontsize=9, backgroundcolor='white')
     if mag > 0:
+        axSpec.text(0.05,0.8,r'$ \ z=%.3f,\ m_{140}=%.1f$' %(zspec, mag), transform=axSpec.transAxes, fontsize=11, color='white', backgroundcolor='white', alpha=0.2)
         axSpec.text(0.05,0.8,r'$ \ z=%.3f,\ m_{140}=%.1f$' %(zspec, mag), transform=axSpec.transAxes, fontsize=11)
     else:
         axSpec.text(0.05,0.8,r'$z=%.3f$' %(zspec), transform=axSpec.transAxes, fontsize=11)
@@ -898,7 +1047,7 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
         
     axSpec.set_ylim(plot_min,plot_max)
     axSpec.set_xlim(lrange[0], lrange[1])
-    axSpec.set_xlabel(r'$\lambda\ [\AA]$')
+    axSpec.set_xlabel(r'$\lambda\ [\mathrm{\AA}]$')
     axSpec.set_ylabel(r'$f_\lambda\ [10^{%0d}\ \mathrm{erg\ s^{-1}\ cm^{-2}\ \AA^{-1}}]$' %(flam_norm))
     if yticks is not None:
         ytick = axSpec.set_yticks(yticks)
@@ -907,7 +1056,7 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     if show_SED:
         axInset = fig.add_axes((left+0.55+SED_hoffset, bottom+SED_voffset, 0.99-left-0.6, dy2d*0.4))
         axInset.plot(lci[is_spec], fobs[is_spec], alpha=0.9, color='black', linewidth=1)
-        axInset.plot(lambdaz,temp_sed, color='red', linewidth=1, alpha=0.3)
+        axInset.plot(lambdaz, temp_sed, color='red', linewidth=1, alpha=0.3)
         axInset.plot(lci[~is_spec], fobs[~is_spec], marker='o', linestyle='None', alpha=0.5, color='white')
         axInset.plot(lci[~is_spec], fobs[~is_spec], marker='o', linestyle='None', alpha=0.3, color='black')
 
@@ -923,6 +1072,20 @@ def general_plot(object='AEGIS-9-G141_00154', show_SED=True, sync=False, y0=None
     else:
         axInset = None
     #print os.getcwd()
-    fig.savefig(object+'_display.pdf')
+    
+    #
+    mat = lines.id == object
+    print '%s  %.4f  %.1f %.1f %.1e %.1f' %(object, lines.z_grism[mat][0], lines.oiii_eqw[mat][0], lines.oiii_eqw_err[mat][0], lines.oiii_flux[mat][0], lines.hbeta_eqw[mat][0])
+
+    if show_line_stats:
+        if (lines.z_grism[mat][0] < 1.5) & (lines.halpha_eqw_err[mat][0] > 0):
+            axSpec.text(line_stats_pos[0], line_stats_pos[1], r'${\rm EW}_{\rm H\alpha}=%d\pm%d,\ f_{\rm H\alpha}=%.1f\pm%.1f$' %(lines.halpha_eqw[mat][0], lines.halpha_eqw_err[mat][0], lines.halpha_flux[mat][0]/1.e-17, lines.halpha_eqw_err[mat][0]/lines.halpha_eqw[mat][0]*lines.halpha_flux[mat][0]/1.e-17), horizontalalignment='left', transform=axSpec.transAxes, backgroundcolor='white', fontsize=9)
+        #
+        if (lines.z_grism[mat][0] > 1.19) & (lines.z_grism[mat][0] < 2.3) & (lines.oiii_eqw_err[mat][0] > 0):
+            axSpec.text(line_stats_pos[0]+0.45, line_stats_pos[1], r'${\rm EW}_{\rm OIII}=%d\pm%d,\ f_{\rm OIII}=%.1f\pm%.1f$' %(lines.oiii_eqw[mat][0], lines.oiii_eqw_err[mat][0], lines.oiii_flux[mat][0]/1.e-17, lines.oiii_eqw_err[mat][0]/lines.oiii_eqw[mat][0]*lines.oiii_flux[mat][0]/1.e-17), horizontalalignment='left', transform=axSpec.transAxes, backgroundcolor='white', fontsize=9)
+        
+            
+    unicorn.catalogs.savefig(fig, object+'_display.pdf')
+    
     return fig, ax2D, axThumb, axSpec, axInset
         

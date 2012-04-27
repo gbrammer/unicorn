@@ -10,6 +10,7 @@ USE_PLOT_GUI=False
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import matplotlib
 
 from pyraf import iraf
 from iraf import iraf
@@ -197,7 +198,7 @@ def throughput_v2():
     ax2.xaxis.set_minor_locator(minorLocator)
     ax2.set_xlabel(r'$z_\mathrm{line}$')
     
-    fig.savefig('throughput.pdf')
+    fig.savefig('throughput.eps')
     plt.rcParams['text.usetex'] = False
     
 def orbit_structure():
@@ -223,14 +224,48 @@ def orbit_structure():
     #dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
     #dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
     
-    xpostarg = np.array([0, 1.355, 0.881, -0.474])
-    ypostarg = np.array([0, 0.424, 1.212, 0.788])
+    x3dhst = np.array([0, 1.355, 0.881, -0.474])/a11
+    y3dhst = np.array([0, 0.424, 1.212, 0.788])/b10
     
     xgoodsn = np.array([0,0.6075, 0.270, -0.3375])/a11
     ygoodsn = np.array([0,0.1815, 0.6655, 0.484])/b10
     
-    xoff = xpostarg/a11
-    yoff = ypostarg/b10
+    #### SN fields:
+    test = """
+    files=`ls ibfuw1*flt.fits.gz`
+    for file in $files; do result=`dfitsgz $file |fitsort FILTER APERTURE POSTARG1 POSTARG2 | grep -v POST`; echo "${file} ${result}"; done
+    """
+    xmarshall = np.array([-0.34, -0.540, 0.0, 0.608, 0.273])/a11
+    ymarshall = np.array([-0.34, -0.243, 0.0, 0.244, 0.302])/b10
+    
+    xgeorge = np.array([0.0, -0.608, 0.273, -0.340, 0.540])/a11
+    ygeorge = np.array([0.0, 0.244, 0.302, -0.340, -0.243])/b10
+    
+    x41 = np.array([0.273, -0.608, 0.540, -0.340, -0.340, 0.540])/a11
+    y41 = np.array([0.302, 0.244, -0.243, -0.301, -0.301, -0.243])/b10
+    
+    xprimo = np.array([0.0, 0.474, 0.290, 0.764, -0.290, 0.184])/a11
+    yprimo = np.array([0.0, 0.424, -0.290, 0.134, 0.290, 0.714])/b10
+    
+    xers = np.array([-10.012, 9.988, 9.971, -9.958])/a11
+    yers = np.array([5.058, 5.050, -5.045, -5.045])/b10
+    
+    xcooper = np.array([0, 0.6075, 0.270 ,-0.3375])/a11
+    ycooper = np.array([0, 0.1815, 0.6655, 0.484])/b10
+    
+    xstanford = np.array([-0.169, 0.372, 0.169, -0.372])/a11
+    ystanford = np.array([-0.242, 0.06064, 0.242, 0.06064])/b10
+    xstanford += 0.2
+    
+    xoff = x3dhst
+    yoff = y3dhst
+    
+    print np.round(xoff*10)/10.*2
+    print np.round(yoff*10)/10.*2
+    
+    plt.plot(np.round(xoff*10)/10. % 1, np.round(yoff*10)/10. % 1)
+    plt.xlim(-0.1,1.1); plt.ylim(-0.1,1.1)
+    
         
     ax.plot(xoff, yoff, marker='o', markersize=10, color=wfc3_color, alpha=0.8, zorder=10)
     
@@ -435,7 +470,6 @@ def aXe_model():
     zx, zy = [301, 393, 648], [183, 321, 446]
     ax.plot(np.array(zx)+(xc-1731), np.array(zy)-dy0+(yc-977), marker='^', markersize=6, linestyle='None', markeredgecolor='black', markerfacecolor='None', alpha=0.9, markeredgewidth=1.2)
     
-    import matplotlib
     fonts = matplotlib.font_manager.FontProperties()
     fonts.set_size(9)
     ax.legend(['Emission',r'0th order'], numpoints=1, prop=fonts, handletextpad=0.001, borderaxespad=0.001)
@@ -2143,6 +2177,210 @@ def make_empty_apertures_plot(empty_file='PRIMO_F125W_drz_empty.fits', ZP=26.25,
     
     print ROOT+'_empty.pdf'
 
+def show_background_flux_distribution():
+    """
+    Extract the SKYSCALE parameter from the G141 FLT images and plot their distribution
+    by field.
+    """
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    
+    # for field in ['AEGIS','COSMOS','GOODS-S','UDS']:
+    #     os.chdir(unicorn.GRISM_HOME+'%s/PREP_FLT' %(field))
+    #     print field
+    #     status = os.system('dfits *flt.fits |fitsort TARGNAME FILTER SKYSCALE |grep G141 > %s_skyscale.dat' %(field))
+    # 
+    # os.chdir(unicorn.GRISM_HOME)
+    # status = os.system('cat AEGIS/PREP_FLT/AEGIS_skyscale.dat COSMOS/PREP_FLT/COSMOS_skyscale.dat GOODS-S/PREP_FLT/GOODS-S_skyscale.dat UDS/PREP_FLT/UDS_skyscale.dat > 3DHST_skyscale.dat') 
+    
+    ### 
+    os.chdir("/research/HST/GRISM/3DHST/SIMULATIONS")
+    sky = catIO.Readfile('3DHST_skyscale.dat')
+    pointings = np.unique(sky.pointing)
+    
+    colors = {}
+    colors['UDS'] = 'purple'; colors['COSMOS'] = 'blue'; colors['AEGIS'] = 'red'; colors['GOODS-SOUTH'] = 'green'
+    
+    off = {}
+    off['UDS'] = 1
+    nexp = np.arange(1,5)
+    fields = []
+    for pointing in pointings:
+        this = sky.pointing == pointing
+        field = '-'.join(pointing.split('-')[:-1])
+        fields.extend([field]*4)
+        #print pointing, field
+        #p = plt.plot(sky.skyscale[this], nexp, marker='o', linestyle='-', alpha=0.5, color=colors[field])
+    
+    fields = np.array(fields)
+    
+    plt.ylim(0,5)
+    
+    fig = unicorn.catalogs.plot_init(xs=3.8, left=0.06, bottom=0.08, use_tex=True, fontsize=10)
+    ax = fig.add_subplot(111)
+    for i, field in enumerate(np.unique(fields)[::-1]):
+        this = fields == field
+        yh, xh = np.histogram(sky.skyscale[this], range=(0,4), bins=40)
+        p = ax.plot(xh[1:], yh*1./yh.max()+i*3.5, marker='None', linestyle='steps-', color=colors[field], alpha=0.5, linewidth=3)
+        #
+        pointings = np.unique(sky.pointing[fields == field])
+        for pointing in pointings:
+            this = sky.pointing == pointing
+            p = ax.plot(sky.skyscale[this], np.arange(4)/4.*2+1.5+i*3.5, marker='o', linestyle='-', alpha=0.3, color=colors[field], ms=4)
+        #
+        ax.text(0.1, i*3.5+1.5, field.replace('SOUTH','S'), horizontalalignment='left')
+        
+    ax.set_xlim(0,3.4)
+    ax.yaxis.set_major_locator(MultipleLocator(3.5))
+    ax.set_yticklabels([])
+    ax.set_ylabel('Field')
+    ax.set_xlabel(r'Background per exposure [e$^-$/ s]')
+    
+    unicorn.catalogs.savefig(fig, 'pointing_backgrounds.pdf')
+
+def eqw_as_fn_mag():
+    """
+    For a given line flux, plot the equivalent width 
+    as a function of magnitude to show the equivalent width sensitivity.
+    """
+    
+    lam = np.arange(1.e4,1.8e4,0.1)
+    
+    l0 = 1.4e4
+    dv = 120 # km/s
+    line = 1./np.sqrt(2*np.pi*(dv/3.e5*l0)**2)*np.exp(-(lam-l0)**2/2/(dv/3.e5*l0)**2)    
+    
+    continuum = lam*0.+line.max()*0.1
+    
+    line_fnu = line*lam**2/3.e18
+    continuum_fnu = continuum*lam**2/3.e18
+    
+    xfilt, yfilt = np.loadtxt(os.getenv('iref')+'/F140W.dat', unpack=True)
+    yfilt_int = np.interp(lam, xfilt, yfilt) #/np.trapz(yfilt, xfilt)
+    
+    ## filter width
+    piv = np.sqrt(np.trapz(yfilt*xfilt, xfilt)/np.trapz(yfilt/xfilt, xfilt))
+    
+    INT, SQRT, LAM, THRU, LN = np.trapz, np.sqrt, xfilt, yfilt, np.log
+    BARLAM = INT(THRU * LN(LAM) / LAM, LAM) / INT(THRU / LAM, LAM)
+    BANDW = BARLAM * SQRT(INT(THRU * LN(LAM / BARLAM)**2 / LAM, LAM)) / INT(THRU / LAM, LAM)
+    barlam = np.trapz(yfilt*np.log(xfilt)/xfilt, xfilt) / np.trapz(yfilt/xfilt, xfilt)
+    bandw = barlam*np.sqrt(np.trapz(yfilt*np.log(xfilt/barlam)**2/xfilt, xfilt)) / np.trapz(yfilt/xfilt, xfilt)
+    nu = 3.e8/(lam*1.e-10)
+    
+    bigL = -np.trapz(line_fnu*yfilt_int, nu)
+    bigC = -np.trapz(continuum_fnu*yfilt_int, nu)
+    bigF = -np.trapz(yfilt_int, nu)
+    
+    bigW = np.trapz(line/continuum, lam)
+
+    xfilt_125, yfilt_125 = np.loadtxt(os.getenv('iref')+'/F125W.dat', unpack=True)
+    yfilt_int_125 = np.interp(lam, xfilt_125, yfilt_125) #/np.trapz(yfilt, xfilt)
+        
+    bigL_125 = -np.trapz(line_fnu*yfilt_int_125, nu)
+    bigC_125 = -np.trapz(continuum_fnu*yfilt_int_125, nu)
+    bigF_125 = -np.trapz(yfilt_int_125, nu)
+        
+    # integrated line flux
+    alpha = 5.e-17
+    
+    ### plot trend
+    mag = np.arange(20, 25.5, 0.05)
+    fnu = 10**(-0.4*(mag+48.6))
+    
+    EQW = bigW*bigC / (bigF/alpha*fnu-bigL)
+    #plt.plot(mag, EQW)
+    # 
+    # EQW2 = bigW*bigC*alpha/bigF / (fnu-alpha/bigF*bigL)
+    # plt.plot(mag, EQW2)
+    # 
+    # EQW3 = 3.19e-27 / (fnu - 8.04e-31)
+    # plt.plot(mag, EQW3)
+    # 
+    # EQW4 = 3.19e-27 / (10**(-0.4*mag)*3.63e-20 - 8.04e-31)
+    # plt.plot(mag, EQW4)
+    # 
+    # EQW5 = 8.78e-8*(alpha/5.e-17) / (10**(-0.4*mag)-2.21e-11*(alpha/5.e-17))
+    # plt.plot(mag, EQW5)
+    # 
+    # m0 = 23
+    # EQW6 = 8.78e-8*(alpha/5.e-17) / (10**(-0.4*m0)-2.21e-11*(alpha/5.e-17))
+
+    #### above equation reaches a limit when continuum = 0, mag can't be less than 
+    #### that of just the integrated line
+    line_only = (line+continuum*0)
+    line_only_fnu = line_only*lam**2/3.e18
+    fnu_filt = np.trapz(line_only_fnu*yfilt_int, nu) / np.trapz(yfilt_int, nu)
+    mag_limit = -2.5*np.log10(alpha*fnu_filt)-48.6
+    mag_limit2 = -2.5*np.log10(alpha/5.e-17)-2.5*np.log10(5.e-17)-2.5*np.log10(fnu_filt)-48.6
+    mag_limit3 = -2.5*np.log10(alpha/5.e-17)+26.64
+    
+    ### test if test case comes out right
+    spec_obs = alpha*(line+continuum)
+    spec_obs_fnu = spec_obs*lam**2/3.e18
+    fnu_filt = np.trapz(spec_obs_fnu*yfilt_int, nu) / np.trapz(yfilt_int, nu)
+    mag_obs = -2.5*np.log10(fnu_filt)-48.6
+    eqw_obs = np.trapz(line/continuum, lam)
+    #plt.plot([mag_obs,mag_obs], [eqw_obs,eqw_obs], marker='o', ms=15)
+    
+    #### Make figure
+    mag = np.arange(20, 26, 0.1)
+    fnu = 10**(-0.4*(mag+48.6))
+    
+    #fig = unicorn.catalogs.plot_init(xs=3.8, left=0.10, bottom=0.08, use_tex=True, square=True, fontsize=11)
+    fig = unicorn.catalogs.plot_init(left=0.11, bottom=0.08, xs=3.8, right=0.09, top=0.01, use_tex=True)
+    
+    ax = fig.add_subplot(111)
+    lst = ['-.','-','--',':']
+    
+    #### Show Arjen's sample
+    elg = catIO.Readfile('elg_mag.txt')
+    elg.oiii = (5+15)*1./(5+15+23)*elg.ew_obs_tot
+    elg.avmag = -2.5*np.log10(0.5*10**(-0.4*elg.j)+0.5*10**(-0.4*elg.h))
+    
+    ax.scatter(elg.j, elg.oiii, alpha=0.4, s=10, color='red', label=r'van der Wel et al. 2011 ($J_{125}$)')
+    EQW_125 = bigW*bigC_125 / (bigF_125/5.e-17*fnu-bigL_125)
+    ax.plot(mag, EQW_125, color='red', alpha=0.5)
+    
+    for ii, limit in enumerate([1.e-17, 3.e-17, 5.e-17, 1.e-16][::-1]):
+        EQW = bigW*bigC / (bigF/limit*fnu-bigL)
+        ll = np.log10(limit)
+        l0 = np.round(10**(ll-np.floor(ll)))
+        l10 = np.floor(ll)
+        ax.plot(mag, EQW, label=r'$f_{\lambda,\mathrm{line}} = %0d\times10^{%0d}$' %(l0,l10), linestyle=lst[ii], color='black')
+    
+    ax.semilogy()
+    ax.set_xlabel(r'$m_{140}$')
+    ax.set_ylabel(r'Equivalent width (\AA)')
+    ax.set_ylim(1,1.e4)
+    ax.set_xlim(20,26)
+    
+    #8.78e-8*(alpha/5.e-17) / (10**(-0.4*mag)-2.21e-11*(alpha/5.e-17))
+    ax.text(23,1.7,r'$\mathrm{EQW} = \frac{8.78\times10^{-8}\left(f_\mathrm{line}/5\times10^{-17}\right)}{10^{-0.4\,m_{140}}-2.21\times10^{-11}\left(f_\mathrm{line}/5\times10^{-17}\right)}$', horizontalalignment='center')
+    
+    ax.legend(prop=matplotlib.font_manager.FontProperties(size=8), loc=2, bbox_to_anchor=(0.02,0.98), frameon=False)
+    
+    unicorn.catalogs.savefig(fig, 'eqw_as_fn_mag.pdf')
+    
+    #### compute where poisson error of source counts (1.4 um) is similar to sky background error
+    sky, texp = 1.6, 1200.
+    var = sky*texp + 20**2
+    bg_error = np.sqrt(var)/1200.
+    
+    sens = np.interp(1.4e4, unicorn.reduce.sens_files['A'].field('WAVELENGTH'), unicorn.reduce.sens_files['A'].field('SENSITIVITY'))*46.5
+    mag = np.arange(14,25,0.1)
+    fnu = 10**(-0.4*(mag+48.6))
+    ctrate = fnu*3.e18/1.4e4**2*sens
+    
+    re = 3 # pix
+    peak = 1./np.sqrt(2*np.pi*re**2)
+    
+    poisson = np.sqrt(ctrate*peak*texp)/texp
+    m_crit = np.interp(bg_error, poisson[::-1], mag[::-1])
+    
+    #### SIMULATIONS
+    stats = catIO.Readfile('all_simspec.dat')
+    plt.scatter(stats.mag, stats.ha_eqw, marker='s', alpha=0.1, s=4)
+    
 def make_star_thumbnails():
     """ 
     Extract thumbnails for isolated stars in COSMOS
@@ -3377,6 +3615,177 @@ def number_counts():
     fig.savefig('number_counts.pdf')
     plt.rcParams['text.usetex'] = False
 
+def ancillary_matches():
+    """
+    Get an idea of how the matching to the ancillary catalogs depends on mag:
+        matched fraction
+        multiple matches
+    """
+    import unicorn
+    import unicorn.catalogs
+    import copy
+        
+    os.chdir(unicorn.GRISM_HOME+'/ANALYSIS/SURVEY_PAPER')
+        
+    unicorn.catalogs.read_catalogs()
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+        
+    keep = unicorn.catalogs.run_selection(zmin=0, zmax=8, fcontam=1, qzmin=0., qzmax=10, dr=1.0, has_zspec=False, fcovermin=0.5, fcovermax=1.0, massmin=0, massmax=15, magmin=12, magmax=27)
+    
+    fields = (phot.field[phot.idx] == 'AEGIS') | (phot.field[phot.idx] == 'COSMOS') | (phot.field[phot.idx] == 'GOODS-N') | (phot.field[phot.idx] == 'GOODS-S')
+    
+    phot_dr = np.zeros(phot.field.shape)+100
+    phot_id = np.zeros(phot.field.shape)
+    phot_kmag = np.zeros(phot.field.shape)
+    idx = np.arange(phot.field.shape[0])
+    
+    #### Do separate matching again on every object in photometric catalog
+    for field in ['COSMOS','AEGIS','GOODS-S','GOODS-N']:
+        this = phot.field == field
+        cat, zout, fout = unicorn.analysis.read_catalogs(field+'-1')
+        cos_dec = np.cos(np.median(cat.dec)/360.*2*np.pi)**2
+        for i in idx[this]:
+            print unicorn.noNewLine+'%d / %d' %(i, idx[this][-1])
+            dr = np.sqrt((cat.ra-phot.x_world[i])**2*cos_dec+(cat.dec-phot.y_world[i])**2)*3600.
+            ma = dr == dr.min()
+            phot_dr[i] = dr.min()
+            phot_id[i] = cat.id[ma][0]
+            phot_kmag[i] = cat.kmag[ma][0]
+    
+    #### Ask, "what fraction of F140W objects have multiple matches to the same ancillary object"
+    n_match = phot_dr*0
+    n_brighter = phot_dr*0.
+    i = 0
+    base_selection = (phot.fcover > 0.5) & (phot.has_spec == 1) & (phot_dr < 1.0) 
+    for f,id,m,p in zip(phot.field, phot_id, phot.mag_f1392w,phot.pointing):
+        print unicorn.noNewLine+'%d / %d' %(i, len(phot_id))
+        mat = (phot.field == f) & (phot_id == id) & (phot.pointing == p) & base_selection
+        n_match[i] = mat.sum()
+        brighter = mat & (phot.mag_f1392w-m < 0.75)
+        n_brighter[i] = brighter.sum()-1
+        i = i+1
+    
+    use = n_match > 0
+    yh_full, xh_full = np.histogram(phot.mag_f1392w[use], range=(12,26), bins=14*4)
+    
+    fig = unicorn.plotting.plot_init(square=True, use_tex=True, left=0.09, bottom=0.07, xs=3.5)
+    ax = fig.add_subplot(111)
+    
+    yh_n, xh_n = np.histogram(phot.mag_f1392w[use & (n_match > 1)], range=(12,26), bins=14*4)
+    ax.plot(xh_n[1:]-0.22, yh_n*1./yh_full, color='blue', linestyle='steps', label=r'$N_{\rm match} > 1$')
+
+    yh_n, xh_n = np.histogram(phot.mag_f1392w[use & (n_match > 1) & (n_brighter == 1)], range=(12,26), bins=14*4)
+    ax.plot(xh_n[1:]-0.22, yh_n*1./yh_full, color='red', linestyle='steps', label=r'$N_{\rm brighter} = 1$')
+    
+    yh_n, xh_n = np.histogram(phot.mag_f1392w[use & (n_match > 1) & (n_brighter > 1)], range=(12,26), bins=14*4)
+    ax.plot(xh_n[1:]-0.22, yh_n*1./yh_full, color='orange', linestyle='steps', label=r'$N_{\rm brighter} > 1$')
+    
+    ax.set_xlabel(r'$m_{140}$')
+    ax.set_ylabel('fraction')
+    
+    ax.set_xlim(19,24.5)
+    ax.set_ylim(0,0.21)
+    ax.legend(loc='upper left', frameon=False)
+    unicorn.plotting.savefig(fig, 'ancillary_matched_from_f140w.pdf')
+    
+    #### Check these cases of n_brighter == 1
+    test = (n_match > 0) & (n_brighter == 1)
+    idx = np.arange(len(n_match))[test]
+    i = 0
+    id = phot_id[idx][i]
+    mat = base_selection & (phot.field == phot.field[idx][i]) & (phot_id == phot_id[idx][i])
+    
+    ### Some pointings, such as GOODS-S flanking fields don't overlap with photom. catalog
+    test_field_goodsn = (phot.field == 'GOODS-N') 
+    test_field_goodss = (phot.field == 'GOODS-S') & (phot.pointing != 1) & (phot.pointing != 28)
+    test_field_cosmos = phot.field == 'COSMOS'
+    
+    test_field_aegis = phot.field == 'AEGIS'  ### out of NMBS
+    for i in [11,2,1,6]:
+        test_field_aegis = test_field_aegis & (phot.pointing != i)
+    
+    fig = unicorn.plotting.plot_init(square=True, use_tex=True, left=0.09, bottom=0.07, xs=3.5)
+    ax = fig.add_subplot(111)
+    
+    #### Make a plot showing the fraction of matched galaxies
+    for test_field, c in zip([test_field_goodsn, test_field_goodss, test_field_cosmos, test_field_aegis], ['orange','red','blue','green']):
+        base_selection = (phot.fcover > 0.5) & test_field & (phot.has_spec == 1)
+        has_match = phot_dr < 1.0
+        yh_full, xh_full = np.histogram(phot.mag_f1392w[base_selection], range=(12,26), bins=14*4)
+        yh_mat, xh_mat = np.histogram(phot.mag_f1392w[base_selection & has_match], range=(12,26), bins=14*4)
+        yh_full, yh_mat = np.maximum(yh_full, 0.01), np.maximum(yh_mat, 0.01)
+        # plt.plot(xh_full[1:], yh_full, linestyle='steps', color='blue', alpha=0.5)
+        # plt.plot(xh_mat[1:], yh_mat, linestyle='steps', color='red', alpha=0.5)
+        # plt.semilogy()
+        # plt.ylim(0.5,500)
+        #
+        ax.plot(xh_full[1:]-0.22, yh_mat/yh_full, linestyle='-', linewidth=3, color=c, alpha=0.5, label=np.unique(phot.field[test_field])[0])
+    
+    ax.legend(loc='lower left')
+    ax.plot([0,100],[1,1], color='black', linestyle='-', alpha=0.8, linewidth=2)
+    ax.plot([0,100],[0.9,0.9], color='black', linestyle=':', alpha=0.8, linewidth=2)
+    ax.set_ylim(0,1.1)
+    ax.set_xlim(21,25.)
+    ax.set_xlabel(r'$m_{140}$')
+    ax.set_ylabel(r'Matched fraction')
+    
+    unicorn.plotting.savefig(fig, 'ancillary_matched_fraction.pdf')
+    
+    #### Look at multiple matches
+    base_selection = (phot.fcover > 0.5) & (phot.has_spec == 1)
+    
+    use = base_selection & test_field_cosmos & (phot_dr < 1.0)
+    plt.scatter(phot.mag_f1392w[use], phot_kmag[use], color='blue', alpha=0.1, s=10)
+    
+    matched_id = np.unique(phot_id[use])
+    kmag = matched_id*0.
+    dmag1 = matched_id*0.+100
+    dmag2 = matched_id*0.+100
+    N = matched_id*0
+    for ii, id in enumerate(matched_id):
+        print unicorn.noNewLine+'%d / %d' %(ii, len(matched_id))
+        this = (phot_id == id) & use
+        dmag = phot.mag_f1392w[this]-phot_kmag[this]
+        kmag[ii] = phot_kmag[this][0]
+        dmag1[ii] = dmag[0]
+        N[ii] = this.sum()
+        if this.sum() > 1:
+            so = np.argsort(dmag)
+            dmag2[ii] = dmag[so][1] 
+    #
+    fig = unicorn.plotting.plot_init(square=True, use_tex=True, left=0.09, bottom=0.07, xs=3.5)
+    ax = fig.add_subplot(111)
+    ax.scatter(kmag, dmag1-0.22, color='blue', alpha=0.2, s=10, label='1st matched')
+    ax.scatter(kmag, dmag2-0.22, color='red', alpha=0.2, s=10, label='2nd matched')
+    ax.set_xlim(17,24)
+    ax.set_ylim(-1,5)
+    ax.legend(loc='upper left')
+    ax.set_xlabel(r'$K_\mathrm{matched}$')
+    ax.set_ylabel(r'$m_{140} - K_\mathrm{matched}$')
+    unicorn.plotting.savefig(fig,'ancillary_delta_mag.pdf')
+    
+    ### Show fraction of ancillary objects that have multiple matches a function of magnitude
+    fig = unicorn.plotting.plot_init(square=True, use_tex=True, left=0.09, bottom=0.07, xs=3.5)
+    ax = fig.add_subplot(111)
+    
+    yh_full, xh_full = np.histogram(kmag, range=(17,24), bins=7*4)
+    
+    yh, xh = np.histogram(kmag[dmag2 < 1.2], range=(17,24), bins=7*4)
+    ax.plot(xh[1:], yh*1./yh_full, linestyle='steps', color='red', linewidth=3, alpha=0.5, label=r'$\Delta 2^{\rm nd} < 1.2$')
+    
+    yh, xh = np.histogram(kmag[N > 1], range=(17,24), bins=7*4)
+    ax.plot(xh[1:], yh*1./yh_full, linestyle='steps', color='red', linewidth=3, alpha=0.3, label=r'$N_\mathrm{match} > 1$')
+
+    yh, xh = np.histogram(kmag[N > 3], range=(17,24), bins=7*4)
+    ax.plot(xh[1:], yh*1./yh_full, linestyle='steps', color='blue', linewidth=3, alpha=0.5, label=r'$N_\mathrm{match} > 3$')
+    
+    ax.set_xlabel(r'$K_\mathrm{matched}$')
+    ax.set_ylabel(r'fraction')
+    ax.legend(loc='upper left', prop=matplotlib.font_manager.FontProperties(size=9))
+    
+    unicorn.plotting.savefig(fig,'ancillary_multiple_fraction.pdf')
+    
+    
 def get_iband_mags():
     """ 
     On Unicorn, loop through the ascii spectra to retrieve the iband mags, should all be ZP=25.

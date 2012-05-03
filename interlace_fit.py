@@ -739,7 +739,156 @@ class GrismSpectrumFit():
         if lim3[0].size > 0: temp_sed[lim3] *= 1.-self.eazy_temp_sed['da'][self.eazy_coeffs['izbest'][self.ix]]
         
         return temp_sed
+    
+    def new_fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
+        """
+        Fit the normalization and slope directly rather than with the
+        fake red/blue templates.
+        """
+        import emcee
+        import time
+        if ztry is None:
+            ztry = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
         
+        if verbose:
+            print 'Fit lines: z=%.4f' %(ztry)
+            
+        var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
+        var[var == 0] = 1.e6
+        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+
+        flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
+        use = np.isfinite(flux)
+        
+        (use_lines, fancy), templates = self.get_emline_templates_new(ztry=ztry, line_width=line_width0)
+        
+        #### Initial guess for template normalizations
+        twod_templates = np.zeros((1+len(use_lines), var.size))
+        for i, temp in enumerate(templates):
+            self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
+            twod_templates[i,:] = self.twod.model.flatten()
+        
+        #
+        amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
+        coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
+        flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.linex.shape))
+        
+        coeffs = np.maximum(coeffs, 1.e-5)
+        
+        #### First parameter is slope, rest are template normalizations
+        init = np.append(0, np.log(coeffs))
+        step_sig = np.append(0.1, np.ones(len(coeffs))*np.log(1.05))
+        
+        #### Fit just emission lines, z fixed to z_grism
+        obj_fun = unicorn.interlace_fit._objective_lineonly_new
+        sh = self.twod.im['SCI'].data.shape
+        wave_flatten = np.dot(np.ones(sh[0]).reshape(sh[0],1), self.oned.data.wave.reshape(1,sh[1])).flatten()
+        obj_args = [flux, var, twod_templates, np.log(wave_flatten/1.4e4), 1]
+        
+        model = obj_fun(init, *obj_args).reshape(sh)
+        
+        #### Run the Markov chain
+        obj_args = [flux, var, twod_templates, np.log(wave_flatten/1.4e4), 0]
+        
+        ndim = len(init)
+        p0 = [(init+np.random.normal(size=len(init))*step_sig) for i in xrange(NWALKERS)]
+
+        # NTHREADS, NSTEP = 1, 100
+        if verbose:
+            print 'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d)' %(NWALKERS, NSTEP)
+            t0 = time.time()
+            
+        self.sampler = emcee.EnsembleSampler(NWALKERS, ndim, obj_fun, threads=NTHREADS, args=obj_args)
+        result = self.sampler.run_mcmc(p0, NSTEP)
+        
+        param_names = ['s1','s0']
+        param_names.extend(use_lines)
+        self.chain = unicorn.interlace_fit.emceeChain(chain=self.sampler.chain, param_names = param_names)
+        
+        if verbose:
+            print unicorn.noNewLine+'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d) -> Done (%.1f s).  Make plot...' %(NWALKERS, NSTEP, time.time()-t0)
+        
+        ##### Make the plot
+        fig = unicorn.catalogs.plot_init(xs=5,aspect=1./1.65, left=0.15, right=0.02, bottom=0.09, top=0.02, NO_GUI=True)
+        ax = fig.add_subplot(111)
+        
+        wok = (self.oned_wave > 1.e4)
+        ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
+        
+        #### Line equivalent widths, combined error of line and continuum
+        #### normalizations
+        ntemp = templates.shape[0]
+        eqw = np.ones(ntemp-1)
+        eqw_err = np.ones(ntemp-1)
+
+        ok = templates[0,:] > 0
+        
+        for i, line in enumerate(use_lines):
+            continuum_scale = np.exp(self.chain['s0']+self.chain['s1']*np.log(fancy[line][1][0]*(1+ztry)/1.4e4))
+            eqw_post = -np.trapz(-templates[i+1,ok]/templates[0,ok], self.linex[ok]*(1+ztry))*np.exp(self.chain[line])/continuum_scale
+            eqw[i] = np.median(eqw_post[:,self.chain.nburn:])
+            #eqw_err[i] = threedhst.utils.biweight(eqw_post)
+            eqw_err[i] = (np.percentile(eqw_post[:,self.chain.nburn:], 84) - np.percentile(eqw_post[:,self.chain.nburn:], 16))/2.
+            
+        #### Show model drawn from posterior
+        NSHOW = 100
+        rand_walk = np.cast[int](np.random.rand(NSHOW)*self.chain.nwalkers)
+        rand_step = np.cast[int](np.random.rand(NSHOW)*(self.chain.nstep-self.chain.nburn))+self.chain.nburn
+        
+        for i in range(NSHOW):
+            param = self.chain.chain[rand_walk[i],rand_step[i],:]
+            #print param
+            obj_args = [flux, var, twod_templates, np.log(wave_flatten/1.4e4), 1]
+            model_step = obj_fun(param, *obj_args).reshape(sh)
+            wave_model, flux_model = self.twod.optimal_extract(model_step)
+            aa = ax.plot(wave_model/1.e4, flux_model, color='red', alpha=0.05, zorder=1)
+            
+        #ax.plot(self.oned_wave[wok]/1.e4, self.model_1D[wok], color='green', alpha=0.5, linewidth=2, zorder=10)
+        
+        #### Correction factors due to offset from photometry.  The line
+        #### strenghts as fit are *before* the correction, so in observed
+        #### frame need to be scaled
+        lam = self.oned.data.wave
+        scale = np.exp(self.chain.stats['s0']['q50'] +
+                   self.chain.stats['s1']['q50']*np.log(lam/1.4e4))
+        
+        corr_factor = eqw*0.
+        for i, line in enumerate(use_lines):
+            corr_factor[i] = 1./np.interp(fancy[line][1][0]*(1+ztry), lam, scale)
+        
+        fp = open(self.grism_id+'.linefit.dat','w')
+        fp.write('# line  flux error scale_to_photom EQW_obs EQW_obs_err \n# z=%.5f\n# flux: 10**-17 ergs / s / cm**2\n' %(ztry))
+        
+        fp.write('# tilt correction to photometry: s0 = %.3f [ %.3f ], s1 = %.3f [ %.3f ]\n' %(self.chain.stats['s0']['q50'], self.chain.stats['s0']['width'], self.chain.stats['s1']['q50'], self.chain.stats['s1']['width']))
+        print use_lines
+        for i, line in enumerate(use_lines):
+            #hist = plt.hist(chain[:,i+1], bins=50)
+            #stats = threedhst.utils.biweight(chain[:,i+1], both=True)
+            stats = self.chain.stats[self.chain.param_names[i+2]]
+            flux_med = np.exp(stats['q50'])*(1+ztry)#/corr_factor[i]
+            flux_err = flux_med * stats['width'] #/corr_factor[i]
+            #median = np.median(chain[:,i+1])
+            #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
+            fp.write('%4s  %6.2f  %.2f  %.3f %6.2f %6.2f\n' %(line, flux_med, flux_err, corr_factor[i], eqw[i], eqw_err[i]))
+            ax.fill_between([0.03,0.53],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+            #
+            ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line][0], flux_med, flux_err, flux_med/flux_err, eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20)
+            
+        ax.fill_between([0.61,0.96],np.array([0.95,0.95]), np.array([0.88, 0.88]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.95, self.grism_id, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        ax.fill_between([0.8,0.96],np.array([0.85,0.85]), np.array([0.78, 0.78]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+        ax.text(0.95, 0.85, r'$z=%.4f$' %(ztry), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
+        
+        ax.set_xlim(1.0,1.73)
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        ax.set_ylabel(r'Flux (e - / s)')
+        ymax = self.model_1D.max()
+        ax.set_ylim(-0.1*ymax, 1.5*ymax)
+        
+        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
+        
+        fp.close()
+            
     def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
 
@@ -872,6 +1021,68 @@ class GrismSpectrumFit():
             self = unicorn.interlace_fit.GrismSpectrumFit(root)
             if self.status:
                 self.fit_free_emlines()
+    #
+    def get_emline_templates_new(self, ztry=0., use_determined_lines=True, line_width=100):
+        
+        line_wavelengths = {} ; line_ratios = {}
+        line_wavelengths['Ha'] = [6564.61]; line_ratios['Ha'] = [1.]
+        line_wavelengths['Hb'] = [4862.68]; line_ratios['Hb'] = [1.]
+        line_wavelengths['Hg'] = [4341.68]; line_ratios['Hg'] = [1.]
+        line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
+        line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
+        line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
+        line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
+        line_wavelengths['HeI'] = [3889.0]; line_ratios['HeI'] = [1.]
+        line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
+        line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
+        line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
+        
+        fancy = {}
+        fancy['Ha'] = (r'H$\alpha$', line_wavelengths['Ha'] )
+        fancy['Hb'] = (r'H$\beta$', line_wavelengths['Hb'] )
+        fancy['Hg'] = (r'H$\gamma$', line_wavelengths['Hg'] )
+        fancy['OIII'] = ( 'O III', line_wavelengths['OIII'] )
+        fancy['OII']  = ( 'O II', line_wavelengths['OII'] )
+        fancy['SII']  = ( 'S II', line_wavelengths['SII'] ) 
+        fancy['SIII'] = ( 'S III', line_wavelengths['SIII'] )
+        fancy['HeI']  = ( 'He I', line_wavelengths['HeI'] ) 
+        fancy['MgII'] = ( 'Mg II', line_wavelengths['MgII'] )
+        fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 
+        fancy['Lya'] = (r'Ly$\alpha$', line_wavelengths['Lya'] )
+        
+        if use_determined_lines & (self.use_lines is not None):
+            use_lines = self.use_lines
+        else:
+            use_lines = []
+            for line in line_wavelengths.keys():
+                lam = line_wavelengths[line][0]
+                if (lam*(1+ztry) > self.oned_wave[self.oned_wave > 0.9e4].min()) & (lam*(1+ztry) < self.oned_wave.max()):
+                    use_lines.append(line)
+        
+        templates = np.ones((1+len(use_lines), self.linex.shape[0]))
+        templates[0,:] = np.interp(self.linex, self.templam_nolines, self.best_fit_nolines_flux)
+        
+        #line_width = 100 # km/s
+        xline = self.linex
+        sens_int = {}
+        
+        has_line_flux = np.ones(1+len(use_lines)) > 0
+        
+        for i,line in enumerate(use_lines):
+            yline = self.linex*0.
+            nmult = len(line_wavelengths[line])
+            for j in range(nmult):
+                lam = line_wavelengths[line][j]
+                norm = line_ratios[line][j]
+                dlam = lam*line_width/3.e5
+                yline += 1./np.sqrt(np.pi*2*dlam**2)*np.exp(-(xline-lam)**2/2/dlam**2)*norm
+            # 
+            yline /= np.sum(line_ratios[line])
+            templates[i+1,:] = yline
+                
+        self.use_lines = use_lines
+        
+        return (use_lines, fancy), templates
     
     def get_emline_templates(self, ztry=0., use_determined_lines=True, line_width=100):
         
@@ -1060,6 +1271,26 @@ class GrismSpectrumFit():
         else:    
             return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
 #
+def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten, get_model):
+    ### The "minimum" function limits the exponent to acceptable float values
+    flux_fit = twod_templates[0,:]*1.    
+    s0, s1 = params[1], params[0]
+    scale = np.exp(s0 + s1*wave_flatten)
+    flux_fit *= scale
+    
+    flux_fit += np.dot(np.exp(np.minimum(params[2:],345)).reshape((1,-1)), twod_templates[1:,:]).flatten()
+    
+    #print scale.min(), scale.max()
+    
+    lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
+
+    #print params, lnprob
+    
+    if get_model:
+        return flux_fit
+    else:
+        return lnprob
+
 def _objective_lineonly(coeffs, observed, var, templates):
     ### The "minimum" function limits the exponent to acceptable float values
     flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)
@@ -1303,6 +1534,7 @@ class emceeChain():
         stats['q95'] = np.percentile(pchain, 95)
         stats['mean'] = np.mean(pchain)
         stats['std'] = np.std(pchain)
+        stats['width'] = (stats['q84']-stats['q16'])/2.
         return stats
         
     def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0):

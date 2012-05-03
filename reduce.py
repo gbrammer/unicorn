@@ -538,7 +538,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
             full_sens[y0[keep]+NY+1,xpix[keep]] += sens_interp[keep]
-        
+
         if (lam_spec is not None) & (flux_spec is not None):
             #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
             spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
@@ -1983,21 +1983,25 @@ def interlace_goodsn():
     import glob
     import os
     
-    os.chdir(unicorn.GRISM_HOME+'GOODS-N/Interlace_GBB')
-    
+    #os.chdir(unicorn.GRISM_HOME+'GOODS-N/Interlace_GBB')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/INTERLACE')
+
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-N_F140W_v1', filter='F140W', REFERENCE = 'goodsn_for_arjen/goodsn_f140w_sci_sub.fits', SEGM = 'goodsn_for_arjen/goodsn_f140w_v1.seg.fits')
+    #unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-N_F140W_v1', filter='F140W', REFERENCE = 'goodsn_for_arjen/goodsn_f140w_sci_sub.fits', SEGM = 'goodsn_for_arjen/goodsn_f140w_v1.seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-N_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Release/GOODS-N/v1.8/detection/goodsn_f140w_sci_sub.fits', SEGM = '/3DHST/Photometry/Release/GOODS-N/v1.8/detection/goodsn_f140w_v1.seg.fits')
     
     NGROW=125
     pad=60
-    CATALOG='goodsn_for_arjen/goodsn_f140w_v1.cat'
+    CATALOG='/3DHST/Photometry/Release/GOODS-N/v1.8/detection/goodsn_f140w_v1_det.cat'
     
-    direct=glob.glob('ib*50_asn.fits')
-    
+    #direct=glob.glob('ib*50_asn.fits')
+    direct = glob.glob('GOODS-N-*-F140W_asn.fits')
+
     extract_limit = 24
     skip_completed=True
-    REF_ROOT='GOODS-N_F140W_v1'
+    #REF_ROOT='GOODS-N_F140W_v1'
+    REF_ROOT='GOODS-N_F140W'
 
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
@@ -2220,6 +2224,127 @@ def interlace_goodsn():
         fp.write('/tmp/%s.zfit.png\n' %(id))
     fp.close()
 
+def interlace_goodss():
+    """
+    Reduce the GOODS-S pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE')
+
+    #### This step is needed to strip all of the excess header keywords from the mosaic for use
+    #### with `blot`.
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/GOODS-S/v1/images/GOODS-S_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v1/sextr/checkimages/GOODS-S_F125_F140_F160W_v1.seg.fits')
+         
+    NGROW=125
+    pad=60
+    #CATALOG='phot/GOODS-S_F160W_v1.cat'
+    CATALOG='/3DHST/Photometry/Work/GOODS-S/v1/sextr/catalogs/GOODS-S_F140W_conv_v1_tmp.cat'
+
+    direct=glob.glob('GOODS-S-*-F140W_asn.fits')
+    direct.remove('GOODS-S-1-F140W_asn.fits')
+    direct.remove('GOODS-S-28-F140W_asn.fits')
+    
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='GOODS-S_F140W'
+
+    ##### Generate the interlaced images, including the "blotted" detection image
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
+        #
+        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
+        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    inter = glob.glob('GOODS-S-3[4678]*-G141_inter.fits')
+    redo = True
+
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
+
+    ##### Extract and fit only mag>24 objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-S-34')
+
+    skip_completed = True
+
+    models = glob.glob('GOODS-S-3[4678]_inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        #
+        ii = np.where(model.cat.mag < 24.)
+
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print id, '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            status = gris.stats(return_string=True)
+
+            #Only do line fitting if FCOVER>0.2            
+            if status is not False:
+                fcover = status[1].split()[3]
+                
+                if fcover > 0.2:
+                    print 'FCOVER:', status[1].split()[3]
+                    gris.fit_free_emlines(ztry=None)
+                #gris.fit_free_emlines(ztry=None, FIT_REDSHIFT=True, FIT_WIDTH=True, NWALKERS=10, NSTEP=100)
+
+    ### Get some quality flags on the reduced spectra
+    root='GOODS-S-HUDF'
+
+    files = glob.glob('GOODS-S-3[4678]*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+
+    fp.close()
+    fp2.close()	  
+    
+
 def interlace_hudf():
     """
     Reduce the GOODS-S pointings on Unicorn and extract spectra, using the full
@@ -2277,7 +2402,7 @@ def interlace_hudf():
     skip_completed = True
 
     models = glob.glob('GOODS-S-3[4678]_inter_model.fits')
-    for file in models[::-1]:
+    for file in models:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
         #
@@ -2306,7 +2431,8 @@ def interlace_hudf():
             print id, '\n'
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
             status = gris.stats(return_string=True)
-            
+
+            #Only do line fitting if FCOVER>0.2            
             if status is not False:
                 fcover = status[1].split()[3]
                 
@@ -2354,11 +2480,13 @@ def interlace_cosmos():
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
+    #unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/COSMOS/IMAGES/SMALL_PIXSCL/COSMOS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/COSMOS/Sex/F160W_seg.fits')
         
     NGROW=125
     pad=60
-    CATALOG='phot/F160W_arjen.cat'
+    #CATALOG='phot/F160W_arjen.cat'
+    CATALOG='/3DHST/Photometry/Work/COSMOS/Sex/PSF_matched/F140W_no_first_line.cat'
 
     direct=glob.glob('COSMOS-*-F140W_asn.fits')
 
@@ -2369,7 +2497,6 @@ def interlace_cosmos():
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
-        #
         unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)

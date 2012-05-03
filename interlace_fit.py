@@ -14,6 +14,7 @@ except:
     
 import numpy as np
 import scipy.stats as stats
+import pyfits
 
 import matplotlib.pyplot as plt
 
@@ -129,9 +130,9 @@ class GrismSpectrumFit():
         self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
         
         #### Try to read the previous p(z) from the pickle file
-        if self.read_pickle():
+        if self.load_fits():
             if verbose:
-                print 'Read p(z) from %s.zfit.pkl' %(self.grism_id)
+                print 'Read p(z) from %s.zfit.pz.fits' %(self.grism_id)
                 self.get_best_fit()
     
     def get_photometric_constraints(self, ra=0., dec=0., verbose=True):
@@ -157,8 +158,8 @@ class GrismSpectrumFit():
         root = os.path.basename(zout.filename).split('.zout')[0]
         ZOUT_PATH = os.path.dirname(zout.filename)
         
-        tempfilt, self.eazy_coeffs, temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
-
+        self.eazy_tempfilt, self.eazy_coeffs, self.eazy_temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
+        
         # eazyParam = eazy.EazyParam(ZOUT_PATH+'/'+root+'.param')
 
         # id = 6187
@@ -179,10 +180,12 @@ class GrismSpectrumFit():
         
         if verbose:
             print 'Match in %s\n #%d  dr=%.2f"  z_spec=%7.3f  z_peak=%7.3f' %(cat.filename, cat.id[ix], self.dr, zout.z_spec[ix], self.z_peak)
-            
-        self.best_fit = np.dot(temp_sed['temp_seds'], self.eazy_coeffs['coeffs'][:,ix])
-        self.templam = temp_sed['templam']*1.
-
+        #                    
+        self.best_fit = np.dot(self.eazy_temp_sed['temp_seds'], self.eazy_coeffs['coeffs'][:,ix])
+        self.templam = self.eazy_temp_sed['templam']*1.
+        
+        self.best_fit_flux = self.full_eazy_template(self.eazy_temp_sed['templam'], self.eazy_temp_sed['temp_seds'], self.z_peak)
+        
         # self.phot_fnu = tempfilt['fnu'][:,ix]
         # self.phot_efnu = tempfilt['efnu'][:,ix]
         # self.phot_lc = tempfilt['lc']
@@ -190,13 +193,15 @@ class GrismSpectrumFit():
         # self.tempfilt = tempfilt
         # self.tempgrid = tempfilt['tempfilt']
 
-        self.phot_zgrid = tempfilt['zgrid']
+        self.phot_zgrid = self.eazy_tempfilt['zgrid']
         self.phot_lnprob = -0.5*pz['chi2fit'][:,ix]
         self.phot_lnprob -= self.phot_lnprob.max()
         
         ### normalized probability
         self.phot_linear = np.exp(self.phot_lnprob)
-        self.phot_linear /= np.trapz(self.phot_linear, self.phot_zgrid)
+        norm  = np.trapz(self.phot_linear, self.phot_zgrid)
+        self.phot_linear /= norm
+        self.phot_lnprob -= np.log(norm)
         
         # self.temp_err_x, self.temp_err_y = np.loadtxt(os.getenv('TEMPLATE_DIR')+'/'+eazyParam.params['TEMP_ERR_FILE'], unpack=True)
         # self.temp_err_y *= eazyParam.params['TEMP_ERR_A2']
@@ -301,7 +306,7 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.01, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True):
+    def fit_in_steps(self, dzfirst=0.002, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -330,17 +335,27 @@ class GrismSpectrumFit():
         z_max = zgrid0[full_prob0 == full_prob0.max()][0]
         zsub = full_prob0 > np.log(1.e-10)
 
-        #### Define the range and step size for the next iteration
-        width = 0.02*(1+z_max)
-        zrange, dz = (z_max-width, z_max+width), dzsecond
-
-        print '\nStep 1: z_max = %.3f (%.3f,%.3f)\n' %(z_max, zrange[0], zrange[1])
-
         #################
         #### Second iteration, small dz steps around the probability peak
         #################
-        zgrid1, spec_lnprob1 = self.fit_zgrid(zrange=zrange, dz=dz)
-
+        if not skip_second:
+            #### Define the range and step size for the next iteration
+            width = 0.002*(1+z_max)
+            #zrange, dz = (z_max-width, z_max+width), dzsecond
+            zsecond = np.arange(zrfirst[0], zrfirst[1], dzsecond)
+            pzint = np.interp(zsecond, zgrid0, full_prob0)
+            zsub = pzint > np.log(1.e-5)
+            if (zsecond[zsub].max() - zsecond[zsub].min()) < width*2:
+                zrange = (z_max-width, z_max + width)
+            else:
+                zrange = (zsecond[zsub].min(), zsecond[zsub].max())
+            
+            print '\nStep 1: z_max = %.3f (%.3f,%.3f)\n' %(z_max, zrange[0],
+                                                           zrange[1])
+            zgrid1, spec_lnprob1 = self.fit_zgrid(zrange=zrange, dz=dzsecond)
+        else:
+            zgrid1, spec_lnprob1 = zgrid0, spec_lnprob0
+            
         #### Interpolate the photometric p(z) to apply it as a prior
         phot_int1 = np.interp(zgrid1, self.phot_zgrid,  self.phot_lnprob)
         full_prob1 = phot_int1 + spec_lnprob1 - spec_lnprob1.max()
@@ -359,13 +374,13 @@ class GrismSpectrumFit():
             self.save_results()
             
             ### Save p(z) to a pickle
-            self.write_pickle()    
+            self.save_fits()    
         
         if make_plot:
             ### Make diagnostic figure
             self.make_figure()
             self.twod_figure()
-            self.make_fits()
+            self.make_spectrum_fits()
             
     def save_results(self, verbose=True):
         """
@@ -388,14 +403,14 @@ class GrismSpectrumFit():
         if verbose:
             print file_string
     
-    def write_pickle(self):
+    def save_pickle(self):
         """
 
         Save the redshift/probability grid to a pickle file, like
         GOODS-S-34_00622.zfit.pkl
 
         """
-        import pickle
+        import cPickle as pickle
 
         fp = open(self.grism_id+'.zfit.pkl','wb')
         pickle.dump(self.zgrid0, fp)
@@ -411,7 +426,7 @@ class GrismSpectrumFit():
         GOODS-S-34_00622.zfit.pkl
 
         """
-        import pickle
+        import cPickle as pickle
         
         if not os.path.exists(self.grism_id+'.zfit.pkl'):
             return False
@@ -422,6 +437,41 @@ class GrismSpectrumFit():
         self.zgrid1 = pickle.load(fp)
         self.full_prob1 = pickle.load(fp)
         fp.close()
+        
+        self.z_max_spec = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
+        
+        return True
+    
+    def save_fits(self):
+        
+        header = pyfits.Header()
+        header.update('PHOTID', self.cat.id[self.ix], comment='ID in %s' %(os.path.basename(self.cat.filename)))
+        header.update('GRISID', self.grism_id, comment='Grism ID')
+        
+        hdu = [pyfits.PrimaryHDU(header=header)]
+
+        hdu.append(pyfits.ImageHDU(data=self.phot_zgrid, name='PZGRID'))
+        hdu.append(pyfits.ImageHDU(data=self.phot_lnprob, name='LN_PZ_PROB'))
+                
+        hdu.append(pyfits.ImageHDU(data=self.zgrid0, name='ZGRID0'))
+        hdu.append(pyfits.ImageHDU(data=self.full_prob0, name='LN_PROB_0'))
+        hdu.append(pyfits.ImageHDU(data=self.zgrid1, name='ZGRID1'))
+        hdu.append(pyfits.ImageHDU(data=self.full_prob1, name='LN_PROB_1'))
+        hduList = pyfits.HDUList(hdu)
+        hduList.writeto(self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='fix')
+    
+    def load_fits(self):
+        
+        file = self.grism_id+'.zfit.pz.fits'
+        if not os.path.exists(file):
+            return False
+            
+        im = pyfits.open(file)
+        self.zgrid0 = im['ZGRID0'].data
+        self.full_prob0 = im['LN_PROB_0'].data
+        self.zgrid1 = im['ZGRID1'].data
+        self.full_prob1 = im['LN_PROB_1'].data
+        im.close()
         
         self.z_max_spec = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
         
@@ -437,7 +487,7 @@ class GrismSpectrumFit():
         #self.flux_model, self.cont_model, self.line_model, self.oned_wave, self.model_1D, self.cont_1D, self.line_1D, self.slope_1D = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
         status = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
     
-    def make_fits(self):
+    def make_spectrum_fits(self):
         """
         Make an output FITS file containing the continuum and line models, 1D and 2D
         """
@@ -498,7 +548,7 @@ class GrismSpectrumFit():
         self.oned.data.sensitivity /= 100
         
         ax = fig.add_subplot(142)
-        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show]*100, color='black', alpha=0.1)
         
         show_flux = (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show]
         show_err = self.oned.data.error[show]/self.oned.data.sensitivity[show]
@@ -520,14 +570,14 @@ class GrismSpectrumFit():
 
         #### p(z)
         ax = fig.add_subplot(143)
-        ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob), color='green')
+        ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
         ax.plot(zgrid0, np.exp(full_prob0), color='blue', alpha=0.4)
         ax.plot(zgrid1, np.exp(full_prob1), color='blue')
         if zout.z_spec[self.ix] > 0:
             ax.plot(zout.z_spec[self.ix]*np.array([1,1]), [0,1], color='red')
 
         if self.dr < 1:
-            ax.set_xlim(zout.l99[self.ix], zout.u99[self.ix])
+            ax.set_xlim(np.min([self.zgrid1.min(), zout.l99[self.ix]]), np.max([self.zgrid1.max(), zout.u99[self.ix]]))
 
         ax.set_xlabel(r'$z$')
         ax.set_ylabel(r'$p(z)$')
@@ -580,7 +630,9 @@ class GrismSpectrumFit():
         
         #### Save the result to a file
         unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
-
+        
+        self.oned.data.sensitivity *= 100
+        
         #z_peaks = zgrid[1:-1][(full_prob[1:-1] > np.log(0.05)) & (np.diff(full_prob,2) < 0)]
         #zrange, dz = (z_peaks[0]-0.02*(1+z_peaks[0]), z_peaks[0]+0.02*(1+z_peaks[0])), 0.0002
     
@@ -659,8 +711,36 @@ class GrismSpectrumFit():
 
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
-    
-    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=40, NSTEP=250, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
+        
+        self.best_fit_nolines_flux = self.full_eazy_template(nlx, noline_temps, self.z_peak)
+        
+    def full_eazy_template(self, wavelength, templates, zi):
+        """
+        Generate the full EAZY template at a given redshift
+        in physical units with IGM absorption
+        """
+        param = eazy.EazyParam(self.zout.filename.replace('zout','param'))
+        flam_factor = 10**(-0.4*(param['PRIOR_ABZP']+48.6))*3.e18/1.e-17
+        zi = self.eazy_tempfilt['zgrid'][self.eazy_coeffs['izbest'][self.ix]]
+
+        ###### Full template SED, observed frame
+        lambdaz = wavelength*(1+zi)
+        temp_sed = np.dot(templates, self.eazy_coeffs['coeffs'][:,self.ix])
+        temp_sed /= (1+zi)**2
+        temp_sed *= (1/5500.)**2*flam_factor
+
+        ###### IGM absorption
+        lim1 = np.where(wavelength < 912)
+        lim2 = np.where((wavelength >= 912) & (wavelength < 1026))
+        lim3 = np.where((wavelength >= 1026) & (wavelength < 1216))
+
+        if lim1[0].size > 0: temp_sed[lim1] *= 0.
+        if lim2[0].size > 0: temp_sed[lim2] *= 1.-self.eazy_temp_sed['db'][self.eazy_coeffs['izbest'][self.ix]]
+        if lim3[0].size > 0: temp_sed[lim3] *= 1.-self.eazy_temp_sed['da'][self.eazy_coeffs['izbest'][self.ix]]
+        
+        return temp_sed
+        
+    def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
 
         if ztry is None:
@@ -998,8 +1078,145 @@ def _objective_z_line(params, observed, var, GrisModel):
     print 'z_try: %.4f, dv = %.1f, lnprob: %.2f' %(params[-2], np.exp(params[-1]), lnprob)
     
     return lnprob
+
+def go_MCMC_new():
+    import time
+    import numpy as np
+    import unicorn
+    import emcee
+    
+    model = unicorn.reduce.process_GrismModel('GOODS-S-4')
+    
+    id=370
+    
+    if not os.path.exists('GOODS-S-4_%05d.2D.fits'):
+        model.twod_spectrum(id=id)
+    
+    self = unicorn.interlace_fit.GrismSpectrumFit(root='GOODS-S-4_%05d' %(id))
+    
+    t0 = time.time()
+    self.fit_in_steps(dzfirst=0.004, skip_second=True)
+    t1 = time.time()
+    print 'Simple grid: %.1f s' %(t1-t0)
+    
+    observed = self.twod.im['SCI'].data
+    var = self.twod.im['WHT'].data**2
+    var[var == 0] = 1.e4
+    
+    ha = np.abs(self.linex-6563.) < 100
+    haflux = np.trapz(self.liney[ha], self.linex[ha])
+    self.liney /= haflux
+    
+    self.continuum = np.interp(self.linex, self.templam_nolines, self.best_fit_nolines_flux)
+    
+    init = np.array([self.z_max_spec, 0, 0, 1.])
+    step_sig = np.array([self.dz, 0.1, 0.1, 1])
+    obj_fun = unicorn.interlace_fit._objective_z_simple
+    obj_args = [observed, var, self, 0]
         
-def go_MCMC_fit():
+    ndim, nwalkers = len(init), 50
+    p0 = [(init+np.random.normal(size=ndim)*step_sig) 
+          for i in xrange(nwalkers)]
+    
+    NTHREADS, NSTEP = 1, 100
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, obj_fun, args = obj_args, 
+                                    threads=NTHREADS)
+    
+    t0 = time.time()
+    result = sampler.run_mcmc(p0, NSTEP)
+    t1 = time.time()
+    print 'Sampler: %.1f s' %(t1-t0)
+    
+    chain = unicorn.interlace_fit.emceeChain(chain=sampler.chain, param_names=['z','c0','c1','line'])
+    
+    obj_args = [observed, var, self, 1]
+
+    h = plt.hist(chain['z'][:,50:].flatten(), bins=200, range=(chain.stats['z']['q16']-0.05, chain.stats['z']['q84']+0.05), normed=True, alpha=0.5)
+    linear = np.exp(self.full_prob1)/np.trapz(np.exp(self.full_prob1), self.zgrid1)
+    p = plt.plot(self.zgrid1, linear)
+    if self.zout.z_spec[self.ix] > 0:
+        p = plt.plot(self.zout.z_spec[self.ix]*np.array([1,1]), [0,linear.max()], color='red', alpha=0.5, linewidth=4)
+    
+    plt.xlim(h[1].min(), h[1].max())
+    
+    final = chain.median
+
+    plt.plot(self.oned.data.wave, self.oned.data.flux/self.oned.data.sensitivity)
+    
+    for i in range(nwalkers):
+        walk = chain.chain[i,-1,:]
+        lam, model1, model2 = obj_fun(walk, *obj_args)
+        fx, fy = self.twod.optimal_extract(input=model2)
+        p = plt.plot(fx, fy/self.oned.data.sensitivity, color='green', alpha=0.1)
+
+    z6 = chain['z'] > 0.6
+    z5 = chain['z'] < 0.6
+    
+    p6 = [np.median(chain['z'][z6]), np.median(chain['c0'][z6]), np.median(chain['c1'][z6]), np.median(chain['line'][z6])]
+    p5 = [np.median(chain['z'][z5]), np.median(chain['c0'][z5]), np.median(chain['c1'][z5]), np.median(chain['line'][z5])]
+    
+
+    lam, model1, model2 = obj_fun(p6, *obj_args)
+    plt.plot(lam, model1, color='red')
+
+    lam, model1, model2 = obj_fun(p5, *obj_args)
+    plt.plot(lam, model1, color='blue')
+    
+    plt.xlim(1.e4, 1.7e4)
+    
+def _objective_z_simple(params, observed, var, self, show):
+    """
+    Do all of the calculation on the oned spectrum and then
+    send it through the compute_object_model at the end.
+    
+    1) Take the best-fit EAZY template *in flux units*
+    2) Apply linear scaling, normalization and slope
+    3) Eventually add em line templates
+    
+    params = [z, s0, s1]
+    
+    scale = np.exp(s0 + s1*np.log(lam(z)/1.4e4))
+    model = eazy_model * scale
+    
+    self is a GrismSpectrumFit object
+    
+    """
+    
+    ztry = params[0]
+    s0, s1 = params[1], params[2]
+    scale = np.exp(s0 + s1*np.log(self.linex*(1+ztry)/1.4e4))
+    model_spec = self.continuum * scale + self.liney*np.exp(params[3])
+    
+    self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=model_spec/self.twod.total_flux)
+    
+    if show == 1:
+        return self.linex*(1+ztry), model_spec, self.twod.model
+        
+    ### photo-z prior
+    #prior = np.interp(ztry, self.phot_zgrid, self.phot_lnprob)
+    prior = np.interp(ztry, self.zgrid0, self.full_prob0)
+    lnprob = -0.5*np.sum((observed-self.twod.model)**2/var)
+    # print params, lnprob, prior
+    
+    return lnprob+prior
+    
+def more_fit_testing():
+    """
+    Look into the fit
+    """
+    model = unicorn.reduce.process_GrismModel('GOODS-S-4')
+    id=296
+    
+    model.twod_spectrum(id=id)
+    model.show_2d(savePNG=True, verbose=True)
+    
+    gris = unicorn.interlace_fit.GrismSpectrumFit(root='GOODS-S-4_%05d' %(id))
+    print '\n\n'
+    gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+    
+    gris.fit_free_emlines(ztry=None, verbose=False, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=True, FIT_WIDTH=False, line_width0=100)
+    
+def go_MCMC_fit_OLD():
     """
     Try a MCMC fit, TESTING 
     """
@@ -1022,8 +1239,156 @@ def go_MCMC_fit():
     best_model = unicorn.interlace_fit.objective_twod([z_fit, slope], return_model=True)
     
     ds9.view(twod.im['SCI'].data-twod.im['CONTAM'].data)
+
+class emceeChain():     
+    def __init__(self, chain=None, file=None, param_names=[],
+                       burn_fraction=0.5):
+        
+        self.param_names = []
+        
+        if chain is not None:
+            self.chain = chain
+        
+        if file is not None:
+            if 'fits' in file.lower():
+                self.load_fits(file=file)            
+            else:
+                self.load_chain(file=file)
+                
+        self.process_chain(param_names = param_names,
+                           burn_fraction=burn_fraction)
+        
+    def process_chain(self, param_names=[], burn_fraction=0.5):
+        """
+        Define parameter names and get parameter statistics
+        """
+        self.nwalkers, self.nstep, self.nparam = self.chain.shape
+                
+        if param_names == []:            
+            if self.param_names == []:
+                for i in range(self.nparam):
+                    param_names.append('a%d' %(i+1))
+               
+                self.param_names = param_names
+        
+        else:
+            if len(param_names) != self.nparam:
+                print 'param_names must have N=%d (or zero) entries' %(self.nparam)
+                return False
+                        
+            self.param_names = param_names
+                
+        self.param_dict = {}
+        for i in range(self.nparam):
+            self.param_dict[self.param_names[i]] = i
+        
+        self.nburn = int(np.round(burn_fraction*self.nstep))
+        self.stats = {}
+        self.median = np.zeros(self.nparam)
+        for param in self.param_names:
+            pid = self.param_dict[param]
+            self.stats[param] = self.get_stats(pid, burn=self.nburn)
+            self.median[pid] = self.stats[param]['q50']
+            
+    def get_stats(self, pid, burn=0):
+        """
+        Get percentile statistics for a parameter in the chain
+        """
+        pchain = self.chain[:,burn:,pid].flatten()
+        stats = {}
+        stats['q05'] = np.percentile(pchain, 5)
+        stats['q16'] = np.percentile(pchain, 16)
+        stats['q50'] = np.percentile(pchain, 50)
+        stats['q84'] = np.percentile(pchain, 84)
+        stats['q95'] = np.percentile(pchain, 95)
+        stats['mean'] = np.mean(pchain)
+        stats['std'] = np.std(pchain)
+        return stats
+        
+    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0):
+        """
+        Make a plot of the chain for a given parameter.
+        
+        For plotting, multiply the parameter by `scale` and subtract `diff`.
+        
+        """
+        if chain is None:
+            pid = self.param_dict[param]
+            chain = self.chain[:,:,pid]
+        
+        for i in range(self.nwalkers):
+            p = plt.plot(chain[i,:]*scale-diff, alpha=alpha, color=color)
     
-def objective_twod(params, return_model=False):
+    def save_chain(self, file='emcee_chain.pkl', verbose=True):
+        """
+        Save the chain to a Pkl file
+        """
+        import cPickle as pickle
+        
+        fp = open(file,'wb')
+        pickle.dump(self.nwalkers, fp)
+        pickle.dump(self.nstep, fp)
+        pickle.dump(self.nparam, fp)
+        pickle.dump(self.param_names, fp)
+        pickle.dump(self.chain, fp)
+        fp.close()
+        
+        if verbose:
+            print 'Wrote %s.' %(file)
+        
+    def load_chain(self, file='emcee_chain.pkl'):
+        """
+        Read the chain from the pickle file
+        """
+        import cPickle as pickle
+        
+        fp = open(file, 'rb')
+        self.nwalkers = pickle.load(fp)
+        self.nstep = pickle.load(fp)
+        self.nparam = pickle.load(fp)
+        self.param_names = pickle.load(fp)
+        self.chain = pickle.load(fp)
+        fp.close()
+    
+    def save_fits(self, file='emcee_chain.fits', verbose=True):
+        """
+        Make a FITS file of an EMCEE chain
+        """
+        header = pyfits.Header()
+        header.update('NWALKERS', self.nwalkers)
+        header.update('NSTEP', self.nstep)
+        header.update('NPARAM', self.nparam)
+        
+        hdu = [pyfits.PrimaryHDU(header=header)]
+        
+        for param in self.param_names:
+            header.update('PARAM', param)
+            hdu.append(pyfits.ImageHDU(data=self.__getitem__(param), header=header, name=param))
+        
+        hduList = pyfits.HDUList(hdu)
+        hduList.writeto(file, clobber=True)
+    
+        if verbose:
+            print 'Wrote %s.' %(file)
+    
+    def load_fits(self, file='emcee_chain.fits'):
+        im = pyfits.open(file)
+        self.nwalkers = im[0].header['NWALKERS']
+        self.nstep = im[0].header['NSTEP']
+        self.nparam = im[0].header['NPARAM']
+        self.param_names = []
+        self.chain = np.ones((self.nwalkers, self.nstep, self.nparam))
+        for i in range(self.nparam):
+            self.param_names.append(im[i+1].header['PARAM'])
+            self.chain[:,:,i] = im[i+1].data
+        
+        im.close()
+        
+    def __getitem__(self, param):
+        pid = self.param_dict[param]
+        return self.chain[:,:,pid]
+
+def objective_twod_OLD(params, return_model=False):
     """
     Objective function for the MCMC redshift fit
     

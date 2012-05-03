@@ -597,7 +597,7 @@ def show_results(use_tex=False):
     mu = stats.mag-2*np.log(stats.r90*0.06)
     plt.scatter(stats.mag, mu, c=mcol)
 
-def show_hist_contour(xin, yin, axrange=None, bins=[50,50], xlog=False, ylog=False, ax=None, Vbins=[2, 4, 8, 16, 32, 64, 128, 256, 512, 4096], cmap=cm.jet):
+def show_hist_contour(xin, yin, axrange=None, bins=[50,50], xlog=False, ylog=False, ax=None, Vbins=[2, 4, 8, 16, 32, 64, 128, 256, 512, 4096], cmap=cm.jet, fill=True, *args, **kwargs):
     import matplotlib.colors as co
     
     if xlog:
@@ -641,9 +641,15 @@ def show_hist_contour(xin, yin, axrange=None, bins=[50,50], xlog=False, ylog=Fal
     norml = co.BoundaryNorm(Vbins, 312)
     
     if ax is None:
-        plt.contourf(xx, yy, hist.transpose(), Vbins, alpha=1.0, linethick=2, norm=norml, cmap=cmap)
+        if fill:
+            plt.contourf(xx, yy, hist.transpose(), Vbins, linethick=2, norm=norml, cmap=cmap, *args, **kwargs)
+        else:
+            plt.contour(xx, yy, hist.transpose(), Vbins, linethick=2, norm=norml, cmap=cmap, *args, **kwargs)
     else:
-        ax.contourf(xx, yy, hist.transpose(), Vbins, alpha=1.0, linethick=2, norm=norml, cmap=cmap)
+        if fill:
+            ax.contourf(xx, yy, hist.transpose(), Vbins, linethick=2, norm=norml, cmap=cmap, *args, **kwargs)
+        else:
+            ax.contour(xx, yy, hist.transpose(), Vbins, linethick=2, norm=norml, cmap=cmap, *args, **kwargs)
             
 def get_line_fluxes(z0=1.0, mag=21):
     """ 

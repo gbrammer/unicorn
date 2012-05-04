@@ -345,6 +345,11 @@ class GrismSpectrumFit():
             zsecond = np.arange(zrfirst[0], zrfirst[1], dzsecond)
             pzint = np.interp(zsecond, zgrid0, full_prob0)
             zsub = pzint > np.log(1.e-5)
+            if zsub.sum() == 0:
+                threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
+                print pzint.max(), pzint.min(), full_prob.max()
+                return False
+                
             if (zsecond[zsub].max() - zsecond[zsub].min()) < width*2:
                 zrange = (z_max-width, z_max + width)
             else:

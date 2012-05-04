@@ -30,9 +30,7 @@ BAD_SPECTRUM = False
 
 SPC_FILENAME = None
 SPC = None
-
-MyLocator = unicorn.plotting.MyLocator
-
+ 
 def get_grism_path(root):
     """ 
     Given a rootname for a grism pointing, get the path to the 
@@ -188,20 +186,11 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
         
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.7/'
-        #
-        CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
-        ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
-        ZOUT_FILE = CAT_PATH+'OUTPUT/iter.zout'
-        ZOUT_FILE = CAT_PATH+'HIGHRES/OUTPUT/goodsn1.7.zout'
-            
-        #FOUT_FILE = CAT_PATH+'FAST/v1.7/goodsn_v1.7.fullz_ed.fout'
-        FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
         if unicorn.hostname().startswith('uni'):
-            ZOUT_FILE = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/EAZY/OUTPUT/goodsn1.7.zout'
-            FOUT_FILE = '/3DHST/Photometry/Release/GOODS-N/v1.7/FAST/v1.7/goodsn_v1.7.fullz.fout'
-            
+            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.8/'
+            CAT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz.cat'
+            ZOUT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz_wzp.zout'
+            FOUT_FILE = CAT_PATH+'goodsn_v1.8_fast/goodsn_v1.8.fullz_wzp.fout'
         KTOT_COL = 'f_Ks'
     
     # #### Force UDF to use FIREWORKS
@@ -211,14 +200,20 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
           
     if cdfs:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
-        CAT_PATH = GRISM_PATH+'FIREWORKS/'
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-            CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
+        #CAT_PATH = GRISM_PATH+'FIREWORKS/'
+        #if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
+        #    CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
         #
-        CAT_FILE = CAT_PATH+'fireworks.cat'
-        ZOUT_FILE = CAT_PATH+'fireworks.zout'
-        FOUT_FILE = CAT_PATH + 'fireworks.fout'
-        KTOT_COL = 'Ks_totf'
+        #CAT_FILE = CAT_PATH+'fireworks.cat'
+        #ZOUT_FILE = CAT_PATH+'fireworks.zout'
+        #FOUT_FILE = CAT_PATH + 'fireworks.fout'
+        #KTOT_COL = 'Ks_totf'
+        CAT_PATH = GRISM_PATH+'INTERLACE/phot/'
+        CAT_FILE = CAT_PATH + 'hudfcat_mar3012.cat'
+        ZOUT_FILE = CAT_PATH + 'hudfcat_mar3012.zout'
+        FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
+        KTOT_COL = 'f_kv2_tot'
+
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):
         GRISM_PATH=unicorn.GRISM_HOME+'UDF/'
@@ -228,21 +223,26 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'hudf09_noU.zout'
         FOUT_FILE = CAT_PATH + 'hudf09.fout'
         KTOT_COL = 'f_kv2_tot'
+
+    if udf and (unicorn.hostname().startswith('hyp')):
+        GRISM_PATH=unicorn.GRISM_HOME+'HUDF/'
+        CAT_PATH = '/3DHST/Spectra/Work/HUDF/INTERLACE/phot/'
+        print CAT_PATH
+
+        CAT_FILE = CAT_PATH+'hudfcat_mar3012.cat'
+        ZOUT_FILE = CAT_PATH+'hudfcat_mar3012.zout'
+        FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
+        KTOT_COL = 'f_kv2_tot'
        
     if uds:
         GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'
-        #GRISM_PATH=unicorn.GRISM_HOME+'UDS/'
-        #CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/UDS/DR8/uds_catalog/FAST'
-        root='uds_candels'
-        
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
-            root='uds'
         #
-        CAT_FILE = '%s/%s.cat' %(CAT_PATH, root)
-        ZOUT_FILE = '%s/%s.zout' %(CAT_PATH, root)
-        FOUT_FILE = '%s/%s.fout' %(CAT_PATH, root)
+        CAT_FILE = CAT_PATH+'uds.cat'
+        ZOUT_FILE = CAT_PATH+'uds.zout'
+        FOUT_FILE = CAT_PATH + 'uds.fout'
         KTOT_COL = 'K_totf'
     
     if KTOT_COL is None:
@@ -866,7 +866,7 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
     return out_image
         
         
-def show_massive_galaxies(force_selection=None, masslim=10.5, maglim=23.5, zrange=(0,5), 
+def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5), 
     use_kmag=False, contam=0.5, coverage=0.9, skip_goodsn=False):        
     """
     Make a webpage showing objects selected on mass, redshift, contamination, mag...
@@ -1000,10 +1000,7 @@ def show_massive_galaxies(force_selection=None, masslim=10.5, maglim=23.5, zrang
         #     c.logm -= 0*-0.4*(23.86-25)
             
         use = (c.star_flag < 1) & (c.logm > masslim) & (c.rmatch < 1) & (select_mag < maglim) & (c.z_peak > zrange[0]) & (c.z_peak < zrange[1]) & (fcover > coverage)
-
-        if force_selection is not None:
-            use = force_selection
-                
+        
         if 'fcontam' in c.keys():
             if contam < 0:
                 use = use & (c.fcontam > -contam)
@@ -1092,7 +1089,7 @@ def make_full_selection(zmin=None, zmax=None):
     import unicorn
     
     ########## Full selections to get everything
-    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.2,3.5),  use_kmag=False, contam=0.1, coverage=0.95)
+    unicorn.analysis.show_massive_galaxies(masslim=8., maglim=23.5, zrange=(0.2,3.5))
     out='full_faint.html'
     unicorn.analysis.run_eazy_products_on_html(out)
     
@@ -1583,7 +1580,7 @@ def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True,
         
     return zfit, DM, obs_sed_rf, zp_rf.filters
     
-def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1], eazy_working_directory=None, SCALE_SPEC_ERROR=1, PATH=None):
+def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', check=False, bin_spec=1, spec_norm=1., zmin=None, zmax=None, zstep=0.0025, compress=1.0, TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', TILT_COEFFS=[0, 1], eazy_working_directory=None, SCALE_SPEC_ERROR=1):
     
     import unicorn.analysis
     
@@ -1594,9 +1591,6 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
-    
-    ####
-    #print 'XXX %s' %(eazy_working_directory)
         
     os.chdir(eazy_working_directory)
     
@@ -1605,9 +1599,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
         
     ORIG_PATH = os.getcwd()
     
-    if PATH is None:
-        PATH = unicorn.analysis.get_grism_path(root)
-        
+    PATH = unicorn.analysis.get_grism_path(root)
     #print PATH
     os.chdir(PATH)
     
@@ -1618,7 +1610,7 @@ def make_eazy_inputs(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v8.R300
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)
     MAIN_OUTPUT_FILE = os.path.basename(zout.filename).split('.zout')[0]
     
-    grismCat, SPC = unicorn.analysis.read_grism_files(root=root, BASE_PATH=PATH+'/')
+    grismCat, SPC = unicorn.analysis.read_grism_files(root=root)
     
     match = threedhst.catIO.Readfile('HTML/SED/'+root+'_match.cat')
     
@@ -1890,7 +1882,7 @@ def trim_jh_filters(input='FILTER.RES.v8.R300', output='FILTER.RES.v8.R300.trim'
     
     res.write(file=output)
     
-def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1, pipe=' > log', eazy_working_directory=None, PATH=None):
+def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.R300', OUT_RES = 'THREEDHST.RES', eazy_binary = '/research/drg/PHOTZ/EAZY/code/SVN/src/eazy', compress=1.0, check_results=False, spec_norm=1.0, ORDER=1, pipe=' > log', eazy_working_directory=None):
     import unicorn
     import threedhst.eazyPy as eazy
     from scipy import polyfit, polyval
@@ -1898,8 +1890,6 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
-    #
-    #print 'XXX %s' %(eazy_working_directory)
     os.chdir(eazy_working_directory)
     
     if ('MARSHALL' in root) | ('UDS' in root):
@@ -1911,7 +1901,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
         unicorn.analysis.trim_jh_filters(input=OLD_RES, output=OLD_RES+'.trim')
         
     #####  Get the f_lambda fluxes with the original (not trimmed) filters
-    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory, PATH=PATH)
+    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory)
     
     if unicorn.analysis.BAD_SPECTRUM:
         return [0,1]
@@ -1924,7 +1914,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     lambdaz, temp_sed_0, lci, obs_sed_0, fobs, efobs = eazy.getEazySED(0, MAIN_OUTPUT_FILE='%s_%05d' %(root, id), OUTPUT_DIRECTORY='OUTPUT', CACHE_FILE = 'Same')
     
     #####  Get the f_lambda fluxes with the trimmed filters
-    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory, PATH=PATH)
+    unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES+'.trim', bin_spec=1.0, spec_norm=spec_norm, zmin=0.0000, zmax=1.e-6, compress=compress, TEMPLATES_FILE='templates/%s_%05d' %(root, id)+'.spectra.param', eazy_working_directory=eazy_working_directory)
     
     status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
     
@@ -2017,7 +2007,7 @@ def scale_to_photometry(root='GOODS-S-24-G141', id=23, OLD_RES = 'FILTER.RES.v8.
     
     return afit
     
-def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, zstep=0.001, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None, SCALE_SPEC_ERROR=1., PATH=None):
+def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', OUT_RES = 'THREEDHST.RES', TEMPLATES_FILE='templates/o2_fit_lines_suppl.spectra.param', run=True, pipe=' > log', bin_spec=1, spec_norm=1, eazy_binary = None, zmin=None, zmax=None, zstep=0.001, compress=1.0, GET_NORM=False, COMPUTE_TILT=True, TILT_ORDER=0, clean=True, force_zrange=False, eazy_working_directory=None, SCALE_SPEC_ERROR=1.):
     
     # OLD_RES = 'FILTER.RES.v8.R300'; OUT_RES = 'THREEDHST.RES'; TEMPLATES_FILE='templates/o2_fit_lines.spectra.param'; run=True; pipe=' > log'; bin_spec=1; spec_norm=1; eazy_binary = None; zmin=None; zmax=None; compress=1.0; GET_NORM=False; COMPUTE_TILT=True; TILT_ORDER=0; clean=True
     import matplotlib.pyplot as plt
@@ -2027,7 +2017,6 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     
     t0 = time.time()
     
-    #print 'XXX %s' %(eazy_working_directory)
     if eazy_working_directory is None:
         eazy_working_directory = unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS'
         
@@ -2046,7 +2035,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
     if run:
         ########################### Scale to photometry
         if COMPUTE_TILT:
-            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe, PATH=PATH, eazy_working_directory=eazy_working_directory)
+            tilt = unicorn.analysis.scale_to_photometry(root=root, id=id, OLD_RES = OLD_RES, OUT_RES = OUT_RES, eazy_binary = eazy_binary, compress=compress, ORDER=TILT_ORDER, pipe=pipe)
         else:
             tilt = [0, 1]
         
@@ -2061,14 +2050,14 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             ### first run with eazy line templates 
             ### and coarse sampling, broaden the compression to hopefully catch a line
             if not force_zrange:
-                unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=3, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR, PATH=PATH)
+                unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.025, compress=3, TILT_COEFFS=tilt, TEMPLATES_FILE='templates/eazy_v1.1_lines_suppl.spectra.param', eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR)
             
             #os.system('grep Z_ %s_%05d.eazy.param' %(root, id))
                 status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
                 ztmp = catIO.Readfile('OUTPUT/%s_%05d.zout' %(root, id))
 
             ### Remake the input files for the desired compression
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR, PATH=PATH)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.001, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR)
             
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
@@ -2099,7 +2088,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
             ##### No photometry found.  Look for emission lines in the spectrum, 
             ##### and if one line found, fit it assuming OIII.  If more than one line
             ##### found, fit full redshift range.
-            spec = catIO.Readfile(PATH+'/HTML/ascii/%s_%05d.dat' %(root, id))
+            spec = catIO.Readfile(unicorn.analysis.get_grism_path(root)+'/HTML/ascii/%s_%05d.dat' %(root, id))
             
             eazy_param = eazy.EazyParam('%s_%05d.eazy.param' %(root, id))
             eazy_param.params['TEMPLATES_FILE'] = TEMPLATES_FILE
@@ -2131,7 +2120,7 @@ def run_eazy_fit(root='COSMOS-23-G141', id=39, OLD_RES = 'FILTER.RES.v9.R300', O
                 zmax += 0.1*(1+zmax)
             
             tilt = [0, 1]
-            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR, PATH=PATH)
+            unicorn.analysis.make_eazy_inputs(root=root, id=id, OLD_RES = OLD_RES, bin_spec=bin_spec, spec_norm=spec_norm, zmin=zmin, zmax=zmax, zstep=0.002, compress=compress, TILT_COEFFS=tilt, TEMPLATES_FILE=TEMPLATES_FILE, eazy_working_directory=eazy_working_directory, SCALE_SPEC_ERROR=SCALE_SPEC_ERROR)
         
         status = os.system(eazy_binary + ' -p '+'%s_%05d' %(root, id)+'.eazy.param '+pipe)
         
@@ -2650,6 +2639,17 @@ def run_FAST_fit(root='COSMOS-8-G141', id=498, OLD_RES = 'FILTER.RES.v9.R300', O
     print 'Make EAZY ascii files in ./ASCII ...'
     unicorn.analysis.make_eazy_asciifiles(object=object, eazy_output='./OUTPUT/', savepath='./ASCII/')
     
+class MyLocator(mticker.MaxNLocator):
+    """
+    Set maximum number of ticks, from
+    http://matplotlib.sourceforge.net/examples/pylab_examples/finance_work2.html
+    """
+    def __init__(self, *args, **kwargs):
+        mticker.MaxNLocator.__init__(self, *args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return mticker.MaxNLocator.__call__(self, *args, **kwargs)
+
 #########################################
 #                                       #
 #                                       #
@@ -2987,37 +2987,7 @@ def make_line_templates():
     fp = open('templates/fit_lines.spectra.param','w')
     fp.writelines(spec_list)
     fp.close()
-
-def pre_release():
-    """
-    Run redshift fits for the v0.5 data release
-    """    
-    import glob
     
-    object = 'COSMOS-1-G141_00331'
-    
-    os.chdir('/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE')
-    
-    files = glob.glob('HTML/ascii/COSMOS*.dat')
-    files = glob.glob('HTML/ascii/GOODS-S-2*.dat')
-    files = glob.glob('HTML/ascii/UDS*.dat')
-    files = glob.glob('HTML/ascii/WFC*.dat')
-     
-    ### GOODS-N didn't work becuase no match file found in HTML/SED dir
-    ### did the "sed" scripts at the end of threedhst.process_grism fail?
-    files = glob.glob('HTML/ascii/GOODS-N*.dat') 
-    
-    files = glob.glob('HTML/ascii/AEGIS*.dat')
-    
-    for file in files:
-        object = os.path.basename(file).split('.dat')[0]
-        print object
-        unicorn.analysis.run_eazy_fit(root=object.split('_')[0], compress=0.7,
-          TILT_ORDER=1, OLD_RES='FILTER.RES.v9.R300', zmin=0.1, zmax=4,
-          id=int(object.split('_')[1]), force_zrange=False, COMPUTE_TILT=True,
-          PATH='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/', eazy_working_directory='/Volumes/robot/3DHST/Spectra/Work/PRE_RELEASE/REDSHIFT_FITS')
-
-
 def test_equivalent_widths():
     """
     Mattia pointed out that he gets equivalent widths somewhat larger than the catalog values when he measures them with his own code.  

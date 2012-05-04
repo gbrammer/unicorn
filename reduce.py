@@ -2014,36 +2014,27 @@ def interlace_goodsn():
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
     
-    ##### Generate the spectral model
-    inter = glob.glob('GOODS-N-1[0-9]-G141_inter.fits')
+    ##### Generate the spectral model and extract spectra
+    inter = glob.glob('GOODS-N-4[0-9]-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         if not (os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30.0)
-    
-    ##### Extract all spectra 
-    inter = glob.glob('*-G141_inter.fits')
-    redo = False
-    for i in range(len(inter)):
-        pointing = inter[i].split('-G141_inter')[0]
-        model.extract_spectra_and_diagnostics(MAG_LIMIT=30.0)
-    
-    ##### Extract and fit only spec-z objects
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=27.1)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=27.1)
+
+    ##### Extract and fit only mag>24 objects
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-N-11')
         
     skip_completed = True
     
-    models = glob.glob('*inter_model.fits')
-    for file in models[::-1]:
+    models = glob.glob('GOODS-N-2[0-9]_inter_model.fits')
+    for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        #
-        zsp = zout.z_spec[model.cat.id-1] > 0
         ii = np.where(model.cat.mag < 24.)
-
-        for id in model.cat.id[zsp]:
+        for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
                 status = model.twod_spectrum(id)
@@ -2052,7 +2043,7 @@ def interlace_goodsn():
             #
             if os.path.exists(root+'.zfit.png') & skip_completed:
                 continue  
-            #gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
+            #
             try:
                 gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
             except:
@@ -2396,8 +2387,8 @@ def interlace_hudf():
         pointing = inter[i].split('-G141_inter')[0]
 
         if (not os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=29.2)
-            model.extract_spectra_and_diagnostics(MAG_LIMIT=29.2)
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=25.)
             #model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
             #model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
 

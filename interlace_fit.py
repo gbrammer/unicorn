@@ -306,7 +306,7 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.002, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
+    def fit_in_steps(self, dzfirst=0.005, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -347,7 +347,7 @@ class GrismSpectrumFit():
             zsub = pzint > np.log(1.e-5)
             if zsub.sum() == 0:
                 threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
-                print pzint.max(), pzint.min(), full_prob.max()
+                print pzint.max(), pzint.min(), full_prob0.max()
                 return False
                 
             if (zsecond[zsub].max() - zsecond[zsub].min()) < width*2:

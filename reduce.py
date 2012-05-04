@@ -900,8 +900,11 @@ class GrismModel():
             self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
             self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
             
-        self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
-        
+        if 'MAG_AUTO' in self.column_names:
+            self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
+        else:
+            self.cat.mag = np.cast[float](self.cat.MAG_BEST)
+
         self.segm = pyfits.open(self.root+'_inter_seg.fits')
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
                 
@@ -1982,6 +1985,7 @@ def interlace_goodsn():
     import unicorn
     import glob
     import os
+    import numpy as np
     
     #os.chdir(unicorn.GRISM_HOME+'GOODS-N/Interlace_GBB')
     os.chdir(unicorn.GRISM_HOME+'GOODS-N/INTERLACE')
@@ -2013,19 +2017,19 @@ def interlace_goodsn():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
     
     ##### Generate the spectral model
-    inter = glob.glob('*-G141_inter.fits')
+    inter = glob.glob('GOODS-N-1[0-9]-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
-        if not os.path.exists(pointing+'_model.fits') | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        if not (os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30.0)
     
     ##### Extract all spectra 
     inter = glob.glob('*-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
-        model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
+        model.extract_spectra_and_diagnostics(MAG_LIMIT=30.0)
     
     ##### Extract and fit only spec-z objects
     import threedhst.catIO as catIO
@@ -2039,6 +2043,8 @@ def interlace_goodsn():
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
         #
         zsp = zout.z_spec[model.cat.id-1] > 0
+        ii = np.where(model.cat.mag < 24.)
+
         for id in model.cat.id[zsp]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -2392,8 +2398,10 @@ def interlace_hudf():
         pointing = inter[i].split('-G141_inter')[0]
 
         if (not os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-            model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=29.2)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=29.2)
+            #model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+            #model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
 
     ##### Extract and fit only mag>24 objects
     import threedhst.catIO as catIO

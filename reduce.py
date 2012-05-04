@@ -900,10 +900,8 @@ class GrismModel():
             self.cat.x_pix = np.cast[float](self.cat.X_IMAGE)
             self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
             
-        if 'MAG_AUTO' in self.cat.column_names:
-            self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
-        else:
-            self.cat.mag = np.cast[float](self.cat.MAG_BEST)
+        self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
+
 
         self.segm = pyfits.open(self.root+'_inter_seg.fits')
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)

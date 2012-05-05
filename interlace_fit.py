@@ -859,8 +859,12 @@ class GrismSpectrumFit():
         
         corr_factor = eqw*0.
         for i, line in enumerate(use_lines):
-            corr_factor[i] = 1./np.interp(fancy[line][1][0]*(1+ztry), lam, scale)
-        
+            inv_corr = np.interp(fancy[line][1][0]*(1+ztry), lam, scale)
+            if inv_corr == 0:
+                corr_factor[i] = 1.
+            else:
+                corr_factor[i] = 1./inv_corr
+            
         fp = open(self.grism_id+'.linefit.dat','w')
         fp.write('# line  flux error scale_to_photom EQW_obs EQW_obs_err \n# z=%.5f\n# flux: 10**-17 ergs / s / cm**2\n' %(ztry))
         

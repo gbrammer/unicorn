@@ -123,12 +123,23 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
                 
+
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
             ZOUT_FILE = CAT_PATH + '/cosmos-1.deblend.redshifts/cosmos-1.deblend.v5.1.zout'
             FOUT_FILE = CAT_PATH+'cosmos-1.deblend.sps/cosmos-1.bc03.del.deblend.v5.1.fout'
             KTOT_COL = 'K'
+
+        # For the v2.0 reduction
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Photometry/Release/COSMOS/v2.0/'
+            CAT_FILE = CAT_PATH + 'Catalog/3dhst.cosmos.v2.0.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/3dhst.cosmos.v2.0.zout'
+            FOUT_FILE = CAT_PATH+'Fast/3dhst.cosmos.v2.0.fout'
+            KTOT_COL = 'K'
+
+
          
         #### ZFOURGE
         if unicorn.hostname().startswith('850dhcp'):

@@ -40,8 +40,6 @@ import matplotlib.pyplot as plt
 USE_PLOT_GUI = False
 
 import pyfits
-import pyraf
-from pyraf import iraf
 
 import time
 
@@ -167,6 +165,10 @@ def combine_all(FORCE=False):
             unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
                                 
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0):
+    from pyraf import iraf
+    from iraf import iraf
+    from iraf import dither
+    
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     
@@ -985,7 +987,13 @@ class GrismModel():
         """
         Use iraf.dither.tran to get the real, undistorted WCS coordinates of each object
         """
-        import iraf
+        from pyraf import iraf
+        from iraf import iraf
+        
+        no = iraf.no
+        yes = iraf.yes
+        INDEF = iraf.INDEF
+        
         from iraf import stsdas
         from iraf import dither
         import threedhst.catIO as catIO
@@ -2807,7 +2815,13 @@ def interlace_cosmos2():
 
 
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
-    
+    """
+    Combine blotted image from the detection mosaic as if they were 
+    interlaced FLT images
+    """
+    from pyraf import iraf
+    from iraf import iraf
+
     import threedhst.prep_flt_files
     import unicorn
     
@@ -3073,6 +3087,10 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
     hedit 'COSMOS-full-F160W_drz_wht_subim.fits' 'CD2_1' 0. add+ update+ verify-
 
     """
+    from pyraf import iraf
+    from iraf import iraf
+    from iraf import dither
+    
     import unicorn.reduce
     
     tmpname = threedhst.utils.gen_tempname()
@@ -3421,8 +3439,9 @@ def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeom
     """
     import threedhst
     import numpy as np
-    import pyraf
     from pyraf import iraf
+    from iraf import iraf
+
     import os
     no = iraf.no
     yes = iraf.yes

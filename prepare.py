@@ -38,6 +38,9 @@ def check_COSMOS_stars():
     Run SExtractor and try to get the FWHM of the new reduction compared to the old,
     which had many stars with central pixels rejected by the CR rejection.
     """    
+    from pyraf import iraf
+    from iraf import iraf
+
     import matplotlib.pyplot as plt
     import unicorn.go_3dhst as go
     
@@ -334,6 +337,12 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     ALIGN = '/3DHST/Photometry/Work/GOODS-N/fullF140/images/goodsn_f140w_sci.fits'
 
 
+    if unicorn.hostname().startswith('uni'):
+        ALIGN = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
+        os.chdir('/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/')
+        direct=glob.glob('*050_asn.fits')
+        grism = glob.glob('*060_asn.fits')
+    
     #### The ASN files are generated from elsewhere to account for the fact that many of 
     #### the visits with the worst sky background levels and earth-glow were redone in early
     #### 2011.  I can't find the code where I generated the ASN files, however....
@@ -341,6 +350,7 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     #### Process direct + grism pairs
     direct=glob.glob('GOODS-N-*-F140W_asn.fits')
     grism = glob.glob('GOODS-N-*-G141_asn.fits')
+    
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
@@ -422,6 +432,9 @@ def GOODSN_mosaic():
     zooms=[12,13,14,15,16]
     threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-G141_drz.fits[1]*2', '/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsb_trim.fits[0]*15','/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsz_trim.fits[0]*6','/3DHST/Ancillary/GOODS-N/MIPS/n_mips_1_s1_v0.36_sci.fits[0]*100','/3DHST/Ancillary/GOODS-N/HERSCHEL/L2_GOODS-N_All250_DR1/L2_GOODS-N_image_SMAP250_dr1.fits[1]*20000.','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]*8','/3DHST/Ancillary/GOODS-N/VLA/GOODSN_1_4GHz.fits[0]*60000.'], aper_list=zooms, tileroot=['F140W', 'G141', 'ACSb-F435W','ACSz-F850LP','MIPS-24','SPIRE-250','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-N/MOSAIC_HTML/')
     
+    from pyraf import iraf
+    from iraf import iraf
+
     iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-10-06_sci.fits')
     iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-10-06_wht.fits')
     # !tar czvf GOODS-N-F140w_11-09-08.tar.gz GOODS-N-*-F140W_shifts.txt GOODS-N-*-F140W_tweak.fits GOODS-N-*-F140W_asn.fits GOODS-N-F140W_shifts.txt GOODS-N-F140W_asn.fits
@@ -429,6 +442,7 @@ def GOODSN_mosaic():
     
   
 def COSMOS(FORCE=False):
+    import unicorn
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
     import glob
@@ -530,8 +544,13 @@ def COSMOS_mosaic():
     threedhst.shifts.plot_shifts('COSMOS-F140W', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits', skip_swarp=False)
     
     ### Temporary release of the direct mosaic
-    iraf.imcopy('COSMOS-F140W_drz.fits[1]','../MOSAIC/COSMOS-F140w_11-10-06_sci.fits')
-    iraf.imcopy('COSMOS-F140W_drz.fits[2]','../MOSAIC/COSMOS-F140w_11-10-06_wht.fits')
+    from pyraf import iraf
+    from iraf import iraf
+
+    iraf.imcopy('COSMOS-F140W_drz.fits[1]',
+        '../MOSAIC/COSMOS-F140w_11-10-06_sci.fits')
+    iraf.imcopy('COSMOS-F140W_drz.fits[2]',
+        '../MOSAIC/COSMOS-F140w_11-10-06_wht.fits')
     # !tar czvf COSMOS-F140w_11-09-08.tar.gz COSMOS-*-F140W_shifts.txt COSMOS-*-F140W_tweak.fits COSMOS-*-F140W_asn.fits COSMOS-F140W_shifts.txt COSMOS-F140W_asn.fits
     # !mv COSMOS-F140w_11-09-08* ../MOSAIC
         
@@ -545,8 +564,19 @@ def COSMOS_mosaic():
     os.system('rm ~/Sites/FITS/tiles/MIPS*1[67].png')
     os.system('rm ~/Sites/FITS/tiles/VLA*1[7].png')
     os.system('rm ~/Sites/FITS/tiles/0.5*17.png')
+    
+    #### Make full ACS mosaics matched to the UCSC candels image
+    os.chdir('/Volumes/robot/3DHST/Ancillary/COSMOS/ACS/MOSAIC')
+    MATCH = '../../CANDELS/Gabe/COSMOS-full-F125W_drz_sci.fits'
 
+    input = glob.glob('../*sci.fits')
+    threedhst.shifts.matchImagePixels(input=input, matchImage=MATCH, output='COSMOS_ACSi_sci.fits', input_extension=0, match_extension=0)
+
+    input = glob.glob('../*wht.fits')
+    threedhst.shifts.matchImagePixels(input=input, matchImage=MATCH, output='COSMOS_ACSi_wht.fits', input_extension=0, match_extension=0)
+    
 def GOODSS(FORCE=False):
+    import unicorn
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
     import glob
@@ -557,6 +587,10 @@ def GOODSS(FORCE=False):
     #ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
     ALIGN_FILES=['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits','/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
 
+    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/CANDELS/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+
+    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+    
     #### Main preparation loop
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
@@ -860,6 +894,7 @@ def UDF():
     pyfits.writeto('udf-candels-f160w.fits',f160[1].data, header=f160[1].header)
     
 def AEGIS(FORCE=False):
+    import unicorn
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
     import glob
@@ -940,6 +975,7 @@ def AEGIS_mosaic():
 
 #
 def UDS(FORCE=False):
+    import unicorn
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.prep_flt_files
     import glob
@@ -1193,6 +1229,9 @@ def SN_TILE41():
     for filter in ['F105W','F125W','F160W']:
         threedhst.prep_flt_files.startMultidrizzle('TILE41-%s_asn.fits' %(filter), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False, ra=150.0726, dec=2.1947412, final_outnx=2890, final_outny=2680)
     #
+    from pyraf import iraf
+    from iraf import iraf
+
     for filter in ['F105W','F125W','F160W']:
         try:
             os.remove('../DATA/TILE41-%s_sci.fits' %(filter))

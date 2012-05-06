@@ -7,13 +7,6 @@ import pyfits
 import scipy.linalg
 import matplotlib.pyplot as plt
 
-from pyraf import iraf
-from iraf import stsdas,dither,slitless,axe 
-
-INDEF = iraf.INDEF
-no = iraf.no
-yes = iraf.yes
-
 import threedhst
 import threedhst.prep_flt_files
 import threedhst.catIO as catIO
@@ -117,6 +110,13 @@ def egs():
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
     
 def cosmos():
+    from pyraf import iraf
+    from iraf import stsdas,dither,slitless,axe 
+
+    INDEF = iraf.INDEF
+    no = iraf.no
+    yes = iraf.yes
+    
     import unicorn.candels
     
     os.chdir('/Users/gbrammer/CANDELS/COSMOS/PREP_FLT/')

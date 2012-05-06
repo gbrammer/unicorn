@@ -11,9 +11,6 @@ import glob
 import os
 import shutil
 
-import pyraf
-from pyraf import iraf
-
 from threedhst.prep_flt_files import process_3dhst_pair as pair
 
 def go_all():

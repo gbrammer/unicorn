@@ -28,9 +28,6 @@ import glob
 import os
 import shutil
 
-import pyraf
-from pyraf import iraf
-
 def redo_all_SED_plots():
     import glob
     import threedhst
@@ -349,6 +346,9 @@ def goodsn():
    
 #
 def sn_primo():
+    from pyraf import iraf
+    from iraf import iraf
+
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
@@ -494,6 +494,9 @@ def sn_george():
     """
 
     """
+    from pyraf import iraf
+    from iraf import iraf
+
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis
@@ -532,6 +535,9 @@ def sn_marshall():
     """
 
     """
+    from pyraf import iraf
+    from iraf import iraf
+
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
     import unicorn.analysis

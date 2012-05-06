@@ -14,9 +14,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.ticker as mticker
 
-from pyraf import iraf
-from iraf import iraf
-
 import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
@@ -781,6 +778,9 @@ def make_fluximage(grism_root='COSMOS-3-G141', wavelength=1.1e4, direct_image=No
     colors from photometric catalogs.  Never really used and deprecated with the
     availability of CANDELS imaging.)
     """
+    
+    from pyraf import iraf
+    from iraf import iraf
     
     out_image = 'DATA/'+grism_root.replace('G141','f%03d' %(wavelength/100))+'.fits'
     

@@ -11,9 +11,6 @@ import matplotlib.pyplot as plt
 # from matplotlib.figure import Figure
 # from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from pyraf import iraf
-from iraf import iraf
-
 import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO

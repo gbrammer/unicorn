@@ -12,9 +12,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib
 
-from pyraf import iraf
-from iraf import iraf
-
 import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
@@ -957,7 +954,6 @@ def demo_background_subtract(root='COSMOS-13'):
     import unicorn
     import unicorn.survey_paper as sup
     import pyfits
-    import iraf
     
     path = unicorn.analysis.get_grism_path(root)
     os.chdir(path)

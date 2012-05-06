@@ -13,9 +13,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.ticker as mticker
 
-from pyraf import iraf
-from iraf import iraf
-
 import threedhst
 import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO

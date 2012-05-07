@@ -216,11 +216,11 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         #ZOUT_FILE = CAT_PATH+'fireworks.zout'
         #FOUT_FILE = CAT_PATH + 'fireworks.fout'
         #KTOT_COL = 'Ks_totf'
-        CAT_PATH = GRISM_PATH+'INTERLACE/phot/'
-        CAT_FILE = CAT_PATH + 'hudfcat_mar3012.cat'
-        ZOUT_FILE = CAT_PATH + 'hudfcat_mar3012.zout'
-        FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
-        KTOT_COL = 'f_kv2_tot'
+        #CAT_PATH = GRISM_PATH+'INTERLACE/phot/'
+        #CAT_FILE = CAT_PATH + 'hudfcat_mar3012.cat'
+        #ZOUT_FILE = CAT_PATH + 'hudfcat_mar3012.zout'
+        #FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
+        #KTOT_COL = 'f_kv2_tot'
         
         #For the v2.0 reduction
         if cdfs and unicorn.hostname().startswith('uni'):

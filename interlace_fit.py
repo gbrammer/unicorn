@@ -48,7 +48,7 @@ def go_bright(skip_completed=True):
         pointing = point.split('_model')[0]
         #pointing = 'UDS-18'
         model = unicorn.reduce.GrismModel(pointing)
-        bright = model.cat.mag < 23
+        bright = model.cat.mag < 24
         ids = model.cat.id[bright]
         for id in ids:     
             root='%s_%05d' %(pointing, id)
@@ -67,7 +67,9 @@ def go_bright(skip_completed=True):
                 continue
             #
             print '\n'
-            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            status = gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            if status:
+                gris.new_fit_free_emlines()
             #gris.make_figure()
         
 class GrismSpectrumFit():
@@ -387,6 +389,8 @@ class GrismSpectrumFit():
             self.twod_figure()
             self.make_spectrum_fits()
             
+        return True
+        
     def save_results(self, verbose=True):
         """
         Print the results of the fit to a file, like 
@@ -774,8 +778,13 @@ class GrismSpectrumFit():
             twod_templates[i,:] = self.twod.model.flatten()
         
         #
-        amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
-        coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
+        try:
+            amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
+            coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
+        except:
+            threedhst.showMessage('Something went wrong with setting up the line fit', warn=True)
+            return False
+            
         flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.linex.shape))
         
         coeffs = np.maximum(coeffs, 1.e-5)
@@ -897,7 +906,9 @@ class GrismSpectrumFit():
         unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
         
         fp.close()
-            
+        
+        return True
+        
     def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
 
@@ -1546,7 +1557,7 @@ class emceeChain():
         stats['width'] = (stats['q84']-stats['q16'])/2.
         return stats
         
-    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0):
+    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0, ax = None, add_labels=True):
         """
         Make a plot of the chain for a given parameter.
         
@@ -1557,9 +1568,22 @@ class emceeChain():
             pid = self.param_dict[param]
             chain = self.chain[:,:,pid]
         
+        if ax is not None:
+            plotter = ax
+            xlabel = ax.set_xlabel
+            ylabel = ax.set_ylabel
+        else:
+            plotter = plt
+            xlabel = plt.xlabel
+            ylabel = plt.ylabel
+            
         for i in range(self.nwalkers):
-            p = plt.plot(chain[i,:]*scale-diff, alpha=alpha, color=color)
-    
+            p = plotter.plot(chain[i,:]*scale-diff, alpha=alpha, color=color)
+        
+        if add_labels:
+            xlabel('Step')
+            ylabel(param)
+              
     def save_chain(self, file='emcee_chain.pkl', verbose=True):
         """
         Save the chain to a Pkl file

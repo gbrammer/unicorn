@@ -221,6 +221,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'hudfcat_mar3012.zout'
         FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
         KTOT_COL = 'f_kv2_tot'
+        
+        #For the v2.0 reduction
+        if cdfs and unicorn.hostname().startswith('uni'):
+            CAT_PATH = GRISM_PATH+'/3DHST/Photometry/Release/GOODS-S/v2.0/'
+            CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
+            ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
+            FOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_fast/GOODS-S_v2.0.fullz_wzp.fout'
+            KTOT_COL = 'f_Ks'
 
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):

@@ -207,7 +207,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #     udf = False
           
     if cdfs:
-        GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
+        #GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
         #CAT_PATH = GRISM_PATH+'FIREWORKS/'
         #if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
         #    CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
@@ -224,7 +224,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #For the v2.0 reduction
         if cdfs and unicorn.hostname().startswith('uni'):
-            CAT_PATH = GRISM_PATH+'/3DHST/Photometry/Release/GOODS-S/v2.0/'
+            CAT_PATH = '/3DHST/Photometry/Release/GOODS-S/v2.0/'
             CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
             ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
             FOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_fast/GOODS-S_v2.0.fullz_wzp.fout'

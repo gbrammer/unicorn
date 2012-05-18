@@ -60,6 +60,8 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'SN-GEORGE/'
     if root.startswith('TILE41'):
         PATH = unicorn.GRISM_HOME+'SN-TILE41/'
+    if root.startswith('EGS1'):
+        PATH = unicorn.GRISM_HOME+'COOPER/'
     
     return PATH
     
@@ -88,7 +90,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         goodsn=True
     if root.startswith('GOODS-S'):
         cdfs=True
-
+    
+    if root.startswith('EGS1'):
+        aegis=True
+    
     if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF'):
         udf=True
         

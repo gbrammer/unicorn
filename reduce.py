@@ -185,8 +185,8 @@ def get_interlace_offsets(asn_file, path_to_flt='./'):
     
     ### round and reverse offsets for combining the images
     
-    xinter = -np.round(xoff*10)/10.*2
-    yinter = -np.round(yoff*10)/10.*2
+    xinter = -np.cast[int](np.round(xoff*10)/10.*2)
+    yinter = -np.cast[int](np.round(yoff*10)/10.*2)
     #print xinter, yinter
     return xinter, yinter
     

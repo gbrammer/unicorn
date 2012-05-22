@@ -45,7 +45,7 @@ def go_bright(skip_completed=True):
     skip_completed=True
     
     for point in pointings:
-        pointing = point.split('_model')[0]
+        pointing = point.split('_inter_model')[0]
         #pointing = 'UDS-18'
         model = unicorn.reduce.GrismModel(pointing)
         bright = model.cat.mag < 24
@@ -76,10 +76,13 @@ class GrismSpectrumFit():
     """
     Functions for fitting (redshifts for now) the interlaced grism spectra
     """
-    def __init__(self, root='../GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./'):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
+        
+        The "fix_direct_thumbnail" option runs the `interpolate_direct_thumb`
+        method do interpolate over missing pixels in the direct thumbnail. 
         """
         self.FIGURE_FORMAT=FIGURE_FORMAT
         self.root = os.path.basename(root)
@@ -88,17 +91,34 @@ class GrismSpectrumFit():
         plt.rcParams['lines.linestyle'] = '-'        
         
         self.use_lines = None
-        
+
+        self.pointing = root.split('_')[0]
+        if RELEASE:
+            self.OUTPUT_PATH='refit'
+        else:
+            self.OUTPUT_PATH=OUTPUT_PATH
+            
         #### Get the 1D/2D spectra
-        self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
+        if RELEASE:
+            self.twod = unicorn.reduce.Interlace2D('%s/2D/FITS/%s.2D.fits' %(self.pointing, root), PNG=False)
+        else:
+            self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
+        
+        if fix_direct_thumbnail:
+            self.interpolate_direct_thumb()
+            
         self.status = True
         if self.twod.im['SCI'].data.max() <= 0:
             if verbose:
                 threedhst.showMessage('%s: \nNo non-zero pixels in the 2D spectrum.' %(root), warn=True)
             self.status = False
             return None
+        
+        if RELEASE:
+            self.oned = unicorn.reduce.Interlace1D('%s/1D/FITS/%s.1D.fits' %(self.pointing, root), PNG=False)
+        else:
+            self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
             
-        self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
         if self.oned.data.flux.max() <= 0:
             print '%s: No valid pixels in 1D spectrum.' %(root)
             self.status = False
@@ -402,7 +422,7 @@ class GrismSpectrumFit():
         z_max_spec = zgrid1[full_prob1 == full_prob1.max()][0]
         z_peak_spec = np.trapz(zgrid1*np.exp(full_prob1), zgrid1)/np.trapz(np.exp(full_prob1), zgrid1)
 
-        fp = open(self.grism_id+'.zfit.dat','w')
+        fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.dat','w')
         fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_spec z_peak_spec\n')
         fp.write('#  Phot: %s\n' %(self.cat.filename))
         file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], z_max_spec, z_peak_spec)
@@ -467,7 +487,7 @@ class GrismSpectrumFit():
         hdu.append(pyfits.ImageHDU(data=self.zgrid1, name='ZGRID1'))
         hdu.append(pyfits.ImageHDU(data=self.full_prob1, name='LN_PROB_1'))
         hduList = pyfits.HDUList(hdu)
-        hduList.writeto(self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='fix')
+        hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='fix')
     
     def load_fits(self):
         
@@ -519,7 +539,7 @@ class GrismSpectrumFit():
         hdus.append(pyfits.ImageHDU(data=self.cont_1D, name='CONT1D'))
         hdus.append(pyfits.ImageHDU(data=self.line_1D, name='LINE1D'))
         
-        pyfits.HDUList(hdus).writeto(self.grism_id+'.zfit.fits', clobber=True)
+        pyfits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.fits', clobber=True)
         
     def make_figure(self):
         """
@@ -638,7 +658,7 @@ class GrismSpectrumFit():
         #ax.set_xlim(0.8e4,2.e4)
         
         #### Save the result to a file
-        unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
         
         self.oned.data.sensitivity *= 100
         
@@ -662,6 +682,7 @@ class GrismSpectrumFit():
         ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
+        plt.gray()
         fig.subplots_adjust(hspace=0.001)
         
         if vmax==None:
@@ -696,7 +717,7 @@ class GrismSpectrumFit():
         ax.set_ylabel('-Continuum')
         ax.set_xlabel(r'$\lambda\ (\mu\mathrm{m})$')
         
-        unicorn.catalogs.savefig(fig, self.grism_id+'.zfit.2D.%s' %(self.FIGURE_FORMAT))
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.2D.%s' %(self.FIGURE_FORMAT))
         
     def line_free_template(self):
         """
@@ -903,7 +924,7 @@ class GrismSpectrumFit():
         ymax = self.model_1D.max()
         ax.set_ylim(-0.1*ymax, 1.5*ymax)
         
-        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' +  self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
         
         fp.close()
         
@@ -1027,7 +1048,7 @@ class GrismSpectrumFit():
         ymax = self.model_1D.max()
         ax.set_ylim(-0.1*ymax, 1.5*ymax)
         
-        unicorn.catalogs.savefig(fig, self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' +  self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
         
         fp.close()
         
@@ -1290,6 +1311,31 @@ class GrismSpectrumFit():
             return [header, params]
         else:    
             return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
+    
+    def interpolate_direct_thumb(self):
+        """
+        Interpolate bad pixels in the direct image as they will mess 
+        up the interlace model.
+        """
+        from scipy.signal import convolve2d
+        kernel = np.ones((3,3))
+        wht = self.twod.im['DWHT'].data != 0
+        bad = (wht == 0)
+        if wht.sum() < 10:
+            return None
+            
+        npix = convolve2d(wht, kernel, boundary='fill', fillvalue=0, mode='same')
+        sum = convolve2d(self.twod.im['DSCI'].data, kernel, boundary='fill', fillvalue=0, mode='same')
+        sumwht = convolve2d(self.twod.im['DWHT'].data, kernel, boundary='fill', fillvalue=0, mode='same')
+        fill_pix = bad & (npix > 0)
+        self.twod.im['DSCI'].data[fill_pix] = (sum/npix)[fill_pix]*1.
+        self.twod.im['DWHT'].data[fill_pix] = (sumwht/npix)[fill_pix]*1.
+        
+        self.twod.thumb = self.twod.im['DSCI'].data*1.
+        self.twod.flux = self.twod.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
+        self.twod.total_flux = np.sum(self.twod.flux*(self.twod.seg == self.twod.id))
+        self.twod.init_model()
+        
 #
 def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten, get_model):
     ### The "minimum" function limits the exponent to acceptable float values
@@ -1557,7 +1603,7 @@ class emceeChain():
         stats['width'] = (stats['q84']-stats['q16'])/2.
         return stats
         
-    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0, ax = None, add_labels=True):
+    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0, ax = None, add_labels=True, hist=False, *args, **kwargs):
         """
         Make a plot of the chain for a given parameter.
         
@@ -1576,13 +1622,18 @@ class emceeChain():
             plotter = plt
             xlabel = plt.xlabel
             ylabel = plt.ylabel
-            
-        for i in range(self.nwalkers):
-            p = plotter.plot(chain[i,:]*scale-diff, alpha=alpha, color=color)
         
-        if add_labels:
-            xlabel('Step')
-            ylabel(param)
+        if hist:
+            h = plotter.hist(chain[:,self.nburn:].flatten(), alpha=alpha, color=color, *args, **kwargs)
+            if add_labels:
+                ylabel('N')
+                xlabel(param)
+        else:
+            for i in range(self.nwalkers):
+                p = plotter.plot(chain[i,:]*scale-diff, alpha=alpha, color=color)
+            if add_labels:
+                xlabel('Step')
+                ylabel(param)
               
     def save_chain(self, file='emcee_chain.pkl', verbose=True):
         """

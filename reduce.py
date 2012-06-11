@@ -3436,21 +3436,24 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     
     new_head = unicorn.reduce.strip_header(im_ref[0].header, filter=filter)
     
-    if not os.path.exists(REF_ROOT+'_ref.fits') | Force:
-        pyfits.writeto(REF_ROOT+'_ref.fits', data=im_ref[0].data, header=new_head, output_verify='fix', clobber=True)
+    if (not os.path.exists(REF_ROOT+'_ref.fits')) | Force:
+        ref = pyfits.PrimaryHDU(header=new_head, data=im_ref[0].data)
+        ref.writeto(REF_ROOT+'_ref.fits', output_verify='fix', clobber=True)
         
     im_seg = pyfits.open(SEGM)
     
-    if not os.path.exists(REF_ROOT+'_seg.fits') | Force:
-        pyfits.writeto(REF_ROOT+'_seg.fits', data=np.cast[np.float32](im_seg[0].data), header=new_head, clobber=True)
+    if (not os.path.exists(REF_ROOT+'_seg.fits')) | Force:
+        seg = pyfits.PrimaryHDU(header=new_head, data=np.cast[np.float32](im_seg[0].data))
+        seg.writeto(REF_ROOT+'_seg.fits', output_verify='fix', clobber=True)
 
     #shutil.copy(SEGM, REF_ROOT+'_ones.fits')
 
-    if not os.path.exists(REF_ROOT+'_ones.fits') | Force:
+    if (not os.path.exists(REF_ROOT+'_ones.fits')) | Force:
         test = im_seg[0].data > 0
         test *= 1.
         test = np.cast[np.float32](test)
-        pyfits.writeto(REF_ROOT+'_ones.fits', data=test, header=new_head, clobber=True)
+        ones = pyfits.PrimaryHDU(data=test, header=new_head)
+        ones.writeto(REF_ROOT+'_ones.fits', output_verify='fix', clobber=True)
         
     print '\n\n --- Can ignore "currupted HDU" warnings ---\n\n'
     

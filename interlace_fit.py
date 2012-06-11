@@ -47,14 +47,17 @@ def go_bright(skip_completed=True):
     for point in pointings:
         pointing = point.split('_inter_model')[0]
         #pointing = 'UDS-18'
-        model = unicorn.reduce.GrismModel(pointing)
-        bright = model.cat.mag < 24
+        model = unicorn.reduce.process_GrismModel(pointing)
+        bright = model.cat.mag < 23
         ids = model.cat.id[bright]
         for id in ids:     
             root='%s_%05d' %(pointing, id)
             if os.path.exists(root+'.zfit.png') & skip_completed:
                 continue  
             #gris = unicorn.interlace_fit.GrismSpectrumFit(root='../GOODS-S-34_%05d' %(id))
+            if not os.path.exists(root+'.2D.fits'):
+                model.twod_spectrum(id)
+            #
             try:
                 gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
             except:
@@ -63,8 +66,8 @@ def go_bright(skip_completed=True):
             if gris.status is False:
                 continue
             #
-            if gris.dr > 1:
-                continue
+            #if gris.dr > 1:
+            #    continue
             #
             print '\n'
             status = gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
@@ -76,7 +79,7 @@ class GrismSpectrumFit():
     """
     Functions for fitting (redshifts for now) the interlaced grism spectra
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./'):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -93,17 +96,20 @@ class GrismSpectrumFit():
         self.use_lines = None
 
         self.pointing = root.split('_')[0]
+        self.field = '-'.join(root.split('-')[:-1])
+        
         if RELEASE:
             self.OUTPUT_PATH='refit'
         else:
             self.OUTPUT_PATH=OUTPUT_PATH
-            
+        
         #### Get the 1D/2D spectra
         if RELEASE:
-            self.twod = unicorn.reduce.Interlace2D('%s/2D/FITS/%s.2D.fits' %(self.pointing, root), PNG=False)
+            BASE_PATH = '%s/../Release/v2.0/%s' %(unicorn.GRISM_HOME, self.field)
+            self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
         else:
             self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
-        
+            
         if fix_direct_thumbnail:
             self.interpolate_direct_thumb()
             
@@ -115,7 +121,7 @@ class GrismSpectrumFit():
             return None
         
         if RELEASE:
-            self.oned = unicorn.reduce.Interlace1D('%s/1D/FITS/%s.1D.fits' %(self.pointing, root), PNG=False)
+            self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
         else:
             self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
             
@@ -131,7 +137,17 @@ class GrismSpectrumFit():
 
         #### Get the photometric match.
         ra, dec = self.oned.header['RA'], self.oned.header['DEC']
-        self.get_photometric_constraints(ra=ra, dec=dec, verbose=verbose)
+        if skip_photometric:
+            self.phot_zgrid = np.arange(0,6,0.1)
+            self.phot_lnprob = self.phot_zgrid*0.
+            self.dr = 10
+            self.skip_photometric=True
+            self.zout = None
+            self.cat = None
+            
+        else:
+            self.get_photometric_constraints(ra=ra, dec=dec, verbose=verbose)
+            self.skip_photometric=False
 
         #### If match distance > 1", prior is flat
         if self.dr > 1:
@@ -273,9 +289,11 @@ class GrismSpectrumFit():
         tilt_red_model = self.twod.model*1.
 
         #### Loop through redshift grid
+        pmax = -1.e10
+        zbest = 0
         for i in range(NZ):
             if verbose:
-                print unicorn.noNewLine+'z: %.2f' %(zgrid[i])
+                print unicorn.noNewLine+'z: %.3f  %.3f' %(zgrid[i], zbest)
             
             z_test = zgrid[i]
 
@@ -323,8 +341,12 @@ class GrismSpectrumFit():
                 #return flux_model, cont_model, line_model, oned_wave, model_1D, cont_1D, line_1D, slope_1D
 
             #### Log likelihood at redshift zgrid[i] (-0.5*chi2)
+            #print flux.shape, flux_fit.shape, var.shape
             spec_lnprob[i] = -0.5*np.sum((flux-flux_fit)**2/var)
-
+            if spec_lnprob[i] > pmax:
+                pmax = spec_lnprob[i]
+                zbest = z_test*1.
+                
         #### Done!
         return zgrid, spec_lnprob
     
@@ -424,8 +446,14 @@ class GrismSpectrumFit():
 
         fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.dat','w')
         fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_spec z_peak_spec\n')
-        fp.write('#  Phot: %s\n' %(self.cat.filename))
-        file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], z_max_spec, z_peak_spec)
+        
+        if self.skip_photometric:
+            fp.write('#  Phot: None\n')
+            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, -1, -1, -1, -1, z_max_spec, z_peak_spec)
+        else:
+            fp.write('#  Phot: %s\n' %(self.cat.filename))
+            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], z_max_spec, z_peak_spec)
+            
         fp.write(file_string)
         fp.close()
 
@@ -474,7 +502,10 @@ class GrismSpectrumFit():
     def save_fits(self):
         
         header = pyfits.Header()
-        header.update('PHOTID', self.cat.id[self.ix], comment='ID in %s' %(os.path.basename(self.cat.filename)))
+        if self.skip_photometric:
+            header.update('PHOTID', -1)
+        else:
+            header.update('PHOTID', self.cat.id[self.ix], comment='ID in %s' %(os.path.basename(self.cat.filename)))
         header.update('GRISID', self.grism_id, comment='Grism ID')
         
         hdu = [pyfits.PrimaryHDU(header=header)]
@@ -602,8 +633,10 @@ class GrismSpectrumFit():
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
         ax.plot(zgrid0, np.exp(full_prob0), color='blue', alpha=0.4)
         ax.plot(zgrid1, np.exp(full_prob1), color='blue')
-        if zout.z_spec[self.ix] > 0:
-            ax.plot(zout.z_spec[self.ix]*np.array([1,1]), [0,1], color='red')
+        
+        if not self.skip_photometric:
+            if zout.z_spec[self.ix] > 0:
+                ax.plot(zout.z_spec[self.ix]*np.array([1,1]), [0,1], color='red')
 
         if self.dr < 1:
             ax.set_xlim(np.min([self.zgrid1.min(), zout.l99[self.ix]]), np.max([self.zgrid1.max(), zout.u99[self.ix]]))
@@ -614,13 +647,18 @@ class GrismSpectrumFit():
         ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(5, prune='both'))
 
         #### Make title text
-        if zout.z_spec[self.ix] > 0:
-            deltaz = '$\Delta z$ = %.4f' %(-(zout.z_spec[self.ix]-self.z_max_spec)/(1+zout.z_spec[self.ix]))
-        else:
+        if not self.skip_photometric:
             deltaz = ''
-
-        ax.text(-0.05, 1.1, r'%s  %d  $H_{140}=$%.2f $z_\mathrm{spec}$=%.3f  $z_\mathrm{phot}$=%.3f  $z_\mathrm{gris}$=%.3f  %s' %(self.grism_id, self.zout.id[self.ix], self.twod.im[0].header['MAG'], zout.z_spec[self.ix], zout.z_peak[self.ix], self.z_max_spec, deltaz), transform=ax.transAxes, horizontalalignment='center')
-
+            if zout.z_spec[self.ix] > 0:
+                deltaz = '$\Delta z$ = %.4f' %(-(zout.z_spec[self.ix]-self.z_max_spec)/(1+zout.z_spec[self.ix]))
+            #
+            ax.text(-0.05, 1.1, r'%s  %d  $H_{140}=$%.2f $z_\mathrm{spec}$=%.3f  $z_\mathrm{phot}$=%.3f  $z_\mathrm{gris}$=%.3f  %s' %(self.grism_id, self.zout.id[self.ix], self.twod.im[0].header['MAG'], zout.z_spec[self.ix], zout.z_peak[self.ix], self.z_max_spec, deltaz), transform=ax.transAxes, horizontalalignment='center')
+        else:
+            ax.text(-0.05, 1.1, r'%s  $H_{140}=$%.2f  $z_\mathrm{gris}$=%.3f' %(self.grism_id, self.twod.im[0].header['MAG'], self.z_max_spec), transform=ax.transAxes, horizontalalignment='center')
+            
+            unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
+            return True
+            
         ####  Show the (photometric) SED with the spectrum overplotted
         ax = fig.add_subplot(144)
 
@@ -728,6 +766,12 @@ class GrismSpectrumFit():
         #### Read in the line-free templates and scale them with "tnorm" to match those stored
         #### in the temp_sed file
         nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed1_nolines.dat', unpack=True)
+        if self.skip_photometric:
+            self.templam_nolines=nlx
+            self.best_fit_nolines = nlx*0.+1
+            self.best_fit_nolines_flux = nlx*0.+1
+            return True
+            
         noline_temps = np.zeros((nlx.shape[0],7))
         noline_temps[:,0] = nly/self.eazy_coeffs['tnorm'][0]
         for i in range(2,7):
@@ -743,6 +787,8 @@ class GrismSpectrumFit():
         self.templam_nolines = nlx
         
         self.best_fit_nolines_flux = self.full_eazy_template(nlx, noline_temps, self.z_peak)
+        
+        return True
         
     def full_eazy_template(self, wavelength, templates, zi):
         """

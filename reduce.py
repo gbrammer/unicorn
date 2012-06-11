@@ -164,7 +164,7 @@ def combine_all(FORCE=False):
         if (not os.path.exists(pointing+'-G141_inter.fits')) | FORCE:
             unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
     
-def get_interlace_offsets(asn_file, path_to_flt='./'):
+def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     """
     Compute the necessary interlace offsets for a set of 
     dithered exposures defined in an ASN table
@@ -185,12 +185,12 @@ def get_interlace_offsets(asn_file, path_to_flt='./'):
     
     ### round and reverse offsets for combining the images
     
-    xinter = -np.cast[int](np.round(xoff*10)/10.*2)
-    yinter = -np.cast[int](np.round(yoff*10)/10.*2)
+    xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
+    yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
     #print xinter, yinter
     return xinter, yinter
     
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False):
     from pyraf import iraf
     from iraf import iraf
     from iraf import dither
@@ -207,6 +207,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
 
     #
     asn = threedhst.utils.ASNFile(root+'_asn.fits')
+    flt = pyfits.open(asn.exposures[0]+'_flt.fits')
     
     im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
     PAM = im[1].data
@@ -222,16 +223,16 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         
     yi,xi = np.indices((1014,1014))
     
-    pad += NGROW*4
+    #pad += NGROW*4
     
-    N = np.zeros((2028+pad,2028+pad), dtype=np.int)
-    
-    inter_sci = np.zeros((2028+pad,2028+pad))
+    N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int)
+        
+    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     if use_error:
-        inter_err = np.zeros((2028+pad,2028+pad))
+        inter_err = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     
-    xi+=pad/4
-    yi+=pad/4
+    xi+=pad/(2*growx)+NGROW
+    yi+=pad/(2*growy)+NGROW
     
     #### From pieter
     dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
@@ -252,15 +253,22 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     
     #### Cooper program in AEGIS
     if root.startswith('EGS1'):
-        xinter, yinter = red.get_interlace_offsets(root+'_asn.fits')
+        auto_offsets=True
+    
+    #### Erb quasar sightlines
+    if flt[0].header['PROPOSID'] == 12471:
+        dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
+        
+    if auto_offsets:
+        xinter, yinter = red.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter + np.int(np.round(xsh[0]))*0
         dys = yinter + np.int(np.round(ysh[0]))*0
-        
+
     dxs += ddx
     dys += ddy
     
-    dxi = np.cast[int](np.ceil(dxs/2))
-    dyi = np.cast[int](np.ceil(dys/2))
+    dxi = np.cast[int](np.ceil(dxs/growx))
+    dyi = np.cast[int](np.ceil(dys/growy))
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
@@ -280,22 +288,22 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         #### Use the pixel area map correction
         im[1].data *= PAM
         #### Divide by 4 to conserve surface brightness with smaller output pixels
-        im[1].data /= 4.
-        im[2].data /= 4.
+        im[1].data /= 1.*(growx*growy)
+        im[2].data /= 1.*(growx*growy)
         
         ### Mask cosmic rays
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
-            header = red.scale_header_wcs(h1.copy(), factor=2, pad=pad)
+            header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad)
             header.update('EXTNAME','SCI')
             header.update('PAD',pad)
             header.update('REFIMAGE', '', comment='Source detection image')
             header_wht = header.copy()
             header_wht.update('EXTNAME','ERR')
         
-        dx = np.int(np.round((xsh[i]-xsh[0])*2))
-        dy = np.int(np.round((ysh[i]-ysh[0])*2))
+        dx = np.int(np.round((xsh[i]-xsh[0])*growx))
+        dy = np.int(np.round((ysh[i]-ysh[0])*growy))
         #
         dx = dxs[i]
         dy = dys[i]
@@ -304,11 +312,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         #        
         use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
         
-        inter_sci[yi[use]*2+dy,xi[use]*2+dx] += im[1].data[use]
-        N[yi[use]*2+dy,xi[use]*2+dx] += 1
+        inter_sci[yi[use]*growy+dy,xi[use]*growx+dx] += im[1].data[use]
+        N[yi[use]*growy+dy,xi[use]*growx+dx] += 1
         
         if use_error:
-            inter_err[yi[use]*2+dy,xi[use]*2+dx] += im[2].data[use]**2
+            inter_err[yi[use]*growy+dy,xi[use]*growx+dx] += im[2].data[use]**2
         
         if view:
             ds9.view_array(inter_sci/np.maximum(N,1), header=header)
@@ -323,7 +331,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')
     else:
         h0.update('WHTERROR',False,comment='WHT extension is 0/1 flagged bad pix')
-        
+    
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=np.cast[np.float32](inter_sci), header=header)
     if use_error:
@@ -410,23 +418,27 @@ def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat',output='scale_coeffs.dat', 
     
     open(output,'w').writelines(lines)
     
-def scale_header_wcs(header, factor=2, pad=60, NGROW=0):
+def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     """
     Take an FLT header but scale the WCS keywords to account for the images 
     expanded/contracted by a factor of 'factor'.
     """
     import numpy as np
     
-    header.update('NAXIS1',header['NAXIS1']*factor+NGROW*2*factor+pad)
-    header.update('NAXIS2',header['NAXIS2']*factor+NGROW*2*factor+pad)
+    header.update('NAXIS1',header['NAXIS1']*growx+NGROW*growx*factor+pad)
+    header.update('NAXIS2',header['NAXIS2']*growy+NGROW*growy*factor+pad)
 
-    header.update('CRPIX1',header['CRPIX1']*factor+NGROW*factor+pad/2)
-    header.update('CRPIX2',header['CRPIX2']*factor+NGROW*factor+pad/2)
+    header.update('CRPIX1',header['CRPIX1']*growx+NGROW*growx+pad/2)
+    header.update('CRPIX2',header['CRPIX2']*growy+NGROW*growy+pad/2)
     
-    keys = ['CD1_1','CD1_2','CD2_1','CD2_2']
+    # keys = ['CD1_1','CD1_2','CD2_1','CD2_2']
+    # for key in keys:
+    #     header.update(key,header[key]/factor)
     
-    for key in keys:
-        header.update(key,header[key]/factor)
+    header.update('CD1_1', header['CD1_1']/growx)
+    header.update('CD2_1', header['CD2_1']/growx)
+    header.update('CD1_2', header['CD1_2']/growy)
+    header.update('CD2_2', header['CD2_2']/growy)
     
     header.update('IDCTAB','')
     
@@ -434,7 +446,7 @@ def scale_header_wcs(header, factor=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -447,8 +459,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # xc_full = 244.13
     # yc_full = 1244.323
     
-    xc = np.int(np.round((xc_full - pad/2)/grow_factor))
-    yc = np.int(np.round((yc_full - pad/2)/grow_factor))
+    xc = np.int(np.round((xc_full - pad/2)/growx))
+    yc = np.int(np.round((yc_full - pad/2)/growy))
     
     if 'XOFF' in conf.keys():
         xoff = np.float(conf['XOFF'])
@@ -477,10 +489,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     NX,NY = xma-xmi, 8
     
-    xmi *= grow_factor
-    xma *= grow_factor
-    NX *= grow_factor
-    NY *= grow_factor
+    xmi *= growx
+    xma *= growx
+    NX *= growx
+    NY *= growy
     
     model = np.zeros((NY*2+1, NX), dtype=np.float)
     wavelength = model*0
@@ -498,19 +510,19 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     for ib,beam in enumerate(BEAMS):
        
         xmi_beam, xma_beam = tuple(np.cast[int](conf['BEAM'+beam].split())) 
-        xmi_beam *= grow_factor
-        xma_beam *= grow_factor
+        xmi_beam *= growx
+        xma_beam *= growx
         
         dydx_order = np.int(conf['DYDX_ORDER_'+beam])
-        dydx_0 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_0']) * grow_factor
-        dydx_1 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_1']) #/ grow_factor        
+        dydx_0 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_0']) * growy
+        dydx_1 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_1']) * growy / growx#/ grow_factor        
                     
-        xoff_beam = field_dependent(bigX, bigY, conf['XOFF_'+beam]) * grow_factor
-        yoff_beam = field_dependent(bigX, bigY, conf['YOFF_'+beam]) * grow_factor
+        xoff_beam = field_dependent(bigX, bigY, conf['XOFF_'+beam]) * growx
+        yoff_beam = field_dependent(bigX, bigY, conf['YOFF_'+beam]) * growy
                 
         disp_order = np.int(conf['DISP_ORDER_'+beam])
         dldp_0 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_0'])
-        dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / grow_factor
+        dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / growx
         
         #### Improve alignment of zeroth order
         if beam == 'B':
@@ -519,8 +531,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         # if beam == 'Bx':
         #     #dydx_1 = 0.0
         #     dydx_1 = 0.1
-        #     dydx_0 -= 2/grow_factor
-        #     dydx_0 += dydx_1 * 192 * grow_factor
+        #     dydx_0 -= 2/growy
+        #     dydx_0 += dydx_1 * 192 * growy
         #     
         #     dldp_x = dldp_1*1.
         #     f = 0.9*(1+np.abs(bigY-507)/507.*0.2)
@@ -567,7 +579,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #### the grow_factor term accounts for the fact that the pixels are smaller in the 
         #### spatial axis as well in the interlaced images
         #print '%s DLAM: %.3f %.3f' %(beam, np.median(np.diff(lam)), np.std(np.diff(lam)))
-        sens_interp *= np.median(np.diff(lam))/grow_factor**2
+        sens_interp *= np.median(np.diff(lam))/(growx*growy)
         
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
@@ -592,7 +604,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         # if beam in ['C','D','E']:
         #     sens_interp *= 0.25
                 
-        stripe *= np.dot(np.ones((NY*2+1,1)), sens_interp.reshape(1,NX)) * grow_factor**2
+        stripe *= np.dot(np.ones((NY*2+1,1)), sens_interp.reshape(1,NX)) * (growx*growy)
         
         model += stripe
         #print beam, model.max()
@@ -602,10 +614,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, MAG_LIMIT=MAG_LIMIT)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT)
     
     model.get_corrected_wcs(verbose=True)
     
@@ -676,7 +688,7 @@ class Interlace1D():
             canvas.print_figure(os.path.basename(self.file).replace('fits','png'), dpi=100, transparent=False)
 
 class Interlace2D():
-    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True):
+    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2):
         self.id = int(file.split('.2D')[0].split('_')[-1])
         self.file = file
         self.im = pyfits.open(file)
@@ -689,6 +701,8 @@ class Interlace2D():
         self.y_pix = self.oned.header['Y_PIX']
         self.pad = self.im[0].header['PAD']
         self.grow_factor = 2 ### add these parameters to 2D header
+        self.growx = self.im[0].header['GROWX']
+        self.growy = self.im[0].header['GROWY']
         self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
@@ -700,7 +714,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx = self.growx, growy=self.growy, pad=self.pad)
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -776,7 +790,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad)
         
         #print orders.shape
         
@@ -856,12 +870,14 @@ class Interlace2D():
                 
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, MAG_LIMIT=24):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24):
         """
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
         self.grow_factor = grow_factor
+        self.growx = growx
+        self.growy = growy
         
         #### Read the direct interlaced image        
         self.direct = pyfits.open(self.root+'-F140W_inter.fits')
@@ -1065,8 +1081,8 @@ class GrismModel():
         flt = asn.exposures[0]+'_flt.fits'
         fp = open('/tmp/%s.flt_xy' %(self.root),'w')
         for i in range(NOBJ):
-            xi = (self.cat.x_pix[i]-self.pad/2.)/self.grow_factor
-            yi = (self.cat.y_pix[i]-self.pad/2.)/self.grow_factor
+            xi = (self.cat.x_pix[i]-self.pad/2.)/self.growx
+            yi = (self.cat.y_pix[i]-self.pad/2.)/self.growy
             fp.write('%.2f %.2f\n' %(xi,  yi))
         
         fp.close()
@@ -1202,7 +1218,7 @@ class GrismModel():
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent            
         t0 = time.time()
-        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -1539,6 +1555,8 @@ class GrismModel():
         prim.header.update('FTOTAL', self.total_fluxes[id], comment='Total flux within segmentation image (1E-17)')
         prim.header.update('PAD', self.pad, comment='Padding at edge of interlaced image')
         prim.header.update('GROW', self.grow_factor, comment='"grow_factor" from unicorn.reduce')
+        prim.header.update('GROWX', self.growx, comment='"growx" from unicorn.reduce')
+        prim.header.update('GROWY', self.growy, comment='"growy" from unicorn.reduce')
         prim.header.update('BUNIT', 'ELECTRONS/S')
         prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
         prim.header.update('FILTER', self.gris[0].header['FILTER'])
@@ -1580,7 +1598,7 @@ class GrismModel():
         dy = np.minimum(np.abs(dyhi), dy)
         
         dx = self.cat.x_pix-self.cat.x_pix[ii]
-        nearby = (dy < (NT/2.+5)) & (dx < 420*self.grow_factor) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
+        nearby = (dy < (NT/2.+5)) & (dx < 420*self.growx) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
         
         BEAMS=['A','B','C','D']
         view=False
@@ -1863,7 +1881,7 @@ class GrismModel():
         c4 = pyfits.Column(name='contam', format='D', unit='ELECTRONS/S', array=optimal_sum_contam)
         c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=trace_spec)
         c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=trace_sig)
-        c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*self.grow_factor**2)
+        c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*(self.growx*self.growy))
         #print 'MAX SENS: %.f' %(self.sens.max())
         
         coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
@@ -1979,7 +1997,7 @@ def model_stripe():
     BEAMS = ['A','B']
     BEAMS = ['A','B','C','D'] #,'E']
     
-    orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0)
+    orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0)
     yord, xord = np.indices(orders.shape)
     non_zero = orders > 0
     xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
@@ -1997,7 +2015,7 @@ def model_stripe():
         
         for x in range(-190,1014+85):
             if ((x % skip) + (y % skip)) == 0:
-                orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, pad=0, dydx=False)
+                orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, dydx=False)
                 yord, xord = np.indices(orders.shape)
                 non_zero = orders > 0
                 xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
@@ -3170,10 +3188,12 @@ def interlace_cosmos2():
 	
 
 
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
+    
+    xxxxx Still not modified for differing factors in x and y!
     """
     from pyraf import iraf
     from iraf import iraf
@@ -3204,12 +3224,15 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     yi,xi = np.indices((1014,1014+2*NGROW))
 
     #N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_sci = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
+    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     #inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_seg = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW), dtype=int)
+    inter_seg = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=int)
     
-    xi+=pad/4
-    yi+=pad/4+NGROW
+    xi+=pad/(2*growx)
+    yi+=pad/(2*growy)+NGROW
+    
+    asn = threedhst.utils.ASNFile(root+'_asn.fits')
+    flt = pyfits.open(asn.exposures[0]+'_flt.fits')
     
     #### These were needed for COSMOS-19
     #xi -= 1
@@ -3228,8 +3251,12 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         dxs = np.array([-4, 9, -8, 5, 5, -8]) + np.int(np.round(xsh[0]))*0
         dys = np.array([-5, -4, 4, 5, 5, 4]) + np.int(np.round(ysh[0]))*0
         
-    dxi = np.cast[int](np.ceil(dxs/2))
-    dyi = np.cast[int](np.ceil(dys/2))
+    #### Erb QSO sightlines
+    if flt[0].header['PROPOSID'] == 12471:
+        dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
+    
+    dxi = np.cast[int](np.ceil(dxs/growx))
+    dyi = np.cast[int](np.ceil(dys/growy))
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
@@ -3250,7 +3277,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         #### Use the pixel area map correction
         #im[1].data *= PAM
         #### Divide by 4 to conserve surface brightness with smaller output pixels
-        im[0].data /= 4
+        im[0].data /= (growx*growy)
         #im_wht[0].data /= 4
         #im[2].data /= 4
         
@@ -3259,7 +3286,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
             im_flt = pyfits.open(flt+'.fits')
             h0 = im_flt[0].header
             h1 = im_flt[1].header
-            header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, pad=pad, NGROW=NGROW)
+            header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROW=NGROW)
             #header_wht = header.copy()
             #header_wht.update('EXTNAME','ERR')
             header.update('EXTNAME','SCI')
@@ -3275,9 +3302,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         #        
         #use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
         
-        inter_sci[yi*2+dy,xi*2+dx] += im[0].data
+        inter_sci[yi*growy+dy,xi*growx+dx] += im[0].data
         #inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
-        inter_seg[yi*2+dy,xi*2+dx] += im_seg[0].data
+        inter_seg[yi*growy+dy,xi*growx+dx] += im_seg[0].data
         
         #
         if view:
@@ -3376,8 +3403,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     fpr = open("%s_inter.reg" %(pointing),'w')
     for i,line in enumerate(status[-NOBJ:]):
         spl = np.cast[float](line.split())
-        fxi, fyi = (spl[0]+NGROW)*2+pad/2-1, (spl[1]+NGROW)*2+pad/2-1
-        if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*2+pad/2.)) & (fyi > (pad/2.+NGROW*2)) & (fyi < (pad/2.+NGROW*2+1014*2)):
+        fxi, fyi = (spl[0]+NGROW)*growx+pad/2-1, (spl[1]+NGROW)*growy+pad/2-1
+        if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*growx+pad/2.)) & (fyi > (pad/2.+NGROW*2)) & (fyi < (pad/2.+NGROW*growy+1014*growy)):
             flt_x.append(fxi)
             flt_y.append(fyi)
             #
@@ -3973,11 +4000,11 @@ def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     """
     import matplotlib 
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=MAG_LIMIT)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=2, growx=2, growy=2, MAG_LIMIT=MAG_LIMIT)
     
     if model.cat.mag.max() < (MAG_LIMIT-0.3):
         model.find_objects(MAG_LIMIT=MAG_LIMIT)
-        model = unicorn.reduce.GrismModel(root=root, grow_factor=2, MAG_LIMIT=MAG_LIMIT)
+        model = unicorn.reduce.GrismModel(root=root, grow_factor=2, growx=2, growy=2, MAG_LIMIT=MAG_LIMIT)
         
     model.get_corrected_wcs(verbose=True)
     model.load_model_spectra()

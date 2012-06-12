@@ -694,7 +694,11 @@ class Interlace1D():
         
         root = os.path.basename(self.file).split('.1D')[0]
         lines = threedhst.spec1d.findLines(self, idx=-1, show=False, verbose=False, trim_abs=True)
-        line_info = root
+        line_info = '%s  %10.6f %10.6f %6.3f' %(root, self.header['RA'], self.header['Dec'], self.header['MAG'])
+        
+        if lines is None:
+            lines = []
+            
         result = []
         for line in lines:
             line_info += '   %8.1f %5.2f %5.2f %5.1f %4d %4.2f' %(line.wave, line.height, line.continuum, line.sn, line.waveMax-line.waveMin, line.fcontam)        
@@ -708,7 +712,7 @@ class Interlace1D():
             
         if (fp is None) & ascii_file:
             fp = open(root+'.1D.wavelet.dat','w')
-            fp.write('# id (wave height cont. S/N  width  fcontam)\n')
+            fp.write('# id ra dec mag  (wave height cont. S/N  width  fcontam)\n')
             fp.write(line_info+'\n')
             fp.close()
             

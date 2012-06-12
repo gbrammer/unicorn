@@ -679,17 +679,20 @@ class Interlace1D():
     
     def find_em_lines(self, fp=None, verbose=True, ascii_file=True):
         """
-        Input variable `fp` is an optional file pointer to save the results.
-        If fp is None, save to a separate ASCII file:
-            self.file.replace('.fits', '.wavelet.dat')
-            
         Search for emission lines with a wavelet search method modeled
         after SDSS.  Note line centers are just the center pixel of
         the line and aren't fit.  Signal-to-noise comes from the median
         flux error of the spectrum.
+
+        Input variable `fp` is an optional file pointer to save the results.
+        
+        If fp is None, save to a separate ASCII file (in './'):
+        
+            os.path.basename(self.file).replace('.fits', '.wavelet.dat')
+            
         """
         
-        root = self.file.split('.1D')[0]
+        root = os.path.basename(self.file).split('.1D')[0]
         lines = threedhst.spec1d.findLines(self, idx=-1, show=False, verbose=False, trim_abs=True)
         line_info = root
         result = []

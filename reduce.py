@@ -638,16 +638,84 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
     return model
     
 class Interlace1D():
-    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True):
+    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True, flux_units=True):
+        """
+        Wrapper for Interlaced 1D spectra.
+        
+        For convenience, FITS table columns are aliased to 
+        
+        self.lam = self.data['WAVE']
+        self.flux = self.data['FLUX']
+        self.error = self.data['ERROR']
+        self.contam = self.data['CONTAM']
+        self.sens = self.data['SENSITIVITY']
+        
+        The flux, error, and contam columns are divided by `sens` 
+        automatically if `flux_units==True`.
+        
+        """
+
         self.file = file
         tab = pyfits.open(file)
         self.header = tab[1].header
         self.data = tab[1].data
         tab.close()
         
+        self.sens = self.data['SENSITIVITY']
+        self.N = self.sens.shape[0]
+        
+        if flux_units:
+            convert = self.sens
+        else:
+            convert = np.ones(self.N)
+            
+        self.lam = self.data['WAVE']
+        self.flux = self.data['FLUX']/convert
+        self.error = self.data['ERROR']/convert
+        self.contam = self.data['CONTAM']/convert
+                
         if PNG:
             self.show(savePNG=True)
+    
+    def find_em_lines(self, fp=None, verbose=True, ascii_file=True):
+        """
+        Input variable `fp` is an optional file pointer to save the results.
+        If fp is None, save to a separate ASCII file:
+            self.file.replace('.fits', '.wavelet.dat')
             
+        Search for emission lines with a wavelet search method modeled
+        after SDSS.  Note line centers are just the center pixel of
+        the line and aren't fit.  Signal-to-noise comes from the median
+        flux error of the spectrum.
+        """
+        
+        root = self.file.split('.1D')[0]
+        lines = threedhst.spec1d.findLines(self, idx=-1, show=False, verbose=False, trim_abs=True)
+        line_info = root
+        result = []
+        for line in lines:
+            line_info += '   %8.1f %5.2f %5.2f %5.1f %4d %4.2f' %(line.wave, line.height, line.continuum, line.sn, line.waveMax-line.waveMin, line.fcontam)        
+            result.extend([line.wave, line.height, line.continuum, line.sn, line.waveMax-line.waveMin, line.fcontam])
+        
+        if verbose:
+            print line_info
+            
+        if fp:
+            fp.write(line_info+'\n')
+            
+        if (fp is None) & ascii_file:
+            fp = open(root+'.1D.wavelet.dat','w')
+            fp.write('# id (wave height cont. S/N  width  fcontam)\n')
+            fp.write(line_info+'\n')
+            fp.close()
+            
+        columns = ['wave','height','cont','sn','width','fcontam']
+        result_dict = {}
+        for i in range(len(columns)):
+            result_dict[columns[i]] = np.array(result[i::len(columns)])
+        
+        return result_dict
+        
     def show(self, savePNG=True):
         import unicorn
         

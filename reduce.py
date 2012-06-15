@@ -188,7 +188,7 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
     yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
     #print xinter, yinter
-    return xinter, yinter
+    return xinter-xinter[0], yinter-yinter[0]
     
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False):
     from pyraf import iraf
@@ -762,6 +762,53 @@ class Interlace1D():
             canvas = FigureCanvasAgg(fig)
             canvas.print_figure(os.path.basename(self.file).replace('fits','png'), dpi=100, transparent=False)
 
+def get_all_emission_lines(field='GOODS-N', force=True, skip=True):
+    """
+    Run the new wavelet line finder on *all* 1D spectra in the v2.0 release to look for
+    emission line galaxies at mags fainter than the current extraction limit.
+    
+    (June 13, 2012)
+    
+    """
+    import unicorn
+    PWD = os.getcwd()
+    
+    BASE_PATH = unicorn.GRISM_HOME + '../Release/v2.0/%s' %(field)
+    
+    os.chdir(BASE_PATH)
+    files = glob.glob(field+'-*')
+    dirs = []
+    for file in files:
+        if os.path.isdir(file):
+            dirs.append(file)
+        
+    for dir in dirs:
+        if not os.path.exists(os.path.join(BASE_PATH, dir, '1D/FITS')):
+            continue
+        #
+        try:
+            os.mkdir(os.path.join(PWD, dir,'1D/Wavelet'))
+        except:
+            if force:
+                ## Ignore couldn't make dir, e.g., dir already exists
+                pass
+            else:
+                ## Don't force, e.g. maybe write permission problems in PWD
+                continue
+        #
+        os.chdir(os.path.join(PWD, dir, '1D/Wavelet'))
+        #
+        oned_files = glob.glob(os.path.join(BASE_PATH, dir, '1D/FITS/*1D.fits'))
+        for file in oned_files:
+            if os.path.exists(os.path.join(PWD, dir, '1D/Wavelet', os.path.basename(file.replace('fits','wavelet.dat')))) & skip:
+                continue
+            #
+            oned = unicorn.reduce.Interlace1D(file, PNG=False, flux_units=True)
+            lines = oned.find_em_lines(verbose=True, ascii_file=True)
+            
+    #
+    os.chdir(PWD)
+           
 class Interlace2D():
     def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2):
         self.id = int(file.split('.2D')[0].split('_')[-1])
@@ -3263,7 +3310,7 @@ def interlace_cosmos2():
 	
 
 
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -3329,6 +3376,11 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #### Erb QSO sightlines
     if flt[0].header['PROPOSID'] == 12471:
         dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
+    
+    if auto_offsets:
+        xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
+        dxs = xinter + np.int(np.round(xsh[0]))*0
+        dys = yinter + np.int(np.round(ysh[0]))*0
     
     dxi = np.cast[int](np.ceil(dxs/growx))
     dyi = np.cast[int](np.ceil(dys/growy))
@@ -3537,7 +3589,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W', NGROW=125, verbose=True, run_multidrizzle=False):
+def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W', NGROW=125, verbose=True, run_multidrizzle=False, realign_blotted=True):
     """
     iraf.imcopy('COSMOS-full-F160W_drz_sci.fits[2262:6160,5497:8871]', 'COSMOS-full-F160W_drz_sci_subim.fits')
     hedit 'COSMOS-full-F160W_drz_sci_subim.fits' 'CD1_2' 0. add+ update+ verify-
@@ -3658,6 +3710,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         ##### The blotted images **need** to be on the same frame as the FLT images because
         ##### they determine the reference position of the grism spectra
         if iflt == 0:
+          if realign_blotted:
             fp = open(DRZ_ROOT+'_delta.dat','w')
             fp.write('# xoff  yoff  roff dx  dy  xrms  yrms\n')
             
@@ -3697,7 +3750,13 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 #threedhst.sex.sexcatRegions('align.cat','align.reg')
                 
             fp.close()
-            
+          else:
+             fp = open(DRZ_ROOT+'_delta.dat','w')
+             fp.write('# xoff  yoff  roff dx  dy  xrms  yrms\n')
+             xoff, yoff, roff, dx, dy, xrms, yrms = 0., 0., 0., 0., 0., 0., 0.
+             fp.write('%.3f %.3f %.4f  %.3f %.3f  %.2f %.2f\n' %(xoff, yoff, roff, dx, dy, xrms, yrms))
+             fp.close()
+             
         ##################################
         #### Run BLOT for SCI extension
         ##################################

@@ -79,7 +79,7 @@ class GrismSpectrumFit():
     """
     Functions for fitting (redshifts for now) the interlaced grism spectra
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -146,7 +146,7 @@ class GrismSpectrumFit():
             self.cat = None
             
         else:
-            self.get_photometric_constraints(ra=ra, dec=dec, verbose=verbose)
+            self.get_photometric_constraints(ra=ra, dec=dec, verbose=verbose, p_flat=p_flat)
             self.skip_photometric=False
 
         #### If match distance > 1", prior is flat
@@ -168,12 +168,17 @@ class GrismSpectrumFit():
         self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
         
         #### Try to read the previous p(z) from the pickle file
-        if self.load_fits():
+        if RELEASE:
+            pz_path = '%s/%s/ZFIT/PZ/' %(BASE_PATH, self.pointing)
+        else:
+            pz_path = './'
+                
+        if self.load_fits(path=pz_path):
             if verbose:
                 print 'Read p(z) from %s.zfit.pz.fits' %(self.grism_id)
                 self.get_best_fit()
     
-    def get_photometric_constraints(self, ra=0., dec=0., verbose=True):
+    def get_photometric_constraints(self, ra=0., dec=0., verbose=True, p_flat=0.):
         """ 
         Read the overlapping photometric catalog and retrieve the photometry and EAZY fit.
 
@@ -205,7 +210,7 @@ class GrismSpectrumFit():
 
         dr = np.sqrt((cat.ra-ra)**2*np.cos(dec/360.*2*np.pi)**2+(cat.dec-dec)**2)*3600.
         ix = np.arange(cat.id.shape[0])[dr == dr.min()][0]
-
+        
         self.eazy_fit = eazy.getEazySED(ix, MAIN_OUTPUT_FILE=root, OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
 
         self.ix = ix
@@ -240,6 +245,17 @@ class GrismSpectrumFit():
         norm  = np.trapz(self.phot_linear, self.phot_zgrid)
         self.phot_linear /= norm
         self.phot_lnprob -= np.log(norm)
+        
+        #### Total integrated probability in the flat prior, sets a floor
+        #### on the minimum photometric p(z)
+        #p_flat = 1.e-4
+        if p_flat > 0:
+            y0 = self.phot_zgrid*0.+np.log(p_flat/np.sum(np.diff(self.phot_zgrid)))
+            y0[self.phot_lnprob < -200] = -200
+            self.phot_lnprob = np.maximum(self.phot_lnprob, y0)
+            norm  = np.trapz(np.exp(self.phot_lnprob), self.phot_zgrid)
+            self.phot_lnprob -= np.log(norm)
+            self.phot_linear = np.exp(self.phot_lnprob)
         
         # self.temp_err_x, self.temp_err_y = np.loadtxt(os.getenv('TEMPLATE_DIR')+'/'+eazyParam.params['TEMP_ERR_FILE'], unpack=True)
         # self.temp_err_y *= eazyParam.params['TEMP_ERR_A2']
@@ -520,9 +536,9 @@ class GrismSpectrumFit():
         hduList = pyfits.HDUList(hdu)
         hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='fix')
     
-    def load_fits(self):
+    def load_fits(self, path='./'):
         
-        file = self.grism_id+'.zfit.pz.fits'
+        file = path + self.grism_id+'.zfit.pz.fits'
         if not os.path.exists(file):
             return False
             
@@ -633,6 +649,10 @@ class GrismSpectrumFit():
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
         ax.plot(zgrid0, np.exp(full_prob0), color='blue', alpha=0.4)
         ax.plot(zgrid1, np.exp(full_prob1), color='blue')
+
+        # ax.plot(self.phot_zgrid, (self.phot_lnprob-self.phot_lnprob.max()), color='green')
+        # ax.plot(zgrid0, (full_prob0), color='blue', alpha=0.4)
+        # ax.plot(zgrid1, (full_prob1), color='blue')
         
         if not self.skip_photometric:
             if zout.z_spec[self.ix] > 0:
@@ -771,8 +791,9 @@ class GrismSpectrumFit():
             self.best_fit_nolines = nlx*0.+1
             self.best_fit_nolines_flux = nlx*0.+1
             return True
-            
-        noline_temps = np.zeros((nlx.shape[0],7))
+        
+        NTEMP = 7    
+        noline_temps = np.zeros((nlx.shape[0], NTEMP))
         noline_temps[:,0] = nly/self.eazy_coeffs['tnorm'][0]
         for i in range(2,7):
             nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed%d_nolines.dat' %(i), unpack=True)
@@ -782,7 +803,14 @@ class GrismSpectrumFit():
         i = 7
         lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.1_lines/eazy_v1.1_sed%d.dat' %(i), unpack=True)
         noline_temps[:,6] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][6]
+        
+        #### Add an additional template here, need to make NTEMP=8 above
+        # lx, ly = np.loadtxt(xxx path to mattia's new template xxx, unpack=True)
+        # noline_temps[:,7] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][7]
 
+        #### noline_temps has to have same number of templates as the 
+        #### eazy coeffs file associated with the "zout" file specified in
+        #### unicorn.analysis.read_catalogs.
         self.best_fit_nolines = np.dot(noline_temps, self.eazy_coeffs['coeffs'][:,self.ix])
         self.templam_nolines = nlx
         
@@ -1381,7 +1409,34 @@ class GrismSpectrumFit():
         self.twod.flux = self.twod.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
         self.twod.total_flux = np.sum(self.twod.flux*(self.twod.seg == self.twod.id))
         self.twod.init_model()
+    
+    def show_lnprob(self):
+        """
+        Show ln probability from photometry and spectra
+        """
+        fig = unicorn.plotting.plot_init(square=True, aspect=0.6, xs=5, left=0.15, right=0.02, bottom=0.08, top=0.08, NO_GUI=False, use_tex=False, fontsize=10)
         
+        spec_only = self.full_prob0-np.interp(self.zgrid0, self.phot_zgrid, self.phot_lnprob)
+        spec_only -= spec_only.max()
+        
+        ax = fig.add_subplot(111)
+        ax.plot(self.phot_zgrid, self.phot_lnprob, color='blue')
+        ax.plot(self.zgrid0, spec_only, color='green', alpha=0.3)
+        ax.plot(self.zgrid0, self.full_prob0, color='green')
+        ax.plot(self.zgrid1, self.full_prob1, color='red')
+        ax.set_xlabel(r'$z$')
+        ax.set_ylabel(r'ln $p(z)$')
+        ax.set_ylim(-210,20)
+        ax.set_title(self.root)
+        
+        return fig
+        
+        #### Test floor on phot p(z)
+        xfloor = self.phot_zgrid
+        y0 = xfloor*0.+np.log(1.e-3/np.sum(np.diff(self.phot_zgrid)))
+        y0[self.phot_lnprob < -200] = -200
+        yfloor = np.maximum(self.phot_lnprob, y0)
+        plt.plot(xfloor, yfloor)
 #
 def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten, get_model):
     ### The "minimum" function limits the exponent to acceptable float values
@@ -1745,7 +1800,29 @@ class emceeChain():
             self.chain[:,:,i] = im[i+1].data
         
         im.close()
+    
+    def parameter_correlations(self, size=8, shrink=5, show=None, file=None):
+        if show is None:
+            show = self.param_names
         
+        NP = len(show)
+        fig = unicorn.plotting.plot_init(square=True, aspect=1, xs=size, left=0.05, right=0.01, bottom=0.01, top=0.01, NO_GUI=False, use_tex=False, fontsize=7)
+        fig.subplots_adjust(wspace=0.0,hspace=0.0)
+        
+        counter = 0
+        for i in range(NP):
+            for j in range(NP):
+                counter = counter + 1
+                ax = fig.add_subplot(NP, NP, counter)
+                a = ax.plot(self[show[i]][:,self.nburn::shrink].flatten(), self[show[j]][:,self.nburn::shrink].flatten(), alpha=0.03, color='black', linestyle='None', marker=',')
+                a = ax.set_xlim(self.stats[show[i]]['q50']-3*self.stats[show[i]]['std'], self.stats[show[i]]['q50']+3*self.stats[show[i]]['std'])
+                a = ax.set_ylim(self.stats[show[j]]['q50']-3*self.stats[show[j]]['std'], self.stats[show[j]]['q50']+3*self.stats[show[j]]['std'])
+                if i == j:
+                    a = ax.text(0.5, 0.92, show[i], fontsize=8, color='red', horizontalalignment='center', verticalalignment='top', transform=ax.transAxes)
+        
+        if file is not None:
+            fig.savefig(file)
+            
     def __getitem__(self, param):
         pid = self.param_dict[param]
         return self.chain[:,:,pid]

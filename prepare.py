@@ -528,7 +528,6 @@ def COSMOS_mosaic():
              ra=150.12634, dec=2.3336697,
              final_outnx = NX, final_outny=NY, ivar_weights=False)
     
-    #
     threedhst.shifts.plot_shifts('COSMOS-F140W', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits', clean=True, verbose=True, ALIGN_EXTENSION=0, skip_swarp=True, threshold=10)
     
     threedhst.prep_flt_files.startMultidrizzle('COSMOS-G141_asn.fits',
@@ -648,13 +647,17 @@ def GOODSS_mosaic():
     SCALE = 0.06
     #SCALE = 0.5
     PIXFRAC=0.8
-    NX, NY = int(16210*0.06/SCALE), int(18100*0.06/SCALE)
+    NX, NY, ra, dec = int(16210*0.06/SCALE), int(18100*0.06/SCALE), 53.154223, -27.807325
+    #matching the Magee CANDELS reduction
+    #SCALE = 0.06
+    #PIXFRAC=0.8
+    #NX, NY, ra, dec = 14867, 18341, 53.131588, -27.808022
     
     threedhst.prep_flt_files.startMultidrizzle('GOODS-S-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
              updatewcs=False, clean=True, median=False,
-             ra=53.154223, dec=-27.807325,
+             ra=ra, dec=dec,
              final_outnx = NX, final_outny=NY)
     
     threedhst.prep_flt_files.startMultidrizzle('GOODS-S-G141_asn.fits',
@@ -907,6 +910,12 @@ def AEGIS(FORCE=False):
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+
+        
         
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*4', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 
@@ -966,6 +975,19 @@ def AEGIS_mosaic():
              ra=214.86, dec=52.84,
              final_outnx = NX, final_outny=NY)
 
+    #Mosaic which matches the v0.5 CANDELS image
+    #SCALE=0.06
+    #PIXFRAC=0.8
+    #NX,NY,ra,dec = 38500,12600, 214.98054, 52.91692
+    #threedhst.prep_flt_files.startMultidrizzle('AEGIS-F140W_asn.fits',
+    #         use_shiftfile=True, skysub=False,
+    #         final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+    #        updatewcs=False, clean=True, median=False,
+    #         ra=ra, dec=dec, final_rot=-49.5760,
+    #         final_outnx = NX, final_outny=NY,
+    #         refimage='/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits')
+
+
     #
     zooms=[13,14,15]
     threedhst.gmap.makeImageMap(['AEGIS-F140W_drz.fits', 'AEGIS-G141_drz.fits','/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]','/3DHST/Ancillary/AEGIS/NMBS/AEGIS-N2_K_sci.fits[0]'], aper_list=zooms, tileroot=['F140W','G141','ACS-i','NMBS-K'], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'))
@@ -982,7 +1004,7 @@ def UDS(FORCE=False):
     import os
 
     os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
     ALIGN_EXT=0
     #ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
     #ALIGN_EXT=1
@@ -1053,7 +1075,7 @@ def UDS_mosaic():
     PIXFRAC=0.8
     SCALE = 0.06
     ra, dec, nx, ny = 34.4081405556, -5.20018201235, int(10422*0.128254/SCALE), int(4349*0.128254/SCALE)
-    
+        
     threedhst.prep_flt_files.startMultidrizzle('UDS-F140W_asn.fits',
              use_shiftfile=True, skysub=False,
              final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
@@ -1067,6 +1089,17 @@ def UDS_mosaic():
              updatewcs=False, clean=True, median=False,
              ra=ra, dec=dec,
              final_outnx = nx, final_outny=ny, build_drz=False)
+
+    ### To match CANDELS v1.0 mosaic
+    #PIXFRAC = 0.8
+    #SCALE = 0.06
+    #ra, dec, nx, ny = 34.350027, -5.2000058, 30720, 12800
+    #threedhst.prep_flt_files.startMultidrizzle('UDS-F140W_asn.fits',
+    #         use_shiftfile=True, skysub=False,
+    #         final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
+    #         updatewcs=False, clean=True, median=False,
+    #         ra=ra, dec=dec,
+    #         final_outnx = nx, final_outny=ny)
 
     zooms=[12,13,14,15,16]
     threedhst.gmap.makeImageMap(['UDS-F140W_drz_sci.fits[0]','UDS-G141_drz_sci.fits[0]','/3DHST/Ancillary/UDS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits[1]'], aper_list=zooms, tileroot=['F140W','G141','F160W'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/UDS/MOSAIC_HTML/')

@@ -194,18 +194,32 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'ks_ap'
     
     ##### Use Ros' new catalog (v1.7)
+    #if goodsn:
+    #    GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
+    #    CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
+    #    CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
+    #    
+    #    if unicorn.hostname().startswith('uni'):
+    #        CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.8/'
+    #        CAT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz.cat'
+    #        ZOUT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz_wzp.zout'
+    #        FOUT_FILE = CAT_PATH+'goodsn_v1.8_fast/goodsn_v1.8.fullz_wzp.fout'
+    #    KTOT_COL = 'f_Ks'
+
+    ####GOODS-N run with eazy-v1.1 templates
     if goodsn:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
         
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.8/'
-            CAT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz.cat'
-            ZOUT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz_wzp.zout'
-            FOUT_FILE = CAT_PATH+'goodsn_v1.8_fast/goodsn_v1.8.fullz_wzp.fout'
+            CAT_PATH = '/3DHST/Photometry/Work/GOODS-N/eazy/inputs/OUTPUT/goodsn_v2.0_eazy/'
+            CAT_FILE = CAT_PATH+'goodsn_v1.8.fullz_wzp.cat'
+            ZOUT_FILE = CAT_PATH+'goodsn_v2.0.fullz_wzp.zout'
+            FOUT_FILE = CAT_PATH+'goodsn_v2.0.fullz_wzp.fout'
         KTOT_COL = 'f_Ks'
     
+
     # #### Force UDF to use FIREWORKS
     # if udf:
     #     cdfs = True
@@ -258,7 +272,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if uds:
         GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
         CAT_PATH = GRISM_PATH+'UDSPHOT/'
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp') | unicorn.hostname().startswith('hyper'):
             CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
         #
         CAT_FILE = CAT_PATH+'uds.cat'

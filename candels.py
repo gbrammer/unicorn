@@ -581,7 +581,108 @@ def cdfs():
     files.extend(glob.glob('*align.fits'))
     for file in files: 
         os.remove(file)
+#
+def goodss():
+    import unicorn.candels
+    
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-S/PREP_FLT/')
+    #unicorn.candels.make_asn_files()
+    
+    #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
+    ALIGN_IMAGE = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    
+    files=glob.glob('GOODS*F160W_asn.fits')
+    #files=glob.glob('GOODS*F125W_asn.fits')
+    #files=glob.glob('GOODS*F105W_asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+    
+    ### F125W
+    redo_shifts = ['GOODS-S205-VI3-F125W']
+    bad = ['GOODS-SD2-V7G-F125W', 'GOODS-SD5-VGQ-F125W', 'GOODS-SD5-VGX-F125W']
+    redo = ['GOODS-S075-VJ3-F125W', 'GOODS-S080-VDV-F125W', 'GOODS-S080-VDX-F125W', 'GOODS-S080-VDY-F125W', 'GOODS-SD2-V7F-F125W', 'GOODS-SD2-V8J-F125W', 'GOODS-SD5-VG0-F125W', 'GOODS-SD5-VGU-F125W', 'GOODS-SDW-V02-F125W', 'GOODS-SDW-VH5-F125W', 'GOODS-SDW-VHB-F125W', 'GOODS-SDW-VHE-F125W', 'GOODS-W1-VIY-VIY-F125W', 'GOODS-W1-VJ0-VJ0-F125W', 'GOODS-W2-VIO-VIO-F125W']
+    
+    ### F160W
+    redo_shifts = ['GOODS-S205-VI3-F160W']
+    bad = ['GOODS-SD2-V7G-F160W', 'GOODS-SD5-VGQ-F160W', 'GOODS-SD5-VGX-F160W']
+    redo = ['GOODS-S075-VJ3-F160W', 'GOODS-S075-VJ5-F160W', 'GOODS-S075-VJ3-F160W', 'GOODS-S080-VDV-F160W', 'GOODS-S080-VDW-F160W', 'GOODS-S080-VDX-F160W', 'GOODS-S080-VDY-F160W', 'GOODS-S205-VHZ-F160W', 'GOODS-S205-VI7-F160W', 'GOODS-SD2-V7A-F160W', 'GOODS-SD2-V7D-F160W', 'GOODS-SD2-V7A-F160W', 'GOODS-SD2-V7V-F160W', 'GOODS-SD3-VEN-F160W', 'GOODS-SD4-V8Q-F160W', 'GOODS-SD5-VGC-F160W', 'GOODS-SD5-VGU-F160W', 'GOODS-SDW-V02-F125W', 'GOODS-SDW-VH4-F125W', 'GOODS-SDW-VHB-F125W', 'GOODS-SDW-VHD-F125W', 'GOODS-SDW-VHE-F125W', 'GOODS-W1-VIV-VIV-F125W', 'GOODS-W1-VIV-VIV-F125W', 'GOODS-WIDE115-V4D-F125W']
+    
+    #########   XXXXXXXXXXXXXXXX todo: ERS fields
+    
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-S/F105W')
+    files=glob.glob('GOODS*asn.fits')
+    threedhst.utils.combine_asn_shifts(files, out_root='GS-F105W', path_to_FLT='./', run_multidrizzle=False)
+    #
+    SCALE = 0.06
+    threedhst.prep_flt_files.startMultidrizzle('GS-F105W_asn.fits',
+         use_shiftfile=True, skysub=False,
+         final_scale=SCALE, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False) 
+    
+def goodsn():
+    import unicorn.candels
+    
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-N/PREP_FLT/')
+    unicorn.candels.make_asn_files()
+    
+    #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
+    ALIGN_IMAGE = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
+    ALIGN_IMAGE = '/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits'
+    
+    files=glob.glob('GOOD*F160W*asn.fits')
+    files=glob.glob('GOOD*F125W*asn.fits')
+    #files=glob.glob('GOOD*F105W*asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=1,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+    
+    ### F125W flagged
+    bad = ['GOODSN-ORI180-V1C-F125W', 'GOODSN-ORI180-V1F-F125W', 'GOODSN-ORI180-V1K-F125W', 'GOODSN-ORI180-V1N-F125W', 'GOODSN-ORI180-V1R-F125W']
+    redo = ['GOODSN-ORI180-V1X-F125W', 'GOODN-ORI090-V3M-F125W', 'GOODN-ORI090-V3M-F125W',  'GOODSN-ORI135-V2J-F125W', 'GOODSN-ORI135-V2P-F125W', 'GOODSN-ORI135-V2X-F125W', 'GOODSN-ORI135-V2Y-F125W', 'GOODSN-ORI180-V1D-F125W', 'GOODSN-ORI180-V1P-F125W', 'GOODSN-ORI180-V1U-F125W', 'GOODN-ORI090-V3O-F125W', 'GOODSN-ORI135-V2A-F125W', 'GOODSN-ORI135-V2C-F125W']
+    
+    ### F160W flagged pointings
+    bad = ['GOODSN-ORI180-V1C-F160W', 'GOODSN-ORI180-V1F-F160W', 'GOODSN-ORI180-V1K-F160W', 'GOODSN-ORI180-V1N-F160W', 'GOODSN-ORI180-V1R-F160W']
+    redo = ['GOODSN-ORI135-V2O-F160W', 'GOODSN-ORI135-V2Q-F160W', 'GOODSN-ORI135-V2U-F160W', 'GOODSN-ORI180-V1B-F160W', 'GOODSN-ORI180-V1I-F160W', 'GOODSN-ORI180-V1O-F160W', 'GOODSN-ORI180-V1Q-F160W', 'GOODSN-ORI180-V1S-F160W', 'GOODSN-ORI180-V1T-F160W', 'GOODSN-ORI180-V1V-F160W', 'GOODSN-ORI180-V1W-F160W', 'GOODSN-ORI180-V1X-F160W']
+    
+    for root in redo:
+        threedhst.dq.checkDQ(root+'_asn.fits',root+'_asn.fits', size=900)
+    
+    for root in redo:
+        unicorn.candels.prep_candels(asn_file=root+'_asn.fits', 
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=1,
+            GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
+    
+    #### Mosaics
+    filter = 'F160W'
+    
+    files=glob.glob('GOOD*asn.fits')
+    keep_list = []
+    for file in files:
+        if file.split('_asn.fits')[0] not in bad:
+            keep_list.append(file)
             
+    threedhst.utils.combine_asn_shifts(keep_list, out_root='GN-%s' %(filter), path_to_FLT='./', run_multidrizzle=False)
+    SCALE = 0.06
+    NX, NY = int(6840*0.128254/SCALE), int(8042*0.128254/SCALE)
+    threedhst.prep_flt_files.startMultidrizzle('GN-%s_asn.fits' %(filter),
+         use_shiftfile=True, skysub=False,
+         final_scale=SCALE, pixfrac=0.8, driz_cr=False,
+         updatewcs=False, clean=True, median=False,
+         ra=189.17736, dec=62.23892,
+         final_outnx = NX, final_outny=NY, ivar_weights=True, build_drz=False) 
+    #
+    os.chdir('/Users/gbrammer/CANDELS/GOODS-N/ACS_MATCH')
+    for band in ['i','b','v','z'][1:]:
+        threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
+    
 def make_asn_files(force=False):
     """
     Read a files.info file and make ASN files for each visit/filter.
@@ -622,7 +723,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                        DIRECT_HIGHER_ORDER=2,
                        SCALE=0.06,
                        bg_skip=False,
-                       geometry='rxyscale,shift'):
+                       geometry='rxyscale,shift',
+                       clean=True):
     
     import threedhst
     import threedhst.prep_flt_files
@@ -640,7 +742,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     ALIGN_EXT=ALIGN_EXTENSION,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[],
-                    align_geometry=geometry, clean=True,
+                    align_geometry=geometry, clean=clean,
                     initial_order=0, save_fit=False, TWEAKSHIFTS_ONLY=(ALIGN_IMAGE is None))
     
     if DIRECT_HIGHER_ORDER > 0:
@@ -648,7 +750,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     get_shift=False, first_run=False, 
                     bg_only=False, bg_skip=bg_skip, redo_background=False,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
-                    IMAGES=[], clean=True,
+                    IMAGES=[], clean=clean,
                     initial_order=DIRECT_HIGHER_ORDER, save_fit=False)
 
 def make_test_catalog():

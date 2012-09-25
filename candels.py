@@ -582,6 +582,28 @@ def cdfs():
     for file in files: 
         os.remove(file)
 #
+def ers():
+    import unicorn.candels
+    
+    os.chdir('/Users/gbrammer/CANDELS/ERS/PREP_FLT/')
+    #unicorn.candels.make_asn_files()
+    
+    ALIGN_IMAGE = '/Users/gbrammer/CANDELS/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    
+    filter = 'F125W'
+    
+    os.chdir('/Users/gbrammer/CANDELS/ERS/%s/' %(filter))
+    files=glob.glob('WFC3*%s_asn.fits' %(filter))
+    
+    #files=glob.glob('GOODS*F125W_asn.fits')
+    #files=glob.glob('GOODS*F105W_asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+    
 def goodss():
     import unicorn.candels
     
@@ -622,15 +644,20 @@ def goodss():
          use_shiftfile=True, skysub=False,
          final_scale=SCALE, pixfrac=0.8, driz_cr=False,
          updatewcs=False, clean=True, median=False) 
+    #
+    os.chdir('/3DHST/Ancillary/GOODS-S/GOODS_ACS')
+    for band in ['i','b','v','z']:
+        threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_s%s*drz_img.fits' %(band)), matchImage='/Volumes/Crucial/3DHST/Ancillary/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits', match_extension=0, output='GS-ACS%s.fits' %(band))
     
 def goodsn():
     import unicorn.candels
     
     os.chdir('/Users/gbrammer/CANDELS/GOODS-N/PREP_FLT/')
     unicorn.candels.make_asn_files()
+
+    ### Some images fall outside of the 3D-HST area
+    #ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'   
     
-    #ALIGN_IMAGE = 'AEGIS-N2_K_sci.fits'
-    ALIGN_IMAGE = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
     ALIGN_IMAGE = '/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits'
     
     files=glob.glob('GOOD*F160W*asn.fits')
@@ -663,26 +690,69 @@ def goodsn():
     #### Mosaics
     filter = 'F160W'
     
-    files=glob.glob('GOOD*asn.fits')
+    files, root = glob.glob('GOODS*020*asn.fits'), 'GN-020'
+    
+    files, root = glob.glob('GOOD*asn.fits'), 'GN'
+    
+    files, root = glob.glob('GOOD*asn.fits'), 'GN-v2'
+    
     keep_list = []
     for file in files:
         if file.split('_asn.fits')[0] not in bad:
             keep_list.append(file)
             
-    threedhst.utils.combine_asn_shifts(keep_list, out_root='GN-%s' %(filter), path_to_FLT='./', run_multidrizzle=False)
+    threedhst.utils.combine_asn_shifts(keep_list, out_root='%s-%s' %(root, filter), path_to_FLT='./', run_multidrizzle=False)
     SCALE = 0.06
     NX, NY = int(6840*0.128254/SCALE), int(8042*0.128254/SCALE)
-    threedhst.prep_flt_files.startMultidrizzle('GN-%s_asn.fits' %(filter),
+    threedhst.prep_flt_files.startMultidrizzle('%s-%s_asn.fits' %(root, filter),
          use_shiftfile=True, skysub=False,
          final_scale=SCALE, pixfrac=0.8, driz_cr=False,
          updatewcs=False, clean=True, median=False,
          ra=189.17736, dec=62.23892,
          final_outnx = NX, final_outny=NY, ivar_weights=True, build_drz=False) 
-    #
+    
+    #### Matched ACS images
     os.chdir('/Users/gbrammer/CANDELS/GOODS-N/ACS_MATCH')
     for band in ['i','b','v','z'][1:]:
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
     
+    #### Check for rejected stars
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+
+    se.overwrite = True
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['FILTER']    = 'Y'
+    #### Detect thresholds (default = 1.5)
+    se.options['DETECT_THRESH']    = '3'
+    se.options['ANALYSIS_THRESH']  = '3' 
+
+    #### Run SExtractor
+    threedhst.options['MAG_ZEROPOINT'] = '25.96'
+    se.options['CATALOG_NAME']    = 'GN-F160W.cat'
+    se.options['CHECKIMAGE_NAME'] = 'GN-F160W_seg.fits'
+    se.options['WEIGHT_IMAGE']    = 'GN-F160W_drz_weight.fits'
+    status = se.sextractImage('GN-F160W_drz_sci.fits')
+    
+    cat = threedhst.sex.mySexCat('GN-F160W.cat')
+    r50 = np.cast[float](cat.FLUX_RADIUS)
+    mag = np.cast[float](cat.MAG_AUTO)+25.96
+    stars = (mag < 18) & (r50 < 3.5) #& (mag > 18)
+    
+    #wht = pyfits.open('GN-F160W_drz_weight.fits')
+    NX = 25
+    im = np.zeros((2*NX, 2*NX))
+    x = np.cast[int](np.round(cat['X_IMAGE'][stars]))
+    y = np.cast[int](np.round(cat['Y_IMAGE'][stars]))
+    for i in range(stars.sum()):
+        print unicorn.noNewLine + '%d of %d' %(i+1, stars.sum())
+        sub = wht[0].data[y[i]-NX:y[i]+NX, x[i]-NX:x[i]+NX]
+        im += sub / np.median(sub)
+    
+    pyfits.writeto('star.fits', data=im, clobber=True)
+        
 def make_asn_files(force=False):
     """
     Read a files.info file and make ASN files for each visit/filter.
@@ -1741,5 +1811,220 @@ def proposal_figure():
         ax.text(0.1, 0.1, r'F160W / $H$=%.1f' %(cat.Hmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
         ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
         
+def test_lupton():
+    import pywcs
+    import unicorn.catalogs2 as cat2
+    
+    cat2.read_catalogs('GOODS-N')
+    mag = 25-2.5*np.log10(cat2.cat.f_f140)
+    PATH = '/Volumes/Crucial/3DHST/Ancillary/GOODS-N/HST_MOSAICS'
+    im_r = pyfits.open(os.path.join(PATH, 'GN-v2-F160W_drz_sci.fits'))
+    im_g = pyfits.open(os.path.join(PATH, 'GN-v2-F125W_drz_sci.fits'))
+    im_b = pyfits.open(os.path.join(PATH, 'GN-ACSi.fits'))
+    root='GOODS-N'
+
+    cat2.read_catalogs('COSMOS')
+    mag = 25-2.5*np.log10(cat2.cat.F160W)
+    PATH = '/research/HST/CANDELS/COSMOS/PREP_FLT'
+    im_r = pyfits.open(os.path.join(PATH, 'COSMOS-full-F160W_drz_sci.fits'))
+    im_g = pyfits.open(os.path.join(PATH, 'COSMOS-full-F125W_drz_sci.fits'))
+    im_b = pyfits.open(os.path.join(PATH, 'COSMOS-full-ACSi.fits'))
+    root='COSMOS'
+
+    cat2.read_catalogs('GOODS-S')
+    mag = 25-2.5*np.log10(cat2.cat.f_f160)
+    PATH = '/Volumes/Crucial/3DHST/Ancillary/GOODS-S'
+    im_r = pyfits.open(os.path.join(PATH, 'UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'))
+    im_g = pyfits.open(os.path.join(PATH, 'UCSC/GOODS-S_F125W_wfc3ir_drz_sci.fits'))
+    im_b = pyfits.open(os.path.join(PATH, 'GS-ACSi.fits'))
+    root='GOODS-S'
+    
+    shape = im_r[0].data.shape
+    wcs = pywcs.WCS(im_r[0].header)
+    
+    #### selection
+    test = ((cat2.zout.z_peak > 0.1) & (cat2.fout.lmass > 9.) & (cat2.fout.Av > -2) & (mag > 16) & (mag < 24)) | (cat2.zfit.z_max_spec >= 0) #& (cat.f160W_flux_radius > 3)
+    
+    #test = (cat2.zfit.z_max_spec >= 0)
+    
+    idx = np.arange(len(test))[test]
+    idx = idx[np.argsort(mag[idx])]
+    
+    i = 0
+    NX, NY = 83, 83 # 5" radius
+
+    #### Run it
+    i = i+1
+    skip=True
+    
+    use_ds9 = False
+    Q, alpha, m0 = 5.,3.,-0.05
+    
+    for i in range(len(idx)):
+        obj = '%s-%05d' %(root, cat2.cat.id[idx][i])
+        if (os.path.exists(os.path.join(PATH,'RGB/')+obj+'_0.png') & skip):
+            continue
+        #
+        xy = np.round(wcs.wcs_sky2pix(cat2.cat.ra[idx][i], cat2.cat.dec[idx][i],0))
+        xc, yc = int(xy[0]), int(xy[1])
+        if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
+            continue
+        #
+        # Browse with DS9 one by one
+        if use_ds9:
+            xy = np.round(np.cast[float](ds9.get('pan').split()))
+            xc, yc = int(xy[0]), int(xy[1])
+            obj = 'tmp'
+        #
+        sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
+        sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
+        sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+        #
+        unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_0.png')
+        #unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q/2., alpha=alpha*1.05, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_2.png')
+        #unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q/4., alpha=alpha*1.1, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_4.png')
+        print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
         
+    ###  Selection for the bar fraction
+    test = ((cat2.zout.z_peak > 0.1) & (cat2.fout.lmass > 10.4) & (cat2.fout.Av > -2) & (mag > 18) & (mag < 24)) & (cat2.cat.f160W_flux_radius > 3)
+    
+    idx = np.arange(len(test))[test]
+    
+    idx = idx[np.argsort((cat2.cat.aimage/cat2.cat.bimage)[idx])]
+    idx = idx[np.argsort((cat2.zout.z_peak)[idx])]
+    
+    #### sequence of theta in cosmos
+    test = ((cat2.zout.z_peak > 0.1) & (cat2.fout.lmass > 10.) & (cat2.fout.Av > -2) & (mag > 18) & (mag < 22)) & (cat2.cat.f160W_flux_radius > 3) & (cat2.cat.f160W_ellip > 0.4)
+    
+    idx = np.arange(len(test))[test]
+    idx = idx[np.argsort((cat2.cat.f160W_theta)[idx])]
+    
+    os.system('rm RGB/seq*png')
+    
+    for i in range(len(idx)):
+        obj = '%s-%05d' %(root, cat.id[idx][i])
+        print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
+        #### make sequence files
+        shutil.copy('RGB/%s_0.png' %(obj), 'RGB/seq_%d.png' %(i+1))
+        #### Add labels
+        labels = ['%s %d' %(root, cat2.cat.id[idx][i]), 'z= %.2f' %(cat2.zout.z_peak[idx][i]), 'log M= %.1f' %(cat2.fout.lmass[idx][i])]
+        old_im = 'RGB/%s_0.png' %(obj)
+        unicorn.candels.thumbnail_annotate(old_im, label=labels, italic=True, fit=True).save(old_im.replace('.png','_t.png'))
+        #### Copy to BARS directory
+        #shutil.copy('RGB/%s_0_t.png' %(obj), '/research/HST/BARS/RGB/')
+        #
+
+    #im.rotate(45).show()
+    
+def thumbnail_annotate(filename, label=None, cross=0.05, font='cmunss.otf', italic=False, fit=True, fontsize=16, fontdir='STD'):
+    """
+    Add text and maybe a crosshair to an image thumbnail.
+    
+    The label text can either be a string or a list of strings that will
+    each be printed on subsequent lines.
+    
+    The files for the LaTeX-like Computer modern font can be downloaded here:
+    http://cm-unicode.sourceforge.net/download.html
+    
+    """
+    import Image
+    import ImageFont, ImageDraw, ImageOps
+    
+    #### Computer modern, italic font.  Check the "Fontbook" application
+    #### to find your available fonts and their paths.  Appears to work 
+    #### with at least 'ttf' and 'otf' formatted font files.
+    if italic:
+        font = 'cmunit.otf'
+    
+    #### Input is either a filename or a PIL image object
+    if isinstance(filename, str):
+        im = Image.open(filename)
+    else:
+        im = filename
+    
+    #### Select the font, use default if font file not found
+    if fontdir == 'STD':
+        fontpath = '%s/Library/Fonts/%s' %(os.getenv('HOME'), font)
+    else:
+        fontpath = '/%s' %(fontdir, font)
+        
+    if os.path.exists(fontpath):
+        f = ImageFont.truetype(fontpath, fontsize)
+    else: 
+        print 'Font: %s not found, using default' %(fontpath)
+        f = ImageFont.load_default()
+        fit = False
+        
+    sh = im.size
+    draw = ImageDraw.Draw(im)
+    
+    #### Add text labels
+    if label is not None:
+        #### Make sure the label will fit with the specified fontsize
+        if not isinstance(label, list):
+            label = [label]
+        for line in label:
+            fs = draw.textsize(line, font=f)
+            if (fs[0] > 0.9*sh[0]) & fit:
+                fontsize = int(np.round(fontsize*0.9*sh[0]/fs[0]))
+                f = ImageFont.truetype('/Users/gbrammer/Library/Fonts/%s' %(font),  fontsize)
+        
+        #### Add the label(s)
+        for il, line in enumerate(label):
+            fs = draw.textsize(line, font=f)    
+            draw.text((int(0.02*sh[0]), int(0.02*sh[1])+fs[1]*il), line, font=f, fill=(255,255,255))
+    
+    #### Add the crosshair        
+    if cross > 0:
+        dx, dy = 0.05*sh[0], 0.05*sh[1]
+        draw.line((sh[0]/2., sh[1]/2.+3*dy, sh[0]/2., sh[1]/2.+4*dy), fill=(255,255,255))
+        draw.line((sh[0]/2.-4*dx, sh[1]/2., sh[0]/2.-3*dx, sh[1]/2.), fill=(255,255,255))
+    
+    #im.save('junk.png')
+    return im
+    
+def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), filename='junk.png'):
+    """
+    Make a 3 color image scaled with the color clipping and 
+    asinh scaling from Lupton et al. (2004)
+    """   
+    import Image
+    
+    I = (imr+img+imb-3*m0)/3.
+    fI = np.arcsinh(alpha*Q*I)/Q
+    M = m0 + np.sinh(Q*1.)/(alpha*Q)
+    #ds9.v(fI, vmin=0, vmax=1)
+    
+    fI[I < m0] = 0
+    R = np.maximum(imr-m0, 0)*fI/I
+    G = np.maximum(img-m0, 0)*fI/I
+    B = np.maximum(imb-m0, 0)*fI/I
+        
+    min_RGB = np.minimum(np.minimum(R,G),B)
+    zero = min_RGB < 0
+    zero = fI < 0
+    R[zero] = 0.
+    G[zero] = 0.
+    B[zero] = 0.
+    
+    R[R < 0] = 0
+    G[G < 0] = 0
+    B[B < 0] = 0
+    
+    max_RGB = np.maximum(np.maximum(R,G),B)
+    clip = max_RGB > 1
+    R[clip] = R[clip]/max_RGB[clip]
+    G[clip] = G[clip]/max_RGB[clip]
+    B[clip] = B[clip]/max_RGB[clip]
+    
+    # ds9.set('rgb True')
+    # ds9.set('rgb lock colorbar')
+    # ds9.set('rgb red'); ds9.v(R, vmin=0, vmax=v1); ds9.set('scale linear')
+    # ds9.set('rgb green'); ds9.v(G, vmin=0, vmax=v1); ds9.set('scale linear')
+    # ds9.set('rgb blue'); ds9.v(B, vmin=0, vmax=v1); ds9.set('scale linear')
+    
+    #rgb = np.array([R,G,B]).T
+    im = Image.merge('RGB', (Image.fromarray((R[::-1,:]*255).astype('uint8')), Image.fromarray((G[::-1,:]*255).astype('uint8')), Image.fromarray((B[::-1,:]*255).astype('uint8'))))
+    im = im.resize(shape)
+    im.save(filename)
     

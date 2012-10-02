@@ -1858,6 +1858,7 @@ def test_lupton():
     skip=True
     
     use_ds9 = False
+
     Q, alpha, m0 = 5.,3.,-0.05
     
     for i in range(len(idx)):
@@ -1983,7 +1984,7 @@ def thumbnail_annotate(filename, label=None, cross=0.05, font='cmunss.otf', ital
     #im.save('junk.png')
     return im
     
-def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), filename='junk.png'):
+def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), filename='junk.png', ds9=None):
     """
     Make a 3 color image scaled with the color clipping and 
     asinh scaling from Lupton et al. (2004)
@@ -2017,12 +2018,15 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     G[clip] = G[clip]/max_RGB[clip]
     B[clip] = B[clip]/max_RGB[clip]
     
-    # ds9.set('rgb True')
-    # ds9.set('rgb lock colorbar')
-    # ds9.set('rgb red'); ds9.v(R, vmin=0, vmax=v1); ds9.set('scale linear')
-    # ds9.set('rgb green'); ds9.v(G, vmin=0, vmax=v1); ds9.set('scale linear')
-    # ds9.set('rgb blue'); ds9.v(B, vmin=0, vmax=v1); ds9.set('scale linear')
-    
+    if ds9 is not None:
+        #ds9.set('rgb True')
+        v1=1
+        ds9.set('rgb lock colorbar')
+        ds9.set('rgb red'); ds9.v(R, vmin=0, vmax=v1); ds9.set('scale linear')
+        ds9.set('rgb green'); ds9.v(G, vmin=0, vmax=v1); ds9.set('scale linear')
+        ds9.set('rgb blue'); ds9.v(B, vmin=0, vmax=v1); ds9.set('scale linear')
+        return True
+        
     #rgb = np.array([R,G,B]).T
     im = Image.merge('RGB', (Image.fromarray((R[::-1,:]*255).astype('uint8')), Image.fromarray((G[::-1,:]*255).astype('uint8')), Image.fromarray((B[::-1,:]*255).astype('uint8'))))
     im = im.resize(shape)

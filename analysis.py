@@ -165,12 +165,18 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
         FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
+        #F140W selected catalog
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-            CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
-            CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
-            ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
-            FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
+            CAT_PATH = '/3DHST/Photometry/Work/AEGIS/'
+            CAT_FILE = CAT_PATH + 'Fast/v0.1/aegis_3dhst.v0.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1/aegis_3dhst.v0.1.pickles.zout'
+            FOUT_FILE = CAT_PATH+'Fast/v0.1/aegis_3dhst.v0.1.fout'
             KTOT_COL = 'K'
+            #CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
+            #CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
+            #ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
+            #FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
+            #KTOT_COL = 'K'
     
     if aegis_wirds:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'

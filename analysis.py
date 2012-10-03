@@ -112,6 +112,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-') | root.startswith('AEGIS-6-'):
         aegis=False
         aegis_wirds=True
+        
+    if root.startswith('UDS-18'):
+        uds=False
+        uds_cluster=True
     
     CAT_FILE = None
     ZOUT_FILE = None
@@ -242,7 +246,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         #KTOT_COL = 'f_kv2_tot'
         
         #For the v2.0 reduction
-        if cdfs and unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
             CAT_PATH = '/3DHST/Photometry/Release/GOODS-S/v2.0/'
             CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
             ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
@@ -279,6 +283,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'uds.zout'
         FOUT_FILE = CAT_PATH + 'uds.fout'
         KTOT_COL = 'K_totf'
+    
+    if uds_cluster:
+        if unicorn.hostname().startswith('uni'):
+        GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'
+        CAT_PATH = GRISM_PATH+'fast/UDS-18.cat'
+        ZOUT_FILE = GRISM_PATH+'eazy/UDS-18.zout'
+        FOUT_FILE = GRISM_PATH+'fast/fast/UDS-18.fout'
+        KTOT_COL = 'F_K'
     
     if KTOT_COL is None:
         """

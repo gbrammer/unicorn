@@ -170,7 +170,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Photometry/Work/AEGIS/'
             CAT_FILE = CAT_PATH + 'Fast/v0.1/aegis_3dhst.v0.1.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1/aegis_3dhst.v0.1.pickles.zout'
+            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1/aegis_3dhst.v0.1.zout'
             FOUT_FILE = CAT_PATH+'Fast/v0.1/aegis_3dhst.v0.1.fout'
             KTOT_COL = 'F_K'
             #CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'

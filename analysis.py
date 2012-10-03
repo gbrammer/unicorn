@@ -113,6 +113,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         aegis=False
         aegis_wirds=True
         
+    uds_cluster = False
     if root.startswith('UDS-18'):
         uds=False
         uds_cluster=True

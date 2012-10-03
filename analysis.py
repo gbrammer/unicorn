@@ -291,12 +291,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'K_totf'
     
     if uds_cluster:
-        if unicorn.hostname().startswith('uni'):
-            GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'
-            CAT_PATH = GRISM_PATH+'fast/UDS-18.cat'
-            ZOUT_FILE = GRISM_PATH+'eazy/UDS-18.zout'
-            FOUT_FILE = GRISM_PATH+'fast/fast/UDS-18.fout'
-            KTOT_COL = 'F_K'
+        GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'
+        CAT_PATH = GRISM_PATH+'fast/'
+        CAT_FILE = GRISM_PATH+'fast/UDS-18.cat'
+        ZOUT_FILE = GRISM_PATH+'eazy/UDS-18.zout'
+        FOUT_FILE = GRISM_PATH+'fast/fast/UDS-18.fout'
+        KTOT_COL = 'F_K'
     
     if KTOT_COL is None:
         """

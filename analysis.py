@@ -109,9 +109,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         cdfs=True
     
     aegis_wirds=False
-    if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-') | root.startswith('AEGIS-6-'):
-        aegis=False
-        aegis_wirds=True
+    #if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-') | root.startswith('AEGIS-6-'):
+    #    aegis=False
+    #    aegis_wirds=True
         
     uds_cluster = False
     if root.startswith('UDS-18'):
@@ -172,7 +172,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_FILE = CAT_PATH + 'Fast/v0.1/aegis_3dhst.v0.1.cat'
             ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1/aegis_3dhst.v0.1.pickles.zout'
             FOUT_FILE = CAT_PATH+'Fast/v0.1/aegis_3dhst.v0.1.fout'
-            KTOT_COL = 'K'
+            KTOT_COL = 'F_K'
             #CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
             #CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
             #ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'

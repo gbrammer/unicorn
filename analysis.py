@@ -281,15 +281,24 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'f_kv2_tot'
        
     if uds:
-        GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
-        CAT_PATH = GRISM_PATH+'UDSPHOT/'
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp') | unicorn.hostname().startswith('hyper'):
-            CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
+        #for the v2.1 reduction:
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
+            GIRMS_PATH= '/3DHST/Photometry/Work/UDS/v2/'
+            CAT_PATH = GRISM_PATH+'Eazy/'
+            CAT_FILE = CAT_PATH+'uds_3dhst.v0.1.cat'
+            ZOUT_FILE = CAT_PATH+'v0.1/uds_3dhst.v0.1.zout'
+            FOUT_FILE = GRISM_PATH +'Fast/uds_3dhst.v0.1.fout'
+        
+        #external catalogs for uds
+        #GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
+        #CAT_PATH = GRISM_PATH+'UDSPHOT/'
+        #if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp') | unicorn.hostname().startswith('hyper'):
+        #    CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
         #
-        CAT_FILE = CAT_PATH+'uds.cat'
-        ZOUT_FILE = CAT_PATH+'uds.zout'
-        FOUT_FILE = CAT_PATH + 'uds.fout'
-        KTOT_COL = 'K_totf'
+        #CAT_FILE = CAT_PATH+'uds.cat'
+        #ZOUT_FILE = CAT_PATH+'uds.zout'
+        #FOUT_FILE = CAT_PATH + 'uds.fout'
+        #KTOT_COL = 'K_totf'
     
     if uds_cluster:
         GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'

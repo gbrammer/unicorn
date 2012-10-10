@@ -3848,6 +3848,9 @@ def interlace_uds0():
     NGROW=125
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='UDS_F140W'
 
     direct=glob.glob('UDS-[0-9]-F140W_asn.fits')
 
@@ -3858,10 +3861,6 @@ def interlace_uds0():
         unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
-
-    extract_limit = 24
-    skip_completed=False
-    REF_ROOT='UDS_F140W'
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-[0-9]-G141_inter.fits')
@@ -3959,6 +3958,9 @@ def interlace_uds1():
     NGROW=125
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='UDS_F140W'
 
     direct=glob.glob('UDS-1*-F140W_asn.fits')
     direct.remove('UDS-18-F140W_asn.fits')
@@ -3970,10 +3972,6 @@ def interlace_uds1():
         unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
-
-    extract_limit = 24
-    skip_completed=False
-    REF_ROOT='UDS_F140W'
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-1[0-9]-G141_inter.fits')
@@ -4071,6 +4069,9 @@ def interlace_uds2():
     NGROW=125
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='UDS_F140W'
 
     direct=glob.glob('UDS-2[0-9]-F140W_asn.fits')
 
@@ -4082,9 +4083,6 @@ def interlace_uds2():
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
-    extract_limit = 24
-    skip_completed=False
-    REF_ROOT='UDS_F140W'
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-2[0-9]-G141_inter.fits')

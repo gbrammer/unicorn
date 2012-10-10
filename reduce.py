@@ -4361,6 +4361,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     fp.close()
         
+
     status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz.fits[1]', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
     #### To avoid re-running multidrizzle, need to get xy coordinates in the original drz image,
     #### and *then* run tran

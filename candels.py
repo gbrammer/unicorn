@@ -352,6 +352,12 @@ def uds():
     #### Check pointings
     threedhst.shifts.plot_shifts('UDS-F125W', ALIGN_IMAGE, skip_swarp=False)
     
+    
+    #### Matched ACS images
+    os.chdir('/3DHST/Ancillary/UDS/CANDELS')
+    for band in ['f814w', 'f606w']:
+        threedhst.shifts.matchImagePixels(input= glob.glob('hlsp_candels_hst_acs_uds-tot_%s_v1.0_drz.fits' %(band)), matchImage='hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits', match_extension=0, output='UDS-%s.fits' %(band))
+    
 def cdfs():
     import unicorn.candels
 
@@ -603,6 +609,17 @@ def ers():
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')
+    #
+    redo = ['WFC3-ERSII-IR02-F125W']
+    
+    for root in redo:
+        threedhst.dq.checkDQ(root+'_asn.fits',root+'_asn.fits', size=900)
+    
+    for root in redo:
+        unicorn.candels.prep_candels(asn_file=root+'_asn.fits', 
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=1,
+            GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
     
 def goodss():
     import unicorn.candels
@@ -631,7 +648,16 @@ def goodss():
     ### F160W
     redo_shifts = ['GOODS-S205-VI3-F160W']
     bad = ['GOODS-SD2-V7G-F160W', 'GOODS-SD5-VGQ-F160W', 'GOODS-SD5-VGX-F160W']
-    redo = ['GOODS-S075-VJ3-F160W', 'GOODS-S075-VJ5-F160W', 'GOODS-S075-VJ3-F160W', 'GOODS-S080-VDV-F160W', 'GOODS-S080-VDW-F160W', 'GOODS-S080-VDX-F160W', 'GOODS-S080-VDY-F160W', 'GOODS-S205-VHZ-F160W', 'GOODS-S205-VI7-F160W', 'GOODS-SD2-V7A-F160W', 'GOODS-SD2-V7D-F160W', 'GOODS-SD2-V7A-F160W', 'GOODS-SD2-V7V-F160W', 'GOODS-SD3-VEN-F160W', 'GOODS-SD4-V8Q-F160W', 'GOODS-SD5-VGC-F160W', 'GOODS-SD5-VGU-F160W', 'GOODS-SDW-V02-F125W', 'GOODS-SDW-VH4-F125W', 'GOODS-SDW-VHB-F125W', 'GOODS-SDW-VHD-F125W', 'GOODS-SDW-VHE-F125W', 'GOODS-W1-VIV-VIV-F125W', 'GOODS-W1-VIV-VIV-F125W', 'GOODS-WIDE115-V4D-F125W']
+    redo = ['GOODS-S075-VJ3-F160W', 'GOODS-S075-VJ5-F160W', 'GOODS-S080-VDV-F160W', 'GOODS-S080-VDW-F160W', 'GOODS-S080-VDX-F160W', 'GOODS-S080-VDY-F160W', 'GOODS-S205-VHZ-F160W', 'GOODS-S205-VI7-F160W', 'GOODS-SD2-V7A-F160W', 'GOODS-SD2-V7D-F160W', 'GOODS-SD3-VEN-F160W', 'GOODS-SD5-V8Q-F160W', 'GOODS-SD5-VGC-F160W', 'GOODS-SD5-VGU-F160W', 'GOODS-SDW-V02-F160W', 'GOODS-SDW-VH4-F160W', 'GOODS-SDW-VHB-F160W', 'GOODS-SDW-VHD-F160W', 'GOODS-SDW-VHE-F160W', 'GOODS-W1-VIV-VIV-F160W', 'GOODS-WIDE115-V4D-F160W']
+    
+    for root in redo:
+        threedhst.dq.checkDQ(root+'_asn.fits',root+'_asn.fits', size=900)
+    
+    for root in redo:
+        unicorn.candels.prep_candels(asn_file=root+'_asn.fits', 
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=1,
+            GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
     
     #########   XXXXXXXXXXXXXXXX todo: ERS fields
     
@@ -672,11 +698,11 @@ def goodsn():
     
     ### F125W flagged
     bad = ['GOODSN-ORI180-V1C-F125W', 'GOODSN-ORI180-V1F-F125W', 'GOODSN-ORI180-V1K-F125W', 'GOODSN-ORI180-V1N-F125W', 'GOODSN-ORI180-V1R-F125W']
-    redo = ['GOODSN-ORI180-V1X-F125W', 'GOODN-ORI090-V3M-F125W', 'GOODN-ORI090-V3M-F125W',  'GOODSN-ORI135-V2J-F125W', 'GOODSN-ORI135-V2P-F125W', 'GOODSN-ORI135-V2X-F125W', 'GOODSN-ORI135-V2Y-F125W', 'GOODSN-ORI180-V1D-F125W', 'GOODSN-ORI180-V1P-F125W', 'GOODSN-ORI180-V1U-F125W', 'GOODN-ORI090-V3O-F125W', 'GOODSN-ORI135-V2A-F125W', 'GOODSN-ORI135-V2C-F125W']
+    redo = ['GOODSN-ORI180-V1X-F125W', 'GOODN-ORI090-V3M-F125W', 'GOODN-ORI090-V3M-F125W',  'GOODSN-ORI135-V2J-F125W', 'GOODSN-ORI135-V2P-F125W', 'GOODSN-ORI135-V2X-F125W', 'GOODSN-ORI135-V2Y-F125W', 'GOODSN-ORI180-V1D-F125W', 'GOODSN-ORI180-V1P-F125W', 'GOODSN-ORI180-V1U-F125W', 'GOODN-ORI090-V3O-F125W', 'GOODSN-ORI135-V2A-F125W', 'GOODSN-ORI135-V2C-F125W', 'GOODSN-ORI020-V4A-F125W', 'GOODSN-ORI020-V4C-F125W', 'GOODSN-ORI020-V4F-F125W', 'GOODSN-ORI020-V4H-F125W', 'GOODSN-ORI020-V4I-F125W', 'GOODSN-ORI020-V4J-F125W', 'GOODSN-ORI020-V4L-F125W', 'GOODSN-ORI020-V4W-F125W']
     
     ### F160W flagged pointings
     bad = ['GOODSN-ORI180-V1C-F160W', 'GOODSN-ORI180-V1F-F160W', 'GOODSN-ORI180-V1K-F160W', 'GOODSN-ORI180-V1N-F160W', 'GOODSN-ORI180-V1R-F160W']
-    redo = ['GOODSN-ORI135-V2O-F160W', 'GOODSN-ORI135-V2Q-F160W', 'GOODSN-ORI135-V2U-F160W', 'GOODSN-ORI180-V1B-F160W', 'GOODSN-ORI180-V1I-F160W', 'GOODSN-ORI180-V1O-F160W', 'GOODSN-ORI180-V1Q-F160W', 'GOODSN-ORI180-V1S-F160W', 'GOODSN-ORI180-V1T-F160W', 'GOODSN-ORI180-V1V-F160W', 'GOODSN-ORI180-V1W-F160W', 'GOODSN-ORI180-V1X-F160W']
+    redo = ['GOODSN-ORI135-V2O-F160W', 'GOODSN-ORI135-V2Q-F160W', 'GOODSN-ORI135-V2U-F160W', 'GOODSN-ORI180-V1B-F160W', 'GOODSN-ORI180-V1I-F160W', 'GOODSN-ORI180-V1O-F160W', 'GOODSN-ORI180-V1Q-F160W', 'GOODSN-ORI180-V1S-F160W', 'GOODSN-ORI180-V1T-F160W', 'GOODSN-ORI180-V1V-F160W', 'GOODSN-ORI180-V1W-F160W', 'GOODSN-ORI180-V1X-F160W', 'GOODSN-ORI020-V4A-F160W', 'GOODSN-ORI020-V4W-F160W', 'GOODSN-ORI020-V4X-F160W']
     
     for root in redo:
         threedhst.dq.checkDQ(root+'_asn.fits',root+'_asn.fits', size=900)
@@ -717,6 +743,7 @@ def goodsn():
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
     
     #### Check for rejected stars
+    filter = 'F160W'
     se = threedhst.sex.SExtractor()
     se.aXeParams()
     se.copyConvFile()
@@ -731,17 +758,22 @@ def goodsn():
 
     #### Run SExtractor
     threedhst.options['MAG_ZEROPOINT'] = '25.96'
-    se.options['CATALOG_NAME']    = 'GN-F160W.cat'
-    se.options['CHECKIMAGE_NAME'] = 'GN-F160W_seg.fits'
-    se.options['WEIGHT_IMAGE']    = 'GN-F160W_drz_weight.fits'
-    status = se.sextractImage('GN-F160W_drz_sci.fits')
+    se.options['CATALOG_NAME']    = 'GN-%s.cat' %(filter)
+    se.options['CHECKIMAGE_NAME'] = 'GN-%s_seg.fits' %(filter)
+    se.options['WEIGHT_IMAGE']    = 'GN-%s_drz_weight.fits' %(filter)
+    status = se.sextractImage('GN-v2-%s_drz_sci.fits' %(filter))
     
-    cat = threedhst.sex.mySexCat('GN-F160W.cat')
+    ZPs = {}
+    ZPs['F160W'] = 25.96
+    ZPs['F125W'] = 26.25
+    
+    cat = threedhst.sex.mySexCat('GN-%s.cat' %(filter))
     r50 = np.cast[float](cat.FLUX_RADIUS)
-    mag = np.cast[float](cat.MAG_AUTO)+25.96
-    stars = (mag < 18) & (r50 < 3.5) #& (mag > 18)
+    mag = np.cast[float](cat.MAG_AUTO)+ZPs[filter]
+    stars = (mag < 20) & (r50 < 3.5) #& (mag > 18)
     
     #wht = pyfits.open('GN-F160W_drz_weight.fits')
+    wht = pyfits.open('GN-v2-%s_drz_weight.fits' %(filter))
     NX = 25
     im = np.zeros((2*NX, 2*NX))
     x = np.cast[int](np.round(cat['X_IMAGE'][stars]))
@@ -929,6 +961,9 @@ def easy_sextractor(drz_file='UDS-F125W_drz.fits', threshold=3, zeropoint=26.25,
     se.options['MAG_ZEROPOINT'] = '%.2f' %(zeropoint)
     
     status = se.sextractImage(drz_file+'[0]', mode=mode)
+    
+def flt_rejected_stars():
+    pass
     
 def star_stacks():
     """ 
@@ -1839,11 +1874,23 @@ def test_lupton():
     im_b = pyfits.open(os.path.join(PATH, 'GS-ACSi.fits'))
     root='GOODS-S'
     
+    cat, zout, fout = unicorn.analysis.read_catalogs('UDS-17')
+    cat2.cat, cat2.zout, cat2.fout = cat, zout, fout
+    cat2.zfit = zout
+    cat2.zfit.z_max_spec = cat2.zfit.z_peak
+    
+    mag = 25-2.5*np.log10(cat2.cat.k_totf)
+    PATH = '/3DHST/Ancillary/UDS/CANDELS'
+    im_r = pyfits.open(os.path.join(PATH, 'hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'))
+    im_g = pyfits.open(os.path.join(PATH, 'hlsp_candels_hst_wfc3_uds-tot_f125w_v1.0_drz.fits'))
+    im_b = pyfits.open(os.path.join(PATH, 'UDS-f814w.fits'))
+    root='UDS'
+    
     shape = im_r[0].data.shape
     wcs = pywcs.WCS(im_r[0].header)
     
     #### selection
-    test = ((cat2.zout.z_peak > 0.1) & (cat2.fout.lmass > 9.) & (cat2.fout.Av > -2) & (mag > 16) & (mag < 24)) | (cat2.zfit.z_max_spec >= 0) #& (cat.f160W_flux_radius > 3)
+    test = ((cat2.zout.z_peak > 0.1) & (cat2.fout.lmass > 10.) & (cat2.fout.Av > -2) & (mag > 16) & (mag < 24)) | (cat2.zfit.z_max_spec >= 0) #& (cat.f160W_flux_radius > 3)
     
     #test = (cat2.zfit.z_max_spec >= 0)
     
@@ -1861,6 +1908,10 @@ def test_lupton():
 
     Q, alpha, m0 = 5.,3.,-0.05
     
+    if root == 'UDS':
+        Q = 3.5
+        m0 = -0.04
+        
     for i in range(len(idx)):
         obj = '%s-%05d' %(root, cat2.cat.id[idx][i])
         if (os.path.exists(os.path.join(PATH,'RGB/')+obj+'_0.png') & skip):
@@ -1884,6 +1935,9 @@ def test_lupton():
         unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_0.png')
         #unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q/2., alpha=alpha*1.05, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_2.png')
         #unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q/4., alpha=alpha*1.1, m0=m0, filename=os.path.join(PATH,'RGB/')+obj+'_4.png')
+        labels = ['%s %d' %(root, cat2.cat.id[idx][i]), 'z= %.2f' %(cat2.zout.z_peak[idx][i]), 'log M= %.1f' %(cat2.fout.lmass[idx][i])]
+        old_im = 'RGB/%s_0.png' %(obj)
+        unicorn.candels.thumbnail_annotate(old_im, label=labels, italic=True, fit=True).save(old_im.replace('.png','_t.png'))
         print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
         
     ###  Selection for the bar fraction

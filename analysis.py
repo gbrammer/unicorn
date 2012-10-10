@@ -283,11 +283,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if uds:
         #for the v2.1 reduction:
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            GIRMS_PATH= '/3DHST/Photometry/Work/UDS/v2/'
+            GRISM_PATH= '/3DHST/Photometry/Work/UDS/v2/'
             CAT_PATH = GRISM_PATH+'Eazy/'
             CAT_FILE = CAT_PATH+'uds_3dhst.v0.1.cat'
             ZOUT_FILE = CAT_PATH+'v0.1/uds_3dhst.v0.1.zout'
             FOUT_FILE = GRISM_PATH +'Fast/uds_3dhst.v0.1.fout'
+            KTOT_COL = 'f_K'
         
         #external catalogs for uds
         #GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'

@@ -335,7 +335,11 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
         return True
     
     if field == 'GOODS-N':
-        os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-N')
+        if unicorn.hostname().startswith('uni'):
+            os.chdir('/3DHST/Photometry/Release/v2.0/GOODS-N')
+        else:
+            os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-N')
+            
         zfit = catIO.Readfile('GOODS-N.zfit.linematched.dat')
         dq = catIO.Readfile('GOODS-N.dqflag.linematched.dat')
         cat = catIO.Readfile('GOODS-N_v2.0_PHOTOMETRY/catalogs/goodsn_v1.8.fullz_wzp.cat')
@@ -350,7 +354,11 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
     
     if field == 'COSMOS':
         ####  COSMOS
-        os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS')
+        if unicorn.hostname().startswith('uni'):
+            os.chdir('/3DHST/Photometry/Release/v2.0/COSMOS')
+        else:
+            os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS')
+        
         zfit = catIO.Readfile('COSMOS.zfit.linematched.dat')
         dq = catIO.Readfile('COSMOS.dqflag.linematched.dat')
         lines = pyfits.open('COSMOS.linefit.fits')
@@ -360,11 +368,15 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
         root = 'cosmos'
         fout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Fast/3dhst.cosmos.v2.0.fout')
         zout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Eazy/3dhst.cosmos.v2.0.zout')
-        cat.m140 = 25-2.5*np.log10(cat.f140w)
+        cat.m140 = 25-2.5*np.log10(cat.F140W)
         
     if field == 'GOODS-S':
         ####  GOODS-S
-        os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S')
+        if unicorn.hostname().startswith('uni'):
+            os.chdir('/3DHST/Photometry/Release/v2.0/GOODS-S')
+        else:
+            os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S')
+        
         zfit = catIO.Readfile('GOODS-S.zfit.linematched.dat')
         dq = catIO.Readfile('GOODS-S.dqflag.linematched.dat')
         lines = pyfits.open('GOODS-S.linefit.fits')
@@ -396,6 +408,10 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
     import unicorn.catalogs2 as cat2
     
     scripts="http://localhost/~gbrammer/UDS/scripts"
+    
+    scripts="http:///localhost/~gbrammer/threedhst"
+    
+    threedhst.plotting.makeCSS(path=os.path.dirname(OUTPUT), title_size=18)
     
     PATH_TO_V2 = unicorn.GRISM_HOME+'../Release/v2.0/'
     
@@ -498,12 +514,14 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
 
         fp.write("""
         <tr>
-            <td> <a href="%s">%s</a><br> %13.6f <br> %13.6f </td>
+            <td> <a href="%s">%s</a><br> %13.6f <br> %13.6f <br> %s <br> %s </td>
             <td> %5.1f </td>
             <td> %5.2f </td>
             <td> %5.2f </td>
-        """ %(vizier, spec_id, cat2.cat.ra[i],
-                  cat2.cat.dec[i], cat2.cat.m140[i], cat2.zfit.z_max_spec[i],
+        """ %(vizier, spec_id, cat2.cat.ra[i], cat2.cat.dec[i],
+              threedhst.utils.decimal2HMS(cat2.cat.ra[i], hours=True), 
+              threedhst.utils.decimal2HMS(cat2.cat.dec[i], hours=False),
+              cat2.cat.m140[i], cat2.zfit.z_max_spec[i],
                   cat2.fout.lmass[i]))
         
         for key in extra.keys():
@@ -654,7 +672,7 @@ def high_eqw():
     import unicorn.catalogs2 as cat2
     import gbb
     
-    cat2.read_catalogs(field='COSMOS')
+    cat2.read_catalogs(field='GOODS-S')
     
     zmax = cat2.zfit.z_max_spec
     
@@ -745,6 +763,48 @@ def high_eqw():
     extra[r'OIII'] = O3
     cat2.view_selection((sn_O3 > 20) & (zmax > 0.70), extra=extra)
     
+    ### Metallicity
+    O2 = cat2.lines[1].data.OII_FLUX
+    O3 = cat2.lines[1].data.OIII_FLUX
+    hb = cat2.lines[1].data.HBETA_FLUX
+    sn_O2 = cat2.lines[1].data.OII_FLUX/cat2.lines[1].data.OII_FLUX_ERR
+    sn_O3 = cat2.lines[1].data.OIII_FLUX/cat2.lines[1].data.OIII_FLUX_ERR
+    sn_hb = cat2.lines[1].data.HBETA_FLUX/cat2.lines[1].data.HBETA_FLUX_ERR
+
+    R23 = (O2+O3)/hb
+    logOH_lo = gbb.utils.log_OH(o2=O2, o3=O3, hbeta=hb, track=-1)
+    logOH_hi = gbb.utils.log_OH(o2=O2, o3=O3, hbeta=hb, track=1)
+    O_ratio = O3/O2
+    logOH = logOH_lo
+    logOH[np.log10(O_ratio) < 0.45] = logOH_hi[np.log10(O_ratio) < 0.45]
+    
+    extra={}
+    extra[r'Z'] = logOH
+    extra[r'log R23'] = np.log10(R23)
+    cat2.view_selection((sn_O3 > 3) & (sn_O2 > 2) & (sn_hb > 2), extra=extra)
+    
+    
+    sel = (sn_O3 > 3) & (sn_O2 > 2) & (sn_hb > 2)
+    plt.plot(cat2.fout.lmass[sel], logOH[sel], linestyle='None', marker='o', alpha=0.5)
+    
+    xwuyts = [9.5,8.4,9.9,9.0,9.2,9.2,8.7,8.6,9.4,9.9]
+    ywuyts = [8.887,8.42, 8.11, 8.66, 8.37, 8.11, 7.67, 8.60, 8.65, 8.67]
+    plt.scatter(xwuyts, ywuyts, color='red', s=30)
+    
+    # Maiolino 2008 polynomical fits to M-Z relation
+    xm08 = np.arange(9,11.3,0.1)
+    coeffs = [[11.18,9.04], [11.57, 9.04], [12.38, 8.99], [12.76, 8.79]]
+    colors = ['black']*4
+    mass_lim = [9,9,9.5,9.5]
+    for i in range(4):
+        m0, k0 = coeffs[i]
+        ym08 = -0.0864*(xm08-m0)**2+k0
+        plt.plot(xm08[xm08 > mass_lim[i]], ym08[xm08 > mass_lim[i]], color=colors[i], linewidth=1, alpha=0.8, zorder=1)
+        if i == 2:
+            plt.plot(xm08[xm08 > mass_lim[i]], ym08[xm08 > mass_lim[i]], color='orange', linewidth=2, alpha=0.8, zorder=-1)
+    
+    plt.xlabel(r'$\log M/M_\odot$')   
+    plt.ylabel(r'12 + log O/H')
     
 def brown_dwarf():
     
@@ -813,5 +873,69 @@ def brown_dwarf():
         pointing = id.split('_')[0]
         print ''
         bd.fit('../%s/1D/ASCII/%s.1D.ascii' %(pointing, id), chi2_limit=100, max_contam=2, trim_mtype=False)
+    
+def match_v17_v20():
+    
+    import unicorn.catalogs2 as cat20
+    import unicorn.catalogs as cat17
+    
+    field = 'GOODS-N'
+    cat20.read_catalogs(field=field)
+    
+    cat17.read_catalogs()
+    
+    from unicorn.catalogs import zout, phot, mcat, lines, rest, gfit, zsp
+    
+    keep17 = cat17.run_selection(zmin=0.7, zmax=2.3, fcontam=0.1, qzmin=0., qzmax=0.1, dr=1.0, has_zspec=True, fcovermin=0.9, fcovermax=1.0, massmin=8.5, massmax=15, magmin=0, magmax=23.8)
+    
+    sn_ha = (lines.halpha_eqw/lines.halpha_eqw_err)[lines.idx]
+    #keep17 = keep17 & (sn_ha > 5) & (sn_ha < 7) & (phot.field[phot.idx] == field)
+    
+    ### Run the matcher on the full selection, then do second selection
+    ### based on the v2.0 catalog
+    dz17 = (zout.z_peak[::3][keep17]- cat20.zfit.z_spec[ix20])/(1+cat20.zfit.z_spec[ix20])
+    dz20 = (cat20.zfit.z_max_spec[ix20]- cat20.zfit.z_spec[ix20])/(1+cat20.zfit.z_spec[ix20])
+    ### better in v2.0
+    keep17[keep17] = (cat20.zfit.z_spec[ix20] > 0) & (np.abs(dz17) > 0.03) & (np.abs(dz20) < 0.01) & (np.array(dr20) < 1)
+    ### better in v1.7
+    #keep17[keep17] = (cat20.zfit.z_spec[ix20] > 0) & (np.abs(dz20) > 0.03) & (np.abs(dz17) < 0.01) & (np.array(dr20) < 1)
+    
+    match20 = catIO.CoordinateMatcher(cat20.cat)
+    
+    idx_full = np.arange(len(keep17))
+    dr20, ix20 = [], []
+    for ix17 in idx_full[keep17]:
+        pix17 = phot.idx[ix17]
+        dr, ix = match20.find_nearest(phot.x_world[pix17], phot.y_world[pix17], N=1)
+        dr20.append(dr)
+        ix20.append(ix)
+    
+    plt.scatter(zout.z_peak[::3][keep17], cat20.zfit.z_max_spec[ix20], alpha=0.5)
+    
+    extra = {}
+    
+    z17 = np.zeros(cat20.zfit.N)
+    z17[ix20] = zout.z_peak[::3][keep17]
+    extra['z_v1.7'] = z17
+    
+    dz = np.zeros(cat20.zfit.N) 
+    dz[ix20] = (zout.z_peak[::3][keep17]- cat20.zfit.z_max_spec[ix20])/(1+cat20.zfit.z_max_spec[ix20])
+    extra['dz'] = gbb.utils.formatted_array(dz, fmt='%.3f')
+    
+    id_v17 = [' ']*cat20.zfit.N
+    for i in range(len(ix20)):
+        url = '<img src=http://unicorn.astro.yale.edu/P/GRISM_v1.7/EAZY/%s_eazy.png height=180px>' %(zout.id[::3][keep17][i])
+        id_v17[ix20[i]] = url
+    extra['ID v1.7'] = id_v17
+    
+    cat20.view_selection(ix20, extra=extra)
+    
+    phot.x_world[phot.idx]
+    
+    PATH_TO_V2 = unicorn.GRISM_HOME+'../Release/v2.0/'
+
+    spec_id = cat2.zfit.spec_id[i]
+    pointing = spec_id.split('_')[0]
+    root_path = os.path.join(PATH_TO_V2, cat2.field, pointing)
     
     

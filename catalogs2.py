@@ -356,18 +356,25 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
         ####  COSMOS
         if unicorn.hostname().startswith('uni'):
             os.chdir('/3DHST/Photometry/Release/v2.0/COSMOS')
+            gris_path = '/3DHST/Spectra/Release/v2.0/COSMOS/'
+            zfit = catIO.Readfile(gris_path+'COSMOS.zfit.linematched.dat')
+            dq = catIO.Readfile(gris_path+'COSMOS.dqflag.linematched.dat')
+            lines = pyfits.open(gris_path+'COSMOS.linefit.fits')
+            cat = catIO.Readfile('Catalog/3dhst.cosmos.v2.0.cat')
+            fout = catIO.Readfile('Fast/3dhst.cosmos.v2.0.fout')
+            zout = catIO.Readfile('Eazy/3dhst.cosmos.v2.0.zout')
         else:
             os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS')
+            zfit = catIO.Readfile('COSMOS.zfit.linematched.dat')
+            dq = catIO.Readfile('COSMOS.dqflag.linematched.dat')
+            lines = pyfits.open('COSMOS.linefit.fits')
+            cat = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Catalog/3dhst.cosmos.v2.0.cat')
+            fout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Fast/3dhst.cosmos.v2.0.fout')
+            zout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Eazy/3dhst.cosmos.v2.0.zout')
         
-        zfit = catIO.Readfile('COSMOS.zfit.linematched.dat')
-        dq = catIO.Readfile('COSMOS.dqflag.linematched.dat')
-        lines = pyfits.open('COSMOS.linefit.fits')
-        cat = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Catalog/3dhst.cosmos.v2.0.cat')
         
         cat.x_image, cat.y_image = cat.x, cat.y
         root = 'cosmos'
-        fout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Fast/3dhst.cosmos.v2.0.fout')
-        zout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Eazy/3dhst.cosmos.v2.0.zout')
         cat.m140 = 25-2.5*np.log10(cat.F140W)
         
     if field == 'GOODS-S':

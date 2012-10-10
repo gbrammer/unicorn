@@ -3849,7 +3849,7 @@ def interlace_uds0():
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
 
-    direct=glob.glob('UDS-0[0-9]-F140W_asn.fits')
+    direct=glob.glob('UDS-[0-9]-F140W_asn.fits')
 
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
@@ -3864,7 +3864,7 @@ def interlace_uds0():
     REF_ROOT='UDS_F140W'
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('UDS-0[0-9]-G141_inter.fits')
+    inter = glob.glob('UDS-[0-9]-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
@@ -3878,7 +3878,7 @@ def interlace_uds0():
 
     skip_completed = True
 
-    models = glob.glob('UDS-0[0-9]_inter_model.fits')
+    models = glob.glob('UDS-[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
@@ -3908,7 +3908,7 @@ def interlace_uds0():
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
 
     #Fit the emission lines
-    models = glob.glob('UDS-0[0-9]_inter_model.fits')
+    models = glob.glob('UDS-[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
@@ -4072,7 +4072,7 @@ def interlace_uds2():
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
 
-    direct=glob.glob('UDS-2*-F140W_asn.fits')
+    direct=glob.glob('UDS-2[0-9]-F140W_asn.fits')
 
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):

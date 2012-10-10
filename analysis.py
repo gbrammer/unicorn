@@ -62,7 +62,12 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'SN-TILE41/'
     if root.startswith('EGS1'):
         PATH = unicorn.GRISM_HOME+'COOPER/'
-    
+    if root.startswith('COLFAX'):
+        PATH = unicorn.GRISM_HOME+'SN-COLFAX/'
+    for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700']:
+        if fi in root:
+            PATH =  unicorn.GRISM_HOME+'Erb/'
+            
     return PATH
     
 def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, ecdfs=False, uds=False, udf=False, aegis_wirds=False):
@@ -108,6 +113,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if root.startswith('WFC3-ERS'):
         cdfs=True
     
+    if root.startswith('COLFAX'):
+        goodsn=True
+    
     aegis_wirds=False
     #if root.startswith('AEGIS-11') | root.startswith('AEGIS-2-') | root.startswith('AEGIS-1-') | root.startswith('AEGIS-6-'):
     #    aegis=False
@@ -117,6 +125,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if root.startswith('UDS-18'):
         uds=False
         uds_cluster=True
+    #
+    for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700']:
+        if fi in root:
+            erb = True
     
     CAT_FILE = None
     ZOUT_FILE = None
@@ -133,7 +145,6 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'../cosmos-1.bc03.v4.6.fout'
         KTOT_COL = 'ktot'
                 
-
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Ancillary/COSMOS/NMBS/Photometry/'
             CAT_FILE = CAT_PATH + 'cosmos-1.deblend.v5.1.cat'
@@ -315,7 +326,15 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         #ZOUT_FILE = CAT_PATH+'uds.zout'
         #FOUT_FILE = CAT_PATH + 'uds.fout'
         #KTOT_COL = 'K_totf'
-    
+    #
+    if erb:
+        GRISM_PATH=unicorn.GRISM_HOME+'Erb/'
+        CAT_PATH = GRISM_PATH+'Catalogs/Combined/EAZY/FAST/'
+        CAT_FILE = CAT_PATH+'erb.cat'
+        ZOUT_FILE = CAT_PATH+'erb.zout'
+        FOUT_FILE = CAT_PATH + 'erb.fout'
+        KTOT_COL = 'f_h'
+        
     if uds_cluster:
         GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'
         CAT_PATH = GRISM_PATH+'fast/'
@@ -331,11 +350,18 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         return None, None, None
     
     #### Read the catalogs
-    cat = catIO.ReadASCIICat(CAT_FILE)
-    if MAGS:
-        cat.kmag = cat.field(KTOT_COL)
+    #cat = catIO.ReadASCIICat(CAT_FILE)
+    cat = catIO.Readfile(CAT_FILE); cat.names = cat.columns
+    #print KTOT_COL
+    if 'field' in cat.names:
+        ktot_field = cat[KTOT_COL.lower()]
     else:
-        cat.kmag = 25.-2.5*np.log10(cat.field(KTOT_COL))
+        ktot_field = cat.field(KTOT_COL)
+        
+    if MAGS:
+        cat.kmag = ktot_field
+    else:
+        cat.kmag = 25.-2.5*np.log10(ktot_field)
     
     cat.MAGS_UNIT = MAGS
     

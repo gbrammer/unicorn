@@ -65,7 +65,7 @@ def get_grism_path(root):
     
     return PATH
     
-def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, ecdfs=False, uds=False, udf=False):
+def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, ecdfs=False, uds=False, udf=False, aegis_wirds=False):
     """
     
     Read photometry, redshift, SPS catalogs for a given field.
@@ -144,10 +144,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         # For the v2.0 reduction
         if unicorn.hostname().startswith('uni'):
             CAT_PATH = '/3DHST/Photometry/Release/COSMOS/v2.0/'
-            CAT_FILE = CAT_PATH + 'Catalog/3dhst.cosmos.v2.0.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/3dhst.cosmos.v2.0.zout'
-            FOUT_FILE = CAT_PATH+'Fast/3dhst.cosmos.v2.0.fout'
-            KTOT_COL = 'K'
+        else:
+            CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS/COSMOS_v2.0_PHOTOMETRY/'
+            
+        CAT_FILE = CAT_PATH + 'Catalog/3dhst.cosmos.v2.0.cat'
+        ZOUT_FILE = CAT_PATH + 'Eazy/3dhst.cosmos.v2.0.zout'
+        FOUT_FILE = CAT_PATH+'Fast/3dhst.cosmos.v2.0.fout'
+        KTOT_COL = 'K'
 
 
          
@@ -161,11 +164,17 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             
     if aegis:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
-        CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
-        CAT_FILE = CAT_PATH + '../aegis-n2.v4.6.cat'
-        ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
-        FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
-        KTOT_COL = 'ktot'
+        # CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v4.6/OUTPUT_KATE/'
+        # CAT_FILE = CAT_PATH + '../aegis-n2.v4.6.cat'
+        # ZOUT_FILE = CAT_PATH + 'aegis-n2.v4.6.zout'
+        # FOUT_FILE = CAT_PATH+'/../aegis-n2.bc03.v4.6.fout'
+        # KTOT_COL = 'ktot'
+        CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/NEWFIRM/v5.1/'
+        CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
+        ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
+        FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
+        KTOT_COL = 'K'
+        
         #F140W selected catalog
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
             CAT_PATH = '/3DHST/Photometry/Work/AEGIS/'
@@ -222,6 +231,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
+        CAT_FILE = CAT_PATH+'goodsn_v1.7.fullz.cat'
+        ZOUT_FILE = CAT_PATH+'goodsn_v1.7_eazy/photz_v1.7.fullz.zout'
+        FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
         
         if unicorn.hostname().startswith('uni'):
             CAT_PATH = '/3DHST/Photometry/Work/GOODS-N/eazy/inputs/OUTPUT/goodsn_v2.0_eazy/'
@@ -255,10 +267,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         #For the v2.0 reduction
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
             CAT_PATH = '/3DHST/Photometry/Release/GOODS-S/v2.0/'
-            CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
-            ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
-            FOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_fast/GOODS-S_v2.0.fullz_wzp.fout'
-            KTOT_COL = 'f_Ks'
+        else:
+            CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S/GOODS-S_v2.0_PHOTOMETRY/'
+        
+        CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
+        ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
+        FOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_fast/GOODS-S_v2.0.fullz_wzp.fout'
+        KTOT_COL = 'f_Ks'
 
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):

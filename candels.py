@@ -1861,7 +1861,7 @@ def go_make_thumbnails():
     
     for field in ['COSMOS','GOODS-N','GOODS-S']:
         for box in [1.5,3.,6,12]:
-            threedhst_RGB_thumbnails(field=field, box_size=box, skip=True)
+            unicorn.candels.threedhst_RGB_thumbnails(field=field, box_size=box, skip=True)
       
 def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     """
@@ -1943,7 +1943,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     
     for i in range(len(idx)):
         obj = zfit.spec_id[idx][i]
-        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, size)
+        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, box_size)
         if os.path.exists(out_image) & skip:
             continue
         #

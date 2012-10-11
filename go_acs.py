@@ -533,6 +533,8 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
     for ii in range(old_cat.nrows):
         new_x[ii], new_y[ii] = ref_wcs.wcs_sky2pix([[old_cat['X_WORLD'][ii],old_cat['Y_WORLD'][ii]]],1)[0]
 
+    old_cat.renameColumn(original='X_IMAGE', new='X_OLD', verbose=True)
+    old_cat.renameColumn(original='Y_IMAGE', new='Y_OLD', verbose=True)
     old_cat.addColumn(data=new_x, format='%f', name='X_IMAGE', comment = '', verbose=True)
     old_cat.addColumn(data=new_y, format='%f', name='Y_IMAGE', comment = '', verbose=True)
 

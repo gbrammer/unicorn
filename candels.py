@@ -1856,7 +1856,7 @@ def proposal_figure():
         ax.text(0.1, 0.1, r'F160W / $H$=%.1f' %(cat.Hmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
         ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
      
-def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
+def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     """
     Make thumbnails for all grism objects in a given 3D-HST field
     
@@ -1918,9 +1918,6 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
     ### Box size
     NX = int(np.round(box_size/0.06))
     NY = NX
-
-    ### Skip objects already run
-    skip=True    
     
     ### View in DS9
     use_ds9 = False
@@ -1935,7 +1932,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
     Q_i = [5,3.5]
     alpha_i = [3,5]
     m0_i = [-0.02,-0.01]
-    mag_i = [19,21]
+    mag_i = [18,21]
     
     for i in range(len(idx)):
         obj = zfit.spec_id[idx][i]

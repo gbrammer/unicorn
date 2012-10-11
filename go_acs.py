@@ -483,7 +483,7 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
         reference_image = '../PREP_FLT/'+root+'_drz.fits'
 
     catalog_out = root+'.ext.cat'
-    segmentation_out = root+'.ext.seg.fits'
+    segmentation_out = root+'-G800L_seg.fits'
     
     print reference_image
     
@@ -785,8 +785,11 @@ def reduce_acs(root='',LIMITING_MAGNITUDE=20., match_wfc3 = False, WFC3_DIR='/3D
     threedhst.process_grism.set_ACS_G800L()
     
     threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+root+'-F814W_drz.fits'
-    threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/'+root+'-G800L_drz.fits'
-
+    threedhst.options['PREFAB_GRISM_IMAGE'] = root+'-G800L_drz.fits'
+    if threedhst.options['PREFAB_GRISM_IMAGE'] != '': 
+        print "Copy PREFAB_GRISM_IMAGE to DATA."
+        os.system('cp PREP_FLT/'+threedhst.options['PREFAB_GRISM_IMAGE']+' DATA/')
+        
     threedhst.options['FORCE_CATALOG']=root+'.ext.cat'
     ##### Note: segmentation image has to accompany the force_catalog!
 

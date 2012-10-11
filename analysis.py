@@ -155,7 +155,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
 
         # For the v2.0 reduction
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Release/COSMOS/v2.0/'
+            CAT_PATH = '/3DHST/Photometry/Release/v2.0/COSMOS/'
         else:
             CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS/COSMOS_v2.0_PHOTOMETRY/'
             
@@ -248,10 +248,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
         
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Work/GOODS-N/eazy/inputs/OUTPUT/goodsn_v2.0_eazy/'
-            CAT_FILE = CAT_PATH+'goodsn_v1.8.fullz_wzp.cat'
-            ZOUT_FILE = CAT_PATH+'goodsn_v2.0.fullz_wzp.zout'
-            FOUT_FILE = CAT_PATH+'goodsn_v2.0.fullz_wzp.fout'
+            CAT_PATH = '/3DHST/Photometry/Release/v2.0/GOODS-N/'
+            CAT_FILE = CAT_PATH+'Catalog/goodsn_v1.8.fullz_wzp.cat'
+            ZOUT_FILE = CAT_PATH+'Eazy/goodsn_v2.0.fullz_wzp.zout'
+            FOUT_FILE = CAT_PATH+'Fast/goodsn_v2.0.fullz_wzp.fout'
         KTOT_COL = 'f_Ks'
     
 
@@ -278,13 +278,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #For the v2.0 reduction
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            CAT_PATH = '/3DHST/Photometry/Release/GOODS-S/v2.0/'
+            CAT_PATH = '/3DHST/Photometry/Release/v2.0/GOODS-S/'
         else:
             CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S/GOODS-S_v2.0_PHOTOMETRY/'
         
-        CAT_FILE = CAT_PATH + 'catalog/GOODS-S_v2.0.fullz_wzp.cat'
-        ZOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_eazy/GOODS-S_v2.0.fullz_wzp.zout'
-        FOUT_FILE = CAT_PATH + 'GOODS-S_v2.0_fast/GOODS-S_v2.0.fullz_wzp.fout'
+        CAT_FILE = CAT_PATH + 'Catalog/GOODS-S_v2.0.fullz_wzp.cat'
+        ZOUT_FILE = CAT_PATH + 'Eazy/GOODS-S_v2.0.fullz_wzp.zout'
+        FOUT_FILE = CAT_PATH + 'Fast/GOODS-S_v2.0.fullz_wzp.fout'
         KTOT_COL = 'f_Ks'
 
     #

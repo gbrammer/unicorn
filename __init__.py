@@ -14,7 +14,7 @@ __version__ = "$Rev$"
 
 from socket import gethostname as hostname
 
-if hostname().startswith('uni'):
+if hostname().startswith('uni') or hostname().startswith('hyp'):
     GRISM_HOME = '/3DHST/Spectra/Work/'
 else:
     GRISM_HOME = '/research/HST/GRISM/3DHST/'
@@ -45,5 +45,7 @@ import fast
 
 import interlace_fit
 import intersim
+
+import prepare_acs
 
 noNewLine = '\x1b[1A\x1b[1M'

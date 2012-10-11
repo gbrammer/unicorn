@@ -1943,7 +1943,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     
     for i in range(len(idx)):
         obj = zfit.spec_id[idx][i]
-        out_image = '%s/%s_rgb_%02d.png' %(field, obj, size)
+        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, size)
         if os.path.exists(out_image) & skip:
             continue
         #

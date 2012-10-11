@@ -281,7 +281,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_PATH = '/3DHST/Photometry/Release/v2.0/GOODS-S/'
         else:
             CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S/GOODS-S_v2.0_PHOTOMETRY/'
-        
+
         CAT_FILE = CAT_PATH + 'Catalog/GOODS-S_v2.0.fullz_wzp.cat'
         ZOUT_FILE = CAT_PATH + 'Eazy/GOODS-S_v2.0.fullz_wzp.zout'
         FOUT_FILE = CAT_PATH + 'Fast/GOODS-S_v2.0.fullz_wzp.fout'
@@ -372,10 +372,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         cat.star_flag = cat.kmag*0
     
     #### Different column names
-    if cdfs:
-        cat.ra = cat.field('RA')
-        cat.dec = cat.field('DEC')
-        cat.id = np.cast[int](cat.field('ID'))
+    #if cdfs:
+    #    cat.ra = cat.field('RA')
+    #    cat.dec = cat.field('DEC')
+    #    cat.id = np.cast[int](cat.field('ID'))
     
     cat.filename=CAT_FILE
     

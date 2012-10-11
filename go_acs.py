@@ -418,7 +418,7 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
     if (asn_grism_file is not None) & adjust_targname:
         asn_grism_file = make_targname_asn(asn_grism_file,field='GOODS-S')
 
-    run = threedhst.prep_flt_files.MultidrizzleRun((asn_direct_file.split('_asn.fits')[0]).upper())
+    #run = threedhst.prep_flt_files.MultidrizzleRun((asn_direct_file.split('_asn.fits')[0]).upper())
     threedhst.shifts.run_tweakshifts(asn_direct_file, verbose=True)
     threedhst.prep_flt_files.startMultidrizzle(asn_direct_file, use_shiftfile=True,
         skysub=True,

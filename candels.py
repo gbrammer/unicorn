@@ -1904,6 +1904,8 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
         im_g = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, 'GOODS_ACS/GS-ACSi.fits'))
     
+    print 'Reading large images....'
+    
     ### Image WCS
     shape = im_r[0].data.shape
     wcs = pywcs.WCS(im_r[0].header)
@@ -1923,10 +1925,17 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
     ### View in DS9
     use_ds9 = False
     
-    Q, alpha, m0 = 5.,3.,-0.05
-    
+    #### Scale parameters
+    Q, alpha, m0 = 5.,3.,-0.02
+  
     #### for fainter galaxies, lower SB features
     Q, alpha, m0 = 3.5, 5, -0.01
+    
+    #### Interpolate scale parameters with mag
+    Q_i = [5,3.5]
+    alpha_i = [3,5]
+    m0_i = [-0.02,-0.01]
+    mag_i = [19,21]
     
     for i in range(len(idx)):
         obj = zfit.spec_id[idx][i]
@@ -1948,6 +1957,11 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
         sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
         sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
         sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+        #
+        #### Interpolate scale parameters
+        Q = np.interp(mag[idx][i], mag_i, Q_i, left=Q_i[0], right=Q_i[1])
+        alpha = np.interp(mag[idx][i], mag_i, alpha_i, left=alpha_i[0], right=alpha_i[1])
+        m0 = np.interp(mag[idx][i], mag_i, m0_i, left=m0_i[0], right=m0_i[1])
         #
         unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=(NX, NY))
         #labels = ['%s %d' %(root, cat2.cat.id[idx][i]), 'z= %.2f' %(cat2.zout.z_peak[idx][i]), 'log M= %.1f' %(cat2.fout.lmass[idx][i])]

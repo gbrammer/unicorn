@@ -1855,7 +1855,14 @@ def proposal_figure():
         ax.set_yticklabels([])
         ax.text(0.1, 0.1, r'F160W / $H$=%.1f' %(cat.Hmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
         ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
-     
+
+def go_make_thumbnails():
+    import unicorn.candels
+    
+    for field in ['COSMOS','GOODS-N','GOODS-S']:
+        for box in [1.5,3.,6,12]:
+            threedhst_RGB_thumbnails(field=field, box_size=box, skip=True)
+      
 def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     """
     Make thumbnails for all grism objects in a given 3D-HST field
@@ -1936,7 +1943,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     
     for i in range(len(idx)):
         obj = zfit.spec_id[idx][i]
-        out_image = '%s/%s_rgb.png' %(field, obj)
+        out_image = '%s/%s_rgb_%02d.png' %(field, obj, size)
         if os.path.exists(out_image) & skip:
             continue
         #

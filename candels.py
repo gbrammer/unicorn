@@ -675,6 +675,11 @@ def goodss():
     for band in ['i','b','v','z']:
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_s%s*drz_img.fits' %(band)), matchImage='/Volumes/Crucial/3DHST/Ancillary/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits', match_extension=0, output='GS-ACS%s.fits' %(band))
     
+    ### Unicorn, match ACS to 0.06" WFC3 image
+    os.chdir('/3DHST/Ancillary/GOODS-S/GOODS_ACS')
+    for band in ['i','b','v','z'][:1]:
+        threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_s%s*drz_img.fits' %(band)), matchImage='../CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits', match_extension=0, output='GS-ACS%s.fits' %(band))
+    
 def goodsn():
     import unicorn.candels
     
@@ -741,6 +746,11 @@ def goodsn():
     os.chdir('/Users/gbrammer/CANDELS/GOODS-N/ACS_MATCH')
     for band in ['i','b','v','z'][1:]:
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
+    
+    ### Unicorn
+    os.chdir('/Volumes/robot/3DHST/Ancillary/GOODS-N/GOODS_ACS')
+    for band in ['i','b','v','z'][:1]:
+        threedhst.shifts.matchImagePixels(input= glob.glob('h_n%s*drz_img.fits' %(band)), matchImage='../3DHST_F140W/GOODS-N-F140W_drz_v0.5.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
     
     #### Check for rejected stars
     filter = 'F160W'
@@ -1845,7 +1855,106 @@ def proposal_figure():
         ax.set_yticklabels([])
         ax.text(0.1, 0.1, r'F160W / $H$=%.1f' %(cat.Hmag[ii]), transform=ax.transAxes, horizontalalignment='left', verticalalignment='bottom')
         ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
+     
+def threedhst_RGB_thumbnails(field='COSMOS', box_size=3):
+    """
+    Make thumbnails for all grism objects in a given 3D-HST field
+    
+    Thumbnail `box_size` is the radius, given in arcsec
+    
+    GBB, 10/10/2012
+    """
+    import pywcs
+    import threedhst.catIO as catIO
+    
+    #### Working directory
+    os.chdir('/3DHST/Spectra/Work/RGB/v2.0')
+    try:
+        os.mkdir(field)
+    except:
+        pass
         
+    catalogs = {}
+    catalogs['COSMOS'] = '3dhst.cosmos.v2.0.cat'
+    catalogs['GOODS-N'] = 'goodsn_v1.8.fullz_wzp.cat'
+    catalogs['GOODS-S'] = 'GOODS-S_v2.0.fullz_wzp.cat'
+    
+    zfit = catIO.Readfile('/3DHST/Spectra/Release/v2.0/%s/%s.zfit.linematched.dat' %(field, field), save_fits=False)
+    cat = catIO.Readfile('/3DHST/Photometry/Release/v2.0/%s/Catalog/%s' %(field, catalogs[field]), save_fits=False)
+    
+    #### Images
+    if field == 'GOODS-N':
+        mag = 25-2.5*np.log10(cat.f_f140)
+        PATH = '/3DHST/Ancillary/GOODS-N/CANDELS/Gabe'
+        im_r = pyfits.open(os.path.join(PATH, 'GN-v2-F160W_drz_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'GN-v2-F125W_drz_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, '../../GOODS_ACS/GN-ACSi.fits'))
+    
+    if field == 'COSMOS':
+        mag = 25-2.5*np.log10(cat.F140W)
+        PATH = '/3DHST/Ancillary/COSMOS/CANDELS/Gabe/'
+        im_r = pyfits.open(os.path.join(PATH, 'COSMOS-full-F160W_drz_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'COSMOS-full-F125W_drz_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, 'COSMOS-full-ACSi.fits'))
+    
+    if field == 'GOODS-S':
+        mag = 25-2.5*np.log10(cat.f_f140)
+        PATH = '/3DHST/Ancillary/GOODS-S/'
+        im_r = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, 'GOODS_ACS/GS-ACSi.fits'))
+    
+    ### Image WCS
+    shape = im_r[0].data.shape
+    wcs = pywcs.WCS(im_r[0].header)
+    
+    ### Objects with grism spectrum IDs
+    keep = (zfit.spec_id != '00000')
+    idx = np.arange(len(keep))[keep]
+    idx = idx[np.argsort(mag[idx])]
+    
+    ### Box size
+    NX = int(np.round(box_size/0.06))
+    NY = NX
+
+    ### Skip objects already run
+    skip=True    
+    
+    ### View in DS9
+    use_ds9 = False
+    
+    Q, alpha, m0 = 5.,3.,-0.05
+    
+    #### for fainter galaxies, lower SB features
+    Q, alpha, m0 = 3.5, 5, -0.01
+    
+    for i in range(len(idx)):
+        obj = zfit.spec_id[idx][i]
+        out_image = '%s/%s_rgb.png' %(field, obj)
+        if os.path.exists(out_image) & skip:
+            continue
+        #
+        xy = np.round(wcs.wcs_sky2pix(cat.ra[idx][i], cat.dec[idx][i],0))
+        xc, yc = int(xy[0]), int(xy[1])
+        if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
+            continue
+        #
+        # Browse with DS9 one by one
+        if use_ds9:
+            xy = np.round(np.cast[float](ds9.get('pan').split()))
+            xc, yc = int(xy[0]), int(xy[1])
+            obj = 'tmp'
+        #
+        sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
+        sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
+        sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+        #
+        unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=(NX, NY))
+        #labels = ['%s %d' %(root, cat2.cat.id[idx][i]), 'z= %.2f' %(cat2.zout.z_peak[idx][i]), 'log M= %.1f' %(cat2.fout.lmass[idx][i])]
+        #old_im = 'RGB/%s_0.png' %(obj)
+        #unicorn.candels.thumbnail_annotate(old_im, label=labels, italic=True, fit=True).save(old_im.replace('.png','_t.png'))
+        print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
+    
 def test_lupton():
     import pywcs
     import unicorn.catalogs2 as cat2
@@ -2038,7 +2147,7 @@ def thumbnail_annotate(filename, label=None, cross=0.05, font='cmunss.otf', ital
     #im.save('junk.png')
     return im
     
-def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), filename='junk.png', ds9=None):
+def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), filename='junk.png', ds9=None, verbose=False, rgb_clip=True):
     """
     Make a 3 color image scaled with the color clipping and 
     asinh scaling from Lupton et al. (2004)
@@ -2049,7 +2158,9 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     fI = np.arcsinh(alpha*Q*I)/Q
     M = m0 + np.sinh(Q*1.)/(alpha*Q)
     #ds9.v(fI, vmin=0, vmax=1)
-    
+    if verbose:
+        print 'min, max = %f, %f' %(m0, M)
+        
     fI[I < m0] = 0
     R = np.maximum(imr-m0, 0)*fI/I
     G = np.maximum(img-m0, 0)*fI/I
@@ -2067,11 +2178,16 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     B[B < 0] = 0
     
     max_RGB = np.maximum(np.maximum(R,G),B)
-    clip = max_RGB > 1
-    R[clip] = R[clip]/max_RGB[clip]
-    G[clip] = G[clip]/max_RGB[clip]
-    B[clip] = B[clip]/max_RGB[clip]
-    
+    if rgb_clip:
+        clip = max_RGB > 1
+        R[clip] = R[clip]/max_RGB[clip]
+        G[clip] = G[clip]/max_RGB[clip]
+        B[clip] = B[clip]/max_RGB[clip]
+    else:
+        R[R > 1] = 1.
+        G[G > 1] = 1.
+        B[B > 1] = 1.
+
     if ds9 is not None:
         #ds9.set('rgb True')
         v1=1
@@ -2082,7 +2198,9 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
         return True
         
     #rgb = np.array([R,G,B]).T
-    im = Image.merge('RGB', (Image.fromarray((R[::-1,:]*255).astype('uint8')), Image.fromarray((G[::-1,:]*255).astype('uint8')), Image.fromarray((B[::-1,:]*255).astype('uint8'))))
+    #im = Image.merge('RGB', (Image.fromarray((R[::-1,:]*255).astype('uint8')), Image.fromarray((G[::-1,:]*255).astype('uint8')), Image.fromarray((B[::-1,:]*255).astype('uint8'))))
+    im = Image.merge('RGB', (Image.fromarray((R[::-1,:]*255).astype('int8'), mode='L'), Image.fromarray((G[::-1,:]*255).astype('int8'), mode='L'), Image.fromarray((B[::-1,:]*255).astype('int8'), mode='L')))
+    
     im = im.resize(shape)
     im.save(filename)
     

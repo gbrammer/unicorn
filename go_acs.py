@@ -518,7 +518,7 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
     pop_mag = []
     for ii in range(old_cat.nrows):
         if (old_cat['MAG_F806W'][ii] == 99.0000) | (old_cat['MAG_F806W'][ii] == 0.00):
-            print old_cat.MAG_F806W[ii]
+            #print old_cat.MAG_F806W[ii]
             pop_mag.append(old_cat.id[ii])
     old_cat.popItem(np.array(pop_mag))
         
@@ -800,7 +800,7 @@ def reduce_acs(root='',LIMITING_MAGNITUDE=20., match_wfc3 = False, WFC3_DIR='/3D
     
     ## read photometric, redshift, SPS catalogs
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
-    cat.star_flag=np.ones(cat.size)
+    #cat.star_flag=np.ones(cat.size)
 
     ## path where other eazy outputs live
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)

@@ -375,6 +375,7 @@ def xshift(array, shift, spline=True):
 
 def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
                      asn_grism_file='ib3706060_asn.fits',
+                       field = 'COSMOS'
                        ALIGN_IMAGE='../ACS/h_nz_sect*img.fits',
                        ALIGN_EXTENSION=0,
                        SKIP_GRISM=False,
@@ -413,10 +414,10 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
     #this makes new asn.fits files but with ACS the names start with ANY
     #must add an optional tag to replace ANY with the field name
     if (asn_direct_file is not None) & adjust_targname:
-        asn_direct_file = make_targname_asn(asn_direct_file,field='GOODS-S')
+        asn_direct_file = make_targname_asn(asn_direct_file,field=field)
     
     if (asn_grism_file is not None) & adjust_targname:
-        asn_grism_file = make_targname_asn(asn_grism_file,field='GOODS-S')
+        asn_grism_file = make_targname_asn(asn_grism_file,field=field)
 
     #run = threedhst.prep_flt_files.MultidrizzleRun((asn_direct_file.split('_asn.fits')[0]).upper())
     threedhst.shifts.run_tweakshifts(asn_direct_file, verbose=True)

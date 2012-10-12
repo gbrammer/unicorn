@@ -375,7 +375,7 @@ def xshift(array, shift, spline=True):
 
 def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
                      asn_grism_file='ib3706060_asn.fits',
-                       field = 'COSMOS'
+                       field = 'COSMOS',
                        ALIGN_IMAGE='../ACS/h_nz_sect*img.fits',
                        ALIGN_EXTENSION=0,
                        SKIP_GRISM=False,

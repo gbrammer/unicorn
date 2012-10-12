@@ -800,7 +800,7 @@ def reduce_acs(root='',LIMITING_MAGNITUDE=20., match_wfc3 = False, WFC3_DIR='/3D
     
     ## read photometric, redshift, SPS catalogs
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
-    #cat.star_flag=np.ones(cat.size)
+    cat.star_flag=np.ones(cat.size.id)
 
     ## path where other eazy outputs live
     OUTPUT_DIRECTORY = os.path.dirname(zout.filename)

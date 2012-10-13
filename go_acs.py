@@ -653,7 +653,8 @@ def specphot_acs_and_wfc3(id=69, grism_root='ibhm45030',
     yint = np.interp(lam[q], lambdaz, temp_sed_sm)
         
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
-    
+    if np.isnan(anorm):
+        anorm=1.    
     total_err = np.sqrt((ferr)**2+(1.0*spec.field('CONTAM'))**2)*anorm
     
 
@@ -706,6 +707,7 @@ def specphot_acs_and_wfc3(id=69, grism_root='ibhm45030',
         yint_wfc3 = np.interp(wfc3_spec[1].data.wave[q_wfc3], lambdaz, temp_sed_sm)
         spec_wfc3 = (wfc3_spec[1].data.flux-wfc3_spec[1].data.contam)/wfc3_spec[1].data.sensitivity
         anorm_wfc3 = np.sum(yint_wfc3*spec_wfc3[q_wfc3])/np.sum(spec_wfc3[q_wfc3]**2)
+        if np.isnan(anorm_wfc3): anorm_wfc3 = 1.
         print 'Scaling factors: ', anorm, anorm_wfc3
         ax.plot(wfc3_spec[1].data.wave[q_wfc3], spec_wfc3[q_wfc3]*anorm_wfc3, color='blue',alpha=0.6, linewidth=1)
 
@@ -828,6 +830,7 @@ def reduce_acs(root='',LIMITING_MAGNITUDE=20., match_wfc3 = False, WFC3_DIR='/3D
     ## make figures
     if match_wfc3:
         for id in grismCat.id:
+            print id
             status = unicorn.go_acs.specphot_acs_and_wfc3(id=id, grism_root=grism_root, SPC = SPC, 
                 cat = cat,
                 grismCat = grismCat, zout = zout, fout = fout, 

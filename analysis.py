@@ -161,7 +161,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             
         CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v2.2.cat'
         ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v2.2.zout'
-        FOUT_FILE = CAT_PATH+'Fast/cosmos_3dhst.v2.2.cat.fout'
+        FOUT_FILE = CAT_PATH+'Fast/cosmos_3dhst.v2.2.fout'
         KTOT_COL = 'f_k'
 
 

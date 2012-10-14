@@ -154,7 +154,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             KTOT_COL = 'K'
 
         # For the v2.1 reduction
-        if unicorn.hostname().startswith('uni'):
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyper'):
             CAT_PATH = '/3DHST/Photometry/Release/v2.1/COSMOS/'
         else:
             CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS/COSMOS_v2.0_PHOTOMETRY/'
@@ -162,7 +162,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v2.2.cat'
         ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v2.2.zout'
         FOUT_FILE = CAT_PATH+'Fast/cosmos_3dhst.v2.2.cat.fout'
-        KTOT_COL = 'K'
+        KTOT_COL = 'f_k'
 
 
          

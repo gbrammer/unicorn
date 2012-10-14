@@ -188,12 +188,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'K'
         
         #F140W selected catalog
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-            CAT_PATH = '/3DHST/Photometry/Work/AEGIS/'
-            CAT_FILE = CAT_PATH + 'Fast/v0.1/aegis_3dhst.v0.1.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1/aegis_3dhst.v0.1.zout'
-            FOUT_FILE = CAT_PATH+'Fast/v0.1/aegis_3dhst.v0.1.fout'
-            KTOT_COL = 'f_K'
+        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
+            GRISM_PATH = '/3DHST/Photometry/Release/v2.1/'
+            CAT_PATH = GRISM_PATH+'AEGIS/'
+            CAT_FILE = CAT_PATH + 'Catalog/aegis_3dhst.v0.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v0.1.zout'
+            FOUT_FILE = CAT_PATH+'Fast/aegis_3dhst.v0.1.fout'
+            KTOT_COL = 'f_k'
             #CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
             #CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
             #ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
@@ -310,12 +311,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if uds:
         #for the v2.1 reduction:
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            GRISM_PATH= '/3DHST/Photometry/Work/UDS/v2/'
-            CAT_PATH = GRISM_PATH+'Eazy/'
-            CAT_FILE = CAT_PATH+'uds_3dhst.v0.1.cat'
-            ZOUT_FILE = CAT_PATH+'v0.1/uds_3dhst.v0.1.zout'
-            FOUT_FILE = GRISM_PATH +'Fast/uds_3dhst.v0.1.fout'
-            KTOT_COL = 'f_K'
+            GRISM_PATH= '/3DHST/Photometry/Release/v2.1/'
+            CAT_PATH = GRISM_PATH+'UDS/'
+            CAT_FILE = CAT_PATH+'Catalog/uds_3dhst.v0.1.cat'
+            ZOUT_FILE = CAT_PATH+'Eazy/uds_3dhst.v0.1.zout'
+            FOUT_FILE = CAT_PATH +'Fast/uds_3dhst.v0.1.fout'
+            KTOT_COL = 'f_k'
         
         #external catalogs for uds
         #GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
@@ -708,7 +709,8 @@ specphot(id)
     yint = np.interp(lam[q], lambdaz, temp_sed_sm)
         
     anorm = np.sum(yint*ffix[q])/np.sum(ffix[q]**2)
-    
+    if np.isnan(anorm):
+        anorm = 1.0
     total_err = np.sqrt((ferr)**2+(1.0*spec.field('CONTAM'))**2)*anorm
     
     if GET_SPEC_ONLY:

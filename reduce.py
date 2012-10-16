@@ -163,8 +163,41 @@ def combine_all(FORCE=False):
         #
         if (not os.path.exists(pointing+'-G141_inter.fits')) | FORCE:
             unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
+
+def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
+    """
+    Get interlacing pixel offsets from postargs
+    """
+    # asn = threedhst.utils.ASNFile(asn_file)
+    # xpos, ypos = [], []
+    # for exp in asn.exposures:
+    #     head = pyfits.getheader(os.path.join(path_to_flt, exp+'_flt.fits'))
+    #     xpos.append(head['POSTARG1'])
+    #     ypos.append(head['POSTARG2'])
+    #
+    ### WFC3 postargs
+    xpos = [0, 1.355, 0.881, -0.474]
+    ypos = [0.0, 0.424, 1.212, 0.788]
     
-def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
+    a10 = 0.00
+    a11 = 0.0494
+    b10 = 0.0494
+    b11 = 0.0040
+
+    acsang = 92.16 - -45.123
+    xpos_acs, ypos_acs = threedhst.utils.xyrot(np.array(xpos), np.array(ypos), acsang)
+    xoff = xpos_acs / a11
+    yoff = (ypos_acs-xoff*b11)/b10
+
+    # xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
+    # yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
+    # 
+    xinter = -np.cast[int](np.round(xoff*growx))
+    yinter = -np.cast[int](np.round(yoff*growy))
+    
+    return xinter, yinter
+    
+def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=False, first_zero=False, raw=False):
     """
     Compute the necessary interlace offsets for a set of 
     dithered exposures defined in an ASN table
@@ -172,7 +205,8 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     asn = threedhst.utils.ASNFile(asn_file)
     xpos, ypos = [], []
     for exp in asn.exposures:
-        head = pyfits.getheader(os.path.join(path_to_flt, exp+'_flt.fits'))
+        fitsfile = threedhst.utils.find_fits_gz(os.path.join(path_to_flt, exp+'_flt.fits'))
+        head = pyfits.getheader(fitsfile)
         xpos.append(head['POSTARG1'])
         ypos.append(head['POSTARG2'])
     
@@ -183,14 +217,33 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     xoff = np.array(xpos)/a11
     yoff = np.array(ypos)/b10
     
+    if raw:
+        return xoff, yoff
+        
     ### round and reverse offsets for combining the images
+    if verbose:
+        print xoff*growx, yoff*growy
+        #print '%.2f %.2f' %(xoff*growy, yoff*growy)
     
-    xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
-    yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
+    if first_zero:
+        x0, y0 = xoff[0], yoff[0]
+    else:
+        x0, y0 = 0., 0.
+        
+    xinter = -np.cast[int](np.round((xoff-x0)*10)/10.*growx)
+    yinter = -np.cast[int](np.round((yoff-y0)*10)/10.*growy)
+    plot = """
+    xinter = -(np.round(xoff*10)/10.*growx)
+    yinter = -(np.round(yoff*10)/10.*growy)
+    plt.plot(xinter % growx, yinter % growy, marker='o', ms=10, alpha=0.5)
+    plt.xlim(0,growx); plt.ylim(0,growy)
+    """
+    
     #print xinter, yinter
     return xinter-xinter[0], yinter-yinter[0]
     
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False):
+    
     from pyraf import iraf
     from iraf import iraf
     from iraf import dither
@@ -251,6 +304,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         dxs = np.array([0, 9, -4, 5, -8]) + np.int(np.round(xsh[0]))*0
         dys = np.array([0, -4, -5, 5, 4]) + np.int(np.round(ysh[0]))*0
     
+    #### Rigby lens galaxy
+    if root.startswith('RCS0327'):
+        dxs = np.array([0, -26]) + np.int(np.round(xsh[0]))*0
+        dys = np.array([0, -57]) + np.int(np.round(ysh[0]))*0
+        
     #### Cooper program in AEGIS
     if root.startswith('EGS1'):
         auto_offsets=True
@@ -614,12 +672,13 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm)
     
-    model.get_corrected_wcs(verbose=True)
+    if not use_segm:
+        model.get_corrected_wcs(verbose=True)
     
     test = model.load_model_spectra()
     if not test:
@@ -631,9 +690,9 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
             model.model*=0
         
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False)   
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
-        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True)
+        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope)
         
     return model
     
@@ -823,8 +882,13 @@ class Interlace2D():
         self.y_pix = self.oned.header['Y_PIX']
         self.pad = self.im[0].header['PAD']
         self.grow_factor = 2 ### add these parameters to 2D header
-        self.growx = self.im[0].header['GROWX']
-        self.growy = self.im[0].header['GROWY']
+        try:
+            self.growx = self.im[0].header['GROWX']
+            self.growy = self.im[0].header['GROWY']
+        except:
+            self.growx = 2
+            self.growy = 2
+        #
         self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
@@ -992,7 +1056,7 @@ class Interlace2D():
                 
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False):
         """
         Initialize: set padding, growth factor, read input files.
         """
@@ -1000,6 +1064,7 @@ class GrismModel():
         self.grow_factor = grow_factor
         self.growx = growx
         self.growy = growy
+        self.use_segm = use_segm
         
         #### Read the direct interlaced image        
         self.direct = pyfits.open(self.root+'-F140W_inter.fits')
@@ -1073,11 +1138,15 @@ class GrismModel():
             self.cat.y_pix = np.cast[float](self.cat.Y_IMAGE)
             
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
-
-
+        
         self.segm = pyfits.open(self.root+'_inter_seg.fits')
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
-                
+        
+        if self.use_segm:
+            self.objects = np.unique(self.segm[0].data)[1:]
+        else:
+            self.objects = self.cat['NUMBER']
+                 
     def make_flux(self):
         """
         Convert from e/s to physical fluxes using the ZP and pivot wavelength 
@@ -1274,7 +1343,7 @@ class GrismModel():
         
         self.obj_in_model = {}
         self.flux_specs = {}
-        for obj in self.cat['NUMBER']:
+        for obj in self.objects:
             #self.lam_specs[obj] = None
             self.flux_specs[obj] = None
             self.obj_in_model[obj] = False
@@ -1301,7 +1370,7 @@ class GrismModel():
         #self.new_fluxes = {}
 
         fluxes = utils_c.total_flux(self.flux, self.segm[0].data)
-        for obj in self.cat['NUMBER']:
+        for obj in self.objects:
             #self.new_fluxes[obj] = fluxes[obj]
             self.total_fluxes[obj] = fluxes[obj]
                     
@@ -1560,7 +1629,7 @@ class GrismModel():
             self.model -= self.object
             self.obj_in_model[id] = False
             
-    def compute_full_model(self, BEAMS=['A','B','C','D'], view=None, MAG_LIMIT=23., save_pickle=True, refine=True):
+    def compute_full_model(self, BEAMS=['A','B','C','D'], view=None, MAG_LIMIT=23., save_pickle=True, refine=True, model_slope=0):
         
         #self.model*=0.
         if refine:
@@ -1571,16 +1640,21 @@ class GrismModel():
         mag = self.cat['MAG_AUTO']
         so = np.argsort(mag)
         so = so[mag[so] <= MAG_LIMIT]
+        
+        if self.use_segm:
+            so = np.arange(len(self.total_fluxes.keys()))
+            
         N = len(so)
-                
         for i in range(N):
             #for i, id in enumerate(self.cat['NUMBER'][so]):
-            id = self.cat['NUMBER'][so][i]
+            id = self.objects[so][i]
             print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
             if refine:
                 self.refine_model(id, BEAMS=BEAMS, view=view)      
             else:
-                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=None, flux_spec=None)      
+                lx = np.arange(0.9e4,1.8e4)
+                ly = 1+model_slope*(lx-1.4e4)/4.e3
+                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly)      
                 self.model += self.object
                 self.obj_in_model[id] = True
                 
@@ -4796,6 +4870,7 @@ def strip_header(header=None, filter='F140W'):
     copy_keys = ['WCSAXES', 'CTYPE1', 'CTYPE2','CRVAL1', 'CRVAL2', 'CRPIX1','CRPIX2', 'CD1_1', 'CD1_2', 'CD2_1', 'CD2_2', 'LTM1_1', 'LTM2_2', 'PA_APER', 'ORIENTAT', 'RA_APER', 'DEC_APER', 'VAFACTOR']
     
     for key in copy_keys:
+        #print 'Key: [%s]' %(key)
         if key in header.keys():
             new_header.update(key,  header.get(key))
         else:

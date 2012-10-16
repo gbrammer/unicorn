@@ -1143,11 +1143,12 @@ class GrismSpectrumFit():
         line_wavelengths['Ha'] = [6564.61]; line_ratios['Ha'] = [1.]
         line_wavelengths['Hb'] = [4862.68]; line_ratios['Hb'] = [1.]
         line_wavelengths['Hg'] = [4341.68]; line_ratios['Hg'] = [1.]
+        line_wavelengths['Hd'] = [4102.892]; line_ratios['Hd'] = [1.]
         line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
-        line_wavelengths['HeI'] = [3889.0]; line_ratios['HeI'] = [1.]
+        line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
         line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
@@ -1156,6 +1157,7 @@ class GrismSpectrumFit():
         fancy['Ha'] = (r'H$\alpha$', line_wavelengths['Ha'] )
         fancy['Hb'] = (r'H$\beta$', line_wavelengths['Hb'] )
         fancy['Hg'] = (r'H$\gamma$', line_wavelengths['Hg'] )
+        fancy['Hd'] = (r'H$\delta$', line_wavelengths['Hd'] )
         fancy['OIII'] = ( 'O III', line_wavelengths['OIII'] )
         fancy['OII']  = ( 'O II', line_wavelengths['OII'] )
         fancy['SII']  = ( 'S II', line_wavelengths['SII'] ) 
@@ -1208,11 +1210,12 @@ class GrismSpectrumFit():
         line_wavelengths['Ha'] = [6564.61]; line_ratios['Ha'] = [1.]
         line_wavelengths['Hb'] = [4862.68]; line_ratios['Hb'] = [1.]
         line_wavelengths['Hg'] = [4341.68]; line_ratios['Hg'] = [1.]
+        line_wavelengths['Hd'] = [4102.892]; line_ratios['Hd'] = [1.]
         line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
-        line_wavelengths['HeI'] = [3889.0]; line_ratios['HeI'] = [1.]
+        line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
         line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
@@ -1221,6 +1224,7 @@ class GrismSpectrumFit():
         fancy['Ha'] = r'H$\alpha$'
         fancy['Hb'] = r'H$\beta$'
         fancy['Hg'] = r'H$\gamma$'
+        fancy['Hd'] = r'H$\delta$'
         fancy['OIII'] =  'O III'
         fancy['OII']  =  'O II' 
         fancy['SII']  =  'S II' 
@@ -1819,14 +1823,23 @@ class emceeChain():
                 a = ax.set_ylim(self.stats[show[j]]['q50']-3*self.stats[show[j]]['std'], self.stats[show[j]]['q50']+3*self.stats[show[j]]['std'])
                 if i == j:
                     a = ax.text(0.5, 0.92, show[i], fontsize=8, color='red', horizontalalignment='center', verticalalignment='top', transform=ax.transAxes)
-        
+        Å
         if file is not None:
             fig.savefig(file)
-            
+    
+    def draw_random(self, N=10):
+        """
+        Draw random sets of parameters from the chain
+        """
+        iwalk = np.cast[int](np.random.rand(N)*self.nwalkers)
+        istep = self.nburn + np.cast[int](np.random.rand(N)*(self.nstep-self.nburn))
+        draw = self.chain[iwalk, istep, :]
+        return draw
+        
     def __getitem__(self, param):
         pid = self.param_dict[param]
         return self.chain[:,:,pid]
-
+        
 def objective_twod_OLD(params, return_model=False):
     """
     Objective function for the MCMC redshift fit

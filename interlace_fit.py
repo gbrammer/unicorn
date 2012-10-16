@@ -1823,7 +1823,7 @@ class emceeChain():
                 a = ax.set_ylim(self.stats[show[j]]['q50']-3*self.stats[show[j]]['std'], self.stats[show[j]]['q50']+3*self.stats[show[j]]['std'])
                 if i == j:
                     a = ax.text(0.5, 0.92, show[i], fontsize=8, color='red', horizontalalignment='center', verticalalignment='top', transform=ax.transAxes)
-        Å
+
         if file is not None:
             fig.savefig(file)
     

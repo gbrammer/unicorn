@@ -906,7 +906,7 @@ def AEGIS(FORCE=False):
     os.chdir(unicorn.GRISM_HOME+'AEGIS/PREP_FLT')
     ALIGN = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1*drz.fits'
     # ALIGN = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
-    
+    # ALIGN = '/Volumes/Crucial/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits'
     #### Direct images only
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
@@ -1300,6 +1300,45 @@ def SN_TILE41():
     
     ##########
     ###
+#
+def SN_CLASH():
+    """
+    GOODS-ERS field (not candels)
+    """
+    import glob
+    import unicorn.candels
+    import threedhst
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    
+    os.chdir("/research/HST/GRISM/3DHST/SN-PERLMUTTER/PREP_FLT")
+    unicorn.candels.make_asn_files()
+    
+    ALIGN_IMAGE = '/Volumes/WD3_Data/Users/gbrammer/CLASH/macs1720/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
+        
+    files=glob.glob('SN-*F1*asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+    
+    info = catIO.Readfile('files.info')
+    angles = np.unique(np.cast[int](info.pa_v3))
+    asn = threedhst.utils.ASNFile('SN-L1-PANCHA-F160W_asn.fits')
+    for angle in angles:
+        asn.exposures = []
+        exps = info.file[(np.cast[int](info.pa_v3) == angle) & (info.filter == 'G141')]
+        for exp in exps:
+            asn.exposures.append(exp.split('_flt')[0])
+        #
+        asn.product = 'SN-L1-PANCHA-%03d-G141' %(angle)
+        asn.write('SN-L1-PANCHA-%03d-G141_asn.fits' %(angle), clobber=True)
+    #
+    pair('SN-L1-PANCHA-F160W_asn.fits', 'SN-L1-PANCHA-307-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
+    pair('SN-L1-PANCHA-F160W_asn.fits', 'SN-L1-PANCHA-312-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
+    
+       
 def SN_GEORGE():
     ####********************************************####
     ####              SN-GEORGE (GOODS-S)

@@ -1857,12 +1857,28 @@ def proposal_figure():
         ax.text(0.5, 0.9, r'$%s$' %(labels[i]), transform=ax.transAxes, horizontalalignment='center', verticalalignment='top', fontsize=12)
 
 def go_make_thumbnails():
+    """
+    Make thunbnails with a range of sizes for the 3D-HST fields
+    """
     import unicorn.candels
+    import glob
     
     for field in ['COSMOS','GOODS-N','GOODS-S']:
         for box in [1.5,3.,6,12]:
             unicorn.candels.threedhst_RGB_thumbnails(field=field, box_size=box, skip=True)
-      
+    
+    ### Make separate directories for each size to make easier to copy/download
+    for field in ['COSMOS','GOODS-N','GOODS-S']:
+        for box in [1.5,3.,6,12]:
+            print '%s/%04.1f' %(field, box)
+            try:
+                os.mkdir('%s/%04.1f' %(field, box))
+            except:
+                pass
+            #
+            os.system('mv %s/*%04.1f.png %s/%04.1f/' %(field, box, field, box))
+
+            
 def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     """
     Make thumbnails for all grism objects in a given 3D-HST field

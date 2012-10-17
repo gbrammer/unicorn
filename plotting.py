@@ -19,7 +19,7 @@ import matplotlib.ticker as mticker
 
 import threedhst
 
-def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, fontsize=10, NO_GUI=False, use_tex=False):
+def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, wspace=0.2, hspace=0.02, fontsize=10, NO_GUI=False, use_tex=False):
     """
     Wrapper for generating a plot window, contains input parameters for setting the 
     full window geometry and also handles toggling the GUI/interactive backend.
@@ -58,7 +58,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
         else:
             fig = Figure(figsize=(xs,ys), dpi=100)
             
-        fig.subplots_adjust(left=lrbt[0],bottom=lrbt[2],right=1-lrbt[1],top=1-lrbt[3])
+        fig.subplots_adjust(left=lrbt[0], bottom=lrbt[2], right=1-lrbt[1], top=1-lrbt[3], wspace=wspace, hspace=hspace)
 
     else:
         if USE_PLOT_GUI:
@@ -66,21 +66,21 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
         else:
             fig = Figure(figsize=(7,5), dpi=100)
             
-        fig.subplots_adjust(wspace=0.2,hspace=0.02,left=0.10,
+        fig.subplots_adjust(wspace=wspace, hspace=hspace,left=0.10,
                         bottom=0.10,right=0.99,top=0.97)        
     
     return fig
     
-def savefig(fig, filename='figure.png', no_tex=True):
+def savefig(fig, filename='figure.png', no_tex=True, dpi=100):
     """
     Wrapper around the `savefig` method to handle the two different backends, set whether or not
     an X11/interactive connection is available.
     """
     if USE_PLOT_GUI:
-        fig.savefig(filename,dpi=100,transparent=False)
+        fig.savefig(filename,dpi=dpi,transparent=False)
     else:
         canvas = FigureCanvasAgg(fig)
-        canvas.print_figure(filename, dpi=100, transparent=False)
+        canvas.print_figure(filename, dpi=dpi, transparent=False)
     #
     if no_tex:
         plt.rcParams['text.usetex'] = False

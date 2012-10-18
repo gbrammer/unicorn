@@ -3901,7 +3901,6 @@ def interlace_cosmos2():
     fp.close()
     fp2.close()
 	
-	
 def interlace_uds0():
     """
     Reduce the UDS-0* pointings on Unicorn and extract spectra, using the full
@@ -3917,28 +3916,28 @@ def interlace_uds0():
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
     #unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='UDS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/UDS/v2/images/UDS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/UDS/v2/images/UDS_125_140_160_sub.fits')
+    unicorn.reduce.prepare_blot_reference(Force=True, REF_ROOT='UDS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/UDS/v2/images/UDS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/UDS/v2/sextr/checkimages/UDS_125_140_160.seg.fits')
         
     NGROW=125
     pad=60
     CATALOG='/3DHST/Photometry/Work/UDS/v2/sextr/catalogs/UDS_F140W_conv.cat'
     extract_limit = 24
     skip_completed=False
-    REF_ROOT='UDS_F140W'
+    REF_ROOT='UDS_F140W_foo'
 
-    direct=glob.glob('UDS-[0-9]-F140W_asn.fits')
+    direct=glob.glob('UDS-*-F140W_asn.fits')
 
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
         unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
-        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=False, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-[0-9]-G141_inter.fits')
-    redo = False
+    redo = True
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         if (not os.path.exists(pointing+'_model.fits')) | redo:
@@ -3949,7 +3948,7 @@ def interlace_uds0():
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-11')
 
-    skip_completed = True
+    skip_completed = False
 
     models = glob.glob('UDS-[0-9]_inter_model.fits')
     for file in models[::1]:
@@ -4023,11 +4022,6 @@ def interlace_uds1():
     import os
 
     os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v2.1')
-
-    #### This step is needed to strip all of the excess header keywords from the mosaic for use
-    #### with `blot`.
-    #unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
-    #unicorn.reduce.prepare_blot_reference(REF_ROOT='UDS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/UDS/v2/images/UDS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/UDS/v2/images/UDS_125_140_160_sub.fits')
         
     NGROW=125
     pad=60
@@ -4038,14 +4032,6 @@ def interlace_uds1():
 
     direct=glob.glob('UDS-1*-F140W_asn.fits')
     direct.remove('UDS-18-F140W_asn.fits')
-
-    ##### Generate the interlaced images, including the "blotted" detection image
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
-        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
-        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
-        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
-        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-1[0-9]-G141_inter.fits')
@@ -4133,12 +4119,7 @@ def interlace_uds2():
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v2.1')
-
-    #### This step is needed to strip all of the excess header keywords from the mosaic for use
-    #### with `blot`.
-    #unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
-    #unicorn.reduce.prepare_blot_reference(REF_ROOT='UDS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/UDS/v2/images/UDS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Work/UDS/v2/images/UDS_125_140_160_sub.fits')
+    #os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v2.1')
         
     NGROW=125
     pad=60
@@ -4148,15 +4129,6 @@ def interlace_uds2():
     REF_ROOT='UDS_F140W'
 
     direct=glob.glob('UDS-2[0-9]-F140W_asn.fits')
-
-    ##### Generate the interlaced images, including the "blotted" detection image
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
-        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
-        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
-        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
-        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
-
 
     ##### Generate the spectral model and Extract all spectra
     inter = glob.glob('UDS-2[0-9]-G141_inter.fits')
@@ -4232,8 +4204,7 @@ def interlace_uds2():
                 continue
             #
             print '\n'
-            gris.new_fit_free_emlines(ztry=None)
-
+            gris.new_fit_free_emlines(ztry=None)	
 
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False):
     """

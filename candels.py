@@ -1983,7 +1983,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
         alpha = np.interp(mag[idx][i], mag_i, alpha_i, left=alpha_i[0], right=alpha_i[1])
         m0 = np.interp(mag[idx][i], mag_i, m0_i, left=m0_i[0], right=m0_i[1])
         #
-        unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=(NX, NY))
+        unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=sub_r.shape)
         #labels = ['%s %d' %(root, cat2.cat.id[idx][i]), 'z= %.2f' %(cat2.zout.z_peak[idx][i]), 'log M= %.1f' %(cat2.fout.lmass[idx][i])]
         #old_im = 'RGB/%s_0.png' %(obj)
         #unicorn.candels.thumbnail_annotate(old_im, label=labels, italic=True, fit=True).save(old_im.replace('.png','_t.png'))

@@ -740,7 +740,7 @@ class GrismSpectrumFit():
         ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
-        plt.gray()
+        #plt.gray()
         fig.subplots_adjust(hspace=0.001)
         
         if vmax==None:

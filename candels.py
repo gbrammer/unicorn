@@ -1913,35 +1913,35 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=
     
     #### Images
     if field == 'GOODS-N':
-        mag = 25-2.5*np.log10(cat.f_f140)
+        mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/3DHST/Ancillary/GOODS-N/CANDELS/Gabe'
         im_r = pyfits.open(os.path.join(PATH, 'GN-v2-F160W_drz_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'GN-v2-F125W_drz_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, '../../GOODS_ACS/GN-ACSi.fits'))
     
     if field == 'COSMOS':
-        mag = 25-2.5*np.log10(cat.F140W)
+        mag = 25-2.5*np.log10(cat.f140w)
         PATH = '/3DHST/Ancillary/COSMOS/CANDELS/Gabe/'
         im_r = pyfits.open(os.path.join(PATH, 'COSMOS-full-F160W_drz_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'COSMOS-full-F125W_drz_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, 'COSMOS-full-ACSi.fits'))
     
     if field == 'GOODS-S':
-        mag = 25-2.5*np.log10(cat.f_f140)
+        mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/3DHST/Ancillary/GOODS-S/'
         im_r = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, 'GOODS_ACS/GS-ACSi.fits'))
     
     if field == 'UDS':
-        mag = 25-2.5*np.log10(cat.f_f140)
+        mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/Volumes/robot/3DHST/Photometry/Work/UDS/v2/images'
         im_r = pyfits.open(os.path.join(PATH, 'UDS_F160W_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'UDS_F125W_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, 'UDS_F814W_sci.fits'))
 
     if field == 'AEGIS':
-        mag = 25-2.5*np.log10(cat.f_f140)
+        mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/3DHST/Photometry/Work/AEGIS/IMAGES/SMALL_PIXSCL/'
         im_r = pyfits.open(os.path.join(PATH, 'AEGIS_F160W_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'AEGIS_F125W_sci.fits'))

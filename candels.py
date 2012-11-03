@@ -1863,13 +1863,14 @@ def go_make_thumbnails():
     import unicorn.candels
     import glob
     
+    box_sizes = [1.5, 3.0, 6.0] # 12
     for field in ['COSMOS','GOODS-N','GOODS-S']:
-        for box in [1.5,3.,6,12]:
+        for box in box_sizes:
             unicorn.candels.threedhst_RGB_thumbnails(field=field, box_size=box, skip=True)
     
     ### Make separate directories for each size to make easier to copy/download
     for field in ['COSMOS','GOODS-N','GOODS-S']:
-        for box in [1.5,3.,6,12]:
+        for box in box_sizes:
             print '%s/%04.1f' %(field, box)
             try:
                 os.mkdir('%s/%04.1f' %(field, box))
@@ -1879,11 +1880,14 @@ def go_make_thumbnails():
             os.system('mv %s/*%04.1f.png %s/%04.1f/' %(field, box, field, box))
 
             
-def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
+def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=0):
     """
     Make thumbnails for all grism objects in a given 3D-HST field
     
     Thumbnail `box_size` is the radius, given in arcsec
+    
+    rgb_channel = 0: All RGB
+    rgb_chanel = (1,2,3): only (R,G,B)
     
     GBB, 10/10/2012
     """
@@ -1927,6 +1931,28 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
         im_g = pyfits.open(os.path.join(PATH, 'CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits'))
         im_b = pyfits.open(os.path.join(PATH, 'GOODS_ACS/GS-ACSi.fits'))
     
+    if field == 'UDS':
+        mag = 25-2.5*np.log10(cat.f_f140)
+        PATH = '/Volumes/robot/3DHST/Photometry/Work/UDS/v2/images'
+        im_r = pyfits.open(os.path.join(PATH, 'UDS_F160W_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'UDS_F125W_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, 'UDS_F814W_sci.fits'))
+
+    if field == 'AEGIS':
+        mag = 25-2.5*np.log10(cat.f_f140)
+        PATH = '/3DHST/Photometry/Work/AEGIS/IMAGES/SMALL_PIXSCL/'
+        im_r = pyfits.open(os.path.join(PATH, 'AEGIS_F160W_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'AEGIS_F125W_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, 'AEGIS_F814W_sci.fits'))
+        im_14 = pyfits.open(os.path.join(PATH, 'AEGIS_F140W_sci.fits'))
+        
+        ### Make two-color F814W/F140W where CANDELS not available
+        fill = (im_r[0].data == 0) & (im_14[0].data != 0)
+        r_scale = 10**(-0.4*(26.46-25.96))
+        im_r[0].data[fill] = im_14[0].data[fill]*r_scale
+        b_scale = 10**(-0.4*(25.94-25.96))*1.5
+        im_g[0].data[fill] = (im_r[0].data[fill]*0.5 + im_b[0].data[fill]*0.5*b_scale) / 10**(-0.4*(26.25-25.96))
+    
     print 'Reading large images....'
     
     ### Image WCS
@@ -1939,7 +1965,13 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
     idx = idx[np.argsort(mag[idx])]
     
     ### Box size
-    NX = int(np.round(box_size/0.06))
+    pix_scale = im_r[0].header['CD1_1']**2
+    if 'CD1_2' in im_r[0].header.keys():
+        pix_scale += im_r[0].header['CD1_2']**2
+    
+    pix_scale = np.sqrt(pix_scale)*3600.
+        
+    NX = int(np.round(box_size/pix_scale))
     NY = NX
     
     ### View in DS9
@@ -1963,7 +1995,8 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
         if os.path.exists(out_image) & skip:
             continue
         #
-        xy = np.round(wcs.wcs_sky2pix(cat.ra[idx][i], cat.dec[idx][i],0))
+        ra, dec = cat.ra[idx][i], cat.dec[idx][i]
+        xy = np.round(wcs.wcs_sky2pix(ra, dec,0))
         xc, yc = int(xy[0]), int(xy[1])
         if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
             continue
@@ -1973,10 +2006,29 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True):
             xy = np.round(np.cast[float](ds9.get('pan').split()))
             xc, yc = int(xy[0]), int(xy[1])
             obj = 'tmp'
-        #
+        
+        ### F160W
         sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
+        ### F125W
         sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
+        ### F814W
         sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+        
+        if rgb_channel == 1:
+            sub_g*=0
+            sub_b*=0
+            out_image = out_image.replace('.png','_R.png')
+        
+        if rgb_channel == 2:
+            sub_r*=0
+            sub_b*=0
+            out_image = out_image.replace('.png','_G.png')
+        
+        if rgb_channel == 3:
+            sub_r*=0
+            sub_g*=0
+            out_image = out_image.replace('.png','_B.png')
+
         #
         #### Interpolate scale parameters
         Q = np.interp(mag[idx][i], mag_i, Q_i, left=Q_i[0], right=Q_i[1])

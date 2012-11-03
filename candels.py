@@ -1895,19 +1895,21 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=
     import threedhst.catIO as catIO
     
     #### Working directory
-    os.chdir('/3DHST/Spectra/Work/RGB/v2.0')
+    os.chdir('/3DHST/Spectra/Work/RGB/v2.1')
     try:
         os.mkdir(field)
     except:
         pass
         
     catalogs = {}
-    catalogs['COSMOS'] = '3dhst.cosmos.v2.0.cat'
-    catalogs['GOODS-N'] = 'goodsn_v1.8.fullz_wzp.cat'
-    catalogs['GOODS-S'] = 'GOODS-S_v2.0.fullz_wzp.cat'
+    catalogs['COSMOS'] = 'cosmos_3dhst.v2.1.cat'
+    catalogs['GOODS-N'] = 'goodsn_3dhst.v2.1.cat'
+    catalogs['GOODS-S'] = 'goodss_3dhst.v2.1.cat'
+    catalogs['AEGIS'] = 'aegis_3dhst.v2.1.cat'
+    catalogs['UDS'] = 'uds_3dhst.v2.1.cat'
     
-    zfit = catIO.Readfile('/3DHST/Spectra/Release/v2.0/%s/%s.zfit.linematched.dat' %(field, field), save_fits=False)
-    cat = catIO.Readfile('/3DHST/Photometry/Release/v2.0/%s/Catalog/%s' %(field, catalogs[field]), save_fits=False)
+    zfit = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s.zfit.linematched.dat' %(field, field), save_fits=False)
+    cat = catIO.Readfile('/3DHST/Photometry/Release/v2.1/%s/Catalog/%s' %(field, catalogs[field]), save_fits=False)
     
     #### Images
     if field == 'GOODS-N':

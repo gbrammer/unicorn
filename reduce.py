@@ -321,7 +321,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         xinter, yinter = red.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter + np.int(np.round(xsh[0]))*0
         dys = yinter + np.int(np.round(ysh[0]))*0
-
+        
     dxs += ddx
     dys += ddy
     
@@ -3608,7 +3608,7 @@ def interlace_cosmos0():
     #### with `blot`.
     #unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F160W', REFERENCE = 'phot/COSMOS_F160W_sci.fits', SEGM = 'phot/F160W_seg.fits')
     unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/COSMOS/IMAGES/SMALL_PIXSCL/COSMOS_F140W_sci.fits', SEGM = '/3DHST/Photometry/Release/COSMOS/v2.0/Detection/F125W_F140W_F160W_seg.fits')
-        
+    
     NGROW=125
     pad=60
     #CATALOG='phot/F160W_arjen.cat'
@@ -4277,7 +4277,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter + np.int(np.round(xsh[0]))*0
         dys = yinter + np.int(np.round(ysh[0]))*0
-    
+        print 'Auto offsets: ', dxs, dys
+        
     dxi = np.cast[int](np.ceil(dxs/growx))
     dyi = np.cast[int](np.ceil(dys/growy))
     
@@ -4290,8 +4291,15 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #     
     # hot_pix = hot_pix > 2
         
-    for i,flt in enumerate(run.flt):
-        flt = run.flt[i]
+    ### For COSMOS-2, somehow the order of exposures isn't sorted 
+    ### alphabetically.  The multidrizzle ".run" file has the files in alpha
+    ### order, so if you loop through them they won't correspond to the 
+    ### correct dither positions.  Use the ASN file itself for the list
+    ### of flt/blot files
+    #for i,flt in enumerate(run.flt):
+    #   flt = run.flt[i]
+    for i in range(len(asn.exposures)):
+        flt = asn.exposures[i]+'_flt'
         print flt
         im = pyfits.open(flt.replace('_flt','_blot')+'.fits')
         #im_wht = pyfits.open(flt.replace('_flt','_blot_wht')+'.fits')

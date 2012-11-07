@@ -4628,9 +4628,9 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 #
                 status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = 'align_blot.fits', 
                    outnx = 1014, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
-                   coeffs = run.flt[0]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
-                   align = 'center', scale = run.scl, xsh = run.xsh[0]+xoff, ysh = run.ysh[0]+yoff, 
-                   rot = run.rot[0]+roff, shft_un = 'input', shft_fr = 'input', 
+                   coeffs = run.flt[idx]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
+                   align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+                   rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
                    refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
                    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1'], 
                    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
@@ -4639,7 +4639,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 #
                 dx, dy, rot, xrms, yrms = unicorn.reduce.realign_blotted(flt=FLT, blotted='align_blot.fits', fitgeometry=geom)
                 #### Transform the shifts/rotation in the FLT frame to the reference image frame
-                alpha = np.pi+(run.rot[0]+roff)/360*2*np.pi
+                alpha = np.pi+(run.rot[idx]+roff)/360*2*np.pi
                 dx_flt = np.cos(alpha)*dx-np.sin(alpha)*dy
                 dy_flt = np.sin(alpha)*dx+np.cos(alpha)*dy
                 #

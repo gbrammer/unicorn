@@ -183,14 +183,14 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
     run = threedhst.prep_flt_files.MultidrizzleRun((asn_file.split('_asn.fits')[0]).upper())
     
     for i in range(len(asn.exposures)):
-        exp = asn.exposures[i]
-        flt = pyfits.open(exp+'_flt.fits', mode='update')
+        exp = run.flt[i*skip]
+        flt = pyfits.open(exp+'.fits', mode='update')
         ### Loop through ACS chips
         for j in [0,1]:
             run.blot_back(ii=i*skip+j, copy_new=(i == 0) & (j == 0), ACS_CHIP = j+1)
             
             threedhst.prep_flt_files.make_segmap(run.flt[i*skip+j], IS_GRISM=True)
-            seg = pyfits.open(exp+'_flt.seg.fits')
+            seg = pyfits.open(exp+'.seg.fits')
         
             ext = extensions[j]
             
@@ -263,14 +263,14 @@ def testing_f814w_background(asn_file='jbhm39020_asn.fits'):
     run = threedhst.prep_flt_files.MultidrizzleRun((asn_file.split('_asn.fits')[0]).upper())
     
     for i in range(len(asn.exposures)):
-        exp = asn.exposures[i]
-        flt = pyfits.open(exp+'_flt.fits', mode='update')
+        exp = run.flt[i*skip]
+        flt = pyfits.open(exp+'.fits', mode='update')
         ### Loop through ACS chips
         for j in [0,1]:
             run.blot_back(ii=i*skip+j, copy_new=(i == 0) & (j == 0), ACS_CHIP = j+1)
             
             threedhst.prep_flt_files.make_segmap(run.flt[i*skip+j], IS_GRISM=True)
-            seg = pyfits.open(exp+'_flt.seg.fits')
+            seg = pyfits.open(exp+'.seg.fits')
         
             ext = extensions[j]
             
@@ -498,6 +498,10 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
     sw_seg.options['FSCALASTRO_TYPE']='NONE'
     if reference_image.find('GOODS-S-08') != -1:
         sw_seg.options['CENTER']='03:32:47.08, -27:53:59.57'
+    if reference_image.find('UDS-16') != -1:
+        sw_seg.options['CENTER']='02:16:51.057, -05:11:29.29'
+    if reference_image.find('UDS-06') != -1:
+        sw_seg.options['CENTER']='02:17:54.043, -05:14:15.15'
     sw_seg.swarpImage(master_segmentation)
     print sw_seg.options['CENTER']
 

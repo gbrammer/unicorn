@@ -498,10 +498,14 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
     sw_seg.options['FSCALASTRO_TYPE']='NONE'
     if reference_image.find('GOODS-S-08') != -1:
         sw_seg.options['CENTER']='03:32:47.08, -27:53:59.57'
-    if reference_image.find('UDS-16') != -1:
-        sw_seg.options['CENTER']='02:16:51.057, -05:11:29.29'
+    if reference_image.find('GOODS-S-27') != -1:
+        sw_seg.options['CENTER']='03:32:43.089, -27:43:51.20'
+    if reference_image.find('GOODS-S-34') != -1:
+        sw_seg.options['CENTER']='03:32:59.051, -27:50:47.03'
     if reference_image.find('UDS-06') != -1:
         sw_seg.options['CENTER']='02:17:54.043, -05:14:15.15'
+    if reference_image.find('UDS-16') != -1:
+        sw_seg.options['CENTER']='02:16:51.057, -05:11:29.29'
     sw_seg.swarpImage(master_segmentation)
     print sw_seg.options['CENTER']
 

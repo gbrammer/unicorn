@@ -1920,7 +1920,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=
         im_b = pyfits.open(os.path.join(PATH, '../../GOODS_ACS/GN-ACSi.fits'))
     
     if field == 'COSMOS':
-        mag = 25-2.5*np.log10(cat.f140w)
+        mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/3DHST/Ancillary/COSMOS/CANDELS/Gabe/'
         im_r = pyfits.open(os.path.join(PATH, 'COSMOS-full-F160W_drz_sci.fits'))
         im_g = pyfits.open(os.path.join(PATH, 'COSMOS-full-F125W_drz_sci.fits'))

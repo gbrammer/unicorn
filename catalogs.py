@@ -1,3 +1,7 @@
+"""
+Work with v1.6 catalogs
+"""
+
 import os
 import pyfits
 import numpy as np
@@ -2005,11 +2009,14 @@ def read_steidel(verbose=True):
         
         for line in lines:
             lspl = line.split()
-            ra_i = 360./24*(float(lspl[1])+float(lspl[2])/60.+float(lspl[3])/3600.)
-            dec_i = np.abs(float(lspl[4]))+float(lspl[5])/60.+float(lspl[6])/3600.
-            is_neg = float(lspl[4]) < 0
-            if is_neg:
-                dec_i *= -1
+            #ra_i = 360./24*(float(lspl[1])+float(lspl[2])/60.+float(lspl[3])/3600.)
+            #dec_i = np.abs(float(lspl[4]))+float(lspl[5])/60.+float(lspl[6])/3600.
+            ra_i = threedhst.utils.DMS2decimal(':'.join(lspl[1:4]), hours=True)
+            dec_i = threedhst.utils.DMS2decimal(':'.join(lspl[4:7]), hours=False)
+            
+            #is_neg = float(lspl[4]) < 0
+            #if is_neg:
+            #    dec_i *= -1
             
             flags = line[59]+line[68]
             if ':' in flags:
@@ -2017,7 +2024,9 @@ def read_steidel(verbose=True):
             
             zem_i = np.float(line[61:66])
             zabs_i = np.float(line[70:75])
-            if (zem_i == -1) | (zabs_i == -1):
+            #print '%s, %.5f, %.3f %.3f' %(':'.join(lspl[4:7]), dec_i, zem_i, zabs_i)
+            
+            if (zem_i == -1) & (zabs_i == -1):
                 continue
                 
             type_i = line[77:80]

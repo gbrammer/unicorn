@@ -1,5 +1,5 @@
 """
-Work with v2.0 catalogs
+Work with v2.x catalogs
 """
 
 import os
@@ -166,7 +166,7 @@ class SpeczCatalog():
         z_spec = np.cast[float](deep2.field('Z'))
 
         keep = dq >= 3
-        N = len(keep[keep])
+        N = keep.sum()
 
         self.ra.extend(ra[keep])
         self.dec.extend(dec[keep])
@@ -192,7 +192,7 @@ class SpeczCatalog():
         print '\nCOSMOS: zCOSMOS-bright\n'
         zc = catIO.Readfile(sproot+'/COSMOS/zCOSMOS_VIMOS_BRIGHT_DR2_TABLE.tab')
         keep = (np.floor(zc.cc) == 3) | (np.floor(zc.cc) == 4) | (zc.cc == 2.5) | (np.floor(zc.cc) == 13) | (np.floor(zc.cc) == 14) | (np.floor(zc.cc) == 23) | (np.floor(zc.cc) == 24)
-        N = len(keep[keep])
+        N = keep.sum()
 
         self.ra.extend(zc.ra[keep])
         self.dec.extend(zc.dec[keep])
@@ -205,7 +205,7 @@ class SpeczCatalog():
         print '\nCOSMOS: Brusa\n'
         br = catIO.Readfile(sproot+'COSMOS/brusa_apj341700t2_mrt.txt')
         keep = (br.iflag == 1) & (br.zspec > 0) & (br.r_zspec != 5)
-        N = len(keep[keep])
+        N = keep.sum()
 
         self.ra.extend(br.ra[keep])
         self.dec.extend(br.dec[keep])
@@ -225,7 +225,7 @@ class SpeczCatalog():
         z_spec = np.cast[float](d3.field('Z'))
 
         keep = dq >= 3
-        N = len(keep[keep])
+        N = keep.sum()
 
         self.ra.extend(ra[keep])
         self.dec.extend(dec[keep])
@@ -256,8 +256,8 @@ class SpeczCatalog():
         fw = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_redshift.cat')
         fw_phot = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_phot.cat')
         keep = (fw.zsp_qual == 1)
-        N = len(keep[keep])
-
+        N = keep.sum()
+        
         self.ra.extend(fw_phot.ra[keep])
         self.dec.extend(fw_phot.dec[keep])
         self.zspec.extend(fw.zsp[keep])
@@ -266,29 +266,69 @@ class SpeczCatalog():
         self.catid.extend(fw.id[keep])
 
         #### Ballestra 2010
-        print '\nGOODS-S: Ballestra\n'
-        mr = catIO.Readfile(sproot+'GOODS-South/Ballestra_mrv2.dat')
-        keep = mr.zqual == 'A'
-        N = len(keep[keep])
+        # print '\nGOODS-S: Ballestra\n'
+        # mr = catIO.Readfile(sproot+'GOODS-South/Ballestra_mrv2.dat')
+        # keep = mr.zqual == 'A'
+        # N = keep.sum()
+        # 
+        # self.ra.extend(mr.ra_vim[keep])
+        # self.dec.extend(mr.dec_vim[keep])
+        # self.zspec.extend(mr.zspec[keep])
+        # self.catqual.extend(mr.zqual[keep])
+        # self.source.extend(['Ballestra-mr']*N)
+        # self.catid.extend(mr.source_id[keep])
+        # 
+        # lr = catIO.Readfile(sproot+'GOODS-South/Ballestra_lrv2.dat')
+        # keep = lr.zqual == 'A'
+        # N = keep.sum()
+        # 
+        # self.ra.extend(lr.ra_vim[keep])
+        # self.dec.extend(lr.dec_vim[keep])
+        # self.zspec.extend(lr.zspec[keep])
+        # self.catqual.extend(lr.zqual[keep])
+        # self.source.extend(['Ballestra-lr']*N)
+        # self.catid.extend(lr.source_id[keep])
+        
+        #### ACES ECDFS survey, Cooper et al. 
+        ## http://mur.ps.uci.edu/~cooper/ACES/zcatalog.html
+        print '\nGOODS-S: ACES (Cooper)\n'
+        aces = pyfits.open(sproot+'GOODS-South/zcat.ACES.2012jun04.fits.gz')[1].data
+        keep = aces.ZQUALITY >= 3
+        N = keep.sum()
+        
+        self.ra.extend(aces.RA[keep])
+        self.dec.extend(aces.DEC[keep])
+        self.zspec.extend(aces.Z[keep])
+        self.catqual.extend(aces.ZQUALITY[keep])
+        self.source.extend(['ACES']*N)
+        self.catid.extend(aces.OBJNAME[keep])
+        
+        #### Full ESO compilation
+        ## http://www.eso.org/sci/activities/garching/projects/goods/MasterSpectroscopy.html
+        ## There is a lot of overlap with the Wuyts FIREWORKS catalog.
+        print '\nGOODS-S: Full ESO compilation \n'
+        eso = catIO.Readfile(sproot+'GOODS-South/MASTERCAT_v3.0.dat.fix')
+        keep = eso.zspec < -100
 
-        self.ra.extend(mr.ra_vim[keep])
-        self.dec.extend(mr.dec_vim[keep])
-        self.zspec.extend(mr.zspec[keep])
-        self.catqual.extend(mr.zqual[keep])
-        self.source.extend(['Ballestra-mr']*N)
-        self.catid.extend(mr.source_id[keep])
+        best_flags = [[0,'A'], [14,'A'], [1,'3'], [1,'4'], [2,'3.0'], [2,'2.0'], [8,'3'], [15,'1'], [16,'2'], [17,'2']]
+        for flag in best_flags:
+            keep = keep | ((eso.survey == flag[0]) & (eso.flag == flag[1]))
+            
+        no_flags = [3,4,5,6,7,10,11,13,18]
+        for flag in no_flags:
+            keep = keep | (eso.survey == flag)
+        
+        N = keep.sum()
+        
+        self.ra.extend(eso.ra[keep])
+        self.dec.extend(eso.dec[keep])
+        self.zspec.extend(eso.zspec[keep])
+        self.catqual.extend(eso.flag[keep])
+        for survey in eso.survey[keep]:
+            self.source.append('ESO_%d' %(survey))
 
-        lr = catIO.Readfile(sproot+'GOODS-South/Ballestra_lrv2.dat')
-        keep = lr.zqual == 'A'
-        N = len(keep[keep])
-
-        self.ra.extend(lr.ra_vim[keep])
-        self.dec.extend(lr.dec_vim[keep])
-        self.zspec.extend(lr.zspec[keep])
-        self.catqual.extend(lr.zqual[keep])
-        self.source.extend(['Ballestra-lr']*N)
-        self.catid.extend(lr.source_id[keep])
-
+        self.catid.extend(eso.oid[keep])
+          
         ################### UDS
         #### UDS website compilation
         print '\nUDS\n'
@@ -321,8 +361,55 @@ class SpeczCatalog():
         self.catqual = np.array(self.catqual)
         self.catid = np.array(self.catid)
         
+def read_catalogs(field='COSMOS', force=False, v20=False):
+    """ 
+    Read all of the catalogs and run the matching between them.
+    """
+    import unicorn.catalogs2 as cat2
+    
+    #### Extract field from pointing ID if specified
+    spl = field.split('-')
+    if (len(spl) > 1) & (field[-1].isdigit()):
+        field = '-'.join(spl[:-1])
         
-def read_catalogs(field='COSMOS', force=False, return_dir=True):
+    if (cat2.zout is not None) & (not force) & (field == cat2.field):
+        print 'Looks like %s catalogs already read in.  To redo, use `read_catalogs(force=True)`.' %(field)
+        return True
+    
+    PATH = '/3DHST/Spectra/Release/v2.1/'
+    root = field.lower().replace('-','')
+    
+    cat = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.cat' %(field, field, root))
+    zout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, root))
+    fout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, root))
+    rf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, root))
+
+    zfit = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
+    lines = pyfits.open(PATH+'%s/%s_CATALOGS/%s.linefit.fits' %(field, field, field))[1].data
+    dq = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.dqflag.linematched.dat' %(field, field, field))
+        
+    #### A few extra things    
+    cat.m140 = 25-2.5*np.log10(cat.f_f140w)
+    cat.x_image, cat.y_image = cat.x, cat.y
+    
+    zfit.mag = dq.mag
+    
+    zfit.pointing = np.array([p.split('_')[0] for p in zfit.spec_id])
+    
+    ### Add some small scatter to the f_flagged numbers
+    norm = 1-np.random.normal(size=dq.f_flagged.shape)*0.05
+    dq.f_flagged *= norm
+    
+    cat2.field = field
+    cat2.cat = cat
+    cat2.zout = zout
+    cat2.fout = fout
+    cat2.zfit = zfit
+    cat2.lines = lines
+    cat2.dq = dq
+    cat2.root = root
+    
+def read_catalogs_old(field='COSMOS', force=False, return_dir=True):
     """ 
     Read all of the catalogs and run the matching between them.
     """
@@ -355,6 +442,8 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
     if field == 'COSMOS':
         ####  COSMOS
         if unicorn.hostname().startswith('uni'):
+            ### still not working because v2.0 release directory is 
+            ### [correctly] not writeable and Readfile can't make FITS file
             os.chdir('/3DHST/Photometry/Release/v2.0/COSMOS')
             gris_path = '/3DHST/Spectra/Release/v2.0/COSMOS/'
             zfit = catIO.Readfile(gris_path+'COSMOS.zfit.linematched.dat')
@@ -375,7 +464,7 @@ def read_catalogs(field='COSMOS', force=False, return_dir=True):
         
         cat.x_image, cat.y_image = cat.x, cat.y
         root = 'cosmos'
-        cat.m140 = 25-2.5*np.log10(cat.F140W)
+        cat.m140 = 25-2.5*np.log10(cat.f140w)
         
     if field == 'GOODS-S':
         ####  GOODS-S
@@ -420,7 +509,7 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
     
     threedhst.plotting.makeCSS(path=os.path.dirname(OUTPUT), title_size=18)
     
-    PATH_TO_V2 = unicorn.GRISM_HOME+'../Release/v2.0/'
+    PATH_TO_V2 = unicorn.GRISM_HOME+'../Release/v2.1/'
     
     if not os.path.exists(os.path.dirname(OUTPUT)):
         os.path.mkdir(os.path.dirname(OUTPUT))
@@ -552,9 +641,7 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
     if verbose > 1:
         os.system('open %s' %(OUTPUT))
         
-    
-        
-    
+
         
 def redshift_outliers():
     import unicorn.catalogs2 as cat2
@@ -570,10 +657,9 @@ def redshift_outliers():
     
     has_brighter_neighbor =  (dr_self < 2) & (dmag > 0.7)
     neighbor_flag = (dr_self < 1) | has_brighter_neighbor
-    
-    brusa = zsp.source[id_zsp] == 'Brusa'
-    
+        
     zsp = cat2.SpeczCatalog()
+    brusa = zsp.source[id_zsp] == 'Brusa'
     
     #### Match to spec catalog
     dr_zsp, id_zsp = zsp.match_list(ra=cat2.cat.ra, dec=cat2.cat.dec)
@@ -613,7 +699,7 @@ def redshift_outliers():
     fw = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_redshift.cat')
     fw_phot = catIO.Readfile(sproot+'GOODS-South/FIREWORKS_phot.cat')
     keep = (fw.zsp_qual == 1)
-    N = len(keep[keep])
+    N = keep.sum()
     
     cosd_gris = cat2.cat.ra*np.cos(cat2.cat.dec/360*2*np.pi)
     cosd_spec = fw_phot.ra*np.cos(fw_phot.dec/360*2*np.pi)
@@ -945,4 +1031,208 @@ def match_v17_v20():
     pointing = spec_id.split('_')[0]
     root_path = os.path.join(PATH_TO_V2, cat2.field, pointing)
     
+def redshifts_v21():
+    """
+    Run some checks on the v2.1 catalog photo-zs
+    """
+    import unicorn.catalogs2 as cat2
     
+    field='GOODS-S'
+        
+    cat = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.cat' %(field, field, field.lower().replace('-','')))
+    zout = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, field.lower().replace('-','')))
+    fout = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, field.lower().replace('-','')))
+    zfit = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
+    rf = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, field.lower().replace('-','')))
+    
+    #### Match to spec catalog
+    zsp = cat2.SpeczCatalog(force_new=False)    
+    dr_zsp, id_zsp = zsp.match_list(ra=cat.ra, dec=cat.dec)
+    test = (dr_zsp < 1) & (zout.z_peak > 0) & (zsp.zspec[id_zsp] > 0)#& (zsp.source[id_zsp] == 'ACES')
+    
+    #### GMASS
+    #test = test & (zsp.source[id_zsp] == 'ESO_18')
+    #plt.scatter(zsp.zspec[id_zsp][test], zout.z_peak[test], alpha=0.5)
+    
+    dz = (zsp.zspec[id_zsp]-zout.z_peak)/(1+zsp.zspec[id_zsp])
+    threedhst.utils.nmad(dz[test])
+    
+    surveys = np.unique(zsp.source[id_zsp][test])
+    for survey in surveys:
+        sub = test & (zsp.source[id_zsp] == survey)
+        if sub.sum() > 0:
+            print survey
+            p = plt.scatter(zsp.zspec[id_zsp][sub], zout.z_peak[sub], alpha=0.5, s=5)
+            p = plt.plot([0,6],[0,6], alpha=0.5, color='black')
+            p = plt.xlim(0,6); p = plt.ylim(0,6)
+            p = plt.xlabel(r'$z_\mathrm{spec}$')
+            p = plt.ylabel(r'$z_\mathrm{phot}$')
+            p = plt.title('%s, %s (%d) $\delta z$=%0.3f' %(field.lower().replace('-',''), survey, sub.sum(), threedhst.utils.nmad(dz[sub])))
+            p = plt.savefig('%s_%s.png' %(field.lower().replace('-',''), survey))
+            p = plt.close()
+    #
+    gris = test & (zfit.z_max_spec > 0)
+    gris = gris & (zsp.zspec[id_zsp] > 0.68)
+    
+    cat2.zphot_zspec(zsp.zspec[id_zsp][gris], zout.z_peak[gris], alpha=0.2, label='test', ms=3, color='black', marker='s', verbose=2)
+    cat2.zphot_zspec(zsp.zspec[id_zsp][gris], zfit.z_max_spec[gris], alpha=0.2, label='test', ms=3, color='black', marker='s', verbose=2)
+    
+def zphot_zspec(zphot, zspec, zmax=6, ax=None, marker='o', ylabel='phot', verbose=True, *args, **kwargs):
+    """
+    Make a zphot_zspec plot with "pseudo-log" scaling
+    """
+    ret = False
+    if ax is None:
+        fig = unicorn.plotting.plot_init(square=True, xs=5, aspect=1, left=0.1)
+        ax = fig.add_subplot(111)
+        ret = True
+        
+    ax.plot(np.log10(1+zphot), np.log10(1+zspec), linestyle='None', marker=marker, *args, **kwargs)
+    
+    xlab = np.arange(0,zmax+0.1,0.5)
+    tlab = np.array(['%d' %(x) for x in xlab])
+    tlab[1::2] = ''
+    ax.set_xticks(np.log10(1+xlab)); ax.set_yticks(np.log10(1+xlab))
+    ax.set_xticklabels(tlab); ax.set_yticklabels(tlab) 
+    ax.set_xlim(0, np.log10(1+zmax)); ax.set_ylim(0, np.log10(1+zmax))
+    ax.set_xlabel(r'$z_\mathrm{spec}$'); ax.set_ylabel(r'$z_\mathrm{%s}$' %(ylabel))
+    
+    if verbose:
+        dz = (zphot-zspec)/(1+zspec)
+        if verbose > 1:
+            ax.text(0.5,0.95,r'$N=%d$, $\delta z=%.4f$' %(len(dz), threedhst.utils.nmad(dz)), ha='center', va='top', transform=ax.transAxes)
+        else:
+            print 'N=%d\n NMAD(dz)=%.4f' %(len(dz), threedhst.utils.nmad(dz))
+            
+    if ret:
+        ax.plot([0,np.log10(1+zmax)],[0,np.log10(1+zmax)], color='red', alpha=0.5)
+        return fig
+        
+def make_web_browser(pointing='UDS-17'):
+    """
+    Modify the gmap webpages to pull up the nearest object with a spectrum + fit.
+    """
+    import json
+    import unicorn.catalogs2 as cat2
+    
+    cat2.read_catalogs(pointing)
+    this = cat2.zfit.pointing == pointing
+    this = cat2.zfit.pointing != '00000'
+    
+    data_list = []
+    idx = np.arange(cat2.zfit.N)[this]
+    for i in idx:
+        data = {}
+        data['id'] = cat2.zfit.spec_id[i]
+        data['ra'] = float('%.6f' %(cat2.cat.ra[i]))
+        data['dec'] = float('%.6f' %(cat2.cat.dec[i]))
+        data['z_gris'] = float('%.3f' %(cat2.zfit.z_max_spec[i]))
+        data['z_spec'] = float('%.3f' %(cat2.zfit.z_spec[i]))
+        data['mass'] = float('%.3f' %(cat2.fout.lmass[i]))
+        data['m140'] = float('%.3f' %(cat2.cat.m140[i]))
+        #data['r50'] = float('%.3f' %(cat2.cat.f160W_flux_radius[i]))
+        data_list.append(data)
+        
+    for dir in ['HTML','HTML/tiles','HTML/scripts']:
+        try:
+            os.mkdir(dir)
+        except:
+            pass
+        
+    fp = open('HTML/%s.json' %(pointing),'w')
+    json.dump(data_list, fp)
+    fp.close()
+    
+    line = open('HTML/%s.json' %(pointing)).readlines()[0].replace('NaN', '-99')
+    fp = open('HTML/%s.json' %(pointing),'w')
+    fp.write(line)
+    fp.close()
+    
+    # threedhst.gmap.makeImageMap(['%s-F140W_drz.fits' %(pointing),'%s-G141_drz.fits[1]*4' %(pointing)], aper_list=[15,16], zmin=-0.15, zmax=1.5, path='./HTML/', tileroot=['F140W','G141'], invert=True)
+    
+    #### Insert these bits into the HTML file
+    ## <!-- xxx -->
+    script = """
+    <script type="text/javascript"> 
+    
+    var objects = [];
+    var Nobj = 0;
+    $.getJSON("%s.json", null, 
+        function(json) {
+            $.each(json, function(i, item){
+              objects.push(item);
+              Nobj += 1;
+            });
+        }
+    );
+    
+    function nearest_3dhst() {
+        var mapcenter = map.getCenter();
+        var dec = mapcenter.lat()+centerLat;                       
+        var ra = ((360-mapcenter.lng()/Math.cos(centerLat/360.*2*3.14159)+offset-centerLng));
+        var match = 0;
+        var drmin = 1000.;
+        $.each(objects, function(i, object) {
+            var dr = Math.sqrt(Math.pow((ra-object.ra)*Math.cos(dec/360.*2*3.14159),2) + Math.pow(dec-object.dec,2))*3600.;
+            //alert(objects[i].id + ',' + dr + ',' + drmin);
+            if ( dr < drmin ) {
+                drmin = dr*1.;
+                match = i*1;
+            };
+        });
+        $("#spectrum").show();
+        var popup = "<img id=\"zfit\" src=\"../ZFIT/PNG/" + objects[match].id + ".zfit.png\" />";
+        popup += "<img src=../RGB/" + objects[match].id + "_rgb_03.0.png onMouseOver=\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[match].id + ".zfit.png');\" margin-left='10px'/>";
+        $.each(matched, function(i, im) {
+            if ( im != match ) {
+                popup += "<img src=../RGB/" + objects[im].id + "_rgb_03.0.png onMouseOver=\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[im].id + ".zfit.png');\" margin-left='10px'/>";
+            }
+        });
+        $("#spectrum").html(popup);
+        return [match, drmin];
+    }; 
+    
+    </script>
+    
+    <!-- xxx -->
+    
+    """ %(pointing)
+    
+    ### </div> <!-- content -->
+    spectrum_div = """
+    <div id="spectrum" onClick="$(this).hide();"> </div>
+    
+    </div> <!-- content -->
+    """
+    
+    lines = open('HTML/map.html').readlines()
+    for i, line in enumerate(lines):
+        if '<!-- xxx -->' in line:
+            lines[i] = script
+        if '<!-- content -->' in line:
+            lines[i] = spectrum_div
+    
+    fp = open('HTML/map.html','w')
+    fp.writelines(lines)
+    fp.close()
+     
+    ### style.css / header    
+    css = """
+    #spectrum {
+        width:1000px;
+        height:370px;
+        display:none;
+        position:absolute;
+        top:10px;
+        left:10px;
+        border:1px solid red;
+        background: white;
+    }
+    """
+    lines = open('HTML/scripts/style.css').readlines()
+    if 'spectrum' not in lines[1]:
+        lines[0] = css
+    
+    fp = open('HTML/scripts/style.css','w')
+    fp.write(lines)
+    fp.close()

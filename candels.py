@@ -680,6 +680,13 @@ def goodss():
     for band in ['i','b','v','z'][:1]:
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_s%s*drz_img.fits' %(band)), matchImage='../CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits', match_extension=0, output='GS-ACS%s.fits' %(band))
     
+    ######## Big RGB map of the whole field
+    ### scaling is related to the filter AB zeropoint
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
+    rgb = '/Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits[0]*%.3f, /Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits[0]*%.3f, /Volumes/Crucial/3DHST/Ancillary/GOODS-S/GS-ACSi.fits[0]*%.3f' %(scales[0], scales[1], scales[2])
+
+    threedhst.gmap.makeImageMap([rgb], aper_list=[15,16], tileroot=['iJH'], extension=1)
+    
 def goodsn():
     import unicorn.candels
     

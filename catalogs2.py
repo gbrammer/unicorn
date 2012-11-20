@@ -580,7 +580,8 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
         <th> m140 </th>
         <th> z </th>
         <th> logM </th>
-        %s<th> ZFIT </th>
+        %s<th> RGB </th>
+        <th> ZFIT </th>
         <th> 2D </th>
         <th> LINE </th>
     </thead>
@@ -595,7 +596,9 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
         spec_id = cat2.zfit.spec_id[i]
         pointing = spec_id.split('_')[0]
         
-        root_path = os.path.join(PATH_TO_V2, cat2.field, pointing)
+        root_path = os.path.join(PATH_TO_V2, cat2.field, cat2.field+'-WFC3_v2.1_SPECTRA', pointing)
+        rgb_path = os.path.join(PATH_TO_V2, cat2.field, cat2.field+'-WFC3_v2.1_SPECTRA/'+cat2.field+'_RGB/06.0')
+        
         #print root_path
         
         fplist.write("%15s %14.6f %14.6f %8.3f %5.2f\n" %(spec_id, cat2.cat.ra[i], cat2.cat.dec[i], cat2.zfit.z_max_spec[i], cat2.fout.lmass[i]))
@@ -623,10 +626,11 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
         for key in extra.keys():
             fp.write("            <td> %s </td>\n" %(extra[key][i]))
             
-        fp.write("""            <td> <img src=%s/ZFIT/PNG/%s.zfit.png height=180px> </td>
+        fp.write("""            <td> <img src=%s/%s_rgb_06.0.png height=180px> </td>
+            <td> <img src=%s/ZFIT/PNG/%s.zfit.png height=180px> </td>
             <td>  </td>
             <td> <img src=%s/LINE/PNG/%s.linefit.png height=180px> </td>
-        </tr>""" %(root_path, spec_id,
+        </tr>""" %(rgb_path, spec_id, root_path, spec_id,
                    root_path, spec_id))
 
     

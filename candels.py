@@ -708,13 +708,23 @@ def goodsn():
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')
     
+    ### Tiles outside of the F140W coverage
+    filter='F160W'
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'   
+    acs_align = ['GOODSN-ORI326-V5Q', 'GOODSN-ORI326-V5R', 'GOODSN-ORI326-V5L', 'GOODSN-ORI326-V5M', 'GOODSN-ORI326-V5S', 'GOODSN-ORI326-V5V', 'GOODSN-ORI326-V5Y']
+    for acs in acs_align:
+            unicorn.candels.prep_candels(asn_file=acs+'-%s_asn.fits' %(filter), 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+    
     ### F125W flagged
     bad = ['GOODSN-ORI180-V1C-F125W', 'GOODSN-ORI180-V1F-F125W', 'GOODSN-ORI180-V1K-F125W', 'GOODSN-ORI180-V1N-F125W', 'GOODSN-ORI180-V1R-F125W']
-    redo = ['GOODSN-ORI180-V1X-F125W', 'GOODN-ORI090-V3M-F125W', 'GOODN-ORI090-V3M-F125W',  'GOODSN-ORI135-V2J-F125W', 'GOODSN-ORI135-V2P-F125W', 'GOODSN-ORI135-V2X-F125W', 'GOODSN-ORI135-V2Y-F125W', 'GOODSN-ORI180-V1D-F125W', 'GOODSN-ORI180-V1P-F125W', 'GOODSN-ORI180-V1U-F125W', 'GOODN-ORI090-V3O-F125W', 'GOODSN-ORI135-V2A-F125W', 'GOODSN-ORI135-V2C-F125W', 'GOODSN-ORI020-V4A-F125W', 'GOODSN-ORI020-V4C-F125W', 'GOODSN-ORI020-V4F-F125W', 'GOODSN-ORI020-V4H-F125W', 'GOODSN-ORI020-V4I-F125W', 'GOODSN-ORI020-V4J-F125W', 'GOODSN-ORI020-V4L-F125W', 'GOODSN-ORI020-V4W-F125W']
+    redo = ['GOODSN-ORI180-V1X-F125W', 'GOODN-ORI090-V3M-F125W', 'GOODN-ORI090-V3M-F125W',  'GOODSN-ORI135-V2J-F125W', 'GOODSN-ORI135-V2P-F125W', 'GOODSN-ORI135-V2X-F125W', 'GOODSN-ORI135-V2Y-F125W', 'GOODSN-ORI180-V1D-F125W', 'GOODSN-ORI180-V1P-F125W', 'GOODSN-ORI180-V1U-F125W', 'GOODN-ORI090-V3O-F125W', 'GOODSN-ORI135-V2A-F125W', 'GOODSN-ORI135-V2C-F125W', 'GOODSN-ORI020-V4A-F125W', 'GOODSN-ORI020-V4C-F125W', 'GOODSN-ORI020-V4F-F125W', 'GOODSN-ORI020-V4H-F125W', 'GOODSN-ORI020-V4I-F125W', 'GOODSN-ORI020-V4J-F125W', 'GOODSN-ORI020-V4L-F125W', 'GOODSN-ORI020-V4W-F125W', 'GOODSN-ORI326-V5Y-F125W', 'GOODSN-ORI326-V5L-F125W', 'GOODSN-ORI326-V5O-F125W']
     
     ### F160W flagged pointings
     bad = ['GOODSN-ORI180-V1C-F160W', 'GOODSN-ORI180-V1F-F160W', 'GOODSN-ORI180-V1K-F160W', 'GOODSN-ORI180-V1N-F160W', 'GOODSN-ORI180-V1R-F160W']
-    redo = ['GOODSN-ORI135-V2O-F160W', 'GOODSN-ORI135-V2Q-F160W', 'GOODSN-ORI135-V2U-F160W', 'GOODSN-ORI180-V1B-F160W', 'GOODSN-ORI180-V1I-F160W', 'GOODSN-ORI180-V1O-F160W', 'GOODSN-ORI180-V1Q-F160W', 'GOODSN-ORI180-V1S-F160W', 'GOODSN-ORI180-V1T-F160W', 'GOODSN-ORI180-V1V-F160W', 'GOODSN-ORI180-V1W-F160W', 'GOODSN-ORI180-V1X-F160W', 'GOODSN-ORI020-V4A-F160W', 'GOODSN-ORI020-V4W-F160W', 'GOODSN-ORI020-V4X-F160W']
+    redo = ['GOODSN-ORI135-V2O-F160W', 'GOODSN-ORI135-V2Q-F160W', 'GOODSN-ORI135-V2U-F160W', 'GOODSN-ORI180-V1B-F160W', 'GOODSN-ORI180-V1I-F160W', 'GOODSN-ORI180-V1O-F160W', 'GOODSN-ORI180-V1Q-F160W', 'GOODSN-ORI180-V1S-F160W', 'GOODSN-ORI180-V1T-F160W', 'GOODSN-ORI180-V1V-F160W', 'GOODSN-ORI180-V1W-F160W', 'GOODSN-ORI180-V1X-F160W', 'GOODSN-ORI020-V4A-F160W', 'GOODSN-ORI020-V4W-F160W', 'GOODSN-ORI020-V4X-F160W', 'GOODSN-ORI326-V5F-F160W', 'GOODSN-ORI326-V5O-F160W', 'GOODSN-ORI326-V5T-F160W']
     
     for root in redo:
         threedhst.dq.checkDQ(root+'_asn.fits',root+'_asn.fits', size=900)
@@ -733,6 +743,8 @@ def goodsn():
     files, root = glob.glob('GOOD*asn.fits'), 'GN'
     
     files, root = glob.glob('GOOD*asn.fits'), 'GN-v2'
+
+    files, root = glob.glob('GOOD*asn.fits'), 'GN-v3'
     
     keep_list = []
     for file in files:
@@ -741,18 +753,27 @@ def goodsn():
             
     threedhst.utils.combine_asn_shifts(keep_list, out_root='%s-%s' %(root, filter), path_to_FLT='./', run_multidrizzle=False)
     SCALE = 0.06
+    #### Match 3D-HST F140W
     NX, NY = int(6840*0.128254/SCALE), int(8042*0.128254/SCALE)
+    ra0, dec0 = 189.17736, 62.23892
+    #### Full CANDELS Mosaic
+    NX, NY = 18500, 18500
+    ra0, dec0 = 189.236, 62.246087
     threedhst.prep_flt_files.startMultidrizzle('%s-%s_asn.fits' %(root, filter),
          use_shiftfile=True, skysub=False,
          final_scale=SCALE, pixfrac=0.8, driz_cr=False,
          updatewcs=False, clean=True, median=False,
-         ra=189.17736, dec=62.23892,
+         ra=ra0, dec=dec0,
          final_outnx = NX, final_outny=NY, ivar_weights=True, build_drz=False) 
     
     #### Matched ACS images
     os.chdir('/Users/gbrammer/CANDELS/GOODS-N/ACS_MATCH')
     for band in ['i','b','v','z'][1:]:
         threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits', match_extension=1, output='GN-ACS%s.fits' %(band))
+
+    #
+    for band in ['i','b','v','z'][1:]:
+        threedhst.shifts.matchImagePixels(input= glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_n%s*drz_img.fits' %(band)), matchImage='/Users/gbrammer/CANDELS/GOODS-N/F160W/GN-v3-F160W_drz_sci.fits', match_extension=0, output='GN-ACS%s_v3.fits' %(band))
     
     ### Unicorn
     os.chdir('/Volumes/robot/3DHST/Ancillary/GOODS-N/GOODS_ACS')

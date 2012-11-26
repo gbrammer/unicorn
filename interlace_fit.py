@@ -109,7 +109,9 @@ class GrismSpectrumFit():
             self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
         else:
             self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
-            
+        
+        self.grism_element = self.twod.im[0].header['FILTER']
+        
         if fix_direct_thumbnail:
             self.interpolate_direct_thumb()
             
@@ -296,11 +298,16 @@ class GrismSpectrumFit():
         #### These are simple lines normalized at lam=1.4e4.  That it works appears a bit magical, but
         #### it does seem to.  Only need to compute them once since they don't change with the 
         #### redshift grid.
-        tilt_blue = -(self.templam_nolines*(1+0.5)-1.4e4)/4000.+1
+        if self.grism_element == 'G141':
+            x0, dx = 0.98e4, 2800.
+        else:
+            x0, dx = 1.4e4, 4000.
+            
+        tilt_blue = -(self.templam_nolines*(1+0.5)-x0)/dx+1
         self.twod.compute_model(self.templam_nolines*(1+0.5), tilt_blue)
         tilt_blue_model = self.twod.model*1.
         
-        tilt_red = (self.templam_nolines*(1+0.5)-1.4e4)/4000.+1
+        tilt_red = (self.templam_nolines*(1+0.5)-x0)/dx+1
         self.twod.compute_model(self.templam_nolines*(1+0.5), tilt_red)
         tilt_red_model = self.twod.model*1.
 
@@ -316,9 +323,11 @@ class GrismSpectrumFit():
             #### Generate the 2D spectrum model for the continuum and emission line templates
             if self.best_fit_nolines.sum() == 0.:
                 self.best_fit_nolines = self.best_fit_nolines*0.+1
-            self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines); continuum_model = self.twod.model*1.
+            self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines)
+            continuum_model = self.twod.model*1.
                 
-            self.twod.compute_model(self.linex*(1+z_test), self.liney); line_model = self.twod.model*1.
+            self.twod.compute_model(self.linex*(1+z_test), self.liney)
+            line_model = self.twod.model*1.
 
             #### Initialize if on the first grid point
             if i == 0:
@@ -336,6 +345,7 @@ class GrismSpectrumFit():
                 return False
                 
             #### Compute the non-negative normalizations of the template components
+            #print var.shape, use.shape, templates.shape
             amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
             flux_fit = np.dot(coeffs.reshape((1,-1)), templates) #.reshape(line_model.shape)
@@ -605,8 +615,12 @@ class GrismSpectrumFit():
         show = self.oned.data.flux != 0.0
         #### Spectrum in e/s
         ax = fig.add_subplot(141)
+        
         wuse = (self.oned.data.wave > 1.15e4) & (self.oned.data.wave < 1.6e4)
-
+        
+        if self.grism_element == 'G102':
+            wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
+        
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
         ax.plot(self.oned_wave[show]/1.e4, self.model_1D[show], color='red', alpha=0.5, linewidth=2)
@@ -618,8 +632,12 @@ class GrismSpectrumFit():
         else:
             ymax = self.oned.data.flux.max()
             
-        ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
-
+        ax.set_ylim(-0.05*ymax, 1.1*ymax) 
+        if self.grism_element == 'G102':
+            ax.set_xlim(0.7, 1.15)
+        else:
+            ax.set_xlim(1.0, 1.73)
+            
         #### Spectrum in f_lambda
         self.oned.data.sensitivity /= 100
         
@@ -642,7 +660,11 @@ class GrismSpectrumFit():
         else:
             ymax = (self.oned.data.flux/self.oned.data.sensitivity).max()
             
-        ax.set_ylim(-0.05*ymax, 1.1*ymax) ; ax.set_xlim(1.0,1.73)
+        ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        if self.grism_element == 'G102':
+            ax.set_xlim(0.7, 1.15)
+        else:
+            ax.set_xlim(1.0, 1.73)
 
         #### p(z)
         ax = fig.add_subplot(143)
@@ -686,6 +708,8 @@ class GrismSpectrumFit():
 
         temp_sed_int = np.interp(self.oned.data.wave, lambdaz, temp_sed)
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
+        if self.grism_element == 'G102':
+            keep = (self.oned.data.wave > 0.85) & (self.oned.data.wave < 1.05e4)
         flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
         ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
@@ -736,8 +760,13 @@ class GrismSpectrumFit():
         aspect = 3.*sh[0]/sh[1]/(1-(top+bottom-left))
         
         wave = self.twod.im[8].data
-        xint = [1.1,1.2,1.3,1.4,1.5,1.6]
-        ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
+        if self.grism_element == 'G141':
+            xint = [1.1,1.2,1.3,1.4,1.5,1.6]
+            ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
+        #
+        if self.grism_element == 'G102':
+            xint = [0.8, 0.9, 1.0, 1.1]
+            ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
         #plt.gray()
@@ -872,7 +901,6 @@ class GrismSpectrumFit():
             self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
             twod_templates[i,:] = self.twod.model.flatten()
         
-        #
         try:
             amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)

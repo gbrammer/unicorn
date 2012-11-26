@@ -59,12 +59,26 @@ except:
 
 ###### Globals for compute_model
 conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path=os.getenv('THREEDHST')+'/CONF/').params
+conf_grism = 'G141'
 sens_files = {}
 for beam in ['A','B','C','D','E']:
     sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-    
+
 import pywcs
 
+def set_grism_config(grism='G141'):
+    import unicorn.reduce as red
+    if red.conf_grism == grism:
+        return None
+    #
+    red.conf = threedhst.process_grism.Conf('WFC3.IR.%s.V2.0.conf' %(grism), path=os.getenv('THREEDHST')+'/CONF/').params
+    red.conf_grism = grism
+    red.sens_files = {}
+    for beam in ['A','B','C','D','E']:
+        red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+    
+    print 'Set grism configuration files: %s' %(red.conf_grism)
+    
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
     """
     clean_all=True; clean_spectra=True; make_images=True; make_model=True; fix_wcs=True; extract_limit=None; skip_completed_spectra=True; MAG_LIMIT=26; out_path='./'
@@ -299,6 +313,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     if root.startswith('TILE41'):
         dxs = np.array([-4, 9, -8, 5, 5, -8]) + np.int(np.round(xsh[0]))*0
         dys = np.array([-5, -4, 4, 5, 5, 4]) + np.int(np.round(ysh[0]))*0
+        if len(asn.exposures) == 12:
+            dxs = np.array([-4, 9, -8, 5, 5, -8, -4, 9, -8, 5, 5, -8]) + np.int(np.round(xsh[0]))*0
+            dys = np.array([-5, -4, 4, 5, 5, 4, -5, -4, 4, 5, 5, 4]) + np.int(np.round(ysh[0]))*0
     
     if root.startswith('GEORGE'):
         dxs = np.array([0, 9, -4, 5, -8]) + np.int(np.round(xsh[0]))*0
@@ -353,9 +370,12 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
-            header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad)
+            header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROW=NGROW)
             header.update('EXTNAME','SCI')
             header.update('PAD',pad)
+            header.update('GROWX', growx)
+            header.update('GROWY', growy)
+            header.update('NGROW', NGROW)
             header.update('REFIMAGE', '', comment='Source detection image')
             header_wht = header.copy()
             header_wht.update('EXTNAME','ERR')
@@ -390,6 +410,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     else:
         h0.update('WHTERROR',False,comment='WHT extension is 0/1 flagged bad pix')
     
+    
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=np.cast[np.float32](inter_sci), header=header)
     if use_error:
@@ -402,6 +423,8 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         hdu.header.update('EXTEND', True, after='NAXIS')
     
     image.writeto(root+'_inter.fits', clobber=True)
+    
+    pyfits.writeto('inter_N.fits', data=N, header=image[1].header, clobber=True)
     
     if make_undistorted:
         try:
@@ -437,7 +460,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
          orient = 0.0, dr2gpar = "", expkey = 'exptime', in_un = 'cps',
          out_un = 'cps', fillval = '0', mode = 'al')
 
-def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat',output='scale_coeffs.dat', factor=2, pad=60):
+def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat', output='scale_coeffs.dat', factor=2, pad=60):
     fp = open(input)
     lines = fp.readlines()
     fp.close()
@@ -489,6 +512,17 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     header.update('CRPIX1',header['CRPIX1']*growx+NGROW*growx+pad/2)
     header.update('CRPIX2',header['CRPIX2']*growy+NGROW*growy+pad/2)
     
+    ### SIP WCS
+    if ('A_ORDER' in header.keys()) & ('SIP' in header['CTYPE1']):
+        a_order = header['A_ORDER']
+        b_order = header['B_ORDER']
+        for a in range(a_order):
+            for b in range(b_order):
+                for k in 'AB':
+                    key = '%s_%d_%d' %(k, a, b)
+                    if key in header.keys():
+                        header.update(key, header[key]/growx**a/growy**b)
+                        
     # keys = ['CD1_1','CD1_2','CD2_1','CD2_2']
     # for key in keys:
     #     header.update(key,header[key]/factor)
@@ -504,7 +538,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141'):
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -563,7 +597,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     xi += xmi
     yi -= NY
     xarr, xpix, yarr = np.arange(xma-xmi)+xmi, np.arange(xma-xmi), np.arange(NY*2+1)-NY
-    xarr += 1
+    
+    # This wasn't needed and was giving dz/1+z = +0.0035 offset w.r.t spec-zs! 
+    # xarr += 1
     
     for ib,beam in enumerate(BEAMS):
        
@@ -583,7 +619,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / growx
         
         #### Improve alignment of zeroth order
-        if beam == 'B':
+        if (beam == 'B') & (grism == 'G141'):
             dldp_0+=1500
             
         # if beam == 'Bx':
@@ -656,7 +692,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #    sens_interp *= 0.5
         
         #### Increase response in the zeroth order to match observations
-        if beam == 'B':
+        if (beam == 'B') & (grism == 'G141'):
             sens_interp *= 1.5 #3.6 * 10
         
         # if beam in ['C','D','E']:
@@ -672,10 +708,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, grism='G141'):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, grism=grism)
     
     if not use_segm:
         model.get_corrected_wcs(verbose=True)
@@ -876,6 +912,8 @@ class Interlace2D():
         self.thumb = np.cast[np.double](self.im['DSCI'].data)
         self.thumb_weight = np.cast[np.double](self.im['DWHT'].data)
         self.seg = np.cast[np.uint](self.im['DSEG'].data)
+        self.grism_element = self.im[0].header['FILTER']
+        unicorn.reduce.set_grism_config(self.grism_element)
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
         self.x_pix = self.oned.header['X_PIX']
@@ -889,6 +927,7 @@ class Interlace2D():
             self.growx = 2
             self.growy = 2
         #
+        #### XXX need to get the zeropoint for arbitrary filter
         self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
@@ -936,6 +975,9 @@ class Interlace2D():
         
         xarr = np.arange(NX)
         wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        if self.grism_element == 'G102':
+            wavelength_region = (self.object_wave >= 0.75e4) & (self.object_wave <= 1.15e4)
+            
         limited = wavelength_region & ((self.object_wave-self.im['WAVE'].data.min()) > -1) & ((self.object_wave - self.im['WAVE'].data.max()) < 1)        
         
         xmin = xarr[limited].min()
@@ -976,7 +1018,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
         
         #print orders.shape
         
@@ -1001,6 +1043,8 @@ class Interlace2D():
         osh = self.im['MODEL'].data.shape
         xarr = np.arange(osh[1])
         xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
+        if self.grism_element == 'G102':
+            xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
         
         yprof = np.arange(osh[0])
         profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
@@ -1056,7 +1100,7 @@ class Interlace2D():
                 
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141'):
         """
         Initialize: set padding, growth factor, read input files.
         """
@@ -1086,6 +1130,18 @@ class GrismModel():
             self.filter = self.im[0].header['FILTER']
         else:
             self.im = self.direct
+        #
+        try:
+            self.growx = self.im[0].header['GROWX']
+            self.growy = self.im[0].header['GROWY']
+        except:
+            self.growx = growx
+            self.growy = growy
+        
+        if 'NGROW' not in self.direct[1].header.keys():
+            self.ngrow = (self.direct[1].data.shape[1] - 1014*self.growx - self.pad) / (self.growx*2) 
+        else:
+            self.ngrow = self.direct[1].header['NGROW']
             
         ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
         self.ZP = ZPs[self.filter]
@@ -1094,8 +1150,11 @@ class GrismModel():
         self.PLAM = PLAMs[self.filter]
                     
         self.make_flux()
-                
-        self.gris = pyfits.open(self.root+'-G141_inter.fits')
+        
+        self.grism_element = grism
+        unicorn.reduce.set_grism_config(grism)
+        
+        self.gris = pyfits.open(self.root+'-%s_inter.fits' %(self.grism_element))
         if self.gris[1].data.shape != self.direct[1].data.shape:
             threedhst.showMessage('G141 and F140W images have different dimensions!\n')
         self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
@@ -1120,7 +1179,10 @@ class GrismModel():
         self.object = np.zeros(self.sh, dtype=np.double)
         #self.test_object = np.zeros(self.sh)
         self.yf, self.xf = np.indices(self.sh)
-                
+        
+        # if os.path.exists('%s_inter.cat.wcsfix' %(self.root)):
+        #     self.get_corrected_wcs()
+            
     def read_files(self):
         """
         Read FITS files, catalogs, and segmentation images for a pair of 
@@ -1272,8 +1334,9 @@ class GrismModel():
         flt = asn.exposures[0]+'_flt.fits'
         fp = open('/tmp/%s.flt_xy' %(self.root),'w')
         for i in range(NOBJ):
-            xi = (self.cat.x_pix[i]-self.pad/2.)/self.growx
-            yi = (self.cat.y_pix[i]-self.pad/2.)/self.growy
+            #1014*growy+pad+growy*2*NGROW
+            xi = (self.cat.x_pix[i]-self.pad/2. - self.ngrow*self.growx)/self.growx
+            yi = (self.cat.y_pix[i]-self.pad/2. - self.ngrow*self.growy)/self.growy
             fp.write('%.2f %.2f\n' %(xi,  yi))
         
         fp.close()
@@ -1339,7 +1402,13 @@ class GrismModel():
         
     def init_object_spectra(self):
         
-        self.lam_spec = np.arange(0.95e4,1.8e4,22.)
+        self.lam_spec = []
+        
+        if self.grism_element == 'G141':
+            self.lam_spec = np.arange(0.95e4,1.8e4,22.)
+        
+        if self.grism_element == 'G102':
+            self.lam_spec = np.arange(0.7e4, 1.25e4, 12.)
         
         self.obj_in_model = {}
         self.flux_specs = {}
@@ -1409,7 +1478,7 @@ class GrismModel():
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent            
         t0 = time.time()
-        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -1528,7 +1597,12 @@ class GrismModel():
         #wave = np.mean(self.object_wave, axis=0)
         wave = self.object_wave
         xpix = np.arange(self.sh[1])
-        keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
+        
+        if self.grism_element == 'G141':
+            keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
+        else:
+            keep = (wave > 0.8e4) & (wave < 1.10e4) & (ratio_extract != 0)
+            
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
         if keep.sum() < 10:
@@ -1652,8 +1726,14 @@ class GrismModel():
             if refine:
                 self.refine_model(id, BEAMS=BEAMS, view=view)      
             else:
-                lx = np.arange(0.9e4,1.8e4)
-                ly = 1+model_slope*(lx-1.4e4)/4.e3
+                if self.grism_element == 'G141':
+                    lx = np.arange(0.9e4,1.8e4)
+                    ly = 1+model_slope*(lx-1.4e4)/4.e3
+                
+                if self.grism_element == 'G102':
+                    lx = np.arange(0.7e4,1.2e4)
+                    ly = 1+model_slope*(lx-0.98e4)/2.8e3
+                    
                 self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly)      
                 self.model += self.object
                 self.obj_in_model[id] = True
@@ -1826,7 +1906,11 @@ class GrismModel():
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[0])
-        wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        if self.grism_element == 'G141':
+            wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        #
+        if self.grism_element == 'G102':
+            wavelength_region = (self.object_wave >= 0.75e4) & (self.object_wave <= 1.15e4)
         
         if np.sum(wavelength_region) < 20:
             fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
@@ -1955,6 +2039,8 @@ class GrismModel():
             xx = ax.set_xticks(ltick*1.e4)
             ax.set_xticklabels(ltick)
             ax.set_xlim(1.1e4,1.65e4)
+            if self.grism_element == 'G102':
+                ax.set_xlim(0.75e4,1.12e4)
             y = self.flux_specs[self.id]*self.total_fluxes[self.id]
             ax.set_ylim(-0.1*y.max(), 1.1*y.max())
             ax.set_yticklabels([]);
@@ -2007,7 +2093,9 @@ class GrismModel():
         osh = self.the_object.shape
         xarr = np.arange(osh[1])
         xint14 = int(np.interp(1.3e4, self.wave, xarr))
-        
+        if self.grism_element == 'G102':
+            xint14 = int(np.interp(0.98e4, self.wave, xarr))
+            
         yprof = np.arange(osh[0])
         profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
         profile = profile/profile.sum()
@@ -4206,6 +4294,45 @@ def interlace_uds2():
             print '\n'
             gris.new_fit_free_emlines(ztry=None)	
 
+def interlace_sntile41():
+    
+    unicorn.reduce.interlace_combine('TILE41-132-G141', NGROW=125)
+    unicorn.reduce.interlace_combine('TILE41-132-F160W', NGROW=125, auto_offsets=True)
+    
+    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=20)
+    
+    se = threedhst.sex.SExtractor()
+    
+    ## Set the output parameters required for aXe 
+    ## (stored in [threedhst source]/data/aXe.param) 
+    se.aXeParams()
+    
+    ## XXX add test for user-defined .conv file
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = 'test.cat'
+    se.options['CHECKIMAGE_NAME'] = 'test_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = 'TILE41-132-F160W_drz.fits[1]'
+    se.options['FILTER']    = 'Y'
+    
+    #### Detect thresholds (default = 1.5)
+    se.options['DETECT_THRESH']    = '1' 
+    se.options['ANALYSIS_THRESH']  = '1'
+    se.options['MAG_ZEROPOINT'] = '%.2f' %(model.ZP)
+    
+    #### Run SExtractor
+    status = se.sextractImage('TILE41-132-F160W_drz.fits[0]')
+    
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='TILE41_F160W', filter='F160W', REFERENCE = 'TILE41-132-F160W_drz.fits', SEGM = 'test_seg.fits', Force=False, sci_extension=1)
+    
+    unicorn.reduce.blot_from_reference(REF_ROOT='TILE41_F160W', DRZ_ROOT = 'TILE41-132-F160W', NGROW=125, verbose=True)
+    
+    unicorn.reduce.interlace_combine_blot(root='TILE41-132-F160W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True)
+    
+    #### Broken.... Shifts of direct image give offset with grism image
+    
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False):
     """
     Combine blotted image from the detection mosaic as if they were 
@@ -4457,7 +4584,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     status = old_cat.addColumn(np.array(flt_y), name='Y_FLT', comment='Y pixel in FLT frame', verbose=True)
     old_cat.write(outfile=pointing+'_inter.cat')
         
-def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', Force=False):
+def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', Force=False, sci_extension=0):
     """
     Need to strip some header keywords from Multidrizzled images and make sure 
     certain keywords exist (EXPTIME, CD1_2, etc.)
@@ -4466,10 +4593,10 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     
     im_ref = pyfits.open(REFERENCE)
     
-    new_head = unicorn.reduce.strip_header(im_ref[0].header, filter=filter)
+    new_head = unicorn.reduce.strip_header(im_ref[sci_extension].header, filter=filter)
     
     if (not os.path.exists(REF_ROOT+'_ref.fits')) | Force:
-        ref = pyfits.PrimaryHDU(header=new_head, data=im_ref[0].data)
+        ref = pyfits.PrimaryHDU(header=new_head, data=im_ref[sci_extension].data)
         ref.writeto(REF_ROOT+'_ref.fits', output_verify='fix', clobber=True)
         
     im_seg = pyfits.open(SEGM)

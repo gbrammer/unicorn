@@ -78,8 +78,13 @@ def go_bright(skip_completed=True):
 class GrismSpectrumFit():
     """
     Functions for fitting (redshifts for now) the interlaced grism spectra
+    
+    gris = unicorn.interlace_fit.GrismSpectrumFit('GOODS-S-34_00280')
+    gris.fit_in_steps()     ## fit redshift
+    gris.fit_free_emlines() ## fit emission lines
+    
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -154,6 +159,7 @@ class GrismSpectrumFit():
         #### If match distance > 1", prior is flat
         if self.dr > 1:
             self.phot_lnprob *= 0
+            
         else:
             #### Put less weight on spectra when z_phot < `lowz_thresh` (0.55) and there aren't 
             #### many features expected in the spectrum.
@@ -164,7 +170,19 @@ class GrismSpectrumFit():
                     print '\n!! p(z < %.2f | phot) = %.3f, I\'ll decrease spectrum weight in fit.\n' %(lowz_thresh, 1-zprob)
                 self.twod.im['WHT'].data *= 3.
                 #self.twod.im['WHT'].data = np.maximum(self.twod.im['WHT'].data, self.twod.im['SCI'].data/5.)
-                
+        
+        #### EAZY (K) magnitude prior, OK for H
+        if use_mag_prior:
+            #### Use EAZY magnitude prior
+            prior = open('%s/data/prior_K_zmax7_coeff.dat' %(os.path.dirname(threedhst.__file__))).readlines()
+            prior_mag = np.cast[float](prior[0].split()[2:])
+            prior_z0 = np.cast[float](prior[1].split()[1:])
+            prior_gamma = np.cast[float](prior[2].split()[1:])
+            z0 = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_z0, left=prior_z0[0], right=prior_z0[-1])
+            gamma = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_gamma, left=prior_gamma[0], right=prior_gamma[-1])
+            prior_pz = self.phot_zgrid**gamma * np.exp(-(self.phot_zgrid / z0)**gamma)
+            self.phot_lnprob += np.log(prior_pz / np.trapz(prior_pz, self.phot_zgrid))
+                    
         #### Initialize the continuum and emission line templates    
         self.line_free_template()
         self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
@@ -299,17 +317,17 @@ class GrismSpectrumFit():
         #### it does seem to.  Only need to compute them once since they don't change with the 
         #### redshift grid.
         if self.grism_element == 'G141':
-            x0, dx = 0.98e4, 2800.
-        else:
             x0, dx = 1.4e4, 4000.
-            
-        tilt_blue = -(self.templam_nolines*(1+0.5)-x0)/dx+1
-        self.twod.compute_model(self.templam_nolines*(1+0.5), tilt_blue)
-        tilt_blue_model = self.twod.model*1.
-        
-        tilt_red = (self.templam_nolines*(1+0.5)-x0)/dx+1
-        self.twod.compute_model(self.templam_nolines*(1+0.5), tilt_red)
+        else:
+            x0, dx = 0.98e4, 2800.
+                    
+        tilt_red = ((self.templam_nolines-x0)/dx+1)*2
+        self.twod.compute_model(self.templam_nolines, tilt_red)
         tilt_red_model = self.twod.model*1.
+
+        tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
+        self.twod.compute_model(self.templam_nolines, tilt_blue)
+        tilt_blue_model = self.twod.model*1.
 
         #### Loop through redshift grid
         pmax = -1.e10
@@ -387,6 +405,8 @@ class GrismSpectrumFit():
         """
         zout = self.zout
 
+        print '\n'
+        
         #################
         #### First iteration, fit full range at low dz resolution
         #################
@@ -621,8 +641,13 @@ class GrismSpectrumFit():
         if self.grism_element == 'G102':
             wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
         
+        y = self.oned.data.flux[show]-self.oned.data.contam[show]
+        yerr = self.oned.data.error[show]
+        ax.fill_between(self.oned.data.wave[show]/1.e4, y+yerr, y-yerr, color='blue', alpha=0.1)
+        
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
         ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
+        
         ax.plot(self.oned_wave[show]/1.e4, self.model_1D[show], color='red', alpha=0.5, linewidth=2)
         ax.plot(self.oned_wave/1.e4, self.model_1D, color='red', alpha=0.08, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
@@ -642,7 +667,7 @@ class GrismSpectrumFit():
         self.oned.data.sensitivity /= 100
         
         ax = fig.add_subplot(142)
-        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show]*100, color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
         
         show_flux = (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show]
         show_err = self.oned.data.error[show]/self.oned.data.sensitivity[show]

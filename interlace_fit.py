@@ -172,7 +172,7 @@ class GrismSpectrumFit():
                 #self.twod.im['WHT'].data = np.maximum(self.twod.im['WHT'].data, self.twod.im['SCI'].data/5.)
         
         #### EAZY (K) magnitude prior, OK for H
-        if use_mag_prior:
+        if use_mag_prior & (self.dr > 1):
             #### Use EAZY magnitude prior
             prior = open('%s/data/prior_K_zmax7_coeff.dat' %(os.path.dirname(threedhst.__file__))).readlines()
             prior_mag = np.cast[float](prior[0].split()[2:])

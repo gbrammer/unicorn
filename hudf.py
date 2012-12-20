@@ -7,7 +7,13 @@ import pyfits
 
 import threedhst
 import threedhst.catIO as catIO
+import threedhst.eazyPy as eazy
+
 import unicorn
+
+#### nJy
+bouwens = {'F435W':-1.7, 'F606W':-1.1, 'F775W':-1.4, 'F814W':-3.3, 'F850LP':-2.5, 'F105W':-1.2, 'F125W':-1.7, 'F140W':-1.6, 'F160W':11.8, 'ch1':-18, 'ch2':-13}
+
 
 def make_ellis12_regions():
     
@@ -67,15 +73,23 @@ def extract_hudf12():
     se.options['GAIN']  = '1.0'
     
     status = se.sextractImage('hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits')
-    
+        
     threedhst.sex.sexcatRegions('hudf12.cat', 'hudf12.reg', format=2)
+    
+    #### Other bands (in HUDF12/Matched_catalogs)
+    for filt in ['F105W', 'F125W', 'F140W']:
+        se.options['CATALOG_NAME']    = 'hudf12_%s.cat' %(filt)
+        se.options['MAG_ZEROPOINT'] = '%.5f' %(unicorn.reduce.ZPs[filt])
+        status = se.sextractImage('hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits hlsp_hudf12_hst_wfc3ir_udfmain_%s_v1.0_drz.fits' %(filt.lower()))
+        cat = threedhst.sex.mySexCat('hudf12_%s.cat' %(filt))
+        cat.write('hudf12_%s.reform.cat' %(filt), reformat_header=True)
     
     #### Find matches to Ellis positions
     cat = threedhst.sex.mySexCat('hudf12.cat')
     cat.write('hudf12.reform.cat', reformat_header=True)
     cat = catIO.Readfile('hudf12.reform.cat')
     matcher = catIO.CoordinateMatcher(cat, USE_WORLD=True)
-    
+        
     lines = open('../ellis12.dat').readlines()
     fp = open('ellis12.matched.dat','w')
     fp.write(lines[0][:-1]+' my_id\n')
@@ -88,6 +102,41 @@ def extract_hudf12():
     
     fp.close()
     
+def find_red():
+    
+    os.chdir('/research/HST/GRISM/3DHST/UDF/HUDF12/Matched_catalogs')
+    c160 = catIO.Readfile('../hudf12.reform.cat')
+    c105 = catIO.Readfile('hudf12_F105W.reform.cat')
+    c125 = catIO.Readfile('hudf12_F125W.reform.cat')
+    c140 = catIO.Readfile('hudf12_F140W.reform.cat')
+    
+    ### select faint things in F160W, 0.4" apertures    
+    jh125 = np.minimum(c125.mag_aper - c160.mag_aper, 5)
+    ejh125 = np.sqrt(c125.magerr_aper**2 + c160.magerr_aper**2)
+    jh140 = np.minimum(c140.mag_aper - c160.mag_aper, 5)
+    ejh140 = np.sqrt(c140.magerr_aper**2 + c160.magerr_aper**2)
+    
+    mag = (c160.mag_aper > 26) & (c160.mag_aper < 28) & (c125.mag_aper < 35) & (c140.mag_aper < 35)
+    
+    plt.scatter(jh125[mag], jh140[mag], alpha=0.5, color='black')
+    
+    for i in [6001, 3514, 4948]:
+        id = c160.number == i
+        plt.plot(jh125[id], jh140[id], alpha=0.5, marker='o', ms=8, label='%d' %(i))
+    
+    plt.legend()
+    plt.xlim(-0.5,5.1)
+    plt.ylim(-0.5,5.1)
+    
+    test = mag & ((jh125 > 0.9) | (jh140 > 0.9))
+    for id in c160.number[test][5:]:
+        try:
+            hudf.extract_all(id, miny=-100, MAGLIMIT=27)
+            hudf.stack(id, dy=30, inverse=True, fcontam=1)
+        except:
+            hudf.stack(id, dy=30, inverse=True, fcontam=1)
+            
+            
 def prepare():
     
     import os
@@ -277,7 +326,7 @@ def prepare():
     files = glob.glob('*ref_inter.fits')
     for file in files:
         ROOT=file.split('_ref_inter')[0]
-        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=25, REFINE_MAG_LIMIT=23, make_zeroth_model=False, grism='G141')
+        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=28, REFINE_MAG_LIMIT=23, make_zeroth_model=False, grism='G141')
         model.make_wcs_region_file()
         
     #model = unicorn.reduce.GrismModel(root=ROOT, MAG_LIMIT=30, grism='G141')
@@ -298,26 +347,27 @@ def extract_dropouts():
     import unicorn.hudf as hudf
     cat = catIO.Readfile('../HUDF12/ellis12.matched.dat')
     for id in cat.my_id[0:]:
-        hudf.extract_all(id, fit=False, miny=-200)
-        
-def extract_all(id=6818, fit=False, miny=-200):
+        hudf.extract_all(id, fit=False, miny=-200, MAGLIMIT=28)
+    
+    for id in cat.my_id[9:]:
+        hudf.stack(id,dy=100, inverse=True, fcontam=1)
+        hudf.fix_2d_background('UDF_%05d' %(id), force=True)
+        hudf.stack(id,dy=30, inverse=True, fcontam=1.2)
+        hudf.fix_2d_background('UDF_%05d' %(id), force=False)
+            
+def extract_all(id=6818, fit=False, miny=-200, MAGLIMIT=28):
     """
     Extract spectra from 3D-HST + CANDELS pointings
     """
     files = glob.glob('*ref_inter.fits')
     for file in files:
         ROOT=file.split('_ref_inter')[0]
-        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=30, grism='G141')
-        #model.get_corrected_wcs()
-        #
-        #id=6818  ### UDF dropout
-        #id=6021  ### OIII emitter
-        #id=7328
-        #id=5836 # weaker line
+        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=MAGLIMIT, grism='G141')
         if id not in model.objects:
             continue
         #
-        model.twod_spectrum(id, verbose=True, CONTAMINATING_MAGLIMIT=28, miny=miny)
+        object_mag = model.cat['MAG_AUTO'][model.cat.id == id][0]
+        model.twod_spectrum(id, verbose=True, CONTAMINATING_MAGLIMIT=MAGLIMIT, miny=miny, USE_REFERENCE_THUMB=True, refine=object_mag < 23)
         model.show_2d(savePNG=True, verbose=True)
         oned = unicorn.reduce.Interlace1D(ROOT+'_%05d.1D.fits' %(id), PNG=True, flux_units=True)
         if fit:
@@ -459,7 +509,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0.
         y0i = int(np.round(y0))
         profile = np.sum((1-2*inverse)*model[i,:,x0-10:x0+10], axis=1)
         #print y0i, x0, dy, model.shape, model[i,:,x0-10:x0+10].shape, profile.shape
-        ax.plot(np.arange(2*dy), profile/np.sum(profile), label=file.split('2D')[0])
+        ax.plot(np.arange(2*dy), profile, label=file.split('2D')[0])
     
     ax.legend(prop=dict(size=8))
     
@@ -470,6 +520,8 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0.
     udf = UDF(id=id, NPIX=dy, fcontam=fcontam)
     udf.go_stacks()
     udf.fix_oned_arrays()
+    
+    return udf
     
     ### Ideas:
     
@@ -527,13 +579,21 @@ class UDF():
             self.y0[i] = np.interp(1.4e4, im['WAVE'].data, im['YTRACE'].data)
             ### Xoffset to register wavelength
             x0 = np.interp(1.4e4, im['WAVE'].data, np.arange(self.nx[i]))
-            self.dx[i] = 150-x0
+            self.dx[i] = 149.68-x0
+            ### Try using the profile itself for the center position
+            yarr = np.arange(im['SCI'].data.shape[0])
+            profile = np.sum(im['MODEL'].data[:,x0-10:x0+10], axis=1)
+            ycenter = np.trapz(profile*yarr, yarr)/np.trapz(profile, yarr)
+            #self.y0[i] = ycenter
+                
+            print self.y0[i], im['SCI'].data.shape, x0, x0-149.68, int(np.round(self.dx[i])), ycenter
                 
         #### Now store shifted flux arrays
         self.dx -= self.dx[-1]
         self.dxi[i] = np.cast[int](np.round(self.dx[i]))
         
         NX = self.nx.min()
+        #NX = 270
         self.flux = np.zeros((self.N, 2*NPIX, NX))
         self.err = np.zeros((self.N, 2*NPIX, NX))
         self.contam = np.zeros((self.N, 2*NPIX, NX))
@@ -542,17 +602,28 @@ class UDF():
         self.dsci = np.zeros((2*NPIX,2*NPIX))
         self.dseg = np.zeros((2*NPIX,2*NPIX))
         
+        exp_wht = 0.
         for i in range(self.N):
             y0i = int(np.round(self.y0[i]))
+            print y0i, self.y0[i]
             dx = self.dxi[i]
             im = self.twod[i].im
+            #
+            sh = im['SCI'].data.shape
+            # print sh, NX
+            # if sh[1] < NX:
+            #     self.err[i,:,:] = 10000.
+            #     continue
             #
             self.flux[i,:,:] = nd.shift(im['SCI'].data[y0i-NPIX:y0i+NPIX,:], (0,dx), order=3)[:,:NX]
             self.contam[i,:,:] = nd.shift(im['CONTAM'].data[y0i-NPIX:y0i+NPIX,:], (0,dx), order=3)[:,:NX]
             self.err[i,:,:] = nd.shift(im['WHT'].data[y0i-NPIX:y0i+NPIX,:], (0,dx), order=3)[:,:NX]
             self.model[i,:,:] = nd.shift(im['MODEL'].data[y0i-NPIX:y0i+NPIX,:], (0,dx), order=3)[:,:NX]
             #
-            self.dsci += im['DSCI'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]/self.N
+            exp_wht_i = np.median(im['WHT'].data)**2
+            self.dsci += im['DSCI'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]/exp_wht_i
+            exp_wht += 1./exp_wht_i
+            
             self.dwht = im['DWHT'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
             self.dseg = ((self.dseg == self.id) | (im['DSEG'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX] == self.id))*int(self.id)
             
@@ -575,9 +646,10 @@ class UDF():
         # self.x_onedcont = nd.shift(oned.contam, dx)[:NX]
 
         ### Thumbnail
-        self.dsci = im['DSCI'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
-        self.dwht = im['DWHT'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
-        self.dseg = im['DSEG'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
+        self.dsci /= exp_wht
+        #self.dsci = im['DSCI'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
+        #self.dwht = im['DWHT'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
+        #self.dseg = im['DSEG'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]
 
     def stack_spectra(self):
         """
@@ -797,6 +869,10 @@ def check_lehnert():
     model[NY:-NY, NY:-NY] = twod.model
     
     import stsci.convolve.Convolve as sc
+    import scipy.signal as sig
+    
+    #cd2 = sig.correlate2d(in1, in2, mode='same', boundary='fill', fillvalue=0, old_behavior=False)
+    #cd3 = sig.convolve2d(in1, in2, mode='same', boundary='fill', fillvalue=0, old_behavior=True)
     
     cd = sc.correlate2d(flux-contam, thumb, mode='constant', cval=0.)
     cf = sc.correlate2d(flux, thumb, mode='constant', cval=0.)
@@ -848,7 +924,7 @@ def check_z12_source(scale = 1, z=2.25, own_spec=1, observed_mag=29.3, save=Fals
     # twod.total_flux = 1.
     # twod.init_model()
     
-    lam, flam, fnu = unicorn.hudf.generate_line_model(z=z, filter='F160W', observed_mag=observed_mag, own_spec=own_spec)
+    lam, flam, flam_continuum, fnu = unicorn.hudf.generate_line_model(z=z, filter='F160W', observed_mag=observed_mag, own_spec=own_spec)
     twod.compute_model(lam, flam/1.e-17*scale/twod.total_flux)
     check = unicorn.hudf.check_mags(lam, fnu*scale)
     # 
@@ -993,7 +1069,73 @@ def go_check():
     #gris.fit_free_emlines(ztry=12.17)
     #gris.fit_free_emlines(ztry=1.44)
     
-def generate_line_model(z=2.1, filter='F160W', observed_mag=29.3, own_spec=True):
+def check_reddened_lens():
+    """
+    See if you can add a bunch of reddening to the UDS lens to
+    get something to match the UDF object
+    """
+    
+    #### Test redden lens spectrum
+    import gbb
+    lensx, lensy = np.loadtxt('lens_template.dat', unpack=True)
+    
+    #### something like 4 mags to go from observed UDS spectrum to UDF F160W
+    Av = 4.25
+    Av = 2.8 # To satisfy IRAC limits
+    red = gbb.redden.redden(lensx, lensy*0.+1, Av, rv=4.05)
+    red_lens_fnu = red*lensy*lensx**2
+    
+    ### OIII
+    m160 = 28.73
+    m160 = 29.3
+    
+    lam, flam, flam_continuum, fnu = unicorn.hudf.generate_line_model(z=2.1755, filter='F160W', observed_mag=m160, own_spec=None, in_spec = (lensx, red*lensy))
+    check_OIII = unicorn.hudf.check_mags(lam, fnu)
+    
+    ztry = 2.2709
+    lam, flam, flam_continuum, fnu = unicorn.hudf.generate_line_model(z=ztry, filter='F160W', observed_mag=m160, own_spec=None, in_spec = (lensx, red*lensy))
+    check_Hb = unicorn.hudf.check_mags(lam, fnu)
+    
+    
+    fig = unicorn.plotting.plot_init(square=True, left=0.11, top=0.01, right=0.01, bottom=0.09, aspect=1, xs=6)
+    
+    ax = fig.add_subplot(111)
+    ax.plot(lam, -2.5*np.log10(fnu)-48.6, color='black', alpha=0.5)
+    
+    ellis = dict(F105W=-31.2, F140W=-30.5, F125W=-30.7, F160W=29.3)
+    colors = dict(F105W='blue',F125W='green',F140W='yellow',F160W='orange')
+    for f in ellis.keys():
+        if ellis[f] < 0:
+            m = 'v'
+        else:
+            m = 'o'
+        #
+        print f, check_Hb[f]
+        mc = 'o'
+        #
+        a = ax.plot(unicorn.reduce.PLAMs[f], np.abs(ellis[f]), marker=m, color='red', markersize=10)
+        a = ax.plot(unicorn.reduce.PLAMs[f], np.abs(check_Hb[f]), marker=mc, color='black', markersize=10, alpha=0.5)
+        #a = ax.plot(unicorn.reduce.PLAMs[f], np.abs(check_OIII[f]), marker=mc, color='red', markersize=10, alpha=0.5)
+        #
+    
+    ax.plot([3.55e4,4.50e4],[28.5,28], marker='v', alpha=1, markersize=10, linestyle='None', color='red')
+    
+    ax.set_xlim(2000,6.e4)
+    #ax.semilogx()
+    ax.set_ylim(35,25)
+    ax.text(0.95, 0.1, 'UDS lens, z=%.2f, Av=%.2f' %(ztry, Av), transform=ax.transAxes, ha='right', va='bottom')
+    ax.set_xlabel(r'$\lambda$')
+    ax.set_ylabel('AB')
+    
+    plt.savefig('..//PAPER_FIGURES/reddened_lens.pdf')
+    
+    object = 'UDF_06001'
+    twod = unicorn.reduce.Interlace2D('%s.2D.fits' %(object))
+    lam, flam, flam_continuum, fnu = unicorn.hudf.generate_line_model(z=2.2709, filter='F160W', observed_mag=28.73, own_spec=None, in_spec = (lensx, red*lensy))
+    twod.compute_model(lam, (flam)/1.e-17/twod.total_flux)
+    
+    
+def generate_line_model(in_spec = None, z=2.1, filter='F160W', observed_mag=29.3, own_spec=True):
     """
     Scale the UDS lens spectrum to a given observed magnitude and redshift
     
@@ -1013,26 +1155,47 @@ def generate_line_model(z=2.1, filter='F160W', observed_mag=29.3, own_spec=True)
 
     #### Use 3D-HST lens as input
     lensx, lensy = np.loadtxt('lens_template.dat', unpack=True)
-
+    continuum = lensy
+    
+    if in_spec is not None:
+        lensx, lensy = in_spec[0], in_spec[1]
+        continuum = lensy
+        own_spec = False
+        
     #### Single set of lines
     if own_spec:
+        #### Use BC03 continuum
+        lc, fc = np.loadtxt('/Users/gbrammer/research/drg/TEMPLATES/BC03_FROM_FAST/bc03_pr_ch_z02_ltau07.0_age08.0.dat', unpack=True)
+        lcz = lc*(1+z)
+        igm = threedhst.eazyPy.igm_factor(lcz, z)
+        fc = fc*igm
+        fc = fc/np.interp(1.9e4, lcz, fc) ### so can use same scale factors
+        from scipy import interpolate
+        interp_continuum = interpolate.InterpolatedUnivariateSpline(lcz/(1+z),fc)
+        
         waves = [1215.24, 2799.12, 3728., 4862.68, 4960.3, 5008.24, 6564.61]
         waves = [1216, 2799.12, 3728., 4862.68, 4960.3, 5008.24, 6564.61]
-        fluxes = [1, 4, 4, 0.0, 1, 3., 0.4]
+        fluxes = [1, 4, 4, 1.8/2.86, 2.5/3, 2.5, 1.8]
         dv = 60.
         lensx = np.arange(712.,1.e4,0.01)
         lensy = lensx*0.+1.e-6*own_spec
+        continuum = interp_continuum(lensx)*1.e-6*own_spec
+        lensy = continuum*1.
+        eqw_rest = []
         for i in range(len(waves)):
             dlam = dv/3.e5*waves[i]
-            lensy += 1./np.sqrt(2*np.pi*dlam**2)*fluxes[i]*np.exp(-(lensx-waves[i])**2/2/dlam**2)
-    
-    lensy[lensx < 1210] = 1.e-10
+            line = 1./np.sqrt(2*np.pi*dlam**2)*fluxes[i]*np.exp(-(lensx-waves[i])**2/2/dlam**2)
+            lensy += line
+            eqw_rest.append(np.trapz(line/continuum, lensx))
+            print 'Lam, EW(rest): %d  %.1f' %(waves[i], eqw_rest[i])
+            
+    #lensy[lensx < 1210] = 1.e-10
     lensy_fnu = lensy*lensx**2
     
     ### Range of filters    
     x0 = xf[yf > 0.05*yf.max()][[0,-1]]
     if ((x0[0]/5007.-1) > z) | ((x0[1]/5007.-1) < z):
-        print 'OIII not in filter %s at z=%.3f' %(filter, z)
+        print '\n OIII not in filter %s at z=%.3f \n' %(filter, z)
         
     #### Interpolate the filter curve and compute integrated flux
     s = interpolate.InterpolatedUnivariateSpline(xf,yf)
@@ -1046,13 +1209,15 @@ def generate_line_model(z=2.1, filter='F160W', observed_mag=29.3, own_spec=True)
     scale_fnu = 10**(-0.4*(observed_mag-filter_mag))
     
     lensy_flam = lensy_fnu*scale_fnu*3.e18/lensx_z**2
+    continuum_flam = continuum*lensx**2*scale_fnu*3.e18/lensx_z**2
+    
     if observed_mag < 0:
         flam_flux = np.trapz(lensy_flam*yf_int, lensx_z)/np.trapz(yf_int, lensx_z)
         lensy_flam /= flam_flux
         scale_fnu /= flam_flux
         
     
-    return lensx_z, lensy_flam, lensy_fnu*scale_fnu
+    return lensx_z, lensy_flam, continuum_flam, lensy_fnu*scale_fnu
     
 def check_mags(wave, fnu):
     """
@@ -1071,6 +1236,12 @@ def check_mags(wave, fnu):
     return out
     
 def rgb_browser():
+    
+    ### SWarp UDF ACS images
+    os.chdir("/research/HST/GRISM/3DHST/UDF/HUDF12")
+    threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_i_drz_img.fits'], matchImage='hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits', match_extension=0, output='UDF_ACS_i.fits')
+    threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_z_drz_img.fits'], matchImage='hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits', match_extension=0, output='UDF_ACS_z.fits')
+    
     ### HJi
     scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
     
@@ -1109,29 +1280,193 @@ def rgb_browser():
     Q, alpha, m0 = 3., 8, -0.02
     unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='HUDF12_wfc3_%05.1f.png' %(f), shape=sub_r.shape)
     
-def xcor_analysis():
+    ##### iJH
+    imr = pyfits.open('hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits')
+    img = pyfits.open('hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits')
+    imb = pyfits.open('UDF_ACS_i.fits')
+    
+    fs = [10**(x) for x in np.arange(-1.2,1.41,0.2)]
+    # for f in fs:
+    f = 10
+    #
+    print unicorn.noNewLine + '%f' %(f)
+    scales = np.array([10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5])*f
+    xc, yc, NX = 948, 1703, 200  ### barred disk, z=1.3
+    xc, yc, NX = 2350, 2425, 200  ### spirals
+    xc, yc, NX = 1578, 2355, 200  ### z=12
+    xc, yc, NX = 1302, 2568, 200  ### big disk
+    xc, yc = 1890, 1002 ### szomoru
+    xc, yc, NX = 1760, 1900, 400 ## blank
+    xc, yc, NX = 1600, 2290, 400 ## blank
+    sh = sub_r.shape
+    xc, yc, NX, sh = 1332, 1731, 20, (400,400) ### 3514 OIII emitter
+    xc, yc, NX, sh = 1451, 2069, 20, (400, 400)
+    sub_r = imr[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[0]
+    sub_g = img[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[1]*1.0
+    sub_b = imb[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[2]*1.0
+    # 
+    # sub_r = imr[0].data*scales[0]
+    # sub_g = img[0].data*scales[1]*1.0
+    # sub_b = imb[0].data*scales[2]*1.0
+    #
+    Q, alpha, m0 = 0.5, 20, -0.01
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='HUDF12_iJH_%06.2f.png' %(f), shape=sh)
+    
+def comparison_objects(id=4581, zr=(0.4,2.2), bg=True):
+    
+    hudf.extract_all(id, miny=-200, MAGLIMIT=24)
+    
+    if bg:
+        hudf.stack(id,dy=100, inverse=True, fcontam=1)
+        hudf.fix_2d_background('UDF_%05d' %(id), force=True)
+        hudf.stack(id,dy=30, inverse=True, fcontam=1)
+        hudf.fix_2d_background('UDF_%05d' %(id), force=False)
+    else:
+        hudf.stack(id,dy=30, inverse=True, fcontam=1)
+    
+    gris = unicorn.interlace_fit.GrismSpectrumFit('UDF_%05d' %(id), lowz_thresh=0.0, skip_photometric=False)
+    gris.fit_in_steps(zrfirst=zr)
+    gris.fit_free_emlines()
+    
+    os.system('open UDF_%05d*fit*png' %(id))
+    
+def run_all_xcor():
+    """
+    Run the same analysis on all pointings to check variability and
+    sensitivity to outliers.
+    """
+    import unicorn.hudf as hudf
+    
+    #### z=12 candidate
+    hudf.stack(6001,dy=100, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_06001', force=True)
+    hudf.stack(6001,dy=30, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_06001', force=False)
+    
+    hudf.plt.jet()
+    hudf.xcor_analysis(object = 'UDF_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    
+    hudf.xcor_analysis(object = 'PRIMO-1101_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'PRIMO-1026_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'GOODS-SOUTH-34_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'GOODS-SOUTH-36_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'GOODS-SOUTH-37_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'GOODS-SOUTH-38_06001', ztry=12.13, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009))
+    
+    ### Comparison
+    hudf.stack(4025,dy=100, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_04025', force=True)
+    hudf.stack(4025,dy=30, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_04025', force=False)
+    hudf.xcor_analysis(object = 'UDF_04025', ztry=2.817, continuum_level=6.e4, NYSHOW=60, vm = (-0.0025, 0.009))
+    
+    ######################
+    ### High EQW Ha + OIII emitter, m_160 = 27.28
+    stats = """
+    """
+    id=4948
+    hudf.extract_all(id, miny=-200, MAGLIMIT=25)
+    hudf.stack(id,dy=100, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_%05d' %(id), force=True)
+    hudf.stack(id,dy=30, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_%05d' %(id), force=False)
+        
+    hudf.xcor_analysis(object = 'UDF_04948', ztry=1.301, continuum_level=300, NYSHOW=60, vm = (-0.0025, 0.009))
+    hudf.xcor_analysis(object = 'UDF_04948', ztry=1.303, continuum_level=1300, NYSHOW=60, vm = (-0.0009*8,0.002*8), RUN_XCOR_APER=True)
+    hudf.xcor_analysis(object = 'UDF_04948', ztry=2.01869, continuum_level=1300, NYSHOW=60, vm = (-0.0009*8,0.002*8), RUN_XCOR_APER=True)
+
+    ### OIII emitter, z=1.9
+    id = 3514
+    hudf.extract_all(id, miny=-200, MAGLIMIT=25)
+    hudf.stack(id,dy=40, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_%05d' %(id), force=True)
+    hudf.stack(id,dy=30, inverse=True, fcontam=1)
+    hudf.fix_2d_background('UDF_%05d' %(id), force=False)
+
+    hudf.xcor_analysis('UDF_03514', ztry=1.92, continuum_level=2000)
+    hudf.xcor_analysis('UDF_03514', ztry=1.92, continuum_level=2000, vm=(-0.0009*8,0.002*8), ADD_MODEL_TO_DATA=False)
+        
+    hudf.xcor_analysis('UDF_06001', ztry=12.15, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=True, ADD_MODEL_TO_DATA=False)
+    
+    plt.jet()
+    
+    for ztry in np.arange(11.35,13.36,0.2):
+        hudf.xcor_analysis('UDF_06001', ztry=ztry, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=True, out_root='z12_%0.2f' %(ztry))
+        
+    hudf.xcor_analysis('UDF_06001', ztry=11.35, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=True, out_root='z12_11.35')
+    hudf.xcor_analysis('UDF_06001', ztry=11.55, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=True, out_root='z12_11.55')
+    hudf.xcor_analysis('UDF_06001', ztry=11.75, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=True, out_root='z12_11.75')
+    hudf.xcor_analysis('UDF_06001', ztry=11.95, continuum_level=5000, vm=(-0.0009*8,0.002*8), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=True, out_root='z12_11.95')
+    
+def reformat_name(id=6001, verbose=True):
+    """
+    Turn RA/Dec into something like UDFj-39546284
+    """
+    cat = threedhst.catIO.Readfile('../HUDF12/hudf12.reform.cat')
+    x = cat.number == id
+    ra = threedhst.utils.decimal2HMS(cat.x_world[x][0], hours=True)
+    dec = threedhst.utils.decimal2HMS(cat.y_world[x][0], hours=False)
+    
+    reformat = 'UDF-%s%s' %(ra.replace(':','').replace('.','')[-4:], dec.replace(':','').replace('.','')[-5:-1])
+    if verbose:
+        print '(%s,%s) -> %s' %(ra, dec, reformat)
+        
+    return reformat
+    
+def xcor_analysis(object = 'UDF_06001', ztry=12.15, continuum_level=1000, NYSHOW=60, vm = (-0.0025, 0.009), RUN_XCOR_APER=False, ADD_MODEL_TO_DATA=False, out_root=None):
     """
     Run a cross-correlation analysis to try to improve detection of the 
     z=12 line
+    
+    4025 is a good comparison with a weak OII line at z=2.8
     """
     
-    id = 6001
+    #id = 6001
     
     ### Read the spectrum
     ## Fix background
     # unicorn.hudf.fix_2d_background(object = 'UDF_%05d' %(id), force=False)
-    twod = unicorn.reduce.Interlace2D('UDF_%05d.2D.fits' %(id))
-
-    #### Xcor kernels
-    thumb = twod.im['DSCI'].data*(twod.im['DSEG'].data == id)
-    my_f160w_mag = -2.5*np.log10(thumb.sum())+unicorn.reduce.ZPs['F160W']
-    kernel = thumb[22:-22,22:-22]
-    my_f160w_mag = -2.5*np.log10(kernel.sum())+unicorn.reduce.ZPs['F160W']
+    twod = unicorn.reduce.Interlace2D('%s.2D.fits' %(object))
     
+    id = int(object.split('_0')[1])
+    # if (id == 6001) & object.startswith('GOODS'):
+    #     t = unicorn.reduce.Interlace2D('PRIMO-1101_06001.2D.fits')
+    #     twod.flux = t.flux
+    #     twod.total_flux = t.total_flux
+    #     twod.seg = t.seg
+    #     twod.im['DSCI'].data = t.im['DSCI'].data
+    #     twod.im['DSEG'].data = t.im['DSEG'].data
+    #     twod.init_model()
+        
+    #### Xcor kernels
+    thumb = twod.im['DSCI'].data*((twod.im['DSEG'].data == id) & (twod.im['DSCI'].data > 0))
+    thumb = twod.im['DSCI'].data
+    
+    ### Clip zero
+    thumb[thumb < 0] = 0.
+    
+    sh = thumb.shape
+    yi, xi = np.indices(thumb.shape)
+    r = np.sqrt((xi-sh[1]/2.)**2+(yi-sh[0]/2.)**2)
+    thumb = thumb*(r < 8)
+    my_f160w_mag = -2.5*np.log10(thumb.sum())+unicorn.reduce.ZPs['F160W']
+    
+    if (id == 6001) | (id == 4948):
+        pad = 22
+        if thumb.shape[0] == 200:
+            pad = 80
+        #
+        kernel = thumb[pad:-pad,pad:-pad]
+        my_f160w_mag = -2.5*np.log10(kernel.sum())+unicorn.reduce.ZPs['F160W']
+    else:
+        kernel = thumb
+        
     #### Get a line model, normalized to a specific F160W mag
-    lam, flam, fnu = unicorn.hudf.generate_line_model(z=12.13, filter='F160W', observed_mag=my_f160w_mag, own_spec=1000)
-    twod.compute_model(lam, flam/1.e-17/twod.total_flux)
-    check = unicorn.hudf.check_mags(lam, fnu*scale)
+    lam, flam, flam_continuum, fnu = unicorn.hudf.generate_line_model(z=ztry, filter='F160W', observed_mag=my_f160w_mag, own_spec=continuum_level)
+    twod.compute_model(lam, (flam-0*flam_continuum)/1.e-17/twod.total_flux)
+    check = unicorn.hudf.check_mags(lam, fnu)
+    mags_total = unicorn.hudf.check_mags(lam, flam*lam**2/3.e18)
+    mags_line = unicorn.hudf.check_mags(lam, (flam-flam_continuum)*lam**2/3.e18)
     
     #### Get the integrated line flux and double check that it agrees with the
     #### flux in the 2D model
@@ -1159,74 +1494,159 @@ def xcor_analysis():
     #### Run all of the cross-correlation
     import stsci.convolve.Convolve as sc
     
-    cd = sc.correlate2d(flux-contam, thumb, mode='constant', cval=0.)
-    cf = sc.correlate2d(flux, thumb, mode='constant', cval=0.)
-    cc = sc.correlate2d(contam, thumb, mode='constant', cval=0.)
-    cm = sc.correlate2d(model, thumb, mode='constant', cval=0.)
-    cm2 = sc.correlate2d(model, kernel, mode='constant', cval=0.)
-    noise = np.random.normal(size=model.shape)*err #+model
-    crnd = sc.correlate2d(noise, thumb, mode='constant', cval=0.)
+    #### Add in model for testing
+    if ADD_MODEL_TO_DATA:
+        print 'Added model!!!!'
+        flux += model
+    
+    kuse = kernel # use=thumb
+    cd = sc.correlate2d(flux-contam, kuse, mode='constant', cval=0.)
+    cf = sc.correlate2d(flux, kuse, mode='constant', cval=0.)
+    cc = sc.correlate2d(contam, kuse, mode='constant', cval=0.)
+    cm = sc.correlate2d(model, kuse, mode='constant', cval=0.)
+    #cm2 = sc.correlate2d(model, kuse, mode='constant', cval=0.)
+    noise = np.random.normal(size=model.shape)*err*0.93 #+model
+    crnd = sc.correlate2d(noise, kuse, mode='constant', cval=0.)
+    cmrnd = sc.correlate2d(noise+model, kuse, mode='constant', cval=0.)
+    #ds9.view(cmrnd)
     
     #### Figure showing cross-correlation
     sh = twod.model.shape
+    YSUB = (sh[0]-NYSHOW)/2
+    if YSUB < 0:
+        YSUB = NY
+        
     xv = np.arange(1.1,1.61,0.1)
     ta = np.interp(xv, twod.im['WAVE'].data/1.e4, np.arange(sh[1]))
     
-    vm = (-0.01, 0.01)
-        
-    NF = 3
+    #vm = (-0.01, 0.01)
+    #vm = (-0.0025, 0.009)
+    NF = 4
     i=0
     
-    aspect = (NF)*sh[0]*1./(2*sh[1])
+    cscale = np.sum(model)/np.sum(cm)
+    cscale = 8
+    
+    print 'Xcor scale: %f' %(cscale)
+    
+    aspect = (NF)*NYSHOW*1./(2*sh[1])
     fig = unicorn.plotting.plot_init(square=True, left=0.1, right=0.01, top=0.08, bottom=0.1, hspace=0.0, wspace=0.0, aspect=aspect, xs=10, NO_GUI=False)
         
     ## Data/flux
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(twod.im['SCI'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    if YSUB > 0:
+        a = ax.imshow(twod.im['SCI'].data[YSUB:-YSUB,:], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    else:
+        a = ax.imshow(twod.im['SCI'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    
     a = ax.set_ylabel('Observed')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
     
     a = ax.set_title('Pixel values')
     
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(cf[NY:-NY,NY:-NY], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    a = ax.imshow(cf[(NY+YSUB):-(NY+YSUB),NY:-NY]*cscale, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
 
-    a = ax.set_title('Cross-correlation')
+    a = ax.set_title(r'Cross-correlation $\times$ %d' %(cscale))
     
     ## Contam
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(twod.im['CONTAM'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
-    a = ax.set_ylabel('Contam')
+    if YSUB > 0:
+        a = ax.imshow(twod.im['CONTAM'].data[YSUB:-YSUB,:], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    else:
+        a = ax.imshow(twod.im['CONTAM'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    
+    a = ax.set_ylabel('Contam.')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
     
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(cc[NY:-NY,NY:-NY], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    a = ax.imshow(cc[(NY+YSUB):-(NY+YSUB),NY:-NY]*cscale, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
 
     ## Cleaned
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(twod.im['SCI'].data-twod.im['CONTAM'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    if YSUB > 0:
+        a = ax.imshow(twod.im['SCI'].data[YSUB:-YSUB,:] - twod.im['CONTAM'].data[YSUB:-YSUB,:], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    else:
+        a = ax.imshow(twod.im['SCI'].data - twod.im['CONTAM'].data, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+        
     a = ax.set_ylabel('Cleaned')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
     
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(cd[NY:-NY,NY:-NY], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    a = ax.imshow(cd[(NY+YSUB):-(NY+YSUB),NY:-NY]*cscale, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
     a = ax.set_xticklabels([]); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
 
     ## Line
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(twod.model, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    if YSUB > 0:
+        a = ax.imshow(twod.model[YSUB:-YSUB,:], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    else:
+        a = ax.imshow(twod.model, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    
     a = ax.set_ylabel('Line model')
     a = ax.set_xticklabels(xv); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
     a = ax.set_xlabel(r'$\lambda\,[\mu\mathrm{m}]$')
     
+    SHOW_FILTERS = True
+    if SHOW_FILTERS:
+        if plt.get_cmap().name == 'gray':
+            cols = ['blue', 'red']
+            cols = [(0.4,0.4,1), (1,0.4,0.4), (0.4,1,0.4)]
+            cols = [(0.4,0.4,1), (1,0.4,0.4), (1,0.6,1)]
+        else:
+            cols = ['0.1','0.8']
+        #
+        for filt, col in zip(['F140W', 'F160W','G141'], cols):
+            xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+            xp = np.interp(xf, twod.im['WAVE'].data, np.arange(sh[1]))
+            a = ax.plot(xp, yf/yf.max()*0.3*NYSHOW*(1+0.25*(filt=='G141')), color=col, alpha=1)
+            a = ax.set_xlim(0,sh[1])
+            a = ax.set_ylim(0,NYSHOW)
+            xi = np.interp(xf[yf > 0.95*yf.max()].min(), twod.im['WAVE'].data, np.arange(sh[1]))
+            ax.text(xi, 0.1*NYSHOW, filt, ha='left', va='bottom', color=col, alpha=1)
+    
+    LABEL_LINES = True
+    if LABEL_LINES:
+        lines = {}
+        lines[1216] = r'Ly$\alpha$'
+        lines[4861] = r'H$\beta$'
+        lines[4992] = r'[OIII]'
+        lines[6563] = r'H$\alpha$'
+        for key in lines.keys():
+            if (key*(1+ztry) > 1.08e4) & (key*(1+ztry) < 1.68e4):
+                xi = np.interp(key*(1+ztry), twod.im['WAVE'].data, np.arange(sh[1]))
+                ax.text(xi, 0.75*NYSHOW, lines[key], ha='center', va='center', color='white', size=9)
+        
     i += 1; ax = fig.add_subplot((NF)*100+20+i)
-    a = ax.imshow(cm[NY:-NY,NY:-NY], vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
+    a = ax.imshow(cm[(NY+YSUB):-(NY+YSUB),NY:-NY]*cscale, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation='nearest')
     a = ax.set_xticklabels(xv); a = ax.set_yticklabels([]); a = ax.set_xticks(ta)
     a = ax.set_xlabel(r'$\lambda\,[\mu\mathrm{m}]$')
     
-    fig.savefig('UDF_%05d.xcor_2D.pdf' %(id))
+    a = ax.text(0.5, 0.95, r'$m_{160}=%.2f$  $z=%.2f$' %(my_f160w_mag, ztry), color='white', ha='center', va='top', transform=ax.transAxes)
+    
+    if out_root is None:
+        out_root = object
+        
+    fig.savefig('%s.xcor_2D.pdf' %(out_root))
+    
+    #### Test 1D extractions
+    # cm_x = cm[(NY+YSUB):-(NY+YSUB),NY:-NY]
+    # cd_x = cd[(NY+YSUB):-(NY+YSUB),NY:-NY]
+    # cc_x = cc[(NY+YSUB):-(NY+YSUB),NY:-NY]
+    # cr_x = crnd[(NY+YSUB):-(NY+YSUB),NY:-NY]
+    # 
+    # xm, ym = twod.optimal_extract(cm_x)
+    # xd, yd = twod.optimal_extract(cd_x)
+    # xc, yc = twod.optimal_extract(cc_x)
+    # xr, yr = twod.optimal_extract(cr_x)
+    # 
+    # plt.plot(xm, ym, color='orange')
+    # plt.plot(xd, yd, color='black')
+    # plt.plot(xc, yc, color='red')
+    # plt.plot(xr, yr, color='green')
+    # plt.ylim(-0.01,0.015)
     
     #############
     comment = """
@@ -1241,58 +1661,182 @@ def xcor_analysis():
     """
 
     ### Subregion for faster cross-correlation
-    model_sub = model[60:115, 275:319]
-    err_sub = err[60:115, 275:319]
-    cd_sub = cd[60:115, 275:319]
+    ### - for UDF_06001 -
+    if RUN_XCOR_APER:
+        xc, yc, NSUB = 294, 91, 35
+        model_sub = model[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+        err_sub = err[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+        cd_sub = cd[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+        cm_sub = cm[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+        clean_sub = (flux-contam)[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
 
-    aper = model_sub > 1.e-4
-    xcor_flux = np.sum(cd_sub*aper)
-    
-    NSIM = 10000
-    xcor_rand = np.zeros(NSIM)
-    for i in xrange(NSIM):
-        print unicorn.noNewLine + '%d' %(i)
-        noise = np.random.normal(size=err_sub.shape)*err_sub #+model
-        crnd = sc.correlate2d(noise, kernel, mode='constant', cval=0.)
-        xcor_rand[i] = np.sum(crnd*aper)
+        # model_sub = model[60:115, 275:319]
+        # err_sub = err[60:115, 275:319]
+        # cd_sub = cd[60:115, 275:319]
+        # cm_sub = cm[60:115, 275:319]
+        # clean_sub = (flux-contam)[60:115, 275:319]
         
-    test = xcor_rand < xcor_flux
-    print 'f(simulated < observed) = %.4f (N=%d)' %(test.sum()*1. / NSIM, NSIM)
-    
-    ### Figure for aperture simulation
-    fig = unicorn.plotting.plot_init(square=True, xs=6, aspect=1, left=0.14)
-    ax = fig.add_subplot(111)
-    h = ax.hist(xcor_rand, bins=100, alpha=0.5, color='black')
-    a = ax.plot([xcor_flux, xcor_flux], [0,h[0].max()], color='red', alpha=0.5, linewidth=3)
-    a = ax.text(0.05,0.95,'f(sim. < obs.) = %.4f' %(test.sum()*1. / NSIM), ha='left', va='top', transform=ax.transAxes)
-    a = ax.text(0.05,0.9,'N = %d' %(NSIM), ha='left', va='top', transform=ax.transAxes)
-    a = ax.set_xlabel('x-correlation aper flux')
-    a = ax.set_ylabel('N')
-    fig.savefig('UDF_%05d.xcor_aper.pdf' %(id))
-    
-def evaluate_2d_errors(id=6001):
+        #aper = model_sub > 1.e-4
+        #aper = cm_sub > 3.e-4
+        
+        import pyregion
+        ## ds9.view(cd[(NY+YSUB):-(NY+YSUB),NY:-NY])
+        ## ds9.set('regions file z12_line_aper.reg')
+        reg_file = 'z12_line_aper.reg'
+        #reg_file = 'z12_line_aper_sm.reg'
+        r = pyregion.open(reg_file).as_imagecoord(header=twod.im['SCI'].header)
+        mask = r.get_mask(hdu=twod.im['SCI'])
+        full_mask = flux*0.
+        full_mask[NY:-NY, NY:-NY] = mask
+        aper = full_mask[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+        s = r[0]
+        xreg, yreg = s.coord_list[0::2], s.coord_list[1::2]
+        xreg.append(xreg[0]); yreg.append(yreg[0])
+        
+        ## 4948
+        if id == 4948:
+            xc, yc, NSUB = 257, 91, 35
+            model_sub = model[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            err_sub = err[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            cd_sub = cd[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            cm_sub = cm[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            clean_sub = (flux-contam)[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            
+            yi, xi = np.indices(model.shape)
+            r = np.sqrt((xi-256.78)**2+(yi-90.2)**2)[yc-NSUB:yc+NSUB, xc-NSUB:xc+NSUB]
+            aper = r < 4.5
+            #aper = r < 3.1
+        
+        #### Measure fluxes in the defined aperture
+        observed_flux = np.sum(clean_sub*aper)
+        observed_err = np.sqrt(np.sum(err_sub**2*aper))
+                
+        model_flux = np.sum(cm_sub*aper)
+        xcor_flux = np.sum(cd_sub*aper)
+        
+        observed_lam = np.interp(xc-NY, np.arange(sh[1]), twod.im['WAVE'].data)
+        sens = np.interp(observed_lam, twod.oned.lam, twod.oned.sens)
+        to_flam = 1./sens*1.e-17*np.median(np.diff(twod.im['WAVE'].data))
+        apcor = np.sum(cm_sub)/np.sum(cm_sub*aper)
+        apcor_model = np.sum(model_sub)/np.sum(model_sub*aper)
+        
+        ### Square root for "autocorrelation" of model???
+        apcor = np.sqrt(apcor)
+        print '%.1f  %.3f %.3f %.3f  %.3f %.3f\n' %(observed_lam, np.sum(cm_sub), np.sum(model_sub), np.sum(model_sub*aper), observed_flux, observed_err)
+        
+        #### Run the simulation to get the distribution of xcor ap. fluxes
+        NSIM = 1000
+        xcor_rand = np.zeros(NSIM)
+        for i in xrange(NSIM):
+            print unicorn.noNewLine + '%d' %(i)
+            noise = np.random.normal(size=err_sub.shape)*err_sub #+model
+            crnd = sc.correlate2d(noise, kernel, mode='constant', cval=0.)
+            xcor_rand[i] = np.sum(crnd*aper)
+        
+        test = xcor_rand < xcor_flux
+        print 'f(simulated < observed) = %.4f (N=%d)' %(test.sum()*1. / NSIM, NSIM)
+
+        ### Figure for aperture simulation
+        fig = unicorn.plotting.plot_init(square=True, xs=6, aspect=1, left=0.14)
+        ax = fig.add_subplot(111)
+        h = ax.hist(xcor_rand, bins=100, alpha=0.5, color='black')
+        a = ax.plot([xcor_flux, xcor_flux], [0,h[0].max()], color='red', alpha=0.5, linewidth=3)
+        a = ax.text(0.05,0.95,'f(sim. < obs.) = %.4f' %(test.sum()*1. / NSIM), ha='left', va='top', transform=ax.transAxes)
+        a = ax.text(0.05,0.9,'N = %d' %(NSIM), ha='left', va='top', transform=ax.transAxes)
+        sig = threedhst.utils.biweight(xcor_rand)
+        a = ax.text(0.05,0.85,r'$\sigma$=%.3f, S=%.3f, S/N=%.2f' %(sig, xcor_flux, xcor_flux/sig), ha='left', va='top', transform=ax.transAxes)
+        a = ax.set_xlabel('x-correlation aper flux')
+        a = ax.set_ylabel('N')
+        
+        fig.savefig('%s.xcor_aper.pdf' %(out_root))
+        
+        #### Print stats
+        xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), 'F160W'), unpack=True)
+        xg = np.arange(xf[0], xf[-1], 0.1)
+        dl = 10.
+        yg = np.sqrt(1./2/np.pi/dl**2)*np.exp(-(xg-observed_lam)**2/2./dl**2)
+        yfi = np.interp(xg, xf, yf, left=0., right=0.)
+        yfi /= np.trapz(yfi, xg)
+        m_observed = -2.5*np.log10(np.trapz(yfi*yg*observed_flux*to_flam*observed_lam**2/3.e18, xg))-48.6
+        m_xcor = -2.5*np.log10(np.trapz(yfi*yg*xcor_flux*to_flam*apcor*observed_lam**2/3.e18, xg))-48.6
+        dm = mags_line['F160W']-m_observed
+        EQW = np.trapz(yg*observed_flux*to_flam, xg)/(10**(-0.4*(my_f160w_mag+dm+48.6))*3.e18/observed_lam**2-np.trapz(yg*observed_flux*to_flam*yfi, xg))
+        EQW_lo = np.trapz(yg*(observed_flux-observed_err)*to_flam, xg)/(10**(-0.4*(my_f160w_mag+dm+48.6))*3.e18/observed_lam**2-np.trapz(yg*observed_flux*to_flam*yfi, xg))
+        EQW_hi = np.trapz(yg*(observed_flux+observed_err)*to_flam, xg)/(10**(-0.4*(my_f160w_mag+dm+48.6))*3.e18/observed_lam**2-np.trapz(yg*observed_flux*to_flam*yfi, xg))
+        
+        print """
+Flux: %.1e \pm %.1e (observed)
+      %.1e \pm %.1e (xcor aperture)
+
+Xcor aper. correction: %.2f
+Xcor aper. area: %d
+
+aper. correction, model: %.2f
+
+m160 (line only):  %.2f  (observed)
+                   %.2f  (xcor aperture)
+                   
+Analytic EQW:  %d (%d, %d)
+
+""" %(observed_flux*to_flam, observed_err*to_flam, xcor_flux*to_flam*apcor, sig*to_flam*apcor, apcor, aper.sum(), apcor_model, m_observed, m_xcor, EQW, EQW_lo, EQW_hi)
+
+        print '        model   line only'
+        for filt in mags_total.keys():
+            print '%s:  %5.2f    %5.2f' %(filt, mags_total[filt], mags_line[filt])
+            
+        
+        
+def evaluate_2d_errors(object='UDF_06001'):
     """
     Make a figure with histograms of the observed cleaned flux and 
     random pixel values with a distribution given by the error extension
     """
     
-    twod = unicorn.reduce.Interlace2D('UDF_%05d.2D.fits' %(id))
+    twod = unicorn.reduce.Interlace2D('%s.2D.fits' %(object))
     
     ran = (-0.015, 0.015)
     alpha = 0.6
     
     fig = unicorn.plotting.plot_init(square=True, xs=6, aspect=1, left=0.14)
     ax = fig.add_subplot(111)
+
+    noise = np.random.normal(size=twod.im['SCI'].data.shape) * twod.im['WHT'].data#*0.93  # to get about perfect
     
-    h = ax.hist(twod.im['SCI'].data.flatten(), bins=100, alpha=alpha, color='orange', range=ran, label='Raw', histtype='step')
-    h = ax.hist(twod.im['SCI'].data.flatten() - twod.im['CONTAM'].data.flatten(), bins=100, alpha=alpha, color='blue', range=ran, label='Cleaned', histtype='stepfilled')
+    ok = (twod.im['WHT'].data != 0) & (twod.im['WHT'].data != 1)
+    ok = ok & (np.abs(noise) < 0.02)
+    #ok = ok & (twod.im['CONTAM'].data < 1.e-3)
+    print 'NPIX: %d' %(ok.sum())
     
-    noise = np.random.normal(size=twod.im['SCI'].data.shape) * twod.im['WHT'].data #*0.93  # to get about perfect
-    h = ax.hist(noise.flatten(), bins=100, alpha=alpha, color='red', range=ran, label='Random', histtype='stepfilled')
+    h = ax.hist(twod.im['SCI'].data[ok].flatten(), bins=100, alpha=alpha, color='orange', range=ran, label='Raw', histtype='step', normed=True)
+    h = ax.hist(twod.im['SCI'].data[ok].flatten() - twod.im['CONTAM'].data[ok].flatten(), bins=100, alpha=alpha, color='blue', range=ran, label='Cleaned', histtype='stepfilled', normed=True)
+    
+    h = ax.hist(noise[ok].flatten(), bins=100, alpha=alpha, color='red', range=ran, label='Random', histtype='stepfilled', normed=True)
     a = ax.set_xlabel('G141 pixel value (e/s)')
     a = ax.legend(prop=dict(size=10))
     
-    fig.savefig('UDF_%05d.pixel_values.pdf' %(id))
+    cleaned = twod.im['SCI'].data[ok]-twod.im['CONTAM'].data[ok]
+    
+    stats_observed = (np.std(cleaned), threedhst.utils.biweight(cleaned), threedhst.utils.nmad(cleaned))
+    
+    stats_rand = (np.std(noise[ok]), threedhst.utils.biweight(noise[ok]), threedhst.utils.nmad(noise[ok]))
+    
+    xg = np.arange(-0.015,0.015,0.0001)
+    yg = 1./np.sqrt(2*np.pi*stats_observed[0]**2)*np.exp(-(xg-np.median(cleaned))**2/2/stats_observed[0]**2)
+    a = ax.plot(xg, yg, color='blue', alpha=0.8)
+    yg = 1./np.sqrt(2*np.pi*stats_rand[0]**2)*np.exp(-(xg-np.median(noise[ok]))**2/2/stats_rand[0]**2)
+    a = ax.plot(xg, yg, color='red', alpha=0.8)
+    
+    s = r'Observed  $\sigma=%.4f, \sigma_\mathrm{bw}=%.4f, \sigma_\mathrm{nmad}=%.4f$' %(stats_observed[0], stats_observed[1], stats_observed[2])
+    print s
+    a = ax.text(0.05, 0.95, s, ha='left', va='top', transform=ax.transAxes)
+    
+    s = r'Perturbed $\sigma=%.4f, \sigma_\mathrm{bw}=%.4f, \sigma_\mathrm{nmad}=%.4f$' %(stats_rand[0], stats_rand[1], stats_rand[2])
+    print s
+    
+    a = ax.text(0.05, 0.85, s, ha='left', va='top', transform=ax.transAxes)
+    
+    
+    fig.savefig('%s.pixel_values.pdf' %(object))
     
 def fix_2d_background(object = 'UDF_06001', force=False):
     import unicorn.hudf as hudf
@@ -1441,4 +1985,685 @@ def _objective_poly2d(params, indices, data, var, ret):
         return F
         
     return -0.5*np.sum((data-F)**2/var)
+    
+def exposure_map_figure():
+    """
+    Make a figure for the paper showing the deep UDF area and the grism 
+    overlap.
+    """
+    import pywcs
+    import pyregion
+    import cPickle as pickle
+    import matplotlib.cm as cm
+    
+    import unicorn.hudf as hudf
+    
+    os.chdir('/research/HST/GRISM/3DHST/UDF/PAPER_FIGURES')
+    image = '../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits'
+    
+    colors = {}; c0 = 0.1; c1=0.7
+    for i in [34,36,37,38]:
+        colors['%d' %(i)] = (c0,c0,c1)
+    #
+    colors['1026'] = (c1, c1, c0)
+    colors['1101'] = (c0, c1, c0)
+    
+    fields = ['GOODS-SOUTH-%d' %(i) for i in [34,36,37,38]]
+    fields.extend(['PRIMO-1026', 'PRIMO-1101'])
+    
+    im = pyfits.open(image)
+    wcs = pywcs.WCS(im[0].header)
+    
+    exposure_map = np.zeros(im[0].data.shape)
+    pixel_borders = []
+    images = []
+    h0 = []
+    h1 = []
+    
+    GENERATE = False
+    if GENERATE:
+        for field in fields:
+            asn = threedhst.utils.ASNFile('../PREP_FLT/%s-G141_asn.fits' %(field))
+            for exposure in asn.exposures:
+                print '%s, %s' %(field, exposure)
+                flt_file = '../PREP_FLT/%s_flt.fits' %(exposure)
+                flt = pyfits.open(flt_file)
+                pr, pd = threedhst.regions.wcs_polygon(flt_file)
+                fp = open('flt.reg','w')
+                fp.write('fk5\n')
+                reg_str = 'polygon('
+                for r, d in zip(pr, pd):
+                    reg_str += '%.6f,%.6f,' %(r,d)
+                #
+                fp.write(reg_str[:-1]+')\n')
+                fp.close()
+                #
+                r = pyregion.open('flt.reg').as_imagecoord(header=im[0].header)
+                mask = r.get_mask(hdu=im[0])
+                exposure_map += mask*flt[0].header['EXPTIME']
+                #
+                #### WCS in pixel coordinates
+                x, y = wcs.wcs_sky2pix(pr, pd, 0)
+                pixel_borders.append((x,y))
+                h0.append(flt[0].header)
+                h1.append(flt[1].header)
+                images.append(exposure)
+        
+        pyfits.writeto('exposure_map.fits', data=exposure_map, header=im[0].header, clobber=True) 
+        fp = open('exposure_map.pkl','wb')
+        pickle.dump(pixel_borders, fp)
+        pickle.dump(h0, fp)
+        pickle.dump(h1, fp)
+        pickle.dump(images, fp)
+        fp.close()
+    else:
+        exposure_map = pyfits.open('exposure_map.fits')[0].data
+        fp = open('exposure_map.pkl', 'rb')
+        pixel_borders = pickle.load(fp)
+        h0 = pickle.load(fp)
+        h1 = pickle.load(fp)
+        images = pickle.load(fp)
+        fp.close()
+        
+    SCALE = 4
+    x = exposure_map[::SCALE,::SCALE]*1
+    sh = x.shape
+    
+    tex = True
+    fig = unicorn.plotting.plot_init(square=True, left=0.08, right=0.005, top=0.005, bottom=0.08, hspace=0.0, wspace=0.0, aspect=1, xs=5, NO_GUI=False, use_tex=tex)
+    ax = fig.add_subplot(111)
+    
+    ### Legend
+    show = [5000,10000,20000, 30000., 40000]
+    flegend = 0.06
+    NX, NS = int(flegend*sh[0]), len(show)
+    x0, y0 = sh[1]-(NS+0.5)*NX, NX/2.
+    for i in range(NS):
+        x[y0:y0+NX, x0+i*NX:x0+(i+1)*NX] = show[i]
+        
+    a = ax.imshow(0-x, interpolation='nearest', aspect='equal', cmap=cm.gray)
+    
+    for i in range(NS):
+        a = ax.text(x0+i*NX+NX/2, y0+NX+NX*0.1, '%d' %(show[i]/1000.)+' ks'*(i== NS-1) , ha='center', va='bottom', size=8)
+    #
+    ### Show HUDF12 region
+    line = open('hudf12.reg').readlines()[-1].split('(')[1][:-2].split(',')
+    x12 = np.cast[float](line[0::2])
+    y12 = np.cast[float](line[1::2])
+    x12 = np.append(x12, x12[0])
+    y12 = np.append(y12, y12[0])
+    a = ax.plot(x12/SCALE, y12/SCALE, color=(c1, c0, c0), label='HUDF09 / HUDF12', linewidth=3, linestyle='--')
+      
+    i=0
+    f0 = ''
+    names = {}
+    names['GOODS-SOUTH-34'] = '3D-HST, GOODS-S 34,36,37,38'
+    names['PRIMO-1026'] = 'CANDELS, PRIMO-1026'
+    names['PRIMO-1101'] = 'CANDELS, PRIMO-1101'
+    
+    angles = {}
+    angles['GOODS-SOUTH-34'] = 180
+    angles['PRIMO-1026'] = 180
+    angles['PRIMO-1101'] = 180
+    
+    has = {}
+    has['GOODS-SOUTH-34'] = 'right'
+    has['PRIMO-1026'] = 'left'
+    has['PRIMO-1101'] = 'right'
+
+    c0 = {}
+    c0['GOODS-SOUTH-34'] = 3
+    c0['PRIMO-1026'] = 1
+    c0['PRIMO-1101'] = 0
+    
+    for field in fields:
+        asn = threedhst.utils.ASNFile('../PREP_FLT/%s-G141_asn.fits' %(field))
+        for exposure in asn.exposures:
+            print '%s, %s, %d, %s' %(field, exposure, i, f0)
+            xp, yp = pixel_borders[i]
+            xp = np.append(xp, xp[0])
+            yp = np.append(yp, yp[0])
+            f = field.split('-')[-1]
+            if f0 != field[0:8]:
+                a = ax.plot(xp/SCALE, yp/SCALE, color=colors[f], label=names[field], alpha=0.5)
+                print exposure
+                #flt_file = '../PREP_FLT/%s_flt.fits' %(exposure)
+                #flt = pyfits.open(flt_file)
+                #a = ax.text(xp[c0[field]]/SCALE, yp[c0[field]]/SCALE, names[field], rotation=flt[1].header['PA_APER']+angles[field], ha=has[field], va='bottom', size=8)
+                #a = ax.plot(xp[c0[field]]/SCALE, yp[c0[field]]/SCALE, marker='o', color='black', ms=20, alpha=0.5)
+            else:
+                a = ax.plot(xp/SCALE, yp/SCALE, color=colors[f], alpha=1, linewidth=0.5)
+                a = 1
+            #
+            f0 = field[0:8]
+            #
+            i+=1
+    #
+    
+    ### UDFjxxx
+    obj = hudf.reformat_name(6001)
+    x, y = 1576.055, 2356.891
+    ax.text(x/SCALE, y/SCALE+64/SCALE, obj.replace('UDF',r'UDF$j$'), ha='center', va='bottom', color='white')
+    ax.plot(x/SCALE, y/SCALE, marker='o', ms=8, color='white')
+
+    obj = hudf.reformat_name(4948)
+    x, y = 1451.203, 2069.197
+    ax.text(x/SCALE, y/SCALE-64/SCALE, obj, ha='center', va='top', color='white')
+    ax.plot(x/SCALE, y/SCALE, marker='o', ms=8, color='white')
+    
+    ### PRIMO
+    x, y = 1630, 2083
+    ax.text(x/SCALE, y/SCALE+64/SCALE, r"SN ``Primo''", ha='center', va='bottom', color='0.6')
+    ax.plot(x/SCALE, y/SCALE, marker='s', ms=6, color='0.6')
+    
+    xlab = ['03:32:%d' %(i) for i in np.arange(46, 30.9, -3)]
+    ylab = ['-27:%s' %s for s in ['48:30','48:00', '47:30','47:00', '46:30','46:00', '45:30']]
+    
+    ra, dec = [], []
+    for x in xlab:
+        ra.append(threedhst.utils.DMS2decimal(x, hours=True))
+        dec.append(threedhst.utils.DMS2decimal(ylab[0], hours=False))
+    
+    xv, dumy = wcs.wcs_sky2pix(ra, dec, 0)
+    
+    ra, dec = [], []
+    for y in ylab:
+        ra.append(threedhst.utils.DMS2decimal(xlab[0], hours=True))
+        dec.append(threedhst.utils.DMS2decimal(y, hours=False))
+    
+    dummy, yv = wcs.wcs_sky2pix(ra, dec, 0)
+    
+    for i in range(len(xlab)):
+        if i != 2:
+            xlab[i] = xlab[i].split(':')[-1]
+    
+    for i in range(len(ylab)):
+        if i != 3:
+            ylab[i] = ':'.join(ylab[i].split(':')[1:])
+    
+    ax.set_xticks(xv/SCALE); ax.set_xticklabels(xlab)
+    ax.set_yticks(yv/SCALE); ax.set_yticklabels(ylab, rotation='vertical')
+    ax.set_xlabel('R.A.'); ax.set_ylabel('Dec.')
+    
+    #### Show arrows for grism dispersion
+    x, y = 2384, 1771
+    xa, ya = np.array([15, 196]), np.array([0, 0])
+    f0 = ''
+    for field in fields:
+        asn = threedhst.utils.ASNFile('../PREP_FLT/%s-G141_asn.fits' %(field))
+        for exposure in asn.exposures:
+            print '%s, %s, %d, %s' %(field, exposure, i, f0)
+            f = field.split('-')[-1]
+            if f0 != field[0:8]:
+                flt_file = '../PREP_FLT/%s_flt.fits' %(exposure)
+                flt = pyfits.open(flt_file)
+                xr, yr = threedhst.utils.xyrot(xa, ya, -flt[1].header['PA_APER'])
+                a = ax.arrow((x+xr[0])/SCALE, (y+yr[0])/SCALE, np.diff(xr)[0]/SCALE, np.diff(yr)[0]/SCALE, color = colors[f], fill=True, width=16/SCALE, head_length=40/SCALE, overhang=0.1)
+            else:
+                pass
+            #
+            f0 = field[0:8]
+    
+    a = ax.legend(prop=dict(size=8), loc=(flegend/2, flegend/2), frameon=False)
+    a = ax.set_xlim(0, sh[1]); a = ax.set_ylim(0, sh[0])
+    
+    fig.savefig('exposure_map.pdf')
+    
+def dispersion_errors():
+    """
+    Compute extent of dispersion variation across the WFC3 image
+    """
+    
+    DLDP_A_0 = np.cast[float]('8.95431E+03   9.35925E-02   0.0'.split())
+    DLDP_A_1 = np.cast[float]('4.51423E+01   3.17239E-04   2.17055E-03  -7.42504E-07   3.48639E-07   3.09213e-7'.split())
+    
+    xi = np.array([0,0,507,1014,1014])#-507.
+    yi = np.array([0,1014,507,1014,0])#-507.
+    
+    
+    for i in range(len(xi)):
+        f = np.array([1., xi[i], yi[i], xi[i]**2, yi[i]**2, xi[i]*yi[i]])
+        dl = np.sum(f*DLDP_A_1)
+        l0 = np.sum(f[0:3]*DLDP_A_0)
+        #
+        print '(%4d, %4d)  %.2f %.2f  %.2f' %(xi[i], yi[i], l0, dl/2., 1.0500e4+170*dl)
+        
+    ### Test:
+    id=6001
+    files=glob.glob('[PG]*%05d*2D.fits' %(id))
+    
+    shift = 0
+    lint = 1.6e4
+    
+    larr = np.arange(1.08e4,1.65e4,10)
+        
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    
+    for i,f in enumerate(np.roll(files, shift)):
+        twod = unicorn.reduce.Interlace2D(f)
+        xarr = np.arange(twod.im['SCI'].data.shape[1])
+        s = np.interp(lint, twod.im['WAVE'].data, xarr)
+        if i == 0:
+            s0 = s*1
+            yref = np.interp(larr, twod.im['WAVE'].data, xarr)
+        #
+        yi = np.interp(larr, twod.im['WAVE'].data, xarr-int(round(s-s0)))
+        a = ax.plot(larr, yi-yref, alpha=0.5, label=f.split('_')[0])
+        #plt.plot(twod.im['WAVE'].data, xarr-int(np.round(s)), marker='s', alpha=0.5, label=f.split('_')[0])
+        print '%s, %.2f %f %.2f' %(f, s, s-s0, np.median(np.diff(twod.im['WAVE'].data)))
+    
+    ax.set_ylim(-2,2)
+    ax.set_xlabel(r'$\lambda$')
+    ax.set_ylabel(r'$\Delta$ wavelength pixel')
+    ax.set_title('ID=\#%d' %(id))
+    
+    ax.legend()
+    
+    plt.savefig('dispersion_error_%05d.pdf' %(id))
+    
+def equivalent_width_limits(id=6001):
+    """
+    Use the observed pixel errors to compute equivalent width / line flux
+    sensitivity limits as a function of wavelength and compare
+    to the HUDF limits
+    """
+    
+    twod = unicorn.reduce.Interlace2D('UDF_%05d.2D.fits' %(id))
+    ok = (twod.im['WHT'].data != 0) & (twod.im['WHT'].data != 1)
+    cleaned = twod.im['SCI'].data[ok]-twod.im['CONTAM'].data[ok]
+
+    stats_observed = (np.std(cleaned), threedhst.utils.biweight(cleaned), threedhst.utils.nmad(cleaned))
+    
+    APER_AREA = 64 # pixels, same as UDFj extraction aperture
+    APER_AREA = 55
+    
+    line_flux = stats_observed[0]*np.sqrt(APER_AREA)
+    line_sigma = 1
+    line_limit = line_flux*line_sigma / twod.oned.sens*1.e-17*np.median(np.diff(twod.oned.lam))
+    
+    # plt.plot(twod.oned.lam, line_limit)
+    # plt.semilogy()
+    
+    #### Infinite equivalent width
+    fig = unicorn.plotting.plot_init(square=True, left=0.12, top=0.01, right=0.01, bottom=0.08, aspect=1, xs=5, use_tex=True, hspace=0.)
+    ax = fig.add_subplot(212)
+    
+    filt = 'F160W'
+    ellis = dict(F105W=-31.2, F140W=-30.5, F125W=-30.7, F160W=29.3)
+    c = {}
+    for i, filt in enumerate(['F105W','F125W','F140W','F160W']):
+        c[filt] = ['blue','green','orange','red'][i]
+        
+    for filt in ['F105W','F125W','F140W','F160W']:
+        xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+        if filt == 'F160W':
+            #yf[xf < 1.38e4] = 0
+            #xf -= 1000
+            pass
+        #
+        yf /= np.trapz(yf, 1./xf)
+        dv = 80
+        continuum = 1./xf**2 ### In units of Flam, flat in Fnu
+        #continuum = xf*0.+1  ### flat in flam
+        
+        #EWs = [50000, 5000, 2000, 100]
+        EWs = [10000]
+        
+        mag = {}
+        for EW in EWs:
+            mag[EW] = twod.oned.lam*0.
+            
+        for i, lam in enumerate(twod.oned.lam):
+            dl = dv/3.e5*lam
+            yg = 1./np.sqrt(2*np.pi*dl**2)*np.exp(-(xf-lam)**2/2/dl**2)
+            #print '%s  %.4f %d' %(filt, np.trapz(yg, xf), len(xf))
+            EW_OBS = np.trapz(yg*line_limit[i]/continuum, xf)
+            for EW in EWs:
+                EW_scale = EW/EW_OBS
+                #print 'EW: %.3f, EW_scale: %.2e' %(EW, EW_scale)
+                #EW_scale = 1
+                fnu = np.trapz((yg*line_limit[i] + continuum/EW_scale)*xf**2/3.e18*yf, 1./xf)
+                mag[EW][i] = -2.5*np.log10(fnu)-48.6
+        #
+        alph = 1
+        a = ax.plot(twod.oned.lam, mag[EWs[0]], label=filt, color=c[filt], alpha=1)
+        # for EW in EWs[1:]:
+        #     alph -= 0.5/len(EWs)
+        #     a = ax.plot(twod.oned.lam, mag[EW], color=c[filt], alpha=alph)
+    ###
+    a = ax.set_ylabel(r'Mag. [EW(obs) = %d $\AA$]' %(EWs[0]))
+    
+    ### EW vector, assume single line wavelength
+    EWs = [EWs[0], 5000, 2000, 1000]
+    filt = 'F160W'
+    xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+    yf /= np.trapz(yf, 1./xf)
+    #continuum = 1./xf**2 ### In units of Flam, flat in Fnu
+    #continuum = xf*0.+1  ### flat in flam
+    
+    mag = {}
+    lam = 1.51e4
+    dl = dv/3.e5*lam
+    yg = 1./np.sqrt(2*np.pi*dl**2)*np.exp(-(xf-lam)**2/2/dl**2)
+    line_lam = np.interp(lam, twod.oned.lam, line_limit)
+    EW_OBS = np.trapz(yg*line_lam/continuum, xf)
+    for EW in EWs:
+        EW_scale = EW/EW_OBS
+        fnu = np.trapz((yg*line_lam + continuum/EW_scale)*xf**2/3.e18*yf, 1./xf)
+        mag[EW] = -2.5*np.log10(fnu)-48.6
+    
+    print mag
+    
+    for i, EW in enumerate(EWs[1:]):
+        a = ax.arrow(lam+500*i, mag[EWs[0]], 0, mag[EW]-mag[EWs[0]], color='0.5', head_width=100*0.8, head_length=0.1*0.8, overhang=0.2)
+        a = ax.text(lam+500*i, mag[EW]-0.15, '%d' %(EW), ha='center', va='bottom', color='0.5')
+        
+    #
+    for f in ['F105W','F125W','F140W','F160W']:
+        if ellis[f] < 0:
+            m = 'v'
+        else:
+            m = 'o'
+        #
+        a = ax.plot(unicorn.reduce.PLAMs[f], np.abs(ellis[f]), marker=m, color=c[f], alpha=1, ms=14)
+        
+    aflux = fig.add_subplot(211)
+    lab = r'%d$\sigma$ line flux' %(line_sigma)
+    aflux.plot(twod.oned.lam, line_limit/1.e-18, color='black', label=lab)
+    #aflux.semilogy()
+    aflux.set_ylabel(lab + r' [$10^{-18}$ erg/s/cm$^2$]')
+    a = aflux.set_xlim(1.e4, 1.75e4)
+    a = aflux.set_ylim(0.2, 5)
+    a = aflux.set_xticks(np.array([1.1,1.2,1.3,1.4,1.5,1.6,1.7])*1.e4)
+    a = aflux.set_xticklabels([])
+    
+    a = aflux.text(0.5, 0.05, r'$\sigma/\mathrm{pix}=%.4f\ \mathrm{electrons\ s}^{-1},\ A_\mathrm{aper}=%d,\ R_\mathrm{aper} = %.2f^{\prime\prime}$' %(stats_observed[0], APER_AREA, np.sqrt(APER_AREA/np.pi)*0.06), transform=aflux.transAxes, ha='center', va='bottom')
+    
+    #a = aflux.legend(loc='lower right', frameon=False, prop=dict(size=10))
+    
+    a = ax.set_ylim(32, 28)
+    a = ax.set_xlim(1.e4, 1.75e4)
+    a = ax.set_xticks(np.array([1.1,1.2,1.3,1.4,1.5,1.6,1.7])*1.e4)
+    a = ax.set_xticklabels([1.1,1.2,1.3,1.4,1.5,1.6,1.7])
+    a = ax.set_xlabel(r'line wavelength [$\mu\mathrm{m}$]')
+    a = ax.legend(loc='lower left', frameon=False, prop=dict(size=10), ncol=4)
+    
+    ####
+    
+    continuum_aper = 2*6
+    continuum_limit_flam = np.sqrt(continuum_aper)*stats_observed[0] / twod.oned.sens*1.e-17 
+    continuum_limit_fnu = continuum_limit_flam * twod.oned.lam**2/3.e18
+    continuum_limit_ab = -2.5*np.log10(continuum_limit_fnu)-48.6
+    
+    #ax.plt.plot(twod.oned.lam, continuum_limit_ab)
+    fig.savefig('../PAPER_FIGURES/line_sensitivity.pdf')
+    
+def get_full_f160w_mag():
+    """
+    Resolve the aperture correction issues with the F160W mag
+    """
+    cat = catIO.Readfile('../HUDF12/hudf12.reform.cat')
+    ix = cat.number == 6001
+    
+    im = pyfits.open('../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits')
+    seg = pyfits.open('../HUDF12/hudf12_seg.fits')
+    mask = seg[0].data == 6001
+    seg_mag = -2.5*np.log10((im[0].data*mask).sum())+unicorn.reduce.ZPs['F160W']
+    
+    yi, xi = np.indices(seg[0].data.shape)
+    rap = 0.25 # arcsec
+    
+    rpix = np.sqrt((xi-cat.x_image[ix][0])**2+(yi-cat.y_image[ix][0])**2)
+    
+    no_zero = np.maximum(im[0].data, 0)
+    rap = 10**np.arange(-1,0.,0.025)
+    mag = rap*0.
+    mag_zero = rap*0.
+    apsum = rap*0.
+    for i in range(len(rap)):
+        print rap[i]
+        aper = rpix <= rap[i]/0.06
+        apsum[i] = aper.sum()
+        flux = (aper * im[0].data).sum()
+        mag[i] = -2.5*np.log10(flux)+unicorn.reduce.ZPs['F160W']
+        flux = (aper * no_zero).sum()
+        mag_zero[i] = -2.5*np.log10(flux)+unicorn.reduce.ZPs['F160W']
+    
+    plt.plot(rap, mag, label='circular apertures')
+    plt.plot(rap, mag_zero, label=r'apertures, clipped $< 0$')
+    plt.plot(np.sqrt(mask.sum()/np.pi)*0.06, seg_mag, marker='s', ms=15, label='Segmentation polygon')
+    plt.plot(0.25, 29.3, marker='s', ms=15, label='Ellis (2012)')
+    plt.ylim(31, 28)
+    plt.xlabel(r'$R_{aper}$ / arcsec')
+    plt.ylabel(r'mag F160W')
+    plt.legend(numpoints=1)
+    
+    plt.savefig('../PAPER_FIGURES/test_aper_mags.pdf')
+    
+def compare_egs_blob():
+    """
+    Compare the WFC3/ACS colors of the extreme OIII emitter found in the
+    Cooper grism program
+    """
+    import unicorn.hudf as hudf
+    import cPickle as pickle
+    import scipy
+    
+    fp = open('egs_blob.pkl','rb')
+    filters = pickle.load(fp)
+    ZPs = pickle.load(fp)
+    fluxes = pickle.load(fp)
+    mags = pickle.load(fp)
+    
+    z_blob = 1.61
+    ids = {0:'[OIII] blob, A+B', 616:'A', 625:'B'}
+    
+    fig = unicorn.plotting.plot_init(square=True, left=0.11, top=0.01, right=0.01, bottom=0.09, aspect=0.5, xs=8.5, use_tex=True)
+    ax = fig.add_subplot(122)
+    
+    nJy = 31.36
+    for key in hudf.bouwens.keys():
+        flux = hudf.bouwens[key]
+        if flux < 0:
+            # 2-sigma lower limit
+            m = 'v'
+            scale = 2
+        else:
+            m = 'o'
+            scale = 1
+        #
+        mag = -2.5*np.log10(np.abs(flux*scale))+nJy
+        print key, mag
+        #
+        a = ax.plot(unicorn.reduce.PLAMs[key], mag, marker=m, alpha=1, color='black', ms=12, label=(key == 'F160W')*r'UDFj-39546284, 2$\sigma$ limits', linestyle='None')
+            
+    m160 = -2.5*np.log10(np.abs(hudf.bouwens['F160W']))+nJy
+    colors = {0:'red', 616:'green', 625:'blue'}
+    
+    for obj in mags.keys():
+        dm = m160 - mags[obj]['F140W']
+        for key in mags[obj].keys():
+            a = ax.plot(unicorn.reduce.PLAMs[key], mags[obj][key]+dm, marker='s', color=colors[obj], alpha=1, ms=10, label=(key == 'F140W')*(r'%s, WFC3/ACS' %(ids[obj])), linestyle='None')
+            
+    a = ax.set_ylim(32,26)
+    a = ax.set_xlim(1000, 4.9e4) 
+    #a = ax.legend(loc='upper left', numpoints=1, frameon=False, prop=dict(size=10))
+    a = ax.set_xticks(np.array([1,2,3,4])*1.e4)
+    a = ax.set_xticklabels(np.array([1,2,3,4]))
+    a = ax.set_xlabel(r'$\lambda\ /\ \mu\mathrm{m}$')
+    a = ax.set_ylabel('AB mag')
+    
+    ax2 = fig.add_axes((0.8,0.2,0.16,0.4))
+    import Image
+    im = np.asarray(Image.open('egs_blob.png'))
+    sh = im.shape
+    ax2.imshow(im, origin='upper')
+    ax2.set_xticklabels([])
+    ax2.set_yticklabels([])
+    ax2.set_xticks([0,sh[1]])
+    ax2.set_yticks([0,sh[0]])
+    ax2.set_xlabel('(F606W, F814W, F140W)')
+    
+    ### Add spectra
+    twod = unicorn.reduce.Interlace2D('EGS12007881.12012083_00616.2D.fits')
+    sh = twod.im['SCI'].data.shape
+    wave = twod.im['WAVE'].data[0]+np.arange(sh[1])*(twod.im['WAVE'].data[1] - twod.im['WAVE'].data[0])
+    
+    fnu_spec = (twod.oned.flux-twod.oned.contam)/twod.oned.sens*1.e-17*wave**2/3.e18
+    xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), 'F140W'), unpack=True)
+    yfi = np.interp(wave, xf, yf, left=0, right=0)
+    ok = (wave > 1.15e4) & (wave < 1.6e4) & (twod.oned.sens != 0)
+    mag = -2.5*np.log10(np.trapz((fnu_spec*yfi)[ok], 1./wave[ok]) / np.trapz(yfi[ok], 1./wave[ok])) - 48.6
+    dm = m160 - mag
+    ab = -2.5*np.log10(fnu_spec)-48.6+dm
+    a = ax.plot(wave[ok], ab[ok], color=(0.5,0.85,0.5), zorder=-100)
+    
+    ### Get NMBS photometry
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='EGS1')
+    ix = np.arange(cat.N)[cat.id == 8162][0]
+    eazy_fit = eazy.getEazySED(ix, MAIN_OUTPUT_FILE=os.path.basename(zout.filename).split('.zout')[0], OUTPUT_DIRECTORY=os.path.dirname(zout.filename), CACHE_FILE = 'Same')
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = eazy_fit
+    
+    #### Scale by relative width of the NMBS J3 and WFC3/F140W filters
+    xj3, yj3 = np.loadtxt('/Users/gbrammer/research/drg/PHOTZ/EAZY/FILTERS/NEWFIRM/j3_atmos.dat', unpack=True)
+    yj3 = yj3 / np.trapz(yj3, xj3*1.e4)
+    yf14 = yf / np.trapz(yf, xf)
+    dm_filter = -2.5*np.log10(yf14.max()/yj3.max())
+    
+    yfi =  np.interp(wave, xj3*1.e4, yj3, left=0, right=0)
+    ok = (wave > 1.15e4) & (wave < 1.6e4) & (twod.oned.sens != 0)
+    magJ3 = -2.5*np.log10(np.trapz((fnu_spec*yfi)[ok], 1./wave[ok]) / np.trapz(yfi[ok], 1./wave[ok])) - 48.6
+    dm_spec = mag - magJ3
+    print 'DM, J3/F140W:', dm_filter, dm_spec
+    dm_filter = dm_spec
+    
+    fnu = fobs*lci**2
+    ab = -2.5*np.log10(fnu)
+    mag = ab[10]
+    so = np.argsort(lci)
+    dm = m160 - mag - dm_filter
+    a = ax.plot(lci[so], ab[so]+dm, marker='o', ms=8, color='orange', label=r'$\sim$B, NMBS (Whitaker et al. 2011)')
+    
+    aspect = sh[1]*1./sh[0]
+    ax_2d = fig.add_axes((0.05+0.01, 0.99-0.6/aspect, 0.44+0.01, 0.6/aspect))
+    a = ax_2d.imshow(0-(twod.im['SCI'].data), vmin=-0.15, vmax=0.015, aspect='auto')
+    a = ax_2d.set_yticks([0,sh[0]])
+    xi = np.arange(1.1,1.61,0.1)*1.e4
+    a = ax_2d.set_xticks(np.interp(xi, wave, np.arange(sh[1])))
+    a = ax_2d.set_xticklabels([])
+    a = ax_2d.set_yticklabels([])
+    
+    a = ax_2d.text(31.5, 25, 'B', color='blue', va='center', ha='center')
+    a = ax_2d.text(31.5, 45, 'A', color='green', va='center', ha='center')
+    
+    a = ax_2d.plot([200,200],[25, 41.67], color='black')
+    a = ax_2d.text(205, 35.3, r'$1^{\prime\prime} = 8.6$ kpc', va='center', ha='left')
+    ### 1D spectra
+    bot = 0.11
+    ax_1d = fig.add_axes((0.05+0.01, bot, 0.44+0.01, 0.99-bot-0.6/aspect))
+        
+    files = glob.glob('EGS*2D.fits')
+    colors = ['green', 'blue']
+    
+    for i, file in enumerate(files):
+        tt = unicorn.reduce.Interlace2D(file)
+        id = ids[int(file.split('.2D')[0][-3:])]
+        ok = ((wave > 1.15e4) & (wave < 1.2e3)) | ((wave > 1.4e4) & (wave < 1.6e4))
+        print ok.sum(), wave[ok].shape
+        #c = scipy.polyfit(wave[ok], tt.oned.flux[ok], 1)
+        #a = ax_1d.plot(wave, scipy.polyval(c, wave), color=colors[i], linewidth=4)
+        flux = tt.oned.flux-tt.oned.contam
+        continuum = (wave*0+np.median(flux[ok]))
+        ok = (wave > 1.2e4) & (wave < 1.4e4)
+        EW = np.trapz((flux-continuum)[ok]/continuum[ok], wave[ok])
+        a = ax_1d.plot(tt.oned.lam, continuum/tt.oned.sens*10, color=colors[i])
+        a = ax_1d.plot(tt.oned.lam, flux/tt.oned.sens*10, label=r'%s, EW$_\mathrm{[OIII]+\mathrm{H}\beta} = %d$\AA' %(id, int(EW)), color=colors[i])
+        
+    #
+    a = ax.legend(loc='upper left', numpoints=1, frameon=False, prop=dict(size=10))
+    
+    a = ax_1d.plot(wave, wave*0, color='0.8')
+    xi = np.arange(1.1,1.61,0.1)*1.e4
+    a = ax_1d.set_xticks(xi)
+    a = ax_1d.set_xticklabels(xi/1.e4)
+    a = ax_1d.set_xlim([wave[0], wave[-1]])
+    a = ax_1d.set_ylim(-0.01*10, 0.23*10)
+    a = ax_1d.legend(frameon=False, prop=dict(size=10))
+    a = ax_1d.set_xlabel(r'$\lambda\ /\ \mu\mathrm{m}$')
+    a = ax_1d.set_ylabel(r'$f_\lambda$ [10$^{-18}$ erg/s/cm$^2$/\AA]')
+      
+    a = ax_1d.text(0.75, 0.75, r'EGS [OIII] blob, $z=1.61$', ha='center', va='top', transform=ax_1d.transAxes, size='12')
+    
+    #ax_1d.plot(xj3*1.e4, yj3/yj3.max())
+    #ax_1d.plot(xf, yf/yf.max())
+     
+    fig.savefig('../PAPER_FIGURES/blob_sed.pdf')
+    
+def spec_aper_flux(id=6001, aper_radius = 0.25):
+    """
+    Convolve the cleaned 2D spectrum with an aperture *not normalized*
+    
+    The line flux is then the maximum pixel value defined within some small 
+    area.  And do the same thing to the variance array to get the error at 
+    pixel!
+    
+    """
+    import stsci.convolve.Convolve as sc
+    from scipy.stats import norm
+    
+    twod = unicorn.reduce.Interlace2D('UDF_%05d.2D.fits' %(id))
+    ok = (twod.im['WHT'].data != 0) & (twod.im['WHT'].data != 1)
+    cleaned = twod.im['SCI'].data-twod.im['CONTAM'].data
+    
+    rpix = aper_radius/0.06
+    
+    NX = np.ceil(rpix)+1
+    kernel = np.zeros((NX*2, NX*2))
+    yi, xi = np.indices(kernel.shape)
+    r = np.sqrt((xi-NX+0.5)**2+(yi-NX+0.5)**2)
+    kernel = (r <= rpix)*1
+    
+    sh = twod.im['SCI'].data.shape
+    flux = np.zeros((sh[0]+2*NX, sh[1]+2*NX))
+    contam = np.zeros((sh[0]+2*NX, sh[1]+2*NX))
+    err = np.zeros((sh[0]+2*NX, sh[1]+2*NX))
+    model = flux*0
+    
+    flux[NX:-NX,NX:-NX] = twod.im['SCI'].data
+    contam[NX:-NX,NX:-NX] = twod.im['CONTAM'].data
+    err[NX:-NX,NX:-NX] = twod.im['WHT'].data
+    model[NX:-NX,NX:-NX] = twod.im['MODEL'].data
+    
+    lam, flam, flam_continuum, fnu = hudf.generate_line_model(z=12.15, filter='F160W', observed_mag=29.3, own_spec=2000)
+    lam, flam, flam_continuum, fnu = hudf.generate_line_model(z=1.303, filter='F160W', observed_mag=27.26, own_spec=1300)
+    twod.compute_model(lam, flam/1.e-17/twod.total_flux)
+    twod.model[twod.model < 1.e-4] = 0
+    model[NX:-NX,NX:-NX] = twod.model
+    
+    test = err*0
+    test[NX+sh[0]/2,NX:-NX:(NX*2)] = 1
+    
+    cleaned = flux-contam
+    
+    flux_conv = sc.convolve2d(flux, kernel, mode='constant', cval=0)
+    contam_conv = sc.convolve2d(contam, kernel, mode='constant', cval=0)
+    cleaned_conv = sc.convolve2d(cleaned, kernel, mode='constant', cval=0)
+    err_conv = np.sqrt(sc.convolve2d(err**2, kernel, mode='constant', cval=0))
+    model_conv = np.sqrt(sc.convolve2d(model, kernel, mode='constant', cval=0))
+    test_conv = sc.convolve2d(test, kernel, mode='constant', cval=0)
+    
+    
+    plt.imshow(cleaned_conv/err_conv, vmin=0, vmax=5, aspect='auto', interpolation='nearest')
+    plt.plot(np.arange(sh[1])+NX, twod.im['YTRACE'].data+NX-1, color='white', alpha=0.5, linewidth=4)
+    plt.xlim(0,sh[1]+2*NX); plt.ylim(0,sh[0]+2*NX)
+    
+    
+    h = plt.hist((cleaned_conv/err_conv).flatten(), range=(-5,5), bins=100, normed=True)
+    plt.plot(h[1], norm.pdf(h[1], loc = np.median(cleaned_conv/err_conv)))
+    
+    ok = (contam_conv / err_conv) < 1
+    h = plt.hist((cleaned_conv/err_conv)[ok].flatten(), range=(-5,5), bins=100, normed=True)
+    plt.plot(h[1], norm.pdf(h[1], loc = np.median((cleaned_conv/err_conv)[ok])))
+    
     

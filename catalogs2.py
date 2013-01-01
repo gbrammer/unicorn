@@ -24,18 +24,17 @@ import cosmocalc
 
 PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
 
-try:
-    zout
-except: 
-    zout = None
-    fout = None
-    cat = None
-    zfit = None
-    lines = None
-    dq = None
-    selection_params = None
-    field = None
-
+zout = None
+fout = None
+cat = None
+zfit = None
+lines = None
+dq = None
+selection_params = None
+field = None
+rf = None
+irf = None
+    
 class SpeczCatalog():
     """
     Container for spectroscopic redshifts
@@ -120,8 +119,24 @@ class SpeczCatalog():
             dr_match[i] = dist[N-1+MATCH_SELF]
             id_match[i] = ids[N-1+MATCH_SELF]
         
+        self.dr_zsp = dr_match
+        self.id_zsp = id_match
         return dr_match, id_match
     
+    def flag_multiples(self, mag_list, toler=1):
+        """
+        Find multiple objects matched to the same zsp object.
+        Make flags `mult_match` with the number matched and 
+        `brightest`=1 for the brightest galaxy of multiple matches.
+        """
+        self.mult_match = self.id_zsp*0
+        self.brightest = self.id_zsp*0+1
+        for ix, i in enumerate(self.id_zsp):
+            mat = (self.id_zsp == i) & (self.dr_zsp < toler)
+            self.mult_match[ix] = mat.sum()
+            if self.mult_match[ix] > 1:
+                self.brightest[ix] = (mag_list[ix] < mag_list[mat].min()+0.3) | (not np.isfinite(mag_list[ix]))
+        
     def save_pickle(self):
         import cPickle as pickle
         print 'Save to %s' %(os.path.join(self.sproot, 'full_zspec.pkl'))
@@ -213,7 +228,22 @@ class SpeczCatalog():
         self.catqual.extend(br.obj_class[keep])
         self.source.extend(['Brusa']*N)
         self.catid.extend(br.iid[keep])
+        
+        #### Onodera passive galaxies
+        # http://iopscience.iop.org/0004-637X/755/1/26/fulltext/apj_755_1_26.html
+        print '\nCOSMOS: Onodera\n'
+        on = catIO.Readfile(sproot+'COSMOS/onodera.txt')
+        keep = on.qual >= 3
+        N = keep.sum()
 
+        self.ra.extend(on.ra[keep])
+        self.dec.extend(on.dec[keep])
+        self.zspec.extend(on.zsp[keep])
+        self.catqual.extend(on.qual[keep])
+        self.source.extend(['Onodera']*N)
+        self.catid.extend(on.id[keep])
+        
+        
         ################### GOODS-N
         #### DEEP3
         print '\nGOODS-N: DEEP3\n'
@@ -231,9 +261,83 @@ class SpeczCatalog():
         self.dec.extend(dec[keep])
         self.zspec.extend(z_spec[keep])
         self.catqual.extend(dq[keep])
-        self.source.extend(['DEEP2']*N)
+        self.source.extend(['DEEP3']*N)
         self.catid.extend(id[keep])
-
+        
+        #### Wirth (2004 TKRS)
+        print '\nGOODS-N: Wirth TKRS\n'
+        fp = open(sproot+'GOODS-North/wirth_TKRS_catalog.dat')
+        lines = fp.readlines()
+        fp.close()
+        for line in lines:
+            zsp = line[45:54]
+            if zsp.strip() == '':
+                continue
+            #
+            qual = line.split()
+            lspl = line.split()
+            qual = lspl[11]
+            if int(qual) < 3:
+                continue
+            #
+            #if 'J' not in lspl[-1]:
+            #    continue
+            #
+            self.ra.append(threedhst.utils.DMS2decimal( ':'.join(lspl[1:4]), hours=True))
+            self.dec.append(threedhst.utils.DMS2decimal( ':'.join(lspl[4:7]), hours=False))
+            #self.ra.append(threedhst.utils.DMS2decimal(lspl[-1][1:10], hours=True))
+            #self.dec.append(threedhst.utils.DMS2decimal(lspl[-1][11:19], hours=False))            
+            self.zspec.append(np.float(lspl[10]))
+            self.catqual.append(np.float(lspl[11]))
+            self.source.append('WirthTKRS')
+            self.catid.append(lspl[0])
+        
+        #### Yoshikawa (2010 ApJ, 718, 112) MOIRCS
+        print '\nGOODS:N: Yoshikawa, z=2 (MOIRCS)\n'
+        fp = open(sproot+'GOODS-North/apj338806t1_ascii.txt')
+        lines = fp.readlines()
+        fp.close()
+        for line in lines:
+            if not line.startswith('MODS'):
+                continue
+            #
+            lspl = line.split()
+            if lspl[14] != '...':
+                self.ra.append(threedhst.utils.DMS2decimal( ':'.join(lspl[1:4]), hours=True))
+                self.dec.append(threedhst.utils.DMS2decimal( ':'.join(lspl[4:7]), hours=False))
+                self.zspec.append(np.float(lspl[14]))
+                self.catqual.append(1)
+                self.source.append('Yoshikawa')
+                self.catid.append(lspl[0])
+        
+        #### Reddy (2006) LBGs, BM/BX
+        print '\nGOODS:N: Reddy (2006)\n'
+        fp = open(sproot+'GOODS-North/reddy_65294.tb2.txt')
+        lines = fp.readlines()
+        fp.close()
+        for line in lines[1:]:
+            lspl = line.split()
+            zem = lspl[7]
+            zabs = lspl[8]
+            type = lspl[9]
+            if type == '\ldots':
+                continue
+            #
+            if (':' not in zem) & (':' not in zabs):
+                if zem == '\ldots':
+                    zsp = float(zabs)
+                    type='abs_%s' %(type)
+                else:
+                    zsp = float(zem)
+                    type='em_%s' %(type)
+                #
+                self.ra.append(threedhst.utils.DMS2decimal( ':'.join(lspl[1:4]), hours=True))
+                self.dec.append(threedhst.utils.DMS2decimal( ':'.join(lspl[4:7]), hours=False))
+                self.zspec.append(zsp)
+                self.catqual.append(type)
+                self.source.append('Reddy06')
+                self.catid.append(lspl[0])
+        
         #### Barger 2008
         print '\nGOODS-N: Barger\n'
         fp = open(sproot+'GOODS-North/table4.dat')
@@ -249,7 +353,7 @@ class SpeczCatalog():
                 self.catqual.append(1)
                 self.source.append('Barger')
                 self.catid.append('xx')
-
+                
         ################### GOODS-S
         #### Fireworks
         print '\nGOODS-S: FIREWORKS\n'
@@ -324,8 +428,9 @@ class SpeczCatalog():
         self.dec.extend(eso.dec[keep])
         self.zspec.extend(eso.zspec[keep])
         self.catqual.extend(eso.flag[keep])
+        ESO_ID = ['FORS2_vanzella','VVDS_v1', 'Szokoly', 'Croom', 'Dickinson', 'vderWel', 'Bunker', 'Stanway', 'LCIRS', 'x', 'Christiani', 'Strolger', 'x',  'Stanway04b', 'VIMOS', 'K20', 'IMAGES', 'Silverman', 'GMASS']
         for survey in eso.survey[keep]:
-            self.source.append('ESO_%d' %(survey))
+            self.source.append('ESO_%s' %(ESO_ID[survey]))
 
         self.catid.extend(eso.oid[keep])
           
@@ -383,13 +488,39 @@ def read_catalogs(field='COSMOS', force=False, v20=False):
     zout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, root))
     fout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, root))
     rf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, root))
+    irf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.interrest.rfout' %(field, field, root))
 
     zfit = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
     lines = pyfits.open(PATH+'%s/%s_CATALOGS/%s.linefit.fits' %(field, field, field))[1].data
     dq = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.dqflag.linematched.dat' %(field, field, field))
+    
+    ### Galfit files
+    gfit_file = PATH+'%s/%s-GALFIT_v2.1/%s_F140W.cat' %(field, field, field.replace('-',''))
+    if os.path.exists(gfit_file):
+        gfit = catIO.Readfile(gfit_file)
+    else:
+        ### Empty catalog for fields that don't yet have GALFIT outputs
+        columns = ['f', 'mag', 'dmag', 're', 'dre', 'n', 'dn', 'q', 'dq', 'pa', 'dpa', 'sn']
+        gfit = catIO.EmptyCat()
+        gfit['number'] = cat.id
+        gfit['ra'] = cat.ra
+        gfit['dec'] = cat.dec
+        empty = cat.id*0-999
+        for column in columns:
+            gfit[column] = empty
+        
+        #gfit.parse()
         
     #### A few extra things    
     cat.m140 = 25-2.5*np.log10(cat.f_f140w)
+    icolumn = {}
+    icolumn['AEGIS'] = 'f_f814w'
+    icolumn['COSMOS'] = 'f_f814w'
+    icolumn['GOODS-N'] = 'f_f775w'
+    icolumn['GOODS-S'] = 'f_f775w'
+    icolumn['UDS'] = 'f_f814w'
+    cat.imag = 25-2.5*np.log10(cat[icolumn[field]])
+    
     cat.x_image, cat.y_image = cat.x, cat.y
     
     zfit.mag = dq.mag
@@ -407,7 +538,10 @@ def read_catalogs(field='COSMOS', force=False, v20=False):
     cat2.zfit = zfit
     cat2.lines = lines
     cat2.dq = dq
+    cat2.galfit = gfit
     cat2.root = root
+    cat2.rf = rf
+    cat2.irf = irf
     
 def read_catalogs_old(field='COSMOS', force=False, return_dir=True):
     """ 
@@ -1035,53 +1169,112 @@ def match_v17_v20():
     pointing = spec_id.split('_')[0]
     root_path = os.path.join(PATH_TO_V2, cat2.field, pointing)
     
-def redshifts_v21():
+def redshifts_v21(field='GOODS-S'):
     """
     Run some checks on the v2.1 catalog photo-zs
     """
     import unicorn.catalogs2 as cat2
     
-    field='GOODS-S'
-        
-    cat = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.cat' %(field, field, field.lower().replace('-','')))
-    zout = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, field.lower().replace('-','')))
-    fout = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, field.lower().replace('-','')))
-    zfit = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
-    rf = catIO.Readfile('/3DHST/Spectra/Release/v2.1/%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, field.lower().replace('-','')))
+    #field='GOODS-S'
     
+    cat2.read_catalogs(field)
+
+    zmax = {}
+    zmax['AEGIS'] = 4
+    zmax['COSMOS'] = 4
+    zmax['GOODS-N'] = 7
+    zmax['GOODS-S'] = 7
+    zmax['UDS'] = 7
+
     #### Match to spec catalog
     zsp = cat2.SpeczCatalog(force_new=False)    
-    dr_zsp, id_zsp = zsp.match_list(ra=cat.ra, dec=cat.dec)
-    test = (dr_zsp < 1) & (zout.z_peak > 0) & (zsp.zspec[id_zsp] > 0)#& (zsp.source[id_zsp] == 'ACES')
+    dr_zsp, id_zsp = zsp.match_list(ra=cat2.cat.ra, dec=cat2.cat.dec)
+    
+    ### reject multiple matches
+    print 'Flag multiple zsp matches'
+    zsp.flag_multiples(cat2.cat.imag, toler=1.)
+            
+    #### Selection
+    test = (dr_zsp < 1) & (cat2.zout.z_peak > 0) & (zsp.zspec[id_zsp] > 0) & (zsp.brightest == 1) #& (zsp.source[id_zsp] == 'ACES')
     
     #### GMASS
     #test = test & (zsp.source[id_zsp] == 'ESO_18')
     #plt.scatter(zsp.zspec[id_zsp][test], zout.z_peak[test], alpha=0.5)
     
-    dz = (zsp.zspec[id_zsp]-zout.z_peak)/(1+zsp.zspec[id_zsp])
-    threedhst.utils.nmad(dz[test])
+    dz_phot = -(zsp.zspec[id_zsp]-cat2.zout.z_peak)/(1+zsp.zspec[id_zsp])
+    dz_gris = -(zsp.zspec[id_zsp]-cat2.zfit.z_max_spec)/(1+zsp.zspec[id_zsp])
+    threedhst.utils.nmad(dz_phot[test])
+    threedhst.utils.nmad(dz_gris[test])
+    
+    #### Show the bad examples
+    # bad = (np.abs(dz) > 0.15) & test & (cat2.zfit.z_max_spec > 0)
+    extra = {}
+    extra['dz'] = dz_gris
+    extra['zsp'] = zsp.zspec[id_zsp]
+    cat2.view_selection(bad, extra=extra)
+
+    #### Colors for DQ flags
+    colors = ['blue','green','red','orange','yellow','purple','cyan','magenta']
     
     surveys = np.unique(zsp.source[id_zsp][test])
+    
     for survey in surveys:
         sub = test & (zsp.source[id_zsp] == survey)
         if sub.sum() > 0:
+            quals = np.unique(zsp.catqual[id_zsp][sub])
             print survey
-            p = plt.scatter(zsp.zspec[id_zsp][sub], zout.z_peak[sub], alpha=0.5, s=5)
-            p = plt.plot([0,6],[0,6], alpha=0.5, color='black')
-            p = plt.xlim(0,6); p = plt.ylim(0,6)
-            p = plt.xlabel(r'$z_\mathrm{spec}$')
-            p = plt.ylabel(r'$z_\mathrm{phot}$')
-            p = plt.title('%s, %s (%d) $\delta z$=%0.3f' %(field.lower().replace('-',''), survey, sub.sum(), threedhst.utils.nmad(dz[sub])))
-            p = plt.savefig('%s_%s.png' %(field.lower().replace('-',''), survey))
+            fig = unicorn.plotting.plot_init(square=True, xs=9, aspect=1.2, left=0.15, bottom=0.1, top=0.08, hspace=0.0)
+            ### Make plots for different redshift measurements
+            for subplot, redshift in zip([221,222], [cat2.zout.z_peak, cat2.zfit.z_max_spec]):
+                sub_z = test & (zsp.source[id_zsp] == survey) & (redshift > 0)
+                dz = (zsp.zspec[id_zsp]-redshift)/(1+zsp.zspec[id_zsp])
+                #
+                #### Difference, large scale
+                ax = fig.add_subplot(subplot+200)
+                for iq, qual in enumerate(quals):
+                    sub_qual = sub_z & (zsp.catqual[id_zsp] == qual)
+                    cat2.zphot_zspec(zsp.zspec[id_zsp][sub_qual], redshift[sub_qual], alpha=0.4, label='%s %4d %6.4f' %(str(qual), sub_qual.sum(), threedhst.utils.nmad(dz[sub_qual])), ms=3, marker='s', verbose=1, ax=ax, zmax=zmax[field], diff = True, color=colors[iq])
+                #
+                p = ax.plot([0,np.log10(1+zmax[field])], [0,0], color='red', alpha=0.5)
+                p = ax.set_ylim([-0.9,0.9]); p = ax.set_xlabel(''); p = ax.set_xticklabels([])
+                #
+                p = plt.title('%s, %s (%d) $\delta z$=%0.4f' %(field.lower().replace('-',''), survey, sub_z.sum(), threedhst.utils.nmad(dz[sub_z])))
+                ####
+                #### Difference, small scale
+                ax = fig.add_subplot(subplot+202)
+                for iq, qual in enumerate(quals):
+                    sub_qual = sub_z & (zsp.catqual[id_zsp] == qual)
+                    cat2.zphot_zspec(zsp.zspec[id_zsp][sub_qual], redshift[sub_qual], alpha=0.4, label='%s %4d %6.4f' %(str(qual), sub_qual.sum(), threedhst.utils.nmad(dz[sub_qual])), ms=3, marker='s', verbose=1, ax=ax, zmax=zmax[field], diff = True, color=colors[iq])
+                #
+                p = ax.plot([0,np.log10(1+zmax[field])], [0,0], color='red', alpha=0.5)
+                p = ax.set_ylim([-0.038,0.038]); p = ax.set_xlabel(''); p = ax.set_xticklabels([])
+                #
+                #### One-to-one
+                ax = fig.add_subplot(subplot+2)
+                for iq, qual in enumerate(quals):
+                    sub_qual = sub & (zsp.catqual[id_zsp] == qual) & (redshift > 0)
+                    cat2.zphot_zspec(zsp.zspec[id_zsp][sub_qual], redshift[sub_qual], alpha=0.4, label='%s %4d %6.4f %4d %6.4f' %(str(qual), sub_qual.sum(), threedhst.utils.nmad(dz[sub_qual]), (sub_qual & (redshift > 0.7)).sum(), threedhst.utils.nmad(dz[sub_qual & (redshift > 0.7)])), ms=3, marker='s', verbose=1, ax=ax, zmax=zmax[field], diff = False, color=colors[iq])
+                #
+                p = ax.legend(prop=dict(size=8))
+                ax.plot([0,np.log10(1+zmax[field])], [0,np.log10(1+zmax[field])], color='red', alpha=0.5)
+                #
+            #
+            p = plt.savefig('%s_%s.png' %(field.lower().replace('-',''), survey.strip()))
             p = plt.close()
     #
-    gris = test & (zfit.z_max_spec > 0)
+    
+    gris = test & (cat2.zfit.z_max_spec > 0)
     gris = gris & (zsp.zspec[id_zsp] > 0.68)
     
-    cat2.zphot_zspec(zsp.zspec[id_zsp][gris], zout.z_peak[gris], alpha=0.2, label='test', ms=3, color='black', marker='s', verbose=2)
-    cat2.zphot_zspec(zsp.zspec[id_zsp][gris], zfit.z_max_spec[gris], alpha=0.2, label='test', ms=3, color='black', marker='s', verbose=2)
+    fig = cat2.zphot_zspec(zsp.zspec[id_zsp][gris], cat2.zout.z_peak[gris], alpha=0.2, label='z_peak', ms=3, color='black', marker='s', verbose=2)
+    fig.savefig(field.lower().replace('-','')+'_zpeak.png')
+    plt.close()
     
-def zphot_zspec(zphot, zspec, zmax=6, ax=None, marker='o', ylabel='phot', verbose=True, *args, **kwargs):
+    fig = cat2.zphot_zspec(zsp.zspec[id_zsp][gris], cat2.zfit.z_max_spec[gris], alpha=0.2, label='z_max_spec', ms=3, color='black', marker='s', verbose=2)
+    fig.savefig(field.lower().replace('-','')+'_z_max_spec.png')
+    plt.close()
+    
+def zphot_zspec(zspec, zphot, zmax=6, ax=None, marker='o', ylabel='phot', verbose=True, diff=False, *args, **kwargs):
     """
     Make a zphot_zspec plot with "pseudo-log" scaling
     """
@@ -1090,17 +1283,34 @@ def zphot_zspec(zphot, zspec, zmax=6, ax=None, marker='o', ylabel='phot', verbos
         fig = unicorn.plotting.plot_init(square=True, xs=5, aspect=1, left=0.1)
         ax = fig.add_subplot(111)
         ret = True
+    
+    if diff:
+        ydata = (zphot-zspec) / (1+zspec)
+    else:
+        ydata = np.log10(1+zphot)
         
-    ax.plot(np.log10(1+zphot), np.log10(1+zspec), linestyle='None', marker=marker, *args, **kwargs)
+    ax.plot(np.log10(1+zspec), ydata, linestyle='None', marker=marker, *args, **kwargs)
     
     xlab = np.arange(0,zmax+0.1,0.5)
     tlab = np.array(['%d' %(x) for x in xlab])
     tlab[1::2] = ''
-    ax.set_xticks(np.log10(1+xlab)); ax.set_yticks(np.log10(1+xlab))
-    ax.set_xticklabels(tlab); ax.set_yticklabels(tlab) 
-    ax.set_xlim(0, np.log10(1+zmax)); ax.set_ylim(0, np.log10(1+zmax))
-    ax.set_xlabel(r'$z_\mathrm{spec}$'); ax.set_ylabel(r'$z_\mathrm{%s}$' %(ylabel))
+    ax.set_xticks(np.log10(1+xlab))
+    ax.set_xticklabels(tlab)
+    ax.set_xlim(0, np.log10(1+zmax))
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
     
+    if diff:
+        ax.set_ylabel(r'$\Delta z/(1+z)$')
+        zarr = np.arange(0,zmax,0.1)
+        for ztest in range(zmax):
+            ax.plot(np.log10(1+zarr), (ztest-zarr)/(1+zarr), color='0.8', alpha=0.05)
+            
+    else:
+        ax.set_yticks(np.log10(1+xlab))
+        ax.set_ylim(0, np.log10(1+zmax))
+        ax.set_yticklabels(tlab) 
+        ax.set_ylabel(r'$z_\mathrm{%s}$' %(ylabel))
+        
     if verbose:
         dz = (zphot-zspec)/(1+zspec)
         if verbose > 1:
@@ -1111,6 +1321,143 @@ def zphot_zspec(zphot, zspec, zmax=6, ax=None, marker='o', ylabel='phot', verbos
     if ret:
         ax.plot([0,np.log10(1+zmax)],[0,np.log10(1+zmax)], color='red', alpha=0.5)
         return fig
+     
+def check_rf_colors():
+    """
+    Kate noticed something with the rest-frame colors in that there is
+    a cloud of apparently quiescent galaxies that scatter to redder U-V
+    colors in InterRest compared to EAZY.
+    """   
+    
+    ids = ['AEGIS-26_00339', 
+    'AEGIS-6_02236', 
+    'AEGIS-6_03994', 
+    'AEGIS-8_06138', 
+    'AEGIS-21_03851',
+    'AEGIS-9_05683', 
+    'AEGIS-14_06299',
+    'AEGIS-27_12031', 
+    'COSMOS-25_21952',
+    'COSMOS-11_29935', 
+    'COSMOS-12_09739'] 
+    
+    os.chdir('/Volumes/Crucial/3DHST/Spectra/Release/v2.1/Tests')
+    for id in ids:
+        gris = unicorn.interlace_fit.GrismSpectrumFit(id, RELEASE=True)
+        cat2.show_rf_color(gris)
+        plt.savefig(id+'_rf.png')
+        plt.close()
+        
+def show_rf_color(gris):
+    """
+    gris is a unicorn.interlace_fit.GrismSpectrumFit object.
+    """
+    import unicorn.catalogs2 as cat2
+    cat2.read_catalogs(gris.field)
+    
+    lambdaz, temp_sed, lci, obs_sed, fobs, efobs = gris.eazy_fit
+    
+    plt.plot(lambdaz, temp_sed, color='blue', alpha=0.8)
+    plt.semilogx()
+    plt.xlim(3000, 9.e4)
+    
+    ok = efobs > 0
+    plt.errorbar(lci[ok], fobs[ok], efobs[ok], linestyle='None', color='black', ecolor='black', alpha=.8, marker='o')
+    
+    irf_u = cat2.irf.rf_f6[gris.ix]
+    irf_v = cat2.irf.rf_f8[gris.ix]
+    
+    rf_u = cat2.rf.l135[gris.ix]
+    rf_v = cat2.rf.l137[gris.ix]
+    
+    irf_uv = -2.5*np.log10(irf_u/irf_v)
+    rf_uv = -2.5*np.log10(rf_u/rf_v)
+    
+    red = (1+cat2.irf.redshift[gris.ix])
+    lc = np.array([3.586e3, 5.4776e3])
+    flam_factor = 10**(-0.4*(25+48.6))*3.e18/1.e-17/(lc*red)**2
+    
+    plt.plot(lc*red, np.array([rf_u, rf_v])*flam_factor, color='blue', linewidth=2, marker='o', ms=10, alpha=0.8, label='Eazy: U-V=%.2f' %(rf_uv))
+    plt.plot(lc*red, np.array([irf_u, irf_v])*flam_factor, color='red', linewidth=2, marker='o', ms=10, alpha=0.8, label='Irest: U-V=%.2f' %(irf_uv))
+    plt.legend(prop=dict(size=10))
+    
+    plt.ylim((fobs[ok]-3*efobs[ok]).min(), (fobs[ok]+3*efobs[ok]).max())
+    plt.title(gris.grism_id)
+    
+class SpecObject():
+    """
+    Data holder for a general 3D-HST object.  Store spectrum values
+    as well as photometric catalog information
+    """
+    def __init__(self, spec_id='AEGIS-26_00339', version=2.1, path=None):
+        import unicorn
+        import unicorn.catalogs2 as cat2
+        
+        if path is None:
+            path = '/3DHST/Spectra/Release/v2.1/'
+        
+        self.spec_id = spec_id
+        self.field = '-'.join(spec_id.split('-')[:-1])
+        self.pointing = spec_id.split('_')[0]
+        id = int(spec_id.split('_')[-1])
+        self.ix = np.where(cat2.cat.id == id)[0][0]
+        
+        self.spec_path = path+'%s/%s-WFC3_v2.1_SPECTRA/%s/' %(self.field, self.field, self.pointing)
+        
+        self.gris = unicorn.interlace_fit.GrismSpectrumFit(self.spec_id, RELEASE=True)
+        
+        # lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+        
+def extract_wavelet_lines():
+    import unicorn.catalogs2 as cat2
+    
+    mag = 25-2.5*np.log10(cat2.cat.f_f140w)
+    keep = mag < 25.8
+    
+    try:
+        os.chdir('/3DHST/Spectra/Release/v2.1/%s/%s_WAVELET/' %(cat2.field, cat2.field))
+    except:
+        os.mkdir('/3DHST/Spectra/Release/v2.1/%s/%s_WAVELET/' %(cat2.field, cat2.field))
+        os.chdir('/3DHST/Spectra/Release/v2.1/%s/%s_WAVELET/' %(cat2.field, cat2.field))
+    
+    BASE_PATH = '/3DHST/Spectra/Release/v2.1/%s/%s-WFC3_v2.1_SPECTRA/' %(cat2.field, cat2.field)
+    
+    for i in np.arange(cat2.cat.N)[keep]:
+        print unicorn.noNewLine+'%d' %(cat2.cat.id[i])
+        pointings = threedhst.utils.which_3dhst_pointing(cat2.cat.ra[i], cat2.cat.dec[i])
+        for point in pointings:
+            if point.startswith('PRIM'):
+                continue
+            #
+            p = point.replace('SOUTH','S').replace('GOODSN','GOODS-N')
+            object = '%s_%05d' %(p, cat2.cat.id[i])
+            oned_file = '%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, p, object)
+            if not os.path.exists(oned_file):
+                continue
+            #
+            oned = unicorn.reduce.Interlace1D(oned_file, PNG=False)
+            lines = oned.find_em_lines()
+            #### Check for UDFj redshift
+            for i in range(len(lines['wave'])):
+                if (np.abs(lines['wave'][i] - 1.599e4) < 100) & (lines['sn'][i] > 3):
+                    print oned_file.replace('FITS','PNG').replace('fits','png')
+                    
+    l0 = 1.599e4
+    files=glob.glob('*wavelet.dat')
+    for file in files:
+        spl = open(file).readlines()[1].split()
+        waves = np.cast[float](spl[4::6])
+        sn = np.cast[float](spl[7::6])
+        count = 0
+        for i in range(len(waves)):
+            if (waves[i] > 1.2e4) & (sn[i] > 1):
+                count = count + 1
+                # if (np.abs(waves[i] - l0) < 50) & (sn[i] > 1):
+            #     print spl[0], spl[3], waves[i], sn[i]
+        if (float(spl[3]) > 24) & (count > 1):
+            print spl[0], spl[3], waves, sn   
+        
+    
         
 def make_web_browser(pointing='UDS-17'):
     """

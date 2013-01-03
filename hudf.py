@@ -371,6 +371,9 @@ def extract_all(id=6818, fit=False, miny=-200, MAGLIMIT=28):
         #if id not in model.objects:
         #    continue
         #
+        if id not in model.cat.id:
+            continue
+        
         object_mag = model.cat['MAG_AUTO'][model.cat.id == id][0]
         model.twod_spectrum(id, verbose=True, CONTAMINATING_MAGLIMIT=MAGLIMIT, miny=miny, USE_REFERENCE_THUMB=True, refine=object_mag < 23)
         model.show_2d(savePNG=True, verbose=True)
@@ -1027,9 +1030,9 @@ def prepare_for_paper():
     
     force_bg=True # can set to false if want to just regenerate the stacks
     
-    plt.rcParams['text.usetex'] = False
     
     for id, lam, in zip([4948, 7507, 6001], [2.303*6564, 9.5549*1215.66, 1.599e4]):
+        plt.rcParams['text.usetex'] = False
         #hudf.extract_all(id, miny=-200, MAGLIMIT=28)
         hudf.stack(id, dy=100, fcontam=1, inverse=True, ref_wave=lam)
         hudf.fix_2d_background('UDF_%05d' %(id), force=force_bg, clip=8)
@@ -1057,6 +1060,11 @@ def prepare_for_paper():
     #hudf.plot_aper_fluxes(object='UDF_06001', dy=0, model_params=[(1.598e4, 3.3e-18)], tex=tex, use_thumb_kernel=thumb_kernel)
     
     ## cross-corr
+    # twod = pyfits.open('UDF_06416.2D.fits', mode='update')
+    # twod['SCI']+=0.001 # contamination oversubtracted
+    # twod.flush()
+    # hudf.plot_aper_fluxes(object='UDF_06416', dy=0, model_params=[(5008.24*3.185, 12.e-18), (4960.3*3.185, 12./3*1.e-18), (4862.68*3.185, 7e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
+    
     hudf.plot_aper_fluxes(object='UDF_06001', dy=0, model_params=[(1.5988e4, 3.4e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
     
     ### Include doublet
@@ -2386,6 +2394,8 @@ def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy
     err_flat_conv = np.sqrt(convolve_function(err**2, flat_kernel))    
     
     ## Extract the convolution along the trace
+    #print contam.shape, flux.shape, line_model.shape
+    
     flux_aper = np.sum(flux_conv*keep_trace, axis=0)
     contam_aper = np.sum(contam_conv*keep_trace, axis=0)
     clean_aper = np.sum(clean_conv*keep_trace, axis=0)
@@ -3363,7 +3373,7 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
         fnu2flam = 1.e-9*1.e-23*3.e18/unicorn.reduce.PLAMs['F160W']**2
         a = ax.errorbar(unicorn.reduce.PLAMs['F160W'], hudf.bouwens_flux['F160W'][0]*fnu2flam, hudf.bouwens_flux['F160W'][1]*fnu2flam, marker='o', ms=8, color='red', ecolor='red', zorder=500, markeredgecolor='red', label=r'UDFj-39546284, $H_{160}$', linestyle='None')
     else:
-        a = ax.errorbar(unicorn.reduce.PLAMs['F160W'], m160, 0.2, marker='o', ms=8, color='red', ecolor='red', zorder=500, markeredgecolor='red', label=r'UDFj-39546284, $H_{160}$', linestyle='None')
+        a = ax.errorbar(unicorn.reduce.PLAMs['F160W'], m160, 0.2, marker='o', ms=8, color='red', ecolor='red', zorder=500, markeredgecolor='orange', markeredgewidth=1.2,  label=r'UDFj-39546284, $H_{160}$', linestyle='None', elinewidth=2, linewidth=2, barsabove=False, capsize=2)
         
     if plot_flux:
         sigmas = [1]
@@ -3380,6 +3390,7 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
                 m = 'v'
                 scale = sigma_limit
             else:
+                continue
                 m = 'o'
                 scale = 1
             #
@@ -3499,11 +3510,21 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     
     #### Scale by relative width of the NMBS J3 and WFC3/F140W filters
     xj3, yj3 = np.loadtxt('/Users/gbrammer/research/drg/PHOTZ/EAZY/FILTERS/NEWFIRM/j3_atmos.dat', unpack=True)
+    xj3 *= 1.e4
+    
+    xfh, yfh = np.loadtxt('/Users/gbrammer/research/drg/PHOTZ/EAZY/FILTERS/WIRCam/cfh8201_H.txt', unpack=True)
+    xfh *= 10
+    xfh, yfh = xfh[::-1], yfh[::-1]
+    
+    xfj, yfj = np.loadtxt('/Users/gbrammer/research/drg/PHOTZ/EAZY/FILTERS/WIRCam/cfh8101_J.txt', unpack=True)
+    xfj *= 10
+    xfj, yfj = xfj[::-1], yfj[::-1]
+    
     xf14, yf14 = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), 'F140W'), unpack=True)
     xf16, yf16 = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), 'F160W'), unpack=True)
     
     # ok = (wave > 1.15e4) & (wave < 1.62e4) & (twod.oned.sens != 0) & (wave != 0)
-    # mag_j3 = threedhst.utils.calc_mag(wave[ok], fnu_spec[ok], xj3*1.e4, yj3, fnu_units=True, CCD=True)
+    # mag_j3 = threedhst.utils.calc_mag(wave[ok], fnu_spec[ok], xj3, yj3, fnu_units=True, CCD=True)
     # mag_14 = threedhst.utils.calc_mag(wave[ok], fnu_spec[ok], xf14, yf14, fnu_units=True, CCD=True)
 
     twod_B = unicorn.reduce.Interlace2D('EGS12007881.12012083_00625.2D.fits')
@@ -3521,7 +3542,7 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     cont_B = xg*0.+0.06e-28
     
     #### Difference between J3 / F140W at 1.3 um
-    mag_j3_a = threedhst.utils.calc_mag(xg, yg_A+cont_A, xj3*1.e4, yj3, fnu_units=True, CCD=True)
+    mag_j3_a = threedhst.utils.calc_mag(xg, yg_A+cont_A, xj3, yj3, fnu_units=True, CCD=True)
     mag_14_a = threedhst.utils.calc_mag(xg, yg_A+cont_A, xf14, yf14, fnu_units=True, CCD=True)
     
     #### Put line at 1.5um to get ratio between F140W and F160W
@@ -3530,6 +3551,10 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     
     mag_14_b_objB = threedhst.utils.calc_mag(xg*1.5/1.3, yg_B+cont_B, xf14, yf14, fnu_units=True, CCD=True)
     mag_16_b_objB = threedhst.utils.calc_mag(xg*1.5/1.3, yg_B+cont_B, xf16, yf16, fnu_units=True, CCD=True)
+
+    mag_h_c = threedhst.utils.calc_mag(xg*1.6/1.3, yg_A+cont_A, xfh, yfh, fnu_units=True, CCD=True)
+    mag_16_c = threedhst.utils.calc_mag(xg*1.6/1.3, yg_A+cont_A, xf16, yf16, fnu_units=True, CCD=True)
+    print 'H-160 %.3f' %(mag_16_c-mag_h_c)
     
     #### Delta mag for the line at 1.6um
     mag_14_16_A = threedhst.utils.calc_mag(xg*1.6/1.3, yg_A+cont_A, xf14, yf14, fnu_units=True, CCD=True)
@@ -3636,7 +3661,7 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
       
     a = ax_1d.text(0.75, 0.75, r'EGS [OIII] blob, $z=1.61$', ha='center', va='top', transform=ax_1d.transAxes, size='10')
     
-    #ax_1d.plot(xj3*1.e4, yj3/yj3.max())
+    #ax_1d.plot(xj3, yj3/yj3.max())
     #ax_1d.plot(xf, yf/yf.max())
     
     #

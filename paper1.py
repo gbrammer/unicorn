@@ -34,6 +34,7 @@ sdss_line = None
 sdss_totsfr = None
 sdss_totspecsfr = None
 sdss_logm = None
+sdss_fiboh = None
 sdss_sersic = None
 sdss_vagc = None
 
@@ -55,11 +56,11 @@ def read_sdss(read_full_lines=True):
     
     print 'SDSS ICLASS...'
     if unicorn.paper1.sdss_iclass is None:
-        unicorn.paper1.sdss_iclass = pyfits.open(sdss_path + 'gal_iclass_dr7_v5_2.fits.gz')[0].data
+        unicorn.paper1.sdss_iclass = pyfits.open(sdss_path + 'gal_iclass_dr7_v5_2.fits')[0].data
     
     print 'SDSS Info, redshifts etc....'    
     if unicorn.paper1.sdss_info is None:
-        unicorn.paper1.sdss_info = pyfits.open(sdss_path + 'gal_info_dr7_v5_2.fits.gz')[1].data
+        unicorn.paper1.sdss_info = pyfits.open(sdss_path + 'gal_info_dr7_v5_2.fits')[1].data
     
     if read_full_lines:
         print 'SDSS Full line data...'
@@ -68,15 +69,19 @@ def read_sdss(read_full_lines=True):
     
     print 'SDSS Total SFR...'
     if unicorn.paper1.sdss_totsfr is None:
-        unicorn.paper1.sdss_totsfr = pyfits.open(sdss_path + 'gal_totsfr_dr7_v5_2.fits.gz')[1].data
+        unicorn.paper1.sdss_totsfr = pyfits.open(sdss_path + 'gal_totsfr_dr7_v5_2.fits')[1].data
 
     print 'SDSS Total Specific SFR...'    
     if unicorn.paper1.sdss_totspecsfr is None:
-        unicorn.paper1.sdss_totspecsfr = pyfits.open(sdss_path + 'gal_totspecsfr_dr7_v5_2.fits.gz')[1].data
+        unicorn.paper1.sdss_totspecsfr = pyfits.open(sdss_path + 'gal_totspecsfr_dr7_v5_2.fits')[1].data
     
     print 'SDSS Total stellar mass...'
     if unicorn.paper1.sdss_logm is None:
-        unicorn.paper1.sdss_logm = pyfits.open(sdss_path + 'totlgm_dr7_v5_2.fits.gz')[1].data
+        unicorn.paper1.sdss_logm = pyfits.open(sdss_path + 'totlgm_dr7_v5_2.fits')[1].data
+    
+    print 'SDSS O/H abundances...'
+    if unicorn.paper1.sdss_fiboh is None:
+        unicorn.paper1.sdss_fiboh = pyfits.open(sdss_path + 'gal_fiboh_dr7_v5_2.fits')[1].data
     
     print 'SDSS-VAGC Sersic fits...'
     if unicorn.paper1.sdss_sersic is None:
@@ -140,7 +145,7 @@ def match_sersic():
     # print dr
         
         
-def sdss_selection(zmin=0.05, zmax=0.2, type='GALAXY', massmin=8, massmax=12):
+def sdss_selection(zmin=0.001, zmax=0.2, type='GALAXY', massmin=8, massmax=12):
     import unicorn.paper1 as p1
     #
     redshift = (p1.sdss_info.Z >= zmin) & (p1.sdss_info.Z <= zmax) & (p1.sdss_info.Z_WARNING == 0)
@@ -153,6 +158,67 @@ def sdss_selection(zmin=0.05, zmax=0.2, type='GALAXY', massmin=8, massmax=12):
     #
     return selection, len(p1.sdss_logm.AVG[selection])
     
+def explore_em_lines():
+    """
+    Look at ratios of OIII4363, 5007, HB, NeIII 3869
+    
+    some of the selections come from unicorn.paper1
+    
+    """
+    
+    sel, NOBJ = p1.sdss_selection(zmax=0.2)
+    SN_line_limit = 3
+    SN_lines = (p1.sdss_line.NII_6584_FLUX/p1.sdss_line.NII_6584_FLUX_ERR > SN_line_limit) & (p1.sdss_line.H_ALPHA_FLUX/p1.sdss_line.H_ALPHA_FLUX_ERR > SN_line_limit) & (p1.sdss_line.OIII_5007_FLUX/p1.sdss_line.OIII_5007_FLUX_ERR > SN_line_limit) & (p1.sdss_line.H_BETA_FLUX/p1.sdss_line.H_BETA_FLUX_ERR > SN_line_limit)
+    
+    gal_lines = sel & SN_lines # & (p1.sdss_totspecsfr > -10.7)
+    
+    ### BPT diagram
+    bptx = np.log10( p1.sdss_line.NII_6584_FLUX / p1.sdss_line.H_ALPHA_FLUX )
+    bpty = np.log10( p1.sdss_line.OIII_5007_FLUX / p1.sdss_line.H_BETA_FLUX )
+    bpty_doublet = np.log10( (p1.sdss_line.OIII_5007_FLUX + p1.sdss_line.OIII_4959_FLUX ) / p1.sdss_line.H_BETA_FLUX )
+    
+    ### kauffman separation between SF galaxies and AGN
+    xsf = np.arange(100)/100.*1.5-1.5
+    ysf = 0.61/(xsf-0.05)+1.3
+    
+    #### star-forming galaxies
+    ysf_int = np.interp(bptx, xsf, ysf, right=-10, left=-10)
+    sfg = (bpty < ysf_int) & (bptx < -0.1) & gal_lines
+    qui = ((bpty > ysf_int) | (bptx > -0.1)) & sel
+    agn = (bpty > ysf_int) & gal_lines
+    
+    ######    
+    oiii_doublet = p1.sdss_line.OIII_5007_FLUX + p1.sdss_line.OIII_4959_FLUX
+    x = np.log10(oiii_doublet / p1.sdss_line.H_GAMMA_FLUX )
+    y = np.log10(p1.sdss_line.OIII_4363_FLUX / oiii_doublet )
+    y = np.log10(p1.sdss_line.NEIII_3869_FLUX / oiii_doublet )
+    
+    y = np.log10(p1.sdss_line.NEIII_3869_FLUX / p1.sdss_line.H_GAMMA_FLUX )
+    
+    #### tail of objects in the plot, NeIII / H g
+    yb = [-0.11, 0.64]
+    xb = [0.81, 1.53]
+    yi = np.interp(x, xb, yb)
+    box = (y < (yi-0.2)) & (x > 0.8)
+    plt.plot(x[box], y[box], marker='.', alpha=0.05, color='green')  
+    
+    plt.plot(x[sel], y[sel], marker='.', alpha=0.05)  
+    plt.plot(x[gal_lines], y[gal_lines], marker='.', alpha=0.05)  
+    
+    plt.plot(x[agn], y[agn], marker='.', alpha=0.05, color='red')  
+    plt.plot(x[sfg], y[sfg], marker='.', alpha=0.05, color='blue')  
+    #plt.plot(x[qui], y[qui], ',', alpha=0.05, color='orange')  
+    #plt.plot(np.log10(4.125e-15/7.566e-16)*np.array([1,1]),[-2,2])
+    plt.plot(np.log10(4.125e-15/3.342e-16)*np.array([1,1]),[-2,2], color='green')
+    plt.plot([-2,2], np.log10(2.818e-16/3.342e-16)*np.array([1,1]), color='green')
+    #plt.plot([-2,2], np.log10(2.818e-16/4.125e-15)*np.array([1,1]), color='green')
+    
+    yy = bpty_doublet
+    plt.plot(bptx[sfg], yy[sfg], color='blue', alpha=0.05, marker='.', linestyle='None')
+    plt.plot(bptx[agn], yy[agn], color='red', alpha=0.05, marker='.', linestyle='None')
+    plt.plot(bptx[box], yy[box], color='green', alpha=0.05, marker='.', linestyle='None')
+    plt.plot([-2,2], np.log10(4.125e-15/7.566e-16)*np.array([1,1]), color='green')
+      
 def testing():
     """
     Make some simple plots like SSFR vs M
@@ -176,6 +242,7 @@ def testing():
     ### BPT diagram
     bptx = np.log10( p1.sdss_line.NII_6584_FLUX / p1.sdss_line.H_ALPHA_FLUX )
     bpty = np.log10( p1.sdss_line.OIII_5007_FLUX / p1.sdss_line.H_BETA_FLUX )
+    bpty_doublet = np.log10( (p1.sdss_line.OIII_5007_FLUX + p1.sdss_line.OIII_4959_FLUX ) / p1.sdss_line.H_BETA_FLUX )
     
     # plt.plot(bptx[gal_lines], bpty[gal_lines], marker='.', color='black', alpha=0.01, linestyle='None')
     
@@ -206,8 +273,11 @@ def testing():
     qui = ((bpty > ysf_int) | (bptx > -0.1)) & sel
     agn = (bpty > ysf_int) & gal_lines
     
-    plt.plot(bptx[sfg], bpty[sfg], color='blue', alpha=0.01, marker='.', linestyle='None')
-    plt.plot(bptx[agn], bpty[agn], color='red', alpha=0.01, marker='.', linestyle='None')
+    yy = bpty
+    # yy = bpty_doublet
+    
+    plt.plot(bptx[sfg], yy[sfg], color='blue', alpha=0.01, marker='.', linestyle='None')
+    plt.plot(bptx[agn], yy[agn], color='red', alpha=0.01, marker='.', linestyle='None')
     
     plt.xlim(-1.5, 0.8)
     plt.ylim(-1.2, 1.5)

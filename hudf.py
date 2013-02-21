@@ -13,9 +13,9 @@ import threedhst.dq
 import unicorn
 
 #### nJy
-bouwens = {'F435W':-1.7, 'F606W':-1.1, 'F775W':-1.4, 'F814W':-3.3, 'F850LP':-2.5, 'F105W':-1.2, 'F125W':-1.7, 'F140W':-1.6, 'F160W':11.8, 'ch1':-18, 'ch2':-13, 'K':-25}
+bouwens = {'F435W':-1.7, 'F606W':-1.1, 'F775W':-1.4, 'F814W':-3.3, 'F850LP':-2.5, 'F105W':-1.2, 'F125W':-1.7, 'F140W':-1.6, 'F160W':11.8, 'ch1':-21, 'ch2':-25, 'K':-25}
 
-bouwens_flux = {'F435W':(-1.0, 1.7), 'F606W':(0.2, 1.1), 'F775W':(1.5, 1.4), 'F814W':(-2.9, 3.3), 'F850LP':(1.2, 2.5), 'F105W':(-0.8, 1.2), 'F125W':(-3.9, 1.7), 'F140W':(-0.5, 1.6), 'F160W':(11.8, 1.5), 'ch1':(8, 18), 'ch2':(19, 13), 'K':(16, 25)}
+bouwens_flux = {'F435W':(-1.0, 1.7), 'F606W':(0.2, 1.1), 'F775W':(1.5, 1.4), 'F814W':(-2.9, 3.3), 'F850LP':(1.2, 2.5), 'F105W':(-0.8, 1.2), 'F125W':(-3.9, 1.7), 'F140W':(-0.5, 1.6), 'F160W':(11.8, 1.5), 'ch1':(4, 21), 'ch2':(28, 25), 'K':(-16, 25)}
 
 ellis_7507 = dict(F105W=30.1, F140W=28.5, F125W=28.6, F160W=28.4)
 ellis = dict(F105W=-31.2, F140W=-30.5, F125W=-30.7, F160W=29.3)
@@ -1041,6 +1041,9 @@ def prepare_for_paper():
     for id in [4948, 7507, 6001]:
         hudf.clean_up_segmentation(object='UDF_%05d' %(id), aper_radius=0.30, overwrite=True, verbose=True, pad=80)
         # hudf.plot_aper_fluxes(object='UDF_%05d' %(id), dy=0, model_params=[(9.5549*1215.5, 6.1e-18)], tex=False, use_thumb_kernel=True)
+    
+    #
+    tex=False; thumb_kernel=True; hudf.plot_aper_fluxes(object='UDF_%05d' %(id), dy=0, model_params=[(1.599e4, 3.4e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
         
     ### Make aperture plots
     tex=False
@@ -1065,7 +1068,18 @@ def prepare_for_paper():
     # twod.flush()
     # hudf.plot_aper_fluxes(object='UDF_06416', dy=0, model_params=[(5008.24*3.185, 12.e-18), (4960.3*3.185, 12./3*1.e-18), (4862.68*3.185, 7e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
     
-    hudf.plot_aper_fluxes(object='UDF_06001', dy=0, model_params=[(1.5988e4, 3.4e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
+    hudf.plot_aper_fluxes(object='UDF_06001', dy=0, model_params=[(1.599e4, 3.4e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
+    
+    # Individual pointings
+    id, params = 6001, [(1.599e4, 3.4e-18)]
+    id, params = 4948, [(6564.*2.303, 8.5e-18), (5008.24*2.303, 12.e-18), (4960.3*2.303, 12./3*1.e-18), (4862.68*2.303, 7e-18)]
+    
+    for root in ['GOODS-SOUTH-34', 'GOODS-SOUTH-36', 'GOODS-SOUTH-37', 'GOODS-SOUTH-38', 'PRIMO-1026', 'PRIMO-1101']:
+        plt.rcParams['text.usetex'] = False
+        hudf.clean_up_segmentation(object='%s_%05d' %(root, id), aper_radius=0.30, overwrite=True, verbose=True, pad=80)
+        hudf.fix_2d_background('%s_%05d' %(root, id), force=True, clip=8)
+        hudf.evaluate_2d_errors('%s_%05d' %(root, id))
+        hudf.plot_aper_fluxes(object='%s_%05d' %(root, id), dy=0, model_params=params, tex=False, use_thumb_kernel=True, aper_radius=0.3, full_2d=True)
     
     ### Include doublet
     #hudf.plot_aper_fluxes(object='UDF_06001', dy=0, model_params=[(1.599e4, 3.8e-18*3./4), (1.5836e4, 3.8e-18/4.)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3)
@@ -1665,7 +1679,7 @@ def rgb_browser():
     img = pyfits.open('hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits')
     imb = pyfits.open('UDF_ACS_i.fits')
     
-    fs = [10**(x) for x in np.arange(-1.2,1.41,0.2)]
+    fs = [10**(x) for x in np.arange(-0.3,1.71,0.2)]
     # for f in fs:
     f = 10
     #
@@ -1678,18 +1692,21 @@ def rgb_browser():
     xc, yc = 1890, 1002 ### szomoru
     xc, yc, NX = 1760, 1900, 400 ## blank
     xc, yc, NX = 1600, 2290, 400 ## blank
-    sh = sub_r.shape
     xc, yc, NX, sh = 1332, 1731, 20, (400,400) ### 3514 OIII emitter
     xc, yc, NX, sh = 1451, 2069, 20, (400, 400)
-    sub_r = imr[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[0]
-    sub_g = img[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[1]*1.0
-    sub_b = imb[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[2]*1.0
+    xc, yc, NX, sh = 1578, 2355, 300, (600, 600)  ### z=12
+    # sub_r = imr[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[0]
+    # sub_g = img[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[1]*1.0
+    # sub_b = imb[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[2]*1.0
+    sh = sub_r.shape
     # 
-    # sub_r = imr[0].data*scales[0]
-    # sub_g = img[0].data*scales[1]*1.0
-    # sub_b = imb[0].data*scales[2]*1.0
+    sub_r = imr[0].data*scales[0]
+    sub_g = img[0].data*scales[1]*1.0
+    sub_b = imb[0].data*scales[2]*1.0
     #
-    Q, alpha, m0 = 0.5, 20, -0.01
+    #Q, alpha, m0 = 0.5, 20, -0.01
+    Q, alpha, m0 = 5.,3.,-0.05
+    #
     unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='HUDF12_iJH_%06.2f.png' %(f), shape=sh)
     
 def comparison_objects(id=4581, zr=(0.4,2.2), bg=True):
@@ -2369,6 +2386,7 @@ def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy
     #
     if full_2d:
         hudf.diagnostic_2d(twod, kernel, YSHOW=4, model_params=model_params, tex=True)
+        hudf.proposal_2D(twod, kernel, YSHOW=4, model_params=model_params, tex=True)
         
     #### Convolve 2D spectra and image thumbnail with the kernel
     import stsci.convolve.Convolve as sc
@@ -2481,7 +2499,7 @@ def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy
     ### S/N
     #ax = fig.add_subplot(212)
     ax2 = fig.add_axes((ax0,ay0,0.99-ax0, dy_axis))
-    
+        
     ax2.plot(waves, (flux_aper-contam_aper)/err_aper, color='black', linewidth=1.5, label='F160W kernel')
     
     ### Show flat kernel on same figure
@@ -2563,9 +2581,86 @@ def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy
         if loc == 'right':
             spine.set_color('none')
     
+    #### Save an ASII file
+    data = np.array([waves, flux_aper, contam_aper, err_aper, clean_flat_aper, err_flat_aper])
+    fp = open('%s.aper_flux.dat' %(object),'w')
+    fp.write('# wave flux_cc contam_cc err_cc flux_flat err_flat\n')
+    np.savetxt(fp, data.T, fmt='%.4e')
+    fp.close()
+    
     fig.savefig('%s.aper_flux.pdf' %(object))
     
     print 'Max model flux: %.2e' %((model_aper*to_flam_aper).max())
+    
+def compare_individual_extractions(id=6001):
+    """
+    Take the aperture flux/error extractions from each individual 
+    pointing and put on the same plot to see if contamination comes 
+    from a particular orientation.
+    """
+    
+    files=glob.glob('GOODS-SOUTH*%05d.aper_flux.dat' %(id))
+    files.extend(glob.glob('PRIMO*%05d.aper_flux.dat' %(id)))
+    colors = ['blue','blue','blue','blue','green','red']
+    alphas = [0.5,0.5,0.5,0.5,0.5,0.8]
+    lws = [1,1,1,1,1,1.5]
+    
+    fig = unicorn.plotting.plot_init(square=True, left=0.15, right=0.01, top=0.01, bottom=0.1, hspace=0.0, wspace=0.1, aspect=1./3, xs=10., NO_GUI=False, use_tex=False)
+    
+    #### Flux directly with error bars
+    # ax = fig.add_subplot(211)
+    # 
+    # for i, file in enumerate(files):
+    #     ap = catIO.Readfile(file)
+    #     ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+    #     ax.fill_between(ap.wave, ap.cleaned_cc - ap.err_cc, ap.cleaned_cc + ap.err_cc, alpha=0.1, color=colors[i])
+    #     ax.plot(ap.wave, ap.cleaned_cc, color=colors[i], alpha=0.5, label=file.split('_')[0])
+    #     
+    # ap = catIO.Readfile('UDF_%05d.aper_flux.dat' %(id))
+    # ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+    # ax.fill_between(ap.wave, ap.cleaned_cc - ap.err_cc, ap.cleaned_cc + ap.err_cc, alpha=0.2, color='black')
+    # ax.plot(ap.wave, ap.cleaned_cc, color='black', alpha=0.8, linewidth=2, label='Stack')
+    # 
+    # ax.set_xlim(1.06e4, 1.65e4)
+    # ax.set_ylabel('Flux (DN = e/s)')
+    # ax.set_xticklabels([])
+    # ax.set_ylim(-0.4,0.4)
+    
+    #### Contamination
+    # ax = fig.add_subplot(211)
+    # 
+    # for i, file in enumerate(files):
+    #     ap = catIO.Readfile(file)
+    #     ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+    #     plt.plot(ap.wave, ap.contam_cc/ap.err_cc, color=colors[i], alpha=alphas[i], label=file.split('_')[0], linewidth=lws[i])
+    #     
+    # ap = catIO.Readfile('UDF_%05d.aper_flux.dat' %(id))
+    # ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+    # plt.plot(ap.wave, ap.contam_cc/ap.err_cc, color='black', alpha=0.9, linewidth=2, label='Stack')
+    # 
+    # ax.set_xlim(1.06e4, 1.65e4)
+    # ax.set_ylabel('Contamination')
+    # ax.set_xticklabels([])
+    
+    #### S/N
+    ax = fig.add_subplot(111)
+    
+    for i, file in enumerate(files):
+        ap = catIO.Readfile(file)
+        ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+        plt.plot(ap.wave, ap.cleaned_cc/ap.err_cc, color=colors[i], alpha=alphas[i], label=file.split('_')[0], linewidth=lws[i])
+        
+    ap = catIO.Readfile('UDF_%05d.aper_flux.dat' %(id))
+    ap.cleaned_cc = ap.flux_cc - ap.contam_cc
+    plt.plot(ap.wave, ap.cleaned_cc/ap.err_cc, color='black', alpha=0.9, linewidth=2, label='Stack')
+    
+    ax.legend(loc='upper left', ncol=8, prop=dict(size=7), columnspacing=0.1)
+    
+    ax.set_xlim(1.06e4, 1.65e4)
+    ax.set_ylabel('Cross-correlation S/N')
+    ax.set_xlabel('wavelength')
+    
+    unicorn.plotting.savefig(fig, 'compare_extractions_%05d.pdf' %(id))
     
 def aperture_stats_2d(object = 'UDF_06001', wavelength=1.599e4, aper_radius=0.25, pix_scale=0.06, dy=1, dx=0, view=False, verbose=True):
     """
@@ -3410,6 +3505,7 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
             #     a = ax.plot([PLAM, PLAM], [80, 60], alpha=1, marker='None', linewidth=8, color=c[sigma_limit], label=(key == 'K')*(r'UDFj-39546284, %d$\sigma$' %(sigma_limit)), zorder=-(sigma_limit+1)*100)
     
     blob_colors = {0:'red', 616:'blue', 625:'green'}
+    #blob_colors = {0:'red', 616:'blue', 625:'black'}
     #blob_colors = {0:'red', 616:'#7B3294', 625:'#008837'}
     #blob_colors = {0:'red', 616:'#0571B0', 625:'#A6611A'}
     
@@ -3486,7 +3582,8 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     ax2.text(0.5, 0.05, r'$V_{606}\ /\ I_{814}\ /\ JH_{140}$', ha='center', va='bottom', color='white', size=9, transform=ax2.transAxes)
     
     ### Add spectra
-    twod = unicorn.reduce.Interlace2D('EGS12007881.12012083_00616.2D.fits')
+    #twod = unicorn.reduce.Interlace2D('EGS12007881.12012083_00616.2D.fits')
+    twod = unicorn.reduce.Interlace2D('BLOB_COMPONENTS/EGS12007881.12012083-clean_00001.2D.fits')
     sh = twod.im['SCI'].data.shape
     wave = twod.im['WAVE'].data[0]+np.arange(sh[1])*(twod.im['WAVE'].data[1] - twod.im['WAVE'].data[0])
     
@@ -3527,8 +3624,10 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     # mag_j3 = threedhst.utils.calc_mag(wave[ok], fnu_spec[ok], xj3, yj3, fnu_units=True, CCD=True)
     # mag_14 = threedhst.utils.calc_mag(wave[ok], fnu_spec[ok], xf14, yf14, fnu_units=True, CCD=True)
 
-    twod_B = unicorn.reduce.Interlace2D('EGS12007881.12012083_00625.2D.fits')
-    wave_B = twod_B.im['WAVE'].data[0]+np.arange(sh[1])*(twod_B.im['WAVE'].data[1] - twod_B.im['WAVE'].data[0])
+    #twod_B = unicorn.reduce.Interlace2D('EGS12007881.12012083_00625.2D.fits')
+    twod_B = unicorn.reduce.Interlace2D('BLOB_COMPONENTS/EGS12007881.12012083-clean_00002.2D.fits')
+    sh_B = twod_B.im['SCI'].data.shape
+    wave_B = twod_B.im['WAVE'].data[0]+np.arange(sh_B[1])*(twod_B.im['WAVE'].data[1] - twod_B.im['WAVE'].data[0])
     fnu_spec_B = (twod_B.oned.flux-twod_B.oned.contam)/twod_B.oned.sens*1.e-17*wave_B**2/3.e18
     
     ### Compute delta mags for observed J3/F140W and redshifted F140W/F160W
@@ -3632,21 +3731,54 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     ax_1d = fig.add_axes((0.05+0.01, bot, 0.44+0.01, 0.99-bot-0.6/aspect))
         
     files = glob.glob('EGS*2D.fits')
+    files = glob.glob('BLOB_COMPONENTS/EGS*clean*2D.fits')[:-1]
+    
     colors = [blob_colors[616], blob_colors[625]]
     
-    for i, file in enumerate(files):
-        tt = unicorn.reduce.Interlace2D(file)
-        id = ids[int(file.split('.2D')[0][-3:])]
-        ok = ((wave > 1.15e4) & (wave < 1.2e3)) | ((wave > 1.4e4) & (wave < 1.6e4))
-        print ok.sum(), wave[ok].shape
-        #c = scipy.polyfit(wave[ok], tt.oned.flux[ok], 1)
-        #a = ax_1d.plot(wave, scipy.polyval(c, wave), color=colors[i], linewidth=4)
-        flux = tt.oned.flux-tt.oned.contam
-        continuum = (wave*0+np.median(flux[ok]))
-        ok = (wave > 1.2e4) & (wave < 1.4e4)
-        EW = np.trapz((flux-continuum)[ok]/continuum[ok], wave[ok])
-        a = ax_1d.plot(tt.oned.lam, continuum/tt.oned.sens*10, color=colors[i])
-        a = ax_1d.plot(tt.oned.lam, flux/tt.oned.sens*10, label=r'%s, EW$_\mathrm{[OIII]+\mathrm{H}\beta} = %d$\AA' %(id, int(EW)), color=colors[i], linewidth=1.5)
+    wave_obs, flux_obs, err_obs, sens, avg_continuum, avg_oiii, avg_hb = np.loadtxt(files[0].replace('fits', 'split.dat'), unpack='True')
+    
+    sens *= 10
+    
+    a = ax_1d.fill_between(wave_obs, flux_obs/sens+err_obs/sens, flux_obs/sens-err_obs/sens, color='blue', zorder=500, alpha=0.5, label=r'EGS [OIII] blob, $z=1.61$')
+    
+    a = ax_1d.plot(0,0, color='blue', alpha=0.5, marker='None', label=r'EGS-XEW-1 (A)', linewidth=2)
+    
+    a = ax_1d.text(0.96, 0.87, r'$\mathrm{EW}_\mathrm{H\beta+[OIII]}=8700\pm700$ \AA', ha='right', va='top', transform=ax_1d.transAxes)
+    a = ax_1d.text(0.96, 0.76, r'$\mathrm{[OIII]/H\beta}=11.4\pm1.3$', ha='right', va='top', transform=ax_1d.transAxes)
+    a = ax_1d.text(0.96, 0.65, r'$z=1.605$', ha='right', va='top', transform=ax_1d.transAxes)
+    
+    a = ax_1d.fill_between(wave_obs, wave_obs*0., avg_continuum/sens, color='0.8', alpha=0.5, zorder=100, linewidth=2)
+    a = ax_1d.fill_between(wave_obs, avg_continuum/sens, avg_oiii/sens, color='0.6', alpha=0.5, zorder=100, linewidth=2, label='OIII')
+    a = ax_1d.fill_between(wave_obs, avg_continuum/sens, avg_hb/sens, color='0.1', alpha=0.5, zorder=100, linewidth=2)
+    a = ax_1d.plot(wave_obs, (-avg_continuum+avg_oiii+avg_hb)/sens, color='0.2', alpha=0.8, zorder=90, linewidth=2)
+    
+    a = ax_1d.text(1.35e4, 0.5, r'[OIII]$\lambda$4959,5007', ha='left', va='bottom')
+    a = ax_1d.plot([1.3e4,1.35e4], [0.45, 0.49], color='black')
+    
+    a = ax_1d.text(1.25e4, 0.3, r'H$\beta$', ha='right', va='bottom')
+    a = ax_1d.plot([1.27e4, 1.25e4], [0.15, 0.29], color='black')
+    
+    # ids = ['A','B','C']
+    # #for i, file in enumerate(files):
+    # for i in range(2)[::-1]:
+    #     file = files[i]
+    #     tt = unicorn.reduce.Interlace2D(file)
+    #     #id = ids[int(file.split('.2D')[0][-3:])]
+    #     id = ids[i]
+    #     wave = tt.oned.lam
+    #     ok = ((wave > 1.15e4) & (wave < 1.2e3)) | ((wave > 1.4e4) & (wave < 1.6e4))
+    #     print ok.sum(), wave[ok].shape
+    #     #c = scipy.polyfit(wave[ok], tt.oned.flux[ok], 1)
+    #     #a = ax_1d.plot(wave, scipy.polyval(c, wave), color=colors[i], linewidth=4)
+    #     flux = tt.oned.flux-tt.oned.contam
+    #     if i == 1:
+    #         flmed = np.median(flux[ok])
+    #     #
+    #     continuum = (wave*0+flmed)
+    #     ok = (wave > 1.2e4) & (wave < 1.4e4)
+    #     EW = np.trapz((flux-continuum)[ok]/continuum[ok], wave[ok])
+    #     a = ax_1d.plot(tt.oned.lam, continuum/tt.oned.sens*10, color=colors[i])
+    #     a = ax_1d.plot(tt.oned.lam, flux/tt.oned.sens*10, label=r'%s, EW$_\mathrm{[OIII]+\mathrm{H}\beta} = %d$\AA' %(id, int(EW)), color=colors[i], linewidth=1.5)
         
     #    
     a = ax_1d.plot(wave, wave*0, color='0.8')
@@ -3655,11 +3787,15 @@ def compare_egs_blob(sigma_limit = 2, plot_flux=False):
     a = ax_1d.set_xticklabels(xi/1.e4)
     a = ax_1d.set_xlim([wave[0], wave[-1]])
     a = ax_1d.set_ylim(-0.01*10, 0.23*10)
+    a = ax_1d.set_ylim(0.0, 1.38)
+    ### log for checking continuum
+    #a = ax_1d.semilogy(); a = ax_1d.set_ylim(0.01, 2.3)
+    
     a = ax_1d.legend(frameon=False, prop=dict(size=10))
     a = ax_1d.set_xlabel(r'$\lambda\ /\ \mu\mathrm{m}$')
     a = ax_1d.set_ylabel(r'$f_\lambda$ [10$^{-18}$ erg/s/cm$^2$/\AA]')
       
-    a = ax_1d.text(0.75, 0.75, r'EGS [OIII] blob, $z=1.61$', ha='center', va='top', transform=ax_1d.transAxes, size='10')
+    #a = ax_1d.text(0.75, 0.75, r'EGS [OIII] blob, $z=1.61$', ha='center', va='top', transform=ax_1d.transAxes, size='10')
     
     #ax_1d.plot(xj3, yj3/yj3.max())
     #ax_1d.plot(xf, yf/yf.max())
@@ -3993,6 +4129,13 @@ def go_line_stats():
     s1 = hudf.line_stats(l0, (flux-flux/sn)*1.e-18, continuum=0, filter='F160W')['mag']
     s2 = hudf.line_stats(l0, (flux-2*flux/sn)*1.e-18, continuum=0, filter='F160W')['mag']
     
+    #### OIII doublet
+    s4959 = hudf.line_stats(l0/5007.*4959, flux*1e-18/3., continuum=0, filter='F140W')['mag']
+    
+    #### Hbeta
+    sHb = hudf.line_stats(l0, flux*1e-18/10., continuum=0, filter='F160W')['mag']
+    sHb = hudf.line_stats(l0/5007.*4861, flux*1e-18/10., continuum=0, filter='F140W')['mag']
+    
     flat_fnu = False
     igmz = 0
     beta = 0
@@ -4122,4 +4265,233 @@ def line_stats(l0=1.5116e4, flux=8.74e-18, continuum=0, filter='F160W', get_mode
     
     stats = {'mag':mag,'eqw':eqw}
     return stats
+    
+def blob_equivalent_widths():
+    """
+    Get errors for the line equivalent widths.
+    
+    The linefit.pngs seem to be missing some of the flux in the line peak
+    so just montecarlo the continuum and measure the EW directly
+    """
+    import pyregion
+    import shutil
+    
+    os.chdir('/research/HST/GRISM/3DHST/UDF/PROCESS_HUDF12/BLOB_COMPONENTS')
+    
+    twod = unicorn.reduce.Interlace2D('../EGS12007881.12012083_00616.2D.fits')
+    
+    regions = open('blob_616_subregions.reg').readlines()[-3:]
+    for i in range(3):
+        fp = open('/tmp/sub.reg','w')
+        fp.write('image\n'+regions[i])
+        fp.close()
+        #
+        import pyregion
+        r = pyregion.open('/tmp/sub.reg').as_imagecoord(header=twod.im['DSCI'].header)
+        mask = r.get_mask(hdu=twod.im['DSCI'])*(i+1)
+        twod.im[0].header['ID'] = i+1
+        twod.im['DSEG'].data = mask
+        twod.im.writeto('EGS_BLOB_%05d.2D.fits' %(i+1), clobber=True)
+        shutil.copy('../EGS12007881.12012083_00616.1D.fits', 'EGS_BLOB_%05d.1D.fits' %(i+1))
+        
+        
+    #### Make custom subregions for the blob components, including the leg to
+    #### the lower right
+    
+    gris = unicorn.interlace_fit.GrismSpectrumFit('EGS12007881.12012083_00616')
+    
+def show_filters():
+    
+    cols = [(0.1,0.1,0.8), (0.8,0.1,0.1), (0.8,0.1,0.8)]
+    for filt, col in zip(['F140W', 'F160W','G141'], cols):
+        xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+        plt.plot(xf, yf/yf.max(), label=filt, color=col, linewidth=2)
+        plt.fill_between(xf, yf*0., yf/yf.max(), color=col, alpha=0.1)
+    
+    plt.legend()
+    plt.xlim(1.11e4,1.75e4)
+    plt.ylim(0,1.1)
+    
+###
+def proposal_2D(twod, kernel, YSHOW=4, model_params=[(1.599e4, 3.1e-18)], tex=False):
+    """
+    Remake the figure like in the earlier "xcor_aper" PDF files but 
+    with the same inputs as plot_aper_fluxes
+        
+    """
+    
+    flux = twod.im['SCI'].data
+    err = twod.im['WHT'].data
+    contam = twod.im['CONTAM'].data
+    cleaned = flux-contam
+    
+    var = err**2+contam**2
+
+    ny, nx = flux.shape
+    
+    ##### Model line
+    lx = np.arange(0.8e4,2.0e4,0.2)
+    fwhm = 9.
+    sigma = fwhm / 2.35
+    gauss = lx*0.
+    for p in model_params:  
+        gauss = gauss +  (1./np.sqrt(2*np.pi*sigma**2)*np.exp(-(lx-p[0])**2/2/sigma**2))*p[1]
+    
+    #
+    twod.compute_model(lx, gauss/1.e-17/twod.total_flux)
+    line_model = twod.model
+    
+    ##### Cross-correlation on the 2D spectrum
+    import stsci.convolve.Convolve as sc
+    #convolve_function = sc.convolve2d
+    convolve_function = sc.correlate2d
+    
+    y0 = np.interp(1.4e4, twod.oned.lam, twod.im['YTRACE'].data)
+        
+    #### Make the figure
+    NF = 4
+    aspect = NF*YSHOW/0.064/(nx)
+    
+    ## Tick intervals
+    xv = np.arange(1.1,1.61,0.1)
+    tx = np.interp(xv, twod.im['WAVE'].data/1.e4, np.arange(nx))
+    ty = (np.arange(YSHOW+0.01)-YSHOW/2.)/0.064+y0
+    
+    NF = 2
+    aspect *= 0.6
+    
+    i=0
+    fig = unicorn.plotting.plot_init(square=True, left=0.08, right=0.01, top=0.01, bottom=0.08, hspace=0.0, wspace=0.0, aspect=aspect, xs=5., NO_GUI=False, use_tex=tex, fontsize=10)
+    
+    ## Scaling
+    vm = np.array([-0.01, 0.005])*0.7
+    vm2 = np.array(vm)*kernel.sum()/6
+    
+    #finterp = 'bicubic'
+    finterp = 'nearest'
+    
+    ## Data/flux
+    #for array, label in zip([flux, contam, cleaned, line_model], ['Original', 'Contamination', 'Contamination subtracted', 'Line model']):
+    for array, label in zip([cleaned, line_model], ['G141, 17 orbits', 'Line model']):
+        #i += 1; axl = fig.add_subplot(NF*100+20+i)
+        # a = axl.imshow(0-array, vmin=vm[0], vmax=vm[1], aspect='auto', interpolation=finterp)
+        # a = axl.set_ylabel(label)
+        # a = axl.set_xticklabels([]); a = axl.set_yticklabels([]); a = axl.set_xticks(tx)
+        # a = axl.set_ylim(y0-YSHOW/2./0.064, y0+YSHOW/2./0.064)
+        # a = axl.set_yticks(ty)
+        ##
+        ### Convolved version
+        array_conv = convolve_function(array, kernel)
+        i += 1; axr = fig.add_subplot(NF*100+10+i)
+        a = axr.imshow(0-array_conv, vmin=vm2[0], vmax=vm2[1], aspect='auto', interpolation=finterp)
+        a = axr.set_xticklabels([]); a = axr.set_yticklabels([]); a = axr.set_xticks(tx)
+        a = axr.set_ylim(y0-YSHOW/2./0.064, y0+YSHOW/2./0.064)
+        a = axr.set_yticks(ty)
+        a = axr.set_ylabel(label)
+        
+    axr.set_xticklabels(xv); axr.set_xticklabels(xv)
+    axr.set_xlabel(r'$\lambda\ /\ \mu\mathrm{m}$'); axr.set_xlabel(r'$\lambda\ /\ \mu\mathrm{m}$')
+    
+    #### Add scale bar
+    xp = np.interp(1.1e4, twod.im['WAVE'].data, np.arange(nx))
+    yp = 1./0.064
+    axr.errorbar(xp, y0+yp/2., yp/2, marker='None', ecolor='black')
+    axr.text(xp+6.5, y0+yp/2.+2, r'$1^{\prime\prime}$', ha='left', va='center')
+    
+    #### Show filter curves
+    SHOW_FILTERS = True
+    if SHOW_FILTERS:
+        if plt.get_cmap().name == 'gray':
+            cols = ['blue', 'red']
+            cols = [(0.1,0.1,0.8), (0.8,0.1,0.1), (0.8,0.1,0.8)]
+        else:
+            cols = ['0.1','0.8']
+        #
+        for filt, col in zip(['F140W', 'F160W','G141'], cols):
+            xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+            xp = np.interp(xf, twod.im['WAVE'].data, np.arange(nx))
+            a = axr.plot(xp, y0-YSHOW/2./0.064 + yf/yf.max()*0.4*YSHOW/0.064, color=col, alpha=1)
+            #a = axl.set_xlim(0,sh[1])
+            #a = axl.set_ylim(0,NYSHOW)
+            xi = np.interp(xf[yf > 0.95*yf.max()].min(), twod.im['WAVE'].data, np.arange(nx))
+            axr.text(xi-75*(filt == 'G141'), y0-YSHOW/2./0.064+0.1*YSHOW/0.064, filt, ha='left', va='bottom', color=col, alpha=1)
+            
+    root = twod.im.filename().split('.2D')[0]
+    plt.savefig('%s.prop_2D.pdf' %(root), dpi=600)
+    
+    #axr.fill_between(np.arange(nx), twod.im['YTRACE'].data-0.125/0.064, twod.im['YTRACE'].data+0.125/0.064, color='blue', alpha=0.5)
+
+def test_gauss_centering(err=1./2.7, sigma=3):
+    """
+    Get the uncertainty of the center of a gaussian with a defined width
+    taken from the convolved object profile and a peak S/N the same as the 
+    line
+    
+    The gaussian width is not a free parameter, just the center and perhaps
+    the peak normalization
+    """
+    import scipy.ndimage as nd
+    import unicorn.hudf as hudf
+    import emcee
+    import time
+    
+    twod = unicorn.reduce.Interlace2D('UDF_06001.2D.fits')
+    thumb = (twod.im['DSCI'].data*(twod.im['DSEG'].data == 6001))[80:-80,80:-80]
+    thumb /= thumb.sum()
+    thumbx = thumb.sum(axis=0)
+    conv = nd.correlate(thumb, thumb)
+    
+    N = 200
+    xdata = np.arange(N)-N/2.
+    ydata = np.exp(-xdata**2/2./sigma**2)
+    yerr = np.ones(N)*err*ydata.max()
+    
+    init = [0,1]
+    step_sig = [1,0.2]
+    
+    obj_fun = hudf._gauss_center_objfun
+    obj_args = [xdata, ydata, yerr, sigma, 0]
+    
+    ndim, nwalkers = len(init), 50
+    p0 = [(init+np.random.normal(size=ndim)*step_sig) 
+          for i in xrange(nwalkers)]
+    
+    NTHREADS, NSTEP = 1, 200
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, obj_fun, args = obj_args, 
+                                    threads=NTHREADS)
+    
+    #
+    t0 = time.time()
+    result = sampler.run_mcmc(p0, NSTEP)
+    t1 = time.time()
+    print 'Sampler: %.1f s' %(t1-t0)
+    
+    chain = unicorn.interlace_fit.emceeChain(chain=sampler.chain, param_names=['x0', 'a0'])
+    
+    NDRAW = 100
+    p = plt.errorbar(xdata, ydata, yerr, color='black')
+    draw = chain.draw_random(N=NDRAW)
+    obj_args[-1] = 1
+    integrated = np.zeros(NDRAW)
+    for i in range(NDRAW):
+        model = obj_fun(draw[i,:], *obj_args)
+        p = plt.plot(xdata, model, color='red', alpha=0.05)
+        integrated[i] = np.sum(model)
+        
+    stats = chain.get_stats(integrated, raw=True)
+    print stats['q50']/stats['std']
+    print 'Width', chain.stats['x0']
+    
+    return chain
+    
+def _gauss_center_objfun(params, xdata, ydata, yerr, sigma, ret):
+    
+    model = params[1]*np.exp(-(xdata-params[0])**2/2./sigma**2)
+    if ret == 1:
+        return model
+    else:
+        prior = -params[0]**2/2./8**2
+        return -0.5*np.sum((model-ydata)**2/yerr**2)+prior
+        
+    
     

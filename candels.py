@@ -1943,9 +1943,9 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=
     if field == 'GOODS-N':
         mag = 25-2.5*np.log10(cat.f_f140w)
         PATH = '/3DHST/Ancillary/GOODS-N/CANDELS/Gabe'
-        im_r = pyfits.open(os.path.join(PATH, 'GN-v2-F160W_drz_sci.fits'))
-        im_g = pyfits.open(os.path.join(PATH, 'GN-v2-F125W_drz_sci.fits'))
-        im_b = pyfits.open(os.path.join(PATH, '../../GOODS_ACS/GN-ACSi.fits'))
+        im_r = pyfits.open(os.path.join(PATH, 'GN-v3-F160W_drz_sci.fits'))
+        im_g = pyfits.open(os.path.join(PATH, 'GN-v3-F125W_drz_sci.fits'))
+        im_b = pyfits.open(os.path.join(PATH, '../../GOODS_ACS/GN-ACSi_v3.fits'))
     
     if field == 'COSMOS':
         mag = 25-2.5*np.log10(cat.f_f140w)
@@ -2026,6 +2026,7 @@ def threedhst_RGB_thumbnails(field='COSMOS', box_size=3, skip=True, rgb_channel=
             continue
         #
         ra, dec = cat.ra[idx][i], cat.dec[idx][i]
+        #ra, dec = np.cast[float](ds9.get('pan fk5').split())
         xy = np.round(wcs.wcs_sky2pix(ra, dec,0))
         xc, yc = int(xy[0]), int(xy[1])
         if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):

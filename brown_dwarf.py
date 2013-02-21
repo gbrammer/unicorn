@@ -100,8 +100,16 @@ class BD_fit():
         import threedhst.catIO as catIO
         import numpy as np
         
+        ### handle v2.0 format spectra
         spec = catIO.Readfile(ascii_file)
-        spec.error /= 2.5
+        if 'trace' in spec.columns:
+            spec.lam = spec.wave*1.
+            spec.flux /= spec.sensitivity
+            spec.error /= spec.sensitivity
+            spec.contam /= spec.sensitivity
+            ascii_file = ascii_file.replace('.1D','')
+        else:
+            spec.error /= 2.5
         
         spec.flux -= spec.contam
         
@@ -181,7 +189,7 @@ class BD_fit():
             ax.plot(self.templates[j].wave, self.templates[j].flux*anorm[j]/ymax, color=colors[i], linewidth=1)
             ax.text(1.6e4,1.1-0.1*i,types[j], color=colors[i])
         
-        ax.text(1.1e4, 1.07, os.path.basename(self.ascii_file.split('.dat')[0]))
+        ax.text(1.1e4, 1.07, os.path.splitext(os.path.basename(self.ascii_file))[0])
         
         ax.set_xticks(np.arange(1.1,1.8,0.2)*1.e4)
         ax.set_xticklabels(np.arange(1.1,1.8,0.2))
@@ -204,7 +212,7 @@ class BD_fit():
         ax.set_xlabel('Type')
         ax.set_ylabel(r'$\chi^2_\nu$')
         
-        outfile = os.path.basename(self.ascii_file.replace('.dat','_BD.%s' %(self.img_type)))
+        outfile = os.path.basename(os.path.splitext(os.path.basename(self.ascii_file))[0]+'_BD.%s' %(self.img_type))
 
         canvas = FigureCanvasAgg(fig)
         canvas.print_figure(outfile, dpi=100, transparent=False)

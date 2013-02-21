@@ -110,12 +110,22 @@ class GrismSpectrumFit():
         
         #### Get the 1D/2D spectra
         if RELEASE:
-            BASE_PATH = '%s/../Release/v2.0/%s' %(unicorn.GRISM_HOME, self.field)
+            # BASE_PATH = '%s/../Release/v2.0/%s' %(unicorn.GRISM_HOME, self.field)            
+            BASE_PATH = '/3DHST/Spectra/Release/v2.1/%s/%s-WFC3_v2.1_SPECTRA/' %(self.field, self.field)
+            
             self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
         else:
             self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
         
-        self.grism_element = self.twod.im[0].header['FILTER']
+        #
+        if 'GRISM' not in self.twod.im[0].header.keys():
+            self.grism_element = 'G141'
+            self.direct_filter = 'F140W'
+            self.twod.im[0].header.update('FILTER', 'F140W')
+        else:
+            self.grism_element = self.twod.im[0].header['GRISM']
+            self.direct_filter = self.twod.im[0].header['FILTER']
+
         
         if fix_direct_thumbnail:
             self.interpolate_direct_thumb()
@@ -129,6 +139,7 @@ class GrismSpectrumFit():
         
         if RELEASE:
             self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+            #print '%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root)
         else:
             self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
             
@@ -363,7 +374,7 @@ class GrismSpectrumFit():
                 return False
                 
             #### Compute the non-negative normalizations of the template components
-            #print var.shape, use.shape, templates.shape
+            #print var.shape, use.shape, templates.shape, self.twod.model.shape
             amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
             flux_fit = np.dot(coeffs.reshape((1,-1)), templates) #.reshape(line_model.shape)
@@ -418,10 +429,11 @@ class GrismSpectrumFit():
         zgrid0, spec_lnprob0 = result
         
         #### Interpolate the photometric p(z) to apply it as a prior
-        phot_int0 = np.interp(zgrid0, self.phot_zgrid,  self.phot_lnprob)
+        phot_int0 = np.interp(zgrid0, self.phot_zgrid,  self.phot_lnprob, left=-1.e8, right=-1.e8)
+        phot_int0[~np.isfinite(phot_int0)] = -1.e8
         full_prob0 = phot_int0 + spec_lnprob0 - spec_lnprob0.max()
         full_prob0 -= full_prob0.max()  ### normalize p_max = 1
-
+        
         z_max = zgrid0[full_prob0 == full_prob0.max()][0]
         zsub = full_prob0 > np.log(1.e-10)
 
@@ -641,21 +653,29 @@ class GrismSpectrumFit():
         if self.grism_element == 'G102':
             wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
         
-        y = self.oned.data.flux[show]-self.oned.data.contam[show]
+        yflux, ycont = self.oned.data.flux, self.oned.data.contam
+        y = yflux-ycont
+        #### Show fresh optimal extractions xxx
+        # x0, yflux = self.twod.optimal_extract(self.twod.im['SCI'].data)
+        # x0, ycont = self.twod.optimal_extract(self.twod.im['CONTAM'].data)
+        # y = (yflux-ycont)[show]
+        # self.oned.data.flux = yflux
+        # self.oned.data.contam = ycont
+        
         yerr = self.oned.data.error[show]
         ax.fill_between(self.oned.data.wave[show]/1.e4, y+yerr, y-yerr, color='blue', alpha=0.1)
         
-        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show], color='black', alpha=0.1)
-        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]-self.oned.data.contam[show], color='black')
+        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, (yflux-ycont)[show], color='black')
         
         ax.plot(self.oned_wave[show]/1.e4, self.model_1D[show], color='red', alpha=0.5, linewidth=2)
         ax.plot(self.oned_wave/1.e4, self.model_1D, color='red', alpha=0.08, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
         if wuse.sum() > 5:
-            ymax = self.oned.data.flux[wuse].max(); 
+            ymax = yflux[wuse].max(); 
         else:
-            ymax = self.oned.data.flux.max()
+            ymax = yflux.max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
         if self.grism_element == 'G102':
@@ -667,9 +687,9 @@ class GrismSpectrumFit():
         self.oned.data.sensitivity /= 100
         
         ax = fig.add_subplot(142)
-        ax.plot(self.oned.data.wave[show]/1.e4, self.oned.data.flux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show]/self.oned.data.sensitivity[show], color='black', alpha=0.1)
         
-        show_flux = (self.oned.data.flux[show]-self.oned.data.contam[show])/self.oned.data.sensitivity[show]
+        show_flux = (yflux[show]-ycont[show])/self.oned.data.sensitivity[show]
         show_err = self.oned.data.error[show]/self.oned.data.sensitivity[show]
         ax.plot(self.oned.data.wave[show]/1.e4, show_flux, color='black')
         #ax.fill_between(self.oned.data.wave[show]/1.e4, show_flux+show_err, show_flux-show_err, color='0.5', alpha=0.2)
@@ -681,9 +701,9 @@ class GrismSpectrumFit():
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
         if wuse.sum() > 5:
-            ymax = (self.oned.data.flux/self.oned.data.sensitivity)[wuse].max()
+            ymax = (yflux/self.oned.data.sensitivity)[wuse].max()
         else:
-            ymax = (self.oned.data.flux/self.oned.data.sensitivity).max()
+            ymax = (yflux/self.oned.data.sensitivity).max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
         if self.grism_element == 'G102':
@@ -898,7 +918,7 @@ class GrismSpectrumFit():
         
         return temp_sed
     
-    def new_fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
+    def new_fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100, save_chain=False, lrange=(0.9e4,2e4)):
         """
         Fit the normalization and slope directly rather than with the
         fake red/blue templates.
@@ -917,6 +937,14 @@ class GrismSpectrumFit():
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
+        
+        sh = self.twod.im['CONTAM'].data.shape
+        wave2d = np.dot(np.ones(sh[0]).reshape((-1,1)), self.twod.im['WAVE'].data.reshape((1,-1)))
+        #print use.sum()
+        wave_ok = (wave2d.flatten() >= lrange[0]) & (wave2d.flatten() <= lrange[1])
+        var[~wave_ok] = 1.e6
+        
+        #print use.sum()
         
         (use_lines, fancy), templates = self.get_emline_templates_new(ztry=ztry, line_width=line_width0)
         
@@ -946,6 +974,9 @@ class GrismSpectrumFit():
         sh = self.twod.im['SCI'].data.shape
         wave_flatten = np.dot(np.ones(sh[0]).reshape(sh[0],1), self.oned.data.wave.reshape(1,sh[1])).flatten()
         obj_args = [flux, var, twod_templates, np.log(wave_flatten/1.4e4), 1]
+        
+        self.obj_args = obj_args
+        self.obj_fun = obj_fun
         
         model = obj_fun(init, *obj_args).reshape(sh)
         
@@ -1198,6 +1229,10 @@ class GrismSpectrumFit():
         line_wavelengths['Hg'] = [4341.68]; line_ratios['Hg'] = [1.]
         line_wavelengths['Hd'] = [4102.892]; line_ratios['Hd'] = [1.]
         line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
+        #### Fix OIII / Hb
+        #line_wavelengths['OIII'] = [5008.240, 4960.295, 4862.68]; line_ratios['OIII'] = [2.98, 1, 0.332]
+
+        #line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [4., 1]
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
@@ -1271,6 +1306,7 @@ class GrismSpectrumFit():
         line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
+        line_wavelengths['CIII'] = [1908.7]; line_ratios['CIII'] = [1.]
         line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
         
         fancy = {}
@@ -1285,6 +1321,7 @@ class GrismSpectrumFit():
         fancy['HeI']  =  'He I' 
         fancy['MgII'] =  'Mg II'
         fancy['CIV']  =  'C IV' 
+        fancy['CIII']  =  'C III' 
         fancy['Lya'] = r'Ly$\alpha$'
         
         if use_determined_lines & (self.use_lines is not None):
@@ -1463,7 +1500,9 @@ class GrismSpectrumFit():
         self.twod.im['DWHT'].data[fill_pix] = (sumwht/npix)[fill_pix]*1.
         
         self.twod.thumb = self.twod.im['DSCI'].data*1.
-        self.twod.flux = self.twod.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
+        # self.twod.flux = self.twod.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
+        self.twod.flux = self.twod.thumb * 10**(-0.4*(unicorn.reduce.ZPs[self.twod.im[0].header['FILTER']]+48.6))* 3.e18 / unicorn.reduce.PLAMs[self.twod.im[0].header['FILTER']]**2 / 1.e-17
+
         self.twod.total_flux = np.sum(self.twod.flux*(self.twod.seg == self.twod.id))
         self.twod.init_model()
     
@@ -1745,11 +1784,15 @@ class emceeChain():
             self.stats[param] = self.get_stats(pid, burn=self.nburn)
             self.median[pid] = self.stats[param]['q50']
             
-    def get_stats(self, pid, burn=0):
+    def get_stats(self, pid, burn=0, raw=False):
         """
         Get percentile statistics for a parameter in the chain
         """
-        pchain = self.chain[:,burn:,pid].flatten()
+        if raw:
+            pchain = pid*1.
+        else:
+            pchain = self.chain[:,burn:,pid].flatten()
+        
         stats = {}
         stats['q05'] = np.percentile(pchain, 5)
         stats['q16'] = np.percentile(pchain, 16)

@@ -1467,7 +1467,7 @@ def make_web_browser(pointing='UDS-17'):
     import unicorn.catalogs2 as cat2
     
     cat2.read_catalogs(pointing)
-    this = cat2.zfit.pointing == pointing
+    #this = cat2.zfit.pointing == pointing
     this = cat2.zfit.pointing != '00000'
     
     data_list = []
@@ -1517,11 +1517,29 @@ def make_web_browser(pointing='UDS-17'):
         }
     );
     
+    ///// Add listener for "s" key to open/close the spectrum popup
+    var ShowSpectrum = 0;
+    $(document).keypress(function(event) {
+        // alert('charCode: '+event.charCode);
+        // 's'
+        if (event.charCode == 115) {
+            //alert('Next!');
+            if (ShowSpectrum == 1) {
+                ShowSpectrum = 0;
+                $('#spectrum').hide();
+            } else {
+                nearest_3dhst();
+                ShowSpectrum = 1;
+            }
+        };
+    });
+    
     function nearest_3dhst() {
         var mapcenter = map.getCenter();
         var dec = mapcenter.lat()+centerLat;                       
         var ra = ((360-mapcenter.lng()/Math.cos(centerLat/360.*2*3.14159)+offset-centerLng));
         var match = 0;
+        var matched = [];
         var drmin = 1000.;
         $.each(objects, function(i, object) {
             var dr = Math.sqrt(Math.pow((ra-object.ra)*Math.cos(dec/360.*2*3.14159),2) + Math.pow(dec-object.dec,2))*3600.;
@@ -1530,13 +1548,16 @@ def make_web_browser(pointing='UDS-17'):
                 drmin = dr*1.;
                 match = i*1;
             };
+            if ( dr < 3 ) { 
+                matched.push(i);
+            }
         });
         $("#spectrum").show();
-        var popup = "<img id=\"zfit\" src=\"../ZFIT/PNG/" + objects[match].id + ".zfit.png\" />";
-        popup += "<img src=../RGB/" + objects[match].id + "_rgb_03.0.png onMouseOver=\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[match].id + ".zfit.png');\" margin-left='10px'/>";
+        var popup = "<img id=\\"zfit\\" src=\\"../ZFIT/PNG/" + objects[match].id + ".zfit.png\\" /> <br>";
+        popup += "<img src=../RGB/" + objects[match].id + "_rgb_03.0.png onMouseOver=\\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[match].id + ".zfit.png');\\" margin-left='10px'/>";
         $.each(matched, function(i, im) {
             if ( im != match ) {
-                popup += "<img src=../RGB/" + objects[im].id + "_rgb_03.0.png onMouseOver=\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[im].id + ".zfit.png');\" margin-left='10px'/>";
+                popup += "<img src=../RGB/" + objects[im].id + "_rgb_03.0.png onMouseOver=\\"$('#zfit').attr('src', '../ZFIT/PNG/" + objects[im].id + ".zfit.png');\\" margin-left='10px'/>";
             }
         });
         $("#spectrum").html(popup);
@@ -1570,8 +1591,7 @@ def make_web_browser(pointing='UDS-17'):
     ### style.css / header    
     css = """
     #spectrum {
-        width:1000px;
-        height:370px;
+        max-width:90%;
         display:none;
         position:absolute;
         top:10px;
@@ -1580,10 +1600,11 @@ def make_web_browser(pointing='UDS-17'):
         background: white;
     }
     """
+    
     lines = open('HTML/scripts/style.css').readlines()
     if 'spectrum' not in lines[1]:
         lines[0] = css
     
     fp = open('HTML/scripts/style.css','w')
-    fp.write(lines)
+    fp.writelines(lines)
     fp.close()

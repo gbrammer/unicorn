@@ -64,6 +64,20 @@ sens_files = {}
 for beam in ['A','B','C','D','E']:
     sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
 
+ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937}
+PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872.}
+
+# BWs = {}
+# for filt in PLAMs.keys():
+#     if filt.startswith('F1'):
+#         xf, yf = np.loadtxt('%s/%s.dat' %(os.getenv('iref'), filt), unpack=True)
+#         yf = yf / np.trapz(yf, xf)
+#         BWs[filt] = 1./yf.max()
+BWs = {'F105W': 2700.6102248267212,
+ 'F125W': 2845.3485021278179,
+ 'F140W': 3840.2311460823043,
+ 'F160W': 2682.9565027757253}
+
 import pywcs
 
 def set_grism_config(grism='G141'):
@@ -512,7 +526,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     header.update('CRPIX1',header['CRPIX1']*growx+NGROW*growx+pad/2)
     header.update('CRPIX2',header['CRPIX2']*growy+NGROW*growy+pad/2)
     
-    ### SIP WCS
+    ### SIP WCS keywords for distortion
     if ('A_ORDER' in header.keys()) & ('SIP' in header['CTYPE1']):
         a_order = header['A_ORDER']
         b_order = header['B_ORDER']
@@ -708,10 +722,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, grism='G141'):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, grism='G141'):
     import unicorn.reduce
     
     model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, grism=grism)
+    
+    model.model_list = model_list
     
     if not use_segm:
         model.get_corrected_wcs(verbose=True)
@@ -912,12 +928,19 @@ class Interlace2D():
         self.thumb = np.cast[np.double](self.im['DSCI'].data)
         self.thumb_weight = np.cast[np.double](self.im['DWHT'].data)
         self.seg = np.cast[np.uint](self.im['DSEG'].data)
-        self.grism_element = self.im[0].header['FILTER']
+        if 'GRISM' not in self.im[0].header.keys():
+            self.grism_element = 'G141'
+            self.direct_filter = 'F140W'
+        else:
+            self.grism_element = self.im[0].header['GRISM']
+            self.direct_filter = self.im[0].header['FILTER']
+        
         unicorn.reduce.set_grism_config(self.grism_element)
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
-        self.x_pix = self.oned.header['X_PIX']
-        self.y_pix = self.oned.header['Y_PIX']
+            
+        self.x_pix = self.im[0].header['X_PIX']
+        self.y_pix = self.im[0].header['Y_PIX']
         self.pad = self.im[0].header['PAD']
         self.grow_factor = 2 ### add these parameters to 2D header
         try:
@@ -928,7 +951,7 @@ class Interlace2D():
             self.growy = 2
         #
         #### XXX need to get the zeropoint for arbitrary filter
-        self.flux = self.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
+        self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
         
@@ -1143,10 +1166,8 @@ class GrismModel():
         else:
             self.ngrow = self.direct[1].header['NGROW']
             
-        ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
         self.ZP = ZPs[self.filter]
 
-        PLAMs = {'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4}
         self.PLAM = PLAMs[self.filter]
                     
         self.make_flux()
@@ -1180,6 +1201,10 @@ class GrismModel():
         #self.test_object = np.zeros(self.sh)
         self.yf, self.xf = np.indices(self.sh)
         
+        #### Dict list of input spectra [ model_list[id] = (wave, flam) ]
+        #### to use for the initial model
+        self.model_list = None
+        
         # if os.path.exists('%s_inter.cat.wcsfix' %(self.root)):
         #     self.get_corrected_wcs()
             
@@ -1202,6 +1227,8 @@ class GrismModel():
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
         
         self.segm = pyfits.open(self.root+'_inter_seg.fits')
+        self.segm[0].data[self.segm[0].data < 0] = 0
+        self.segm[0].data[~np.isfinite(self.segm[0].data)] = 0
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
         
         if self.use_segm:
@@ -1733,7 +1760,12 @@ class GrismModel():
                 if self.grism_element == 'G102':
                     lx = np.arange(0.7e4,1.2e4)
                     ly = 1+model_slope*(lx-0.98e4)/2.8e3
-                    
+                
+                if self.model_list is not None:
+                    if id in self.model_list.keys():
+                        lx, ly = self.model_list[id]
+                        self.flux_specs[id] = utils_c.interp_conserve_c(self.lam_spec, lx, ly, left=0., right=0.)
+                        
                 self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly)      
                 self.model += self.object
                 self.obj_in_model[id] = True
@@ -1789,27 +1821,45 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False):
+    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=False):
+        """
+        Extract a 2D spectrum from the interlaced image.
         
+        `miny` is the minimum Y-size of the 2D spectrum.  If `miny` < 0: then 
+         use that size explicitly rather than just setting a minimum.
+         
+        `CONTAMINATING_MAGLIMIT` is the limit for computing contaminating
+        objets.
+        
+        `USE_REFERENCE_THUMB`: Use the reference image rather than the 
+        nominal F140W image for the 2D thumbnail.
+        """
         if id not in self.cat.id:
             print 'Object #%d not in catalog.' %(id)
             return False
             
-        seg = self.segm[0].data
-        seg_mask = seg == id
-        ypix, xpix = self.yf, self.xf
-    
-        NY = ypix[seg_mask].max()-ypix[seg_mask].min()
-        NX = xpix[seg_mask].max()-xpix[seg_mask].min()
-        NT = np.max([NY*grow, NX*grow, miny])
-        
-        #NT = np.min([self.pad/2, NT])
-        
+        #
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
-        
         xc = np.int(np.round(self.cat.x_pix[ii]))-1
         yc = np.int(np.round(self.cat.y_pix[ii]))-1
         
+        seg = np.cast[int](self.segm[0].data)
+        # seg_mask = seg == id
+        # ypix, xpix = self.yf, self.xf
+        # 
+        # NY = ypix[seg_mask].max()-ypix[seg_mask].min()
+        # NX = xpix[seg_mask].max()-xpix[seg_mask].min()
+        #### Use only contiguous segmentation region around center pixel
+        xmi, xma, ymi, yma = threedhst.utils.contiguous_extent(seg, xc, yc)
+        NX = np.maximum(xc-xmi, xma-xc) 
+        NY = np.maximum(yc-ymi, yma-yc) 
+        
+        NT = np.max([NY*grow, NX*grow, miny])
+        if miny < 0:
+            NT = -miny
+            
+        #NT = np.min([self.pad/2, NT])
+                
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
         
         if verbose:
@@ -1835,15 +1885,18 @@ class GrismModel():
         prim.header.update('GROWY', self.growy, comment='"growy" from unicorn.reduce')
         prim.header.update('BUNIT', 'ELECTRONS/S')
         prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
-        prim.header.update('FILTER', self.gris[0].header['FILTER'])
+        prim.header.update('FILTER', self.filter)
+        prim.header.update('GRISM', self.gris[0].header['FILTER'])
         
         prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
         
         if '_ref_inter' in self.im.filename():
-            if xc < (self.pad / 2):
+            ### Use reference image as thumbnail if it exists
+            if (xc < (self.pad / 2)) | USE_REFERENCE_THUMB:
                 prim.header.update('REFTHUMB', True)
                 self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
-        
+                prim.header.update('FILTER', self.im[0].header['FILTER'])
+                
         extensions = [prim]
 
         header = pyfits.ImageHDU().header
@@ -4333,7 +4386,7 @@ def interlace_sntile41():
     
     #### Broken.... Shifts of direct image give offset with grism image
     
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, NSEGPIX=8):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -4445,6 +4498,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
             h0 = im_flt[0].header
             h1 = im_flt[1].header
             header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROW=NGROW)
+            
             #header_wht = header.copy()
             #header_wht.update('EXTNAME','ERR')
             header.update('EXTNAME','SCI')
@@ -4487,7 +4541,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     ## First clean up regions between adjacent objects that get weird segmentation values
     ## from blot
     yh, xh = np.histogram(inter_seg, range=(0,inter_seg.max()), bins=inter_seg.max())
-    minseg = 8
+    minseg = NSEGPIX
     bad = (yh < minseg) & (yh > 0)
     if verbose:
         print 'Clean %d objects with < %d segmentation pixels.  \nThese are probably artificial resulting from blotting the integer segmentation image.\n' %(bad.sum(), minseg)
@@ -4497,6 +4551,10 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         test = inter_seg == val
         if test.sum() > 0:
             inter_seg[test] = 0
+    
+    #### Clean up image, can get zeros and NaNs from above
+    inter_seg[inter_seg < 0] = 0
+    inter_seg[~np.isfinite(inter_seg)] = 0
         
     hdu = pyfits.PrimaryHDU(header=header, data=np.cast[int](inter_seg))
     hdu.writeto(pointing+'_inter_seg.fits', clobber=True)
@@ -4560,6 +4618,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     flt_x, flt_y, popID = [], [], []
     fpr = open("%s_inter.reg" %(pointing),'w')
+    fpr.write("global color=green dashlist=8 3 width=1 font=\"helvetica 8 normal roman\" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\nimage\n")
     for i,line in enumerate(status[-NOBJ:]):
         spl = np.cast[float](line.split())
         fxi, fyi = (spl[0]+NGROW)*growx+pad/2-1, (spl[1]+NGROW)*growy+pad/2-1
@@ -4567,7 +4626,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
             flt_x.append(fxi)
             flt_y.append(fyi)
             #
-            fpr.write('circle(%.2f,%.2f,5) # text={%d}\n' %(fxi, fyi, old_cat.id[i]))
+            fpr.write('ellipse(%.2f,%.2f,%.1f,%.1f) # text={%d}\n' %(fxi, fyi, 2.5*growx, 2.5*growy, old_cat.id[i]))
         else:
             popID.append(old_cat.id[i])
     

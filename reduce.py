@@ -1091,6 +1091,133 @@ class Interlace2D():
         
         optimal_sum = num / denom
         return self.im['WAVE'].data, optimal_sum
+    
+    def oned_spectrum(self, verbose=True):
+        """
+        1D extraction after generating the 2D spectra.
+        
+        Take this out of the full model object and get everything from 
+        the 2D spectrum itself
+        """
+
+        #### Paremters from the full model
+        self.grism_sci = np.cast[np.float64](self.im['SCI'].data)
+        self.full_model = np.cast[np.float64](self.im['CONTAM'].data + self.im['MODEL'].data)
+        self.the_object = np.cast[np.float64](self.im['MODEL'].data)
+        self.grism_wht = np.cast[np.float64](self.im['WHT'].data)
+        self.wave = np.cast[np.float64](self.im['WAVE'].data)
+        self.ytrace = np.cast[np.float64](self.im['YTRACE'].data)
+        self.sens = np.cast[np.float64](self.im['SENS'].data)
+        self.root = self.file.split('_%05d' %(self.id))[0]
+        
+        t0 = time.time()
+        
+        obj_cleaned = self.grism_sci - (self.full_model - self.the_object)
+        contam_cleaned = self.grism_sci - self.the_object
+        variance = self.grism_wht**2
+            
+        #### Get extraction window where profile is > 10% of maximum 
+        osh = self.the_object.shape
+        xarr = np.arange(osh[1])
+        xint14 = int(np.interp(1.3e4, self.wave, xarr))
+        if self.grism_element == 'G102':
+            xint14 = int(np.interp(0.98e4, self.wave, xarr))
+            
+        yprof = np.arange(osh[0])
+        profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
+        profile = profile/profile.sum()
+        
+        #profile2D = np.dot(profile.reshape((-1,1)), np.ones((1,osh[1])))
+        window = profile >= 0.1*profile.max()
+        
+        #### Use object as the profile since it contains the y shift along the trace
+        prof_x = np.sum(self.the_object, axis=0)
+        profile2D = self.the_object/np.dot(np.ones((osh[0],1)), prof_x.reshape((1,-1)))
+        
+        if (1 == 0):
+            plt.plot(yprof, profile, color='blue')
+            plt.plot(yprof[window], profile[window], color='red', linewidth=3)
+            print np.trapz(profile[window], xprof[window]) / np.trapz(profile, xprof)
+        
+        obj_cleaned[variance == 0] = 0
+        contam_cleaned[variance == 0] = 0
+        
+        #### Simple sums, also weighted
+        weights = 1./variance
+        weights[variance == 0] = 0
+        
+        var_sum = np.sum(weights[window,:], axis=0)
+        
+        weighted_sum = np.sum((obj_cleaned*weights)[window,:], axis=0) / var_sum
+        weighted_var = 1./np.sum(weights[window,:], axis=0)
+        weighted_sig = np.sqrt(weighted_var)
+        
+        simple_sum = np.sum(obj_cleaned[window,:], axis=0)
+        simple_var = np.sum(variance[window,:], axis=0)
+        simple_sig = np.sqrt(simple_var)
+        
+        #### Optimal extraction
+        opt_variance = variance.copy()
+        opt_variance[opt_variance == 0] = 1.e6
+        
+        num = np.sum(profile2D*obj_cleaned/opt_variance, axis=0)
+        #num_contam = np.sum(profile2D*contam_cleaned/opt_variance, axis=0)
+        num_contam = np.sum(profile2D*(self.full_model - self.the_object)/opt_variance, axis=0)
+        num_full = np.sum(profile2D*self.grism_sci/opt_variance, axis=0)
+        
+        denom = np.sum(profile2D**2 / opt_variance, axis=0)
+        
+        optimal_sum = num / denom
+        optimal_sum_contam = num_contam / denom
+        optimal_sum_full = num_full / denom
+        
+        optimal_var = 1./np.sum(profile2D**2/opt_variance, axis=0)
+        optimal_sig = np.sqrt(optimal_var)
+        
+        trace_pix = np.cast[int](np.round(self.ytrace))
+        #trace_spec = self.grism_sci[trace_pix,:]
+        trace_spec = optimal_sum*0.
+        trace_sig = optimal_sum*0.
+        for i in range(osh[1]):
+            trace_spec[i] = self.grism_sci[trace_pix[i],i]
+            trace_sig[i] = self.grism_wht[trace_pix[i],i]
+        
+        scale_to_total = 1./np.max(profile)       
+        if not np.isfinite(scale_to_total):
+            scale_to_total=-1
+            
+        c1 = pyfits.Column(name='wave', format='D', unit='ANGSTROMS', array=self.wave)
+        c2 = pyfits.Column(name='flux', format='D', unit='ELECTRONS/S', array=optimal_sum_full)
+        c3 = pyfits.Column(name='error', format='D', unit='ELECTRONS/S', array=optimal_sig)
+        c4 = pyfits.Column(name='contam', format='D', unit='ELECTRONS/S', array=optimal_sum_contam)
+        c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=trace_spec)
+        c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=trace_sig)
+        c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*(self.growx*self.growy))
+        #print 'MAX SENS: %.f' %(self.sens.max())
+        
+        coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
+        head = pyfits.Header()
+        head.update('ATRACE', scale_to_total, comment='Factor to scale trace to total flux')
+        
+        #ii = np.where(np.cast[int](self.cat.id) == self.id)[0][0]
+        try:
+            head.update('RA', self.im[0].header['RA'], comment='Target R.A.')
+            head.update('DEC', self.im[0].header['DEC'], comment='Target Dec.')
+        except:
+            head.update('RA', 0., comment='Target R.A.')
+            head.update('DEC', 0., comment='Target Dec.')
+        #
+        head.update('X_PIX', self.x_pix, comment='X pixel in interlaced image')
+        head.update('Y_PIX', self.y_pix, comment='Y pixel in interlaced image')
+        head.update('MAG', self.im[0].header['MAG'], comment='MAG_AUTO from interlaced catalog')
+        
+        
+        tbHDU = pyfits.new_table(coldefs, header=head)
+        tbHDU.writeto(self.root+'_%05d.1D.fits' %(self.id), clobber=True)
+        
+        if verbose:
+            t1 = time.time(); dt = t1-t0; t0=t1
+            print '1D spectrum (%.3f)' %(dt)
         
     def timer(self):
         """
@@ -1749,6 +1876,9 @@ class GrismModel():
         for i in range(N):
             #for i, id in enumerate(self.cat['NUMBER'][so]):
             id = self.objects[so][i]
+            # if np.abs(id-854) > 10:
+            #     continue
+            # 
             print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
             if refine:
                 self.refine_model(id, BEAMS=BEAMS, view=view)      
@@ -1763,10 +1893,11 @@ class GrismModel():
                 
                 if self.model_list is not None:
                     if id in self.model_list.keys():
+                        print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d) [model_list]' %(id, mag[so][i], i+1, N)
                         lx, ly = self.model_list[id]
                         self.flux_specs[id] = utils_c.interp_conserve_c(self.lam_spec, lx, ly, left=0., right=0.)
                         
-                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly)      
+                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly, normalize=True)      
                 self.model += self.object
                 self.obj_in_model[id] = True
                 
@@ -1954,8 +2085,9 @@ class GrismModel():
             self.refine_model(id, BEAMS=BEAMS, view=view)      
         else:
             self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
-            self.model += self.object
-            self.obj_in_model[id] = True
+            if not self.obj_in_model[id]:
+                self.model += self.object
+                self.obj_in_model[id] = True
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[0])

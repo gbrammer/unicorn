@@ -576,7 +576,7 @@ class GrismSpectrumFit():
         hdu.append(pyfits.ImageHDU(data=self.zgrid1, name='ZGRID1'))
         hdu.append(pyfits.ImageHDU(data=self.full_prob1, name='LN_PROB_1'))
         hduList = pyfits.HDUList(hdu)
-        hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='fix')
+        hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.pz.fits', clobber=True, output_verify='silentfix')
     
     def load_fits(self, path='./'):
         
@@ -662,8 +662,8 @@ class GrismSpectrumFit():
         # self.oned.data.flux = yflux
         # self.oned.data.contam = ycont
         
-        yerr = self.oned.data.error[show]
-        ax.fill_between(self.oned.data.wave[show]/1.e4, y+yerr, y-yerr, color='blue', alpha=0.1)
+        yerr = self.oned.data.error #[show]
+        ax.fill_between(self.oned.data.wave[show]/1.e4, (y+yerr)[show], (y-yerr)[show], color='blue', alpha=0.1)
         
         ax.plot(self.oned.data.wave[show]/1.e4, yflux[show], color='black', alpha=0.1)
         ax.plot(self.oned.data.wave[show]/1.e4, (yflux-ycont)[show], color='black')
@@ -781,7 +781,7 @@ class GrismSpectrumFit():
         
         ymax *= scale
         
-        ax.semilogx(); ax.set_xlim(3000.,8.e4); ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        ax.semilogx(); ax.set_xlim(3000.,8.e4); ax.set_ylim(-0.05*ymax, 1.5*ymax)
         #ax.set_xlim(0.8e4,2.e4)
         
         #### Save the result to a file

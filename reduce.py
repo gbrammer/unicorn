@@ -50,6 +50,8 @@ import unicorn.utils_c as utils_c
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
+import scipy.ndimage as nd
+
 try:
     ### Latest STSCI_PYTHON (Python2.7)
     import stsci.tools.wcsutil as wcsutil
@@ -4481,11 +4483,30 @@ def interlace_uds2():
 
 def interlace_sntile41():
     
+    #
+    ### SWarp for color image
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f160w_v1.0_drz.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F160W.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f160w_v1.0_wht.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F160W_wht.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f125w_v1.0_drz.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F125W.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/COSMOS/ACS/*sci.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F814W.fits')
+
+    ### F160W
+    sub_r = pyfits.open('match_F160W.fits')[0].data*10**(-0.4*(25.96-25.96))
+    ### F125W
+    sub_g = pyfits.open('match_F125W.fits')[0].data*10**(-0.4*(26.25-25.96))
+    ### F814W
+    sub_b = pyfits.open('match_F814W.fits')[0].data*10**(-0.4*(25.94-25.96))*1.5
+
+    Q, alpha, m0 = 4, 12, -0.005
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='TILE41.png', shape=sub_r.shape)
+    Q, alpha, m0 = 3.5, 5, -0.01
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='TILE41_2.png', shape=sub_r.shape)
+    
     unicorn.reduce.interlace_combine('TILE41-132-G141', NGROW=125)
     unicorn.reduce.interlace_combine('TILE41-132-F160W', NGROW=125, auto_offsets=True)
     
-    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=20)
-    
+    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=25)
+        
     se = threedhst.sex.SExtractor()
     
     ## Set the output parameters required for aXe 
@@ -4499,25 +4520,68 @@ def interlace_sntile41():
     se.options['CHECKIMAGE_NAME'] = 'test_seg.fits'
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
     se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-    se.options['WEIGHT_IMAGE']    = 'TILE41-132-F160W_drz.fits[1]'
+    se.options['WEIGHT_IMAGE']    = 'match_F160W_wht.fits[0]'
     se.options['FILTER']    = 'Y'
+    threedhst.sex.USE_CONVFILE =  'gauss_2.0_5x5.conv'
+    threedhst.sex.USE_CONVFILE =  'gauss_4.0_7x7.conv'
+    se.copyConvFile()
+    se.options['FILTER_NAME'] = threedhst.sex.USE_CONVFILE
     
     #### Detect thresholds (default = 1.5)
-    se.options['DETECT_THRESH']    = '1' 
-    se.options['ANALYSIS_THRESH']  = '1'
+    se.options['DEBLEND_NTHRESH']    = '16' 
+    se.options['DEBLEND_MINCONT']    = '0.001' 
+    se.options['DETECT_MINAREA']    = '36' 
+    se.options['DETECT_THRESH']    = '1.5' 
+    se.options['ANALYSIS_THRESH']  = '1.5'
     se.options['MAG_ZEROPOINT'] = '%.2f' %(model.ZP)
     
     #### Run SExtractor
-    status = se.sextractImage('TILE41-132-F160W_drz.fits[0]')
+    status = se.sextractImage('match_F160W.fits[0]')
+    threedhst.sex.sexcatRegions('test.cat', 'test.reg', format=2)
     
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='TILE41_F160W', filter='F160W', REFERENCE = 'TILE41-132-F160W_drz.fits', SEGM = 'test_seg.fits', Force=False, sci_extension=1)
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='TILE41_F160W', filter='F160W', REFERENCE = 'match_F160W.fits', SEGM = 'test_seg.fits', Force=False, sci_extension=0)
     
     unicorn.reduce.blot_from_reference(REF_ROOT='TILE41_F160W', DRZ_ROOT = 'TILE41-132-F160W', NGROW=125, verbose=True)
+    unicorn.reduce.interlace_combine_blot(root='TILE41-132-F160W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True, NSEGPIX=0)
+    #unicorn.reduce.fill_inter_zero('TILE41-132_inter_seg.fits')
+    unicorn.reduce.fill_inter_zero('TILE41-132_ref_inter.fits')
     
-    unicorn.reduce.interlace_combine_blot(root='TILE41-132-F160W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True)
+    unicorn.reduce.interlace_combine('TILE41-132-G141', NGROW=125, auto_offsets=True)
+    unicorn.reduce.interlace_combine('TILE41-132-F160W', NGROW=125, auto_offsets=True)
+    unicorn.reduce.fill_inter_zero('TILE41-132-F160W_inter.fits')
     
-    #### Broken.... Shifts of direct image give offset with grism image
+    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=25, REFINE_MAG_LIMIT=23, make_zeroth_model=False)
     
+    unicorn.reduce.blot_from_reference(REF_ROOT='TILE41_F160W', DRZ_ROOT = 'TILE41-152-F140W', NGROW=125, verbose=True)
+    unicorn.reduce.interlace_combine_blot(root='TILE41-152-F140W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True, NSEGPIX=0)
+    
+    unicorn.reduce.fill_inter_zero('TILE41-152_ref_inter.fits')
+    
+    unicorn.reduce.interlace_combine('TILE41-152-G141', NGROW=125, auto_offsets=True)
+    unicorn.reduce.interlace_combine('TILE41-152-F140W', NGROW=125, auto_offsets=True)
+    unicorn.reduce.fill_inter_zero('TILE41-152-F140W_inter.fits')
+    
+    model = unicorn.reduce.process_GrismModel('TILE41-152', MAG_LIMIT=25, REFINE_MAG_LIMIT=23)
+    
+    #### Seems OK, but haven't been able to check against z_specs
+    
+    ### Extract all objects > z>0.6, m140 > X
+    cat, zout, fout = unicorn.analysis.read_catalogs('TILE41')
+    matcher = catIO.CoordinateMatcher(cat)
+    
+    dr, idx = matcher.match_list(ra=model.ra_wcs, dec=model.dec_wcs)
+    
+    ok = (dr < 0.8) & ((zout.z_peak[idx] > 0.65) & (model.cat.mag < 23)) | ((zout.z_peak[idx] > 1.2) & (model.cat.mag < 24))
+    
+    for id in model.objects[ok]:
+        try:
+            model.twod_spectrum(id)
+            gris = unicorn.interlace_fit.GrismSpectrumFit('TILE41-152_%05d' %(id))
+            gris.fit_in_steps(zrfirst=(0.5, 4))
+            #os.system('open TILE41-132_%05d*zfit*png' %(id))
+        except:
+            pass
+            
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, NSEGPIX=8):
     """
     Combine blotted image from the detection mosaic as if they were 
@@ -4557,6 +4621,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     #inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
     inter_seg = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=int)
+    inter_N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=int)
     
     xi+=pad/(2*growx)
     yi+=pad/(2*growy)+NGROW
@@ -4649,18 +4714,21 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         inter_sci[yi*growy+dy,xi*growx+dx] += im[0].data
         #inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
         inter_seg[yi*growy+dy,xi*growx+dx] += im_seg[0].data
+        inter_N[yi*growy+dy,xi*growx+dx] += 1
         
         #
         if view:
             ds9.view_array(inter_sci, header=header)
             ds9.scale(-0.1,5)
     
+    inter_N[inter_N == 0] = 1
+    
     #### Write interlaced sci/wht image
     header.update('NGROW', NGROW, comment='Number of pixels added to X-axis (centered)')        
     header.update('PAD', pad, comment='Additional padding around the edges') 
     
     hdu = pyfits.PrimaryHDU(header=h0)
-    sci = pyfits.ImageHDU(data=inter_sci, header=header)
+    sci = pyfits.ImageHDU(data=inter_sci/inter_N, header=header)
     #wht = pyfits.ImageHDU(data=inter_err, header=header_wht)
             
     image = pyfits.HDUList([hdu, sci]) #, wht])
@@ -4672,24 +4740,46 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #### Write interlaced segmentation image
     ## First clean up regions between adjacent objects that get weird segmentation values
     ## from blot
-    yh, xh = np.histogram(inter_seg, range=(0,inter_seg.max()), bins=inter_seg.max())
-    minseg = NSEGPIX
-    bad = (yh < minseg) & (yh > 0)
-    if verbose:
-        print 'Clean %d objects with < %d segmentation pixels.  \nThese are probably artificial resulting from blotting the integer segmentation image.\n' %(bad.sum(), minseg)
-    for val in xh[:-1][bad]:
-        if verbose:
-            print unicorn.noNewLine+'%d' %(val)
-        test = inter_seg == val
-        if test.sum() > 0:
-            inter_seg[test] = 0
-    
+    # yh, xh = np.histogram(inter_seg, range=(0,inter_seg.max()), bins=inter_seg.max())
+    # minseg = NSEGPIX
+    # bad = (yh < minseg) & (yh > 0)
+    # if verbose:
+    #     print 'Clean %d objects with < %d segmentation pixels.  \nThese are probably artificial resulting from blotting the integer segmentation image.\n' %(bad.sum(), minseg)
+    # for val in xh[:-1][bad]:
+    #     if verbose:
+    #         print unicorn.noNewLine+'%d' %(val)
+    #     test = inter_seg == val
+    #     if test.sum() > 0:
+    #         inter_seg[test] = 0
+        
     #### Clean up image, can get zeros and NaNs from above
     inter_seg[inter_seg < 0] = 0
     inter_seg[~np.isfinite(inter_seg)] = 0
         
-    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[int](inter_seg))
+    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[int](inter_seg/inter_N))
     hdu.writeto(pointing+'_inter_seg.fits', clobber=True)
+    
+    if verbose:
+        print 'Clean up segmentation image...'
+        
+    #### Clean up overlap region of segmentation 
+    unicorn.reduce.fill_inter_zero(pointing+'_inter_seg.fits')
+    im = pyfits.open(pointing+'_inter_seg.fits', mode='update')
+    #s = np.ones((3,3))
+    #labeled_array, num_features = nd.label(im[0].data, structure=s)
+    
+    #### Maximum filter to flag overlap regions
+    max_filter = nd.maximum_filter(im[0].data, size=(3,3))
+    bad = (max_filter - im[0].data) > 2
+    inter_seg = max_filter*1
+    inter_seg[bad] = 0
+    
+    #### Orphan pixels in the max-filtered image
+    npix = nd.convolve((inter_seg > 0)*1, np.ones((3,3)))
+    bad = (inter_seg > 0) & (npix < 4)
+    inter_seg[bad] = 0
+    im[0].data = inter_seg
+    im.flush()
     
     #### Make a version of the catalog with transformed coordinates and only those objects
     #### that fall within the field
@@ -5087,9 +5177,9 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         ratio = im_seg[0].data / ones[0].data
         #test = (np.abs(np.log(ratio/np.round(ratio))) < 1.e-5) & keep
         
-        test = (np.abs(ratio-np.round(ratio)) < 0.01) & keep
-        ratio[test] = np.round(ratio[test])
-        ratio[~test | (ones[0].data == 0)] = 0
+        # test = (np.abs(ratio-np.round(ratio)) < 0.01) & keep
+        # ratio[test] = np.round(ratio[test])
+        # ratio[~test | (ones[0].data == 0)] = 0
         
         # im_seg[0].data[keep] /= ones[0].data[keep]
         # im_seg[0].data[~keep] = 0
@@ -5140,6 +5230,42 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         print unicorn.noNewLine+iline
         os.remove(ifile)
 #
+def fill_inter_zero(image='TILE41-132-F160W_inter.fits'):
+    from scipy.signal import convolve2d
+
+    im = pyfits.open(image, mode='update')
+    
+    HAS_ERR = True
+    x0, x1 = 'SCI', 'ERR'
+    minpix = 0
+    
+    if len(im) == 1:
+        HAS_ERR = False
+        x0, x1 = 0, 0
+        minpix = 4
+        
+    if len(im) == 2:
+        HAS_ERR = False
+        x0, x1 = 1, 1
+        
+    kernel = np.ones((3,3))
+    wht = im[x1].data != 0
+    bad = (wht == 0)
+    if wht.sum() < 10:
+        return None
+        
+    npix = convolve2d(wht, kernel, boundary='fill', fillvalue=0, mode='same')
+    sum = convolve2d(im[x0].data, kernel, boundary='fill', fillvalue=0, mode='same')
+    
+    fill_pix = bad & (npix > minpix)
+    im[x0].data[fill_pix] = (sum/npix)[fill_pix]*1
+    
+    if HAS_ERR:
+        sumwht = convolve2d(im[x1].data**2, kernel, boundary='fill', fillvalue=0, mode='same')
+        im[x1].data[fill_pix] = np.sqrt((sumwht/npix)[fill_pix]*1.)
+    
+    im.flush()
+    
 def strip_header(header=None, filter='F140W'):
     """
     BLOT tends to die with a segmentation fault for some reason if I don't

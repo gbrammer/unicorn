@@ -2119,7 +2119,7 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
             continue
         #    
         ### Skip masked images that might have problems
-        if os.path.exists(fi+'.mask.reg'):
+        if os.path.exists(fi.replace('.gz','')+'.mask.reg'):
             print 'Mask found, skip...'
             continue
         #

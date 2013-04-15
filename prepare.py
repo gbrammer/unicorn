@@ -2028,6 +2028,70 @@ def make_new_flats():
     subset = info.field_name == 'AEG'
     flt_files = info.file[subset]
     unicorn.prepare.make_flat(flt_files, output='aegis_v0.fits', GZ='')
+
+    subset = info.field_name == 'UDS'
+    flt_files = info.file[subset]
+    unicorn.prepare.make_flat(flt_files, output='uds_v0.fits', GZ='')
+
+    subset = info.field_name == 'GOO'
+    flt_files = info.file[subset]
+    unicorn.prepare.make_flat(flt_files, output='goodss_v0.fits', GZ='')
+
+    subset = info.field_name == 'GNG'
+    flt_files = info.file[subset]
+    unicorn.prepare.make_flat(flt_files, output='goodsn_v0.fits', GZ='')
+    
+    ### By time
+    import astropy.time
+    t = astropy.time.Time(info.date_obs, format='iso', scale='utc')
+    so = np.argsort(t.mjd)
+    
+    so = so[info.field_name != 'GNG']
+    N = 4
+    NT = len(so)/N
+    for i in range(N):
+        subset = so[(i*NT):(i+1)*NT]
+        flt_files = info.file[subset]
+        unicorn.prepare.make_flat(flt_files, output='flat_time%d_v0.1.fits' %(i), GZ='')
+        
+    ##### CANDELS on UNICORN
+    shell = """
+    cd /Users/gbrammer/FLATS/CANDELS
+    for field in AEGIS COSMOS GOODS-S GOODS-N UDS; do
+        ln -sf /3DHST/Ancillary/${field}/CANDELS/PREP_FLT/*seg.fits .
+        ln -sf /3DHST/Ancillary/${field}/CANDELS/PREP_FLT/*mask.reg .
+        ln -sf /3DHST/Ancillary/${field}/CANDELS/RAW/*flt.fits.gz .
+    done
+    
+    cd /Users/gbrammer/FLATS/3DHST
+    for field in AEGIS COSMOS GOODS-S GOODS-N UDS; do
+        ln -sf /3DHST/Spectra/Work/${field}/PREP_FLT/*seg.fits .
+        ln -sf /3DHST/Spectra/Work/${field}/PREP_FLT/*mask.reg .
+        ln -sf /3DHST/Spectra/Work/${field}/RAW/*flt.fits.gz .
+    done
+    
+    """
+    
+    os.chdir('/Users/gbrammer/FLATS/CANDELS')
+    info = catIO.Readfile('files.info')
+    info.field_name = []
+    for targ, ra in zip(info.targname, info.ra_targ):
+        info.field_name.append(targ[:3]+'%03d' %(int(ra/10)*10))
+    
+    info.field_name = np.array(info.field_name)
+    
+    t = astropy.time.Time(info.date_obs, format='iso', scale='utc')
+    so = np.argsort(t.mjd)
+    
+    for filter in ['F125W', 'F160W']:
+        ok = info.filter == filter
+        N = 4
+        NT = ok.sum()/N
+        for i in range(N):
+            subset = so[ok][(i*NT):(i+1)*NT]
+            flt_files = info.file[subset]
+            unicorn.prepare.make_flat(flt_files, output='flat_%s_time%d_v0.1.fits' %(filter, i+1), GZ='')
+        
     
 def make_flat(flt_files, output='master_flat.fits', GZ=''):
     """
@@ -2055,6 +2119,7 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         #    
         ### Skip masked images that might have problems
         if os.path.exists(fi+'.mask.reg'):
+            print 'Mask found, skip...'
             continue
         #
         print '%d %s' %(i, file)

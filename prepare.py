@@ -2110,6 +2110,7 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     X = np.zeros((NF,1014.**2))
     
     fp_ic = open('%s.imcombine' %(output), 'w')
+    fp_info = open('%s.image_info', 'w')
     
     for i, file in enumerate(flt_files):
         fi = file.replace('.seg','')
@@ -2142,7 +2143,8 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         dq_ok = (flt[3].data & (4+32+16)) == 0
         #
         ok = masked & np.isfinite(flt[1].data) & (dq_ok)
-        flt[1].data /= np.median(flt[1].data[ok])
+        background =  np.median(flt[1].data[ok])
+        flt[1].data /= background
         flt[1].data[(ok == False)] = 0
         X[i,:] = flt[1].data.flatten()
         ### For imcombine
@@ -2153,9 +2155,11 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         icfile = 'imcombine/%s.fits' %(fi.split('_flt')[0])
         pyfits.writeto(icfile, data=flt[1].data, header=flt[1].header, clobber=True)
         fp_ic.write(icfile+'\n')
-    
-    fp_ic.close()
+        fp_info.write('%s %f %f\n' %(fi, flt[0].header['EXPTIME'], background))
         
+    fp_ic.close()
+    fp_info.close()
+    
     #### Average
     nsum = np.sum(X != 0, axis=0).reshape(1014,1014)
     avg = np.sum(X, axis=0).reshape(1014,1014)/nsum

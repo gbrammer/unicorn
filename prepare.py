@@ -2024,6 +2024,10 @@ def make_new_flats():
     cosmos = info.field_name == 'COS'
     flt_files = info.file[cosmos]
     unicorn.prepare.make_flat(flt_files, output='cosmos_v0.fits', GZ='')
+
+    subset = info.field_name == 'AEG'
+    flt_files = info.file[subset]
+    unicorn.prepare.make_flat(flt_files, output='aegis_v0.fits', GZ='')
     
 def make_flat(flt_files, output='master_flat.fits', GZ=''):
     """
@@ -2098,7 +2102,7 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     iraf.imcombine ( input = '@%s' %(fp_ic.name), output = 'ic.fits', 
        headers = '', bpmasks = '', rejmasks = '', nrejmasks = '', 
        expmasks = '', sigmas = '', logfile = 'STDOUT', combine = 'average', 
-       reject = 'minmax', project = no, outtype = 'real', 
+       reject = 'minmax', project = iraf.no, outtype = 'real', 
        outlimits = '', offsets = 'none', masktype = 'none', 
        maskvalue = '0', blank = 0.0, scale = 'none', zero = 'none', 
        weight = 'none', statsec = '', expname = '', lthreshold = 0.02, 

@@ -1104,7 +1104,145 @@ def UDS_mosaic():
     zooms=[12,13,14,15,16]
     threedhst.gmap.makeImageMap(['UDS-F140W_drz_sci.fits[0]','UDS-G141_drz_sci.fits[0]','/3DHST/Ancillary/UDS/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits[1]'], aper_list=zooms, tileroot=['F140W','G141','F160W'], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/UDS/MOSAIC_HTML/')
 
-
+    #### Problems with UDS alignment pointings
+    threedhst.shifts.refine_shifts(ROOT_DIRECT='UDS-16-F140W', 
+              ALIGN_IMAGE='UDS_F140W_ref.fits', ALIGN_EXTENSION=0,  
+              fitgeometry='shift', clean=True)
+    
+    threedhst.prep_flt_files.startMultidrizzle('UDS-16-F140W_asn.fits',
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+    
+def Koekemoer():
+    """ High-z AGN from Koekemoer program """
+    """ Supernova in COSMOS """
+    import os
+    import threedhst
+    import unicorn
+    import threedhst.prep_flt_files
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.catIO as catIO
+    
+    os.chdir(unicorn.GRISM_HOME+'Koekemoer/PREP_FLT')
+    
+    ALIGN = '/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    ALIGN_EXT=0
+    
+    info = catIO.Readfile('files.info')
+    
+    #### Make ASN files for different grisms / orientations
+    asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
+    
+    for targ in [1,2]:
+      for angle in [83,91]:
+        for filter in ['F140W','G141','G102']:
+            match = (info.targname == 'CDFS-AGN%d' %(targ)) & (info.filter == filter) & (np.abs(info.pa_v3-angle) < 1)
+            if match.sum() == 0:
+                continue
+            #
+            asn.exposures = []
+            for exp in info.file[match]:
+                asn.exposures.append(exp.split('_flt')[0])
+            asn.product = 'CDFS-AGN%d-%d-%s' %(targ, angle, filter)
+            asn.write(asn.product+'_asn.fits', clobber=True)
+        ##
+        ## Run the preparation steps
+        for gris in ['G141', 'G102']:
+            if not os.path.exists('CDFS-AGN%d-%d-%s_drz.fits' %(targ, angle, gris)):
+                pair('CDFS-AGN%d-%d-F140W_asn.fits' %(targ, angle), 'CDFS-AGN%d-%d-%s_asn.fits' %(targ, angle, gris), adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=(gris == 'G141'), SKIP_DIRECT=os.path.exists('CDFS-AGN%d-%d-F140W_align.fits' %(targ, angle)), align_geometry='rotate,shift')
+    
+    for targ in [1,2]:
+        asn_files = glob.glob('CDFS-AGN%d-[0-9]*F140W*asn.fits' %(targ))
+        threedhst.utils.combine_asn_shifts(asn_files, out_root='CDFS-AGN%d-F140W' %(targ), path_to_FLT='./', run_multidrizzle=False)
+        threedhst.prep_flt_files.startMultidrizzle('CDFS-AGN%d-F140W_asn.fits' %(targ),
+                     use_shiftfile=True, skysub=False,
+                     final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                     updatewcs=False, clean=True, median=False)
+    
+    #### Combined reference for the two angles
+    for targ in [1,2]:
+        REF_ROOT = 'CDFS-AGN%d' %(targ)
+        se = threedhst.sex.SExtractor()
+        se.aXeParams()
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = REF_ROOT+'-F140W.cat'
+        se.options['CHECKIMAGE_NAME'] = REF_ROOT+'-F140W_seg.fits'
+        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+        se.options['WEIGHT_IMAGE']    = REF_ROOT+'-F140W_drz.fits[1]'
+        se.options['FILTER']    = 'Y'
+        se.options['DETECT_THRESH']    = '1.8'
+        se.options['ANALYSIS_THRESH']  = '1.8'
+        se.options['MAG_ZEROPOINT'] = '26.46'
+        status = se.sextractImage(REF_ROOT+'-F140W_drz.fits[0]')
+    
+    for targ in [1,2]:
+        REF_ROOT = 'CDFS-AGN%d' %(targ)
+        unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F140W', REFERENCE = REF_ROOT+'-F140W_drz.fits', SEGM = REF_ROOT+'-F140W_seg.fits', sci_extension=1)
+    
+    ### Need an ASN file + MDRZ for just the first four exposures
+    ### of each target / orientation pair for the reference
+    for targ in [1,2]:
+        for angle in [83, 91]:
+            pointing='CDFS-AGN%d-%d' %(targ, angle)
+            asn = threedhst.utils.ASNFile(pointing+'-F140W_asn.fits')
+            sf = threedhst.shifts.ShiftFile(pointing+'-F140W_shifts.txt')
+            asn.exposures = asn.exposures[0:4]
+            asn.product = pointing+'-0-F140W'
+            asn.write(asn.product+'_asn.fits')
+            status = os.system('head -8 %s-F140W_shifts.txt > %s-0-F140W_shifts.txt' %(pointing, pointing))
+            #
+            asn = asn.product+'_asn.fits'
+            threedhst.prep_flt_files.startMultidrizzle(asn,
+                         use_shiftfile=True, skysub=False,
+                         final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                         updatewcs=False, clean=True, median=False)
+    
+    #### Make the blotted reference images and combined the interlaced 
+    #### images       
+    for targ in [1,2]:
+        REF_ROOT = 'CDFS-AGN%d' %(targ)
+        CATALOG = REF_ROOT+'-F140W.cat'
+        for angle in [83, 91]:
+            pointing='CDFS-AGN%d-%d' %(targ, angle)
+            NGROW=125
+            unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-0-F140W', NGROW=NGROW, verbose=True)
+            unicorn.reduce.interlace_combine_blot(root=pointing+'-0-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, auto_offsets=True)
+            #
+            #### Make symlinks for correct reference images / catalogs
+            files=glob.glob('%s-0_*' %(pointing))
+            for file in files:
+                status = os.system('ln -sf %s %s' %(file, file.replace('-0_', '_')))
+            #### Interlace combine full images
+            unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW, auto_offsets=True)
+            unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW, auto_offsets=True)
+            unicorn.reduce.interlace_combine(pointing+'-G102', pad=60, NGROW=NGROW, auto_offsets=True)
+            
+    #
+    for targ in [1,2]:
+        for angle in [83, 91]:
+            pointing='CDFS-AGN%d-%d' %(targ, angle)
+            model = unicorn.reduce.process_GrismModel(root=pointing, grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23, make_zeroth_model=True, use_segm=False, model_slope=0, grism='G141')
+    
+    ### Run the fits!
+    model = unicorn.reduce.process_GrismModel('CDFS-AGN1-91', grism='G141')
+    test = model.cat.mag < 22
+    for id in model.objects[test]:
+        model.twod_spectrum(id)
+        gris = unicorn.interlace_fit.GrismSpectrumFit('CDFS-AGN1-91_%05d' %(id), use_mag_prior=True)
+        gris.fit_in_steps()
+    
+    ### Check automated interlace offsets
+    # unicorn.reduce.get_interlace_offsets('CDFS-AGN1-83-F140W_asn.fits', growx=2, growy=2, path_to_flt='./', verbose=True, first_zero=False, raw=False)
+    
+    unicorn.reduce.interlace_combine('CDFS-AGN1-83-F140W', NGROW=125, auto_offsets=True, view=False)
+    unicorn.reduce.interlace_combine('CDFS-AGN1-83-G141', NGROW=125, auto_offsets=True, view=False)
+    unicorn.reduce.interlace_combine('CDFS-AGN1-83-G102', NGROW=125, auto_offsets=True, view=False)
+    
+    unicorn.reduce.reduce_pointing(file='CDFS-AGN1-83-G141_asn.fits', clean_all=False, clean_spectra=True, make_images=False, make_model=True, fix_wcs=True, extract_limit=23.5, skip_completed_spectra=True, MAG_LIMIT=27.5, out_path='./')
+    
 def SN_TILE41():
     """ Supernova in COSMOS """
     import os
@@ -1176,6 +1314,7 @@ def SN_TILE41():
     sf_direct = threedhst.shifts.ShiftFile('TILE41-132-F160W_shifts.txt')
     sf_grism = threedhst.shifts.ShiftFile('TILE41-132-G141_shifts.txt')
     
+    ### Two grism exposures at each position
     for i in range(sf_direct.nrows):
         sf_grism.xshift[i*2] = sf_direct.xshift[i]
         sf_grism.xshift[i*2+1] = sf_direct.xshift[i]
@@ -1311,12 +1450,16 @@ def SN_CLASH():
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     
-    os.chdir("/research/HST/GRISM/3DHST/SN-PERLMUTTER/PREP_FLT")
+    os.chdir("/3DHST/Spectra/Work/SN-PERLMUTTER/PREP_FLT")
     unicorn.candels.make_asn_files()
     
     ALIGN_IMAGE = '/Volumes/WD3_Data/Users/gbrammer/CLASH/macs1720/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
-        
+    
+    ALIGN_IMAGE = '../Image/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
+    files=glob.glob('MACS*F1*asn.fits')
+    
     files=glob.glob('SN-*F1*asn.fits')
+    
     for file in files:
         if not os.path.exists(file.replace('asn','drz')):
             unicorn.candels.prep_candels(asn_file=file, 
@@ -1751,6 +1894,262 @@ def DADDI():
     #
     threedhst.gmap.makeImageMap(['HIGHZ-CLUSTER-4-F140W_drz.fits', 'HIGHZ-CLUSTER-4-G141_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15, 16])
 
+#
+def COOPER(FORCE=False):
+    """
+    Reduce pointings from a grism program in AEGIS by M. Cooper
+    """
+    import unicorn
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import threedhst.prep_flt_files
+    import glob
+    import os
+
+    os.chdir('/3DHST/Spectra/Work/COOPER/PREP_FLT')
+    
+    ### reduced by hand before???
+    
+    ## RGB Image
+    imr = pyfits.open('EGS12007881.12012083-F140W_drz.fits')
+    img = pyfits.open('EGS12007881.12012083-ACSi.fits')
+    imb = pyfits.open('EGS12007881.12012083-ACSv.fits')
+    
+    f = 0.5
+    scales = np.array([10**(-0.4*(26.46-26.46)), 10**(-0.4*(25.95928-26.46))*1.5, 10**(-0.4*(26.50512-26.46))*1.5])*f
+    #
+    xc, yc, NX = 1754, 1924, 50
+    sub_r = imr[1].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[0]
+    sub_g = img[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[1]*1.0
+    sub_b = imb[0].data[yc-NX:yc+NX, xc-NX:xc+NX]*scales[2]*1.0
+    #
+    # sub_r = imr[1].data*scales[0]
+    # sub_g = img[0].data*scales[1]*1.0
+    # sub_b = imb[0].data*scales[2]*1.0
+    #
+    Q, alpha, m0 = 3., 8, -0.02
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='COOPER_viH.png', shape=sub_r.shape)
+    
+    #### ACS + F140W photometry
+    import pyregion
+    filters = ['F140W', 'F814W', 'F606W']
+    ZPs = [26.46, 25.95928, 26.50512]
+    ## ACS http://www-int.stsci.edu/~koekemoe/egs/
+    ZPs = [26.46, 25.937, 26.486] 
+    images = [imr[1], img[0], imb[0]]
+    
+    fluxes = {}
+    mags = {}
+    for id in [0, 616, 625]:
+        fluxes[id] = {}
+        mags[id] = {}
+        
+    for filter, ZP, image in zip(filters, ZPs, images):
+        print filter
+        for id in [0, 616, 625]:
+            r = pyregion.open('blob_%d.reg' %(id)).as_imagecoord(header=image.header)
+            aper = r.get_mask(hdu=image)
+            fluxes[id][filter] = np.sum(image.data*aper)
+            mags[id][filter] = -2.5*np.log10(fluxes[id][filter])+ZP
+    
+    #### CFHT-LS photometry, color image
+    ext = '14561_14592_7791_7822.fits' # 6"
+    #ext = '14405_14748_7635_7978.fits' # larger
+    
+    imr = pyfits.open('CFHTLS/D3.IQ.I.%s' %(ext))
+    img = pyfits.open('CFHTLS/D3.IQ.R.%s' %(ext))
+    imb = pyfits.open('CFHTLS/D3.IQ.G.%s' %(ext))
+    
+    #f = 10
+    f = 0.4
+    scales = np.array([10**(-0.4*(30-26.46))*1, 10**(-0.4*(30-26.46))*1.2, 10**(-0.4*(30-26.46))*1.5])*f
+    sub_r = imr[0].data*scales[0]
+    sub_g = img[0].data*scales[1]*1.0
+    sub_b = imb[0].data*scales[2]*1.0
+    
+    Q, alpha, m0 = 3., 8, -0.02
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='COOPER_CFHTLS_gri.png', shape=(100,100))
+    
+    for filter in ['U','G','R','I','Z']:
+       image = pyfits.open('CFHTLS/D3.IQ.%s.%s' %(filter, ext))[0]
+       for id in [0, 616, 625]:
+           r = pyregion.open('blob_%d.reg' %(id)).as_imagecoord(header=image.header)
+           aper = r.get_mask(hdu=image)
+           fluxes[id][filter] = np.sum(image.data*aper)
+           mags[id][filter] = -2.5*np.log10(fluxes[id][filter])+30
+       
+    import cPickle as pickle
+    fp = open('egs_blob.pkl','wb')
+    pickle.dump(filters, fp)
+    pickle.dump(ZPs, fp)
+    pickle.dump(fluxes, fp)
+    pickle.dump(mags, fp)
+    fp.close()
+    
+    fp = open('egs_blob.readme','w')
+    fp.write('filters ZPs fluxes mags, 616 is the blob, 625 is the companion\n')
+    fp.close()
+    
+def make_new_flats():
+    """
+    Go and find all 3D-HST flt/seg/mask.reg images
+    and copy them to a new directory.  Then generate a master flat-field.
+    """
+    import shutil
+    
+    PATH = '/3DHST/Spectra/Work/FLATS/F140W'
+    for field in ['AEGIS','COSMOS','GOODS-S','GOODS-N','UDS']:
+        os.chdir('/3DHST/Spectra/Work/%s/PREP_FLT/' %(field))
+        info = catIO.Readfile('files.info')
+        f140 = info.filter == 'F140W'
+        print '%s: %d (%d)' %(field, f140.sum(), f140.sum()/4.)
+        for file in info.file[f140]:
+            root=file.split('.fits')[0]
+            seg = glob.glob(root+'.seg.fits')
+            if len(seg) > 0:
+                print '%s, %s' %(field, root)
+                shutil.copy('../RAW/%s' %(file), PATH)
+                shutil.copy(seg[0], PATH)
+                if os.path.exists('%s.fits.mask.reg' %(root)):
+                    shutil.copy('%s.fits.mask.reg' %(root), PATH)
+    
+    #### Make flats for different fields
+    os.chdir(PATH)
+    info = catIO.Readfile('files.info')
+    info.field_name = []
+    for targ in info.targname:
+        info.field_name.append(targ[:3])
+    
+    info.field_name = np.array(info.field_name)
+    
+    cosmos = info.field_name == 'COS'
+    flt_files = info.file[cosmos]
+    unicorn.prepare.make_flat(flt_files, output='cosmos_v0.fits', GZ='')
+    
+def make_flat(flt_files, output='master_flat.fits', GZ=''):
+    """
+    Given a list of FLT files, make a median average master flat
+    
+    GZ = '.gz' if segmentation images are gzipped
+    
+    """    
+    import iraf
+    import pyfits
+    
+    pipeline_flats = {}
+    
+    NF = len(flt_files)
+    idx = np.arange(NF)
+    X = np.zeros((NF,1014.**2))
+    
+    fp_ic = open('%s.imcombine' %(output), 'w')
+    
+    for i, file in enumerate(flt_files):
+        fi = file.replace('.seg','')
+        segfile = fi.split('flt')[0]+'flt.seg.fits%s' %(GZ)
+        if not os.path.exists(segfile):
+            continue
+        #    
+        ### Skip masked images that might have problems
+        if os.path.exists(fi+'.mask.reg'):
+            continue
+        #
+        print '%d %s' %(i, file)
+        flt = pyfits.open(fi)
+        #### Divide by the pipeline flat
+        pfl = flt[0].header['PFLTFILE'].split('iref$')[1]
+        if pfl not in pipeline_flats.keys():
+            print 'Pipeline flat: %s' %(pfl)
+            flat = pyfits.open(os.getenv('iref') + '/%s' %(pfl))[1].data[5:-5,5:-5]
+            flat[flat <= 0] = 5
+            flat[flat > 5] = 5
+            pipeline_flats[pfl] = flat*1.
+        else:
+            flat = pipeline_flats[pfl]
+        #
+        flt[1].data *= flat
+        ### Segmentation mask
+        masked = pyfits.open(segfile)[0].data == 0
+        ### DQ mask, hot pixels and the "death star"
+        dq_ok = (flt[3].data & (4+32+16)) == 0
+        #
+        ok = masked & np.isfinite(flt[1].data) & (dq_ok)
+        flt[1].data /= np.median(flt[1].data[ok])
+        flt[1].data[(ok == False)] = 0
+        X[i,:] = flt[1].data.flatten()
+        ### For imcombine
+        if not os.path.exists('imcombine'):
+            os.mkdir('imcombine')
+        #
+        flt[1].data[(ok == False)] = -9999
+        icfile = 'imcombine/%s.fits' %(fi.split('_flt')[0])
+        pyfits.writeto(icfile, data=flt[1].data, header=flt[1].header, clobber=True)
+        fp_ic.write(icfile+'\n')
+    
+    fp_ic.close()
+        
+    #### Average
+    nsum = np.sum(X != 0, axis=0).reshape(1014,1014)
+    avg = np.sum(X, axis=0).reshape(1014,1014)/nsum
+     
+    ### Fill empty pixels with no input images
+    sky = avg
+    
+    #### Imcombine, much faster than numpy for median 
+    iraf.imcombine ( input = '@%s' %(fp_ic.name), output = 'ic.fits', 
+       headers = '', bpmasks = '', rejmasks = '', nrejmasks = '', 
+       expmasks = '', sigmas = '', logfile = 'STDOUT', combine = 'average', 
+       reject = 'minmax', project = no, outtype = 'real', 
+       outlimits = '', offsets = 'none', masktype = 'none', 
+       maskvalue = '0', blank = 0.0, scale = 'none', zero = 'none', 
+       weight = 'none', statsec = '', expname = '', lthreshold = 0.02, 
+       hthreshold = 10.0, nlow = 5, nhigh = 5, nkeep = 1, 
+       mclip = iraf.yes, lsigma = 4.0, hsigma = 4.0, rdnoise = '0.', 
+       gain = '1.', snoise = '0.', sigscale = 0.1, pclip = -0.5)
+    #
+    ic = pyfits.open('ic.fits')
+
+    sky = ic[0].data
+    sky[sky == 0] = np.inf
+
+    #flatim = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')
+    #flatim[1].data[5:-5,5:-5] = ic[0].data
+    #flatim.writeto('ic2.fits', clobber=True)
+    
+    ### Median with mask
+    # m = np.ma.masked_array(X, X == 0)
+    # sky = np.ma.median(m, axis=0)
+    # rms = np.ma.std(m)
+    # sky = sky.reshape(1014,1014)
+    
+    x,y = np.where((np.isfinite(sky) == False) | (sky/flat > 1.15))
+    NX = len(x)
+    pad = 1
+    for i in range(NX):
+        xi = x[i]
+        yi = y[i]
+        sub = sky[xi-pad:xi+pad+2,yi-pad:yi+pad+2]
+        if (np.sum(sub) != 0.0):
+            sky[xi,yi] = np.median(sub[np.isfinite(sub)])
+    
+    still_bad = (np.isfinite(sky) == False) | (sky <= 0.01)
+    sky[still_bad] = flat[still_bad]
+    
+    # bad_flat = (flat < 0.5)
+    # sky[bad_flat] = flat[bad_flat]
+        
+    # im_sky = pyfits.PrimaryHDU(data=sky)
+    # im_n = pyfits.ImageHDU(data=nsum)
+    # im = pyfits.HDUList([im_sky, im_n])
+    # im.writeto('sky.fits', clobber=True)
+    
+    #### for DIRECT flat
+    flatim = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')
+    flatim[1].data[5:-5,5:-5] = sky
+    flatim[3].data[5:-5,5:-5] = nsum
+    flatim.writeto(output, clobber=True)
+    
+    #flatim.writeto('/research/HST/GRISM/IREF/cosmos_f140w_flat.fits', clobber=True)
+               
 def redo_all_sky_subtraction():
     import unicorn.prepare
     

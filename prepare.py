@@ -2099,6 +2099,9 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     sky = avg
     
     #### Imcombine, much faster than numpy for median 
+    if os.path.exists('ic.fits'):
+        os.remove('ic.fits')
+    
     iraf.imcombine ( input = '@%s' %(fp_ic.name), output = 'ic.fits', 
        headers = '', bpmasks = '', rejmasks = '', nrejmasks = '', 
        expmasks = '', sigmas = '', logfile = 'STDOUT', combine = 'average', 

@@ -2057,7 +2057,16 @@ def make_new_flats():
         subset = so[(i*NT):(i+1)*NT]
         flt_files = info.file[subset]
         unicorn.prepare.make_flat(flt_files, output='flat_3DHST_F140W_t%d_v0.1.fits' %(i+1), GZ='')
+    #
+    for i in range(N):
+        subset = so[(i*NT):(i+1)*NT]
+        flt_files = info.file[subset]
+        print 'flat_3DHST_F140W_t%d_v0.1.fits  %.1f' %(i+1, t.mjd[subset][0])
     
+    # flat_3DHST_F140W_t1_v0.1.fits  55465.0
+    # flat_3DHST_F140W_t2_v0.1.fits  55793.0
+    # flat_3DHST_F140W_t3_v0.1.fits  55911.0
+        
     # unicorn.prepare.make_flat(flt_files, output='xxx.fits', GZ='')
     
     ##### CANDELS on UNICORN
@@ -2091,14 +2100,31 @@ def make_new_flats():
     
     for filter in ['F125W', 'F160W']:
         ok = info.filter == filter
-        N = 4
+        N = 2
         NT = ok.sum()/N
         for i in range(N):
             subset = so[ok][(i*NT):(i+1)*NT]
             flt_files = info.file[subset]
-            unicorn.prepare.make_flat(flt_files, output='flat_%s_time%d_v0.1.fits' %(filter, i+1), GZ='')
-        
+            unicorn.prepare.make_flat(flt_files, output='flat_%s_t%d_v0.1.fits' %(filter, i+1), GZ='')
+    #
+    for filter in ['F125W', 'F160W']:
+        ok = info.filter == filter
+        N = 2
+        NT = ok.sum()/N
+        for i in range(N):
+            subset = so[ok][(i*NT):(i+1)*NT]
+            flt_files = info.file[subset]
+            print 'flat_%s_t%d_v0.1.fits  %.1f' %(filter, i+1, t.mjd[subset][0])
+     
+     # flat_F125W_t1_v0.1.fits  55071.0
+     # flat_F125W_t2_v0.1.fits  55770.0
+     # flat_F160W_t1_v0.1.fits  55079.0
+     # flat_F160W_t2_v0.1.fits  55717.0
+     
     
+def clean_flat():
+    """
+    """
 def make_flat(flt_files, output='master_flat.fits', GZ=''):
     """
     Given a list of FLT files, make a median average master flat

@@ -2041,19 +2041,25 @@ def make_new_flats():
     flt_files = info.file[subset]
     unicorn.prepare.make_flat(flt_files, output='goodsn_v0.fits', GZ='')
     
+    subset = (info.field_name == 'CAM') | (info.field_name == 'COL') | (info.field_name == 'GRB') | (info.field_name == 'HIG') | (info.field_name == 'HUD') 
+    flt_files = info.file[subset]
+    unicorn.prepare.make_flat(flt_files, output='flat_UDF_F140W_v0.fits', GZ='')
+    
     ### By time
     import astropy.time
     t = astropy.time.Time(info.date_obs, format='iso', scale='utc')
     so = np.argsort(t.mjd)
     
     so = so[info.field_name != 'GNG']
-    N = 4
+    N = 3
     NT = len(so)/N
     for i in range(N):
         subset = so[(i*NT):(i+1)*NT]
         flt_files = info.file[subset]
-        unicorn.prepare.make_flat(flt_files, output='flat_time%d_v0.1.fits' %(i), GZ='')
-        
+        unicorn.prepare.make_flat(flt_files, output='flat_3DHST_F140W_t%d_v0.1.fits' %(i+1), GZ='')
+    
+    # unicorn.prepare.make_flat(flt_files, output='xxx.fits', GZ='')
+    
     ##### CANDELS on UNICORN
     shell = """
     cd /Users/gbrammer/FLATS/CANDELS
@@ -2102,6 +2108,10 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     """    
     import iraf
     import pyfits
+    import scipy.ndimage as nd
+    from iraf import noao
+    from iraf import imred
+    from iraf import ccdred
     
     pipeline_flats = {}
     
@@ -2109,8 +2119,10 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     idx = np.arange(NF)
     X = np.zeros((NF,1014.**2))
     
-    fp_ic = open('%s.imcombine' %(output), 'w')
-    fp_info = open('%s.image_info', 'w')
+    root = output.split('.fits')[0]
+    
+    fp_ic = open('%s.imcombine' %(root), 'w')
+    fp_info = open('%s.image_info' %(root), 'w')
     
     for i, file in enumerate(flt_files):
         fi = file.replace('.seg','')
@@ -2138,9 +2150,12 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         #
         flt[1].data *= flat
         ### Segmentation mask
-        masked = pyfits.open(segfile)[0].data == 0
+        segm = pyfits.open(segfile)[0].data
+        grow = nd.maximum_filter(segm, size=(5,5))
+        masked = grow == 0
         ### DQ mask, hot pixels and the "death star"
         dq_ok = (flt[3].data & (4+32+16)) == 0
+        #dq_ok = (flt[3].data & (4+32)) == 0
         #
         ok = masked & np.isfinite(flt[1].data) & (dq_ok)
         background =  np.median(flt[1].data[ok])
@@ -2153,6 +2168,8 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         #
         flt[1].data[(ok == False)] = -9999
         icfile = 'imcombine/%s.fits' %(fi.split('_flt')[0])
+        flt[1].header.update('SKYMED', background)
+        flt[1].header.update('SKYCTS', background*flt[0].header['EXPTIME'])
         pyfits.writeto(icfile, data=flt[1].data, header=flt[1].header, clobber=True)
         fp_ic.write(icfile+'\n')
         fp_info.write('%s %f %f\n' %(fi, flt[0].header['EXPTIME'], background))
@@ -2168,40 +2185,41 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     sky = avg
     
     #### Imcombine, much faster than numpy for median 
-    files=glob.glob('ic*fits')
-    files.extend(glob.glob('ic*pl'))
+    files=glob.glob('ic_%s*' %(root))
     for file in files: 
         os.remove(file)
     
-    iraf.imcombine ( input = '@%s' %(fp_ic.name), output = 'ic.fits', 
-       headers = '', bpmasks = '', rejmasks = '', nrejmasks = 'ic_n.pl', 
-       expmasks = '', sigmas = 'ic_s.fits', logfile = 'STDOUT', combine = 'average', 
+    NREJECT = np.maximum(np.minimum(5, (NF/2)-5), 1)
+    iraf.imcombine ( input = '@%s.imcombine' %(root), output = 'ic_%s.fits' %(root), 
+       headers = '', bpmasks = '', rejmasks = '', nrejmasks = 'ic_%s_n.pl' %(root), 
+       expmasks = '', sigmas = 'ic_%s_s.fits' %(root), 
+       logfile = 'STDOUT', combine = 'average', 
        reject = 'minmax', project = iraf.no, outtype = 'double', 
        outlimits = '', offsets = 'none', masktype = 'none', 
        maskvalue = '0', blank = 0.0, scale = 'none', zero = 'none', 
-       weight = 'none', statsec = '', expname = '', lthreshold = 0.5, 
-       hthreshold = 2, nlow = 10, nhigh = 10, nkeep = 5, 
+       weight = '!SKYCTS', statsec = '', expname = '', lthreshold = 0.5, 
+       hthreshold = 2, nlow = NREJECT, nhigh = NREJECT, nkeep = 5, 
        mclip = iraf.yes, lsigma = 4.0, hsigma = 4.0, rdnoise = '0.', 
        gain = '1.', snoise = '0.', sigscale = 0.1, pclip = -0.5)
-    #
-    ic = pyfits.open('ic.fits')
+    
+    #iraf.badpiximage('ic_%s_n.pl' %(root), 'ic_%s.fits' %(root), 'ic_'
+    iraf.imcopy('ic_%s_n.pl' %(root), 'ic_%s_n.fits' %(root))
+    
+    ic = pyfits.open('ic_%s.fits' %(root))
     
     ### Checking stats
-    X2 = X.reshape((len(flt_files), 1014, 1014))
-    so = np.argsort(X2, axis=0)
-    i, j = 500, 500
-    for i in range(495,505):
-        for j in range(495, 505):
-            column = X2[:,i,j][so[:,i,j]]
-            ok = (column > 0.5) & (column < 2)
-            data = np.mean(column[ok][3:-3])
-            print '%d %d %f %f %f' %(i,j, data, ic[0].data[i,j], data/ic[0].data[i,j])
+    # X2 = X.reshape((len(flt_files), 1014, 1014))
+    # so = np.argsort(X2, axis=0)
+    # i, j = 500, 500
+    # for i in range(495,505):
+    #     for j in range(495, 505):
+    #         column = X2[:,i,j][so[:,i,j]]
+    #         ok = (column > 0.5) & (column < 2)
+    #         data = np.mean(column[ok][3:-3])
+    #         print '%d %d %f %f %f' %(i,j, data, ic[0].data[i,j], data/ic[0].data[i,j])
             
-    
-    
     sky = ic[0].data
     sky[sky == 0] = np.inf
-
     #flatim = pyfits.open(os.getenv('iref')+'/uc721143i_pfl.fits')
     #flatim[1].data[5:-5,5:-5] = ic[0].data
     #flatim.writeto('ic2.fits', clobber=True)
@@ -2212,7 +2230,15 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     # rms = np.ma.std(m)
     # sky = sky.reshape(1014,1014)
     
-    x,y = np.where((np.isfinite(sky) == False) | (sky/flat > 1.15))
+    sigma = pyfits.open('ic_%s_s.fits' %(root))[0].data
+    med = np.median(sigma[sigma != 0])
+    std = threedhst.utils.biweight(sigma[sigma != 0])
+    noisy = (sigma-med) > (5*std)
+    
+    pam = pyfits.open('%s/ir_wfc3_map.fits' %(os.getenv('iref')))[1].data
+    
+    bad = (np.isfinite(sky) == False) | (sky/flat > 1.15) | noisy | (sky/pam > 1.08)
+    x,y = np.where(bad)
     NX = len(x)
     pad = 1
     for i in range(NX):
@@ -2224,6 +2250,19 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     
     still_bad = (np.isfinite(sky) == False) | (sky <= 0.01)
     sky[still_bad] = flat[still_bad]
+    
+    #### Some residual scaling W.R.T pipeline flats??
+    ratio = sky / pipeline_flats[pipeline_flats.keys()[0]]
+    fig = unicorn.plotting.plot_init(xs=4, square=True, NO_GUI=True)
+    ax = fig.add_subplot(111)
+    med, std = np.median(ratio[~bad]), threedhst.utils.biweight(ratio[~bad])
+    ax.hist(ratio[~bad].flatten(), range=(0.9,1.1), bins=100, alpha=0.5, label='%s: %.4f, %.4f' %(pipeline_flats.keys()[0], med, std))
+    ax.legend()
+    
+    sky /= med
+    
+    unicorn.plotting.savefig(fig, '%s_scale.png' %(root))
+    
     
     # bad_flat = (flat < 0.5)
     # sky[bad_flat] = flat[bad_flat]

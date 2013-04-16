@@ -2168,22 +2168,37 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     sky = avg
     
     #### Imcombine, much faster than numpy for median 
-    if os.path.exists('ic.fits'):
-        os.remove('ic.fits')
+    files=glob.glob('ic*fits')
+    files.extend(glob.glob('ic*pl'))
+    for file in files: 
+        os.remove(file)
     
     iraf.imcombine ( input = '@%s' %(fp_ic.name), output = 'ic.fits', 
-       headers = '', bpmasks = '', rejmasks = '', nrejmasks = '', 
-       expmasks = '', sigmas = '', logfile = 'STDOUT', combine = 'average', 
-       reject = 'minmax', project = iraf.no, outtype = 'real', 
+       headers = '', bpmasks = '', rejmasks = '', nrejmasks = 'ic_n.pl', 
+       expmasks = '', sigmas = 'ic_s.fits', logfile = 'STDOUT', combine = 'average', 
+       reject = 'minmax', project = iraf.no, outtype = 'double', 
        outlimits = '', offsets = 'none', masktype = 'none', 
        maskvalue = '0', blank = 0.0, scale = 'none', zero = 'none', 
-       weight = 'none', statsec = '', expname = '', lthreshold = 0.02, 
-       hthreshold = 10.0, nlow = 5, nhigh = 5, nkeep = 1, 
+       weight = 'none', statsec = '', expname = '', lthreshold = 0.5, 
+       hthreshold = 2, nlow = 10, nhigh = 10, nkeep = 5, 
        mclip = iraf.yes, lsigma = 4.0, hsigma = 4.0, rdnoise = '0.', 
        gain = '1.', snoise = '0.', sigscale = 0.1, pclip = -0.5)
     #
     ic = pyfits.open('ic.fits')
-
+    
+    ### Checking stats
+    X2 = X.reshape((len(flt_files), 1014, 1014))
+    so = np.argsort(X2, axis=0)
+    i, j = 500, 500
+    for i in range(495,505):
+        for j in range(495, 505):
+            column = X2[:,i,j][so[:,i,j]]
+            ok = (column > 0.5) & (column < 2)
+            data = np.mean(column[ok][3:-3])
+            print '%d %d %f %f %f' %(i,j, data, ic[0].data[i,j], data/ic[0].data[i,j])
+            
+    
+    
     sky = ic[0].data
     sky[sky == 0] = np.inf
 

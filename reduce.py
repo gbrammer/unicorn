@@ -1010,7 +1010,13 @@ class Interlace2D():
         ### need to account for [xmin:xmax] = (xmax-xmin)-1
         if limited.sum() < wavelength_region.sum():
             xmax += 1
-            
+        #
+        self.xmin, self.xmax = xmin, xmax
+        
+        ### Do test better
+        limited = (self.object_wave >= (self.im['WAVE'].data.min()-1)) & (self.object_wave <= (self.im['WAVE'].data.max()+1))
+        xmin, xmax = xarr[limited][[0,-1]] #-1
+        xmax += 1
         self.xmin, self.xmax = xmin, xmax
         
         # xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+sh[0]/2.

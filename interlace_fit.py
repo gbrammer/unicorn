@@ -196,8 +196,11 @@ class GrismSpectrumFit():
                     
         #### Initialize the continuum and emission line templates    
         self.line_free_template()
-        self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
-        
+        self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.loOIII.txt', unpack=True)
+        self.linex2, self.liney2 = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.hiOIII.txt', unpack=True)
+        # self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
+        # self.linex2, self.liney2 = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
+
         #### Try to read the previous p(z) from the pickle file
         if RELEASE:
             pz_path = '%s/%s/ZFIT/PZ/' %(BASE_PATH, self.pointing)
@@ -253,7 +256,7 @@ class GrismSpectrumFit():
         self.dr = dr.min()
         
         if verbose:
-            print 'Match in %s\n #%d  dr=%.2f"  z_spec=%7.3f  z_peak=%7.3f' %(cat.filename, cat.id[ix], self.dr, zout.z_spec[ix], self.z_peak)
+            print 'Match in %s\n #%s  dr=%.2f"  z_spec=%7.3f  z_peak=%7.3f' %(cat.filename, cat.id[ix], self.dr, zout.z_spec[ix], self.z_peak)
         #                    
         self.best_fit = np.dot(self.eazy_temp_sed['temp_seds'], self.eazy_coeffs['coeffs'][:,ix])
         self.templam = self.eazy_temp_sed['templam']*1.
@@ -357,16 +360,22 @@ class GrismSpectrumFit():
                 
             self.twod.compute_model(self.linex*(1+z_test), self.liney)
             line_model = self.twod.model*1.
-
+            ixl = [1]
+            
             #### Initialize if on the first grid point
             if i == 0:
-                templates = np.ones((4,line_model.size))
+                templates = np.ones((5,line_model.size))
                 templates[2,:] = tilt_blue_model.flatten()
                 templates[3,:] = tilt_red_model.flatten()
 
             #### Put in the spectral templates
             templates[0,:] = continuum_model.flatten()
             templates[1,:] = line_model.flatten()
+            
+            #### Second line template
+            self.twod.compute_model(self.linex2*(1+z_test), self.liney2)
+            templates[4,:] = (self.twod.model*1.).flatten()
+            ixl = [1,4]
             
             ##### Probably no flux in the direct image
             if templates.max() == 0:
@@ -383,8 +392,9 @@ class GrismSpectrumFit():
             if (get_model):
                 ixc = np.array([0,2,3])
                 self.cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
-                self.slope_model = np.dot(coeffs[2:].reshape((1,-1)), templates[2:,:]).reshape(line_model.shape)
-                self.line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
+                self.slope_model = np.dot(coeffs[2:4].reshape((1,-1)), templates[2:4,:]).reshape(line_model.shape)
+                self.line_model = np.dot(coeffs[ixl].reshape((1,-1)), templates[ixl,:]).reshape(line_model.shape)
+                #self.line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
                 self.flux_model = flux_fit.reshape(line_model.shape)
                 self.oned_wave, self.model_1D = self.twod.optimal_extract(self.flux_model)
                 oned_wave_x, self.cont_1D = self.twod.optimal_extract(self.cont_model)
@@ -446,7 +456,8 @@ class GrismSpectrumFit():
             #zrange, dz = (z_max-width, z_max+width), dzsecond
             zsecond = np.arange(zrfirst[0], zrfirst[1], dzsecond)
             pzint = np.interp(zsecond, zgrid0, full_prob0)
-            zsub = pzint > np.log(1.e-5)
+            #zsub = pzint > np.log(1.e-5)
+            zsub = (pzint-pzint.max()) > np.log(1.e-4)
             if zsub.sum() == 0:
                 threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
                 print pzint.max(), pzint.min(), full_prob0.max()
@@ -510,7 +521,7 @@ class GrismSpectrumFit():
             file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, -1, -1, -1, -1, z_max_spec, z_peak_spec)
         else:
             fp.write('#  Phot: %s\n' %(self.cat.filename))
-            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], z_max_spec, z_peak_spec)
+            file_string = '%s %s  %.3f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], z_max_spec, z_peak_spec)
             
         fp.write(file_string)
         fp.close()
@@ -739,7 +750,7 @@ class GrismSpectrumFit():
             if zout.z_spec[self.ix] > 0:
                 deltaz = '$\Delta z$ = %.4f' %(-(zout.z_spec[self.ix]-self.z_max_spec)/(1+zout.z_spec[self.ix]))
             #
-            ax.text(-0.05, 1.1, r'%s  %d  $H_{140}=$%.2f $z_\mathrm{spec}$=%.3f  $z_\mathrm{phot}$=%.3f  $z_\mathrm{gris}$=%.3f  %s' %(self.grism_id, self.zout.id[self.ix], self.twod.im[0].header['MAG'], zout.z_spec[self.ix], zout.z_peak[self.ix], self.z_max_spec, deltaz), transform=ax.transAxes, horizontalalignment='center')
+            ax.text(-0.05, 1.1, r'%s  %s  $H_{140}=$%.2f $z_\mathrm{spec}$=%.3f  $z_\mathrm{phot}$=%.3f  $z_\mathrm{gris}$=%.3f  %s' %(self.grism_id, self.zout.id[self.ix], self.twod.im[0].header['MAG'], zout.z_spec[self.ix], zout.z_peak[self.ix], self.z_max_spec, deltaz), transform=ax.transAxes, horizontalalignment='center')
         else:
             ax.text(-0.05, 1.1, r'%s  $H_{140}=$%.2f  $z_\mathrm{gris}$=%.3f' %(self.grism_id, self.twod.im[0].header['MAG'], self.z_max_spec), transform=ax.transAxes, horizontalalignment='center')
             

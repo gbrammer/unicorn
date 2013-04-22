@@ -1014,10 +1014,12 @@ class Interlace2D():
         self.xmin, self.xmax = xmin, xmax
         
         ### Do test better
-        limited = (self.object_wave >= (self.im['WAVE'].data.min()-1)) & (self.object_wave <= (self.im['WAVE'].data.max()+1))
+        imw = self.im['WAVE'].data
+        limited = (self.object_wave >= (imw[imw > 0].min()-1)) & (self.object_wave <= (imw[imw > 0].max()+1))
         xmin, xmax = xarr[limited][[0,-1]] #-1
         xmax += 1
         self.xmin, self.xmax = xmin, xmax
+        #print 'XMINMAX: ', self.xmin, self.xmax
         
         # xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+sh[0]/2.
         # xoff_int = np.arange(xmin, xmax, dtype=np.double)
@@ -4809,7 +4811,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     # if verbose:
     #     print 'Convert from reference coords to the distorted flt frame with iraf.wblot'
     
-    flt = run.flt[0]+'.fits'
+    #flt = run.flt[0]+'.fits'
+    flt = asn.exposures[0]+'_flt.fits'
+    
     threedhst.process_grism.flprMulti()
     #status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz_sci.fits', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
     

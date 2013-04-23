@@ -2,10 +2,13 @@
 Tests on the UDF interlaced data
 """
 
+import numpy as np
+
 import unicorn
 import threedhst
 from threedhst.prep_flt_files import process_3dhst_pair as pair
 import threedhst.prep_flt_files
+
 import glob
 import os
 
@@ -195,5 +198,75 @@ def rebin(xint, x, y, err):
     return xint, yint, yerr, narr
     
     
+###### New simultaneous redshift fitting
+
+class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
+    def read_master_templates(self):
+        """
+        Read the eazy-interpolated continuum + emission line templates
+        """
+        import threedhst.eazyPy as eazy
+        
+        #### Read template error function
+        self.te = eazy.TemplateError(unicorn.GRISM_HOME+'templates/TEMPLATE_ERROR.eazy_v1.0')
+        
+        #### Read template photometry
+        self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        #self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
     
+    def fit_photz(self):
+        pass
+        zgrid = np.arange(0,2,0.01)
+        chi2 = zgrid*0.
+        for i in range(len(zgrid)):
+            chi2[i] = self.fit_at_z(zgrid[i], nmf_toler=1.e-6, te_scale = 0.5)
+        
+        #
+        prior = open('%s/data/prior_K_zmax7_coeff.dat' %(os.path.dirname(threedhst.__file__))).readlines()
+        prior_mag = np.cast[float](prior[0].split()[2:])
+        prior_z0 = np.cast[float](prior[1].split()[1:])
+        prior_gamma = np.cast[float](prior[2].split()[1:])
+        z0 = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_z0, left=prior_z0[0], right=prior_z0[-1])
+        gamma = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_gamma, left=prior_gamma[0], right=prior_gamma[-1])
+        prior_pz = np.log(zgrid**gamma * np.exp(-(zgrid / z0)**gamma))
+        prior_pz -= prior_pz.max()
+        
+        pz = -0.5*chi2+prior_pz
+        plt.plot(self.phot_zgrid, self.phot_lnprob)
+        plt.plot(zgrid, pz-pz.max())
+        plt.plot(zgrid, prior_pz-prior_pz.max())
+        
+    def fit_at_z(self, z, nmf_toler=1.e-5, te_scale = 0.5):
+        from unicorn import utils_c
+        
+        #### best-fit EAZY SED
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+        
+        fobs_fnu = fobs*(lci/5500.)**2
+        efobs_fnu = efobs*(lci/5500.)**2
+        
+        te_func = self.te.interpolate(lci, z)*te_scale
+        var = efobs_fnu**2+(fobs_fnu*te_func)**2
+        use = (fobs > -99) & (efobs > 0)
+        
+        templates = self.phot.interpolate_photometry(z).reshape((self.phot.NFILT, self.phot.NTEMP)).T #[:-3,:]
+        
+        #### Fit the template to photometry
+        amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
+        coeffs = utils_c.run_nmf(fobs_fnu[use], var[use], templates[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
+        model_phot = np.dot(coeffs, templates)
+        
+        chi2 = np.sum((model_phot[use]-fobs_fnu[use])**2/var[use])
+        chi2_obs = np.sum((model_phot[use]-obs_sed[use])**2/var[use])
+        resid =  (model_phot[use]-fobs_fnu[use])/np.sqrt(var[use])
+        #print resid
+        return chi2
+        
+        #plt.errorbar(lci, fobs_fnu/(lci/5500.)**2, efobs_fnu/(lci/5500.)**2, color='blue')
+        plt.errorbar(lci, model_phot-fobs_fnu, efobs_fnu, color='red', marker='o', alpha=0.5)
+        #model_continuum = np.dot(coeffs[:-2], templates[:-2,:])
+        #plt.plot(lci, model_continuum/(lci/5500.)**2, color='orange', marker='o', alpha=0.5)
+        plt.errorbar(lci, obs_sed*(lci/5500.)**2-fobs_fnu, efobs_fnu, color='green', marker='o', alpha=0.5)
+        
+
     

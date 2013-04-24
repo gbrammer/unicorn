@@ -3,6 +3,7 @@ Tests on the UDF interlaced data
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import unicorn
 import threedhst
@@ -232,8 +233,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #### PHOTOMETRY
         ## best-fit EAZY SED
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
-        self.phot_fnu = fobs*(lci/5500.)**2
-        self.phot_efnu = efobs*(lci/5500.)**2
+        self.lc = lci
+        self.phot_flam = fobs
+        self.phot_eflam = efobs
+        #self.phot_fnu = fobs*(lci/5500.)**2
+        #self.phot_efnu = efobs*(lci/5500.)**2
         self.phot_use = (fobs > -99) & (efobs > 0)
         
         #### Masks for fitting the photometry and/or spectra
@@ -245,7 +249,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         self.fitting_mask['both'] = np.zeros(self.phot.NFILT + np.size(self.spec_flux), dtype=np.bool) | self.fitting_mask['spec_only']
         self.fitting_mask['both'][:self.phot.NFILT] |= self.phot_use
-                    
+                   
+        #
+        self.fit_zgrid = None
+        self.lnprob_spec = None
+         
     def get_prior(self, zgrid):
         """
         Get EAZY apparent mag prior
@@ -256,11 +264,14 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         prior_gamma = np.cast[float](prior[2].split()[1:])
         z0 = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_z0, left=prior_z0[0], right=prior_z0[-1])
         gamma = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_gamma, left=prior_gamma[0], right=prior_gamma[-1])
+        
         prior_pz = np.log(zgrid**gamma * np.exp(-(zgrid / z0)**gamma))
+        prior_pz[~np.isfinite(prior_pz)] = -300
         prior_pz -= prior_pz.max()
+        
         return prior_pz
             
-    def get_spectrum_tilt(self, z=None):
+    def get_spectrum_tilt(self, z=None, make_figure=True, order=6):
         from scipy import polyfit, polyval
         
         if z is None:
@@ -269,58 +280,371 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
         self.tilt_coeffs = [1]
          
-        self.fit_combined(z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=True)
+        self.fit_combined(z, nmf_toler=1.e-6, te_scale = 0.5, ignore_spectrum=True)
         model_phot = np.dot(self.coeffs, self.phot.temp_seds.T)
+        model_phot_t = np.dot(self.coeffs, self.templates)
+        #model_phot_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
         
-        self.fit_combined(z, nmf_toler=1.e-4, te_scale = 0.5, ignore_photometry=True)
+        self.fit_combined(z, nmf_toler=1.e-7, te_scale = 0.5, ignore_photometry=True)
         model_spec = np.dot(self.coeffs, self.phot.temp_seds.T)
+        model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
+        model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
         
         #### Compute the offset scaling
-        subregion = (np.diff(igmz) > 1) & (igmz[1:] > 1.e4) & (igmz[1:] < 1.8e4)
-        x, y = igmz[1:][subregion], 1./(model_spec/model_phot)[1:][subregion]
+        subregion = (np.diff(igmz) > 2) & (igmz[1:] > 1.e4) & (igmz[1:] < 1.8e4)
+        x, y = igmz[1:][subregion], (model_spec/model_phot)[1:][subregion]
         
-        self.tilt_coeffs = polyfit(x, y, 6)
-        f = polyval(self.tilt_coeffs, x)
-        plt.plot(x, f)
-        plt.plot(x, y)
+        self.tilt_coeffs = polyfit(x, y, order)
+        
+        # f = polyval(self.tilt_coeffs, x)
+        # plt.plot(x, f)
+        # plt.plot(x, y)
+        # plt.ylim(0.1, 2)
+        # plt.semilogy()
+        # 
+        
+        if make_figure:
+            self.fit_combined(z, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False)
+            model_both = np.dot(self.coeffs, self.phot.temp_seds.T)
+            model_both_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
+            model_both_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+            
+            fig = unicorn.plotting.plot_init(xs=6, aspect=1, square=True)
+            
+            ax = fig.add_subplot(221)
+            f = polyval(self.tilt_coeffs, x)
+            s = np.interp(1.4e4, x, f)
+            ax.plot(x, y, color='black', linewidth=4)
+            ax.plot(x, f, color='white', linewidth=2, alpha=0.5)
+            ax.plot(x, f, color='red', linewidth=1)
+            #ax.set_ylim(0.1, 2)
+            ax.set_xlabel(r'$\lambda$')
+            ax.set_ylabel('Template fit (spectrum / photometry)')
+            ax.text(0.95, 0.95, r'z=%.3f, 1.4$\mu$m=%.3f' %(z, s), va='top', ha='right', transform=ax.transAxes)
+            
+            for tab, xrange in zip([222, 212], [[1.0e4,1.75e4], [0.3e4, 8.e4]]):
+                ax = fig.add_subplot(tab)
+                lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+                ax.plot(lambdaz, temp_sed, color='blue')
+                ax.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
+                ax.errorbar(self.phot.lc, self.phot_flam, self.phot_eflam, marker='o', color='purple', markersize=8, linestyle='None')
+                ax.plot(self.oned.lam, self.oned.flux, color='red')
+                ax.plot(igmz, model_spec/(1+z)**2, color='red')
+                w2d, f2d = self.twod.optimal_extract(model_spec_2D)
+                f2d /= self.oned.data.sensitivity
+                ax.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='red', linewidth=1)
+                ax.scatter(self.phot.lc, model_spec_t, color='red', marker='s', s=50, alpha=0.5)
+                ax.plot(igmz, model_phot/(1+z)**2, color='green')
+                ax.scatter(self.phot.lc, model_phot_t, color='green', marker='s', s=50, alpha=0.5)
+
+                #### Fit to both
+                ax.plot(igmz, model_both/(1+z)**2, color='black', alpha=0.4)
+                ax.scatter(self.phot.lc, model_both_t, color='black', marker='s', s=50, alpha=0.5)
+                w2d, f2d = self.twod.optimal_extract(model_both_2D)
+                f2d /= self.oned.data.sensitivity*polyval(self.tilt_coeffs, w2d)
+                ax.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='orange', linewidth=1)
+                
+                ax.set_xlim(xrange)
+                ymax = np.array([self.phot_flam.max(), model_phot_t.max(), self.oned.flux.max()]).max()
+                ymin = np.array([self.phot_flam[self.phot_flam > 0].min()]).min()
+                ax.set_ylim(0.5*ymin,2*ymax)
+                ax.text(0.95, 0.95, self.root, va='top', ha='right', transform=ax.transAxes)
+                ax.semilogy()
+            
+            ax.set_ylim(-0.1*ymax,2*ymax)
+            ax.semilogx()
+            
+            #unicorn.plotting.savefig(fig, self.root+'.zfit.tilt.png')
+            unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit_tilt.%s' %(self.FIGURE_FORMAT))
+            
         
         return True
         
-        self.fit_combined(z, nmf_toler=1.e-4, te_scale = 0.5, ignore_photometry=False)
-        model_both = np.dot(self.coeffs, self.phot.temp_seds.T)
-        plt.plot(self.oned.lam, self.oned.flux)
+
         #plt.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam))
-        plt.plot(igmz, model_both)
-        plt.plot(self.phot.lc, fobs, marker='o')
-        plt.plot(lambdaz, temp_sed)
+        plt.plot(igmz, model_both/(1+z)**2, color='black', alpha=0.4)
+        plt.scatter(self.phot.lc, model_both_t, color='black', marker='s', s=50, alpha=0.5)
+        w2d, f2d = self.twod.optimal_extract(model_both_2D)
+        f2d /= self.oned.data.sensitivity*polyval(self.tilt_coeffs, w2d)
+        plt.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='orange', linewidth=1)
         
         ### Make diagnostic plot, separate function
-        plt.plot(lambdaz, temp_sed)
-        plt.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam))
-        plt.plot(self.oned.lam, self.oned.flux)
-        plt.plot(igmz, model_spec/(1+z)**2)
-        plt.plot(igmz, model_phot/(1+z)**2)
-        plt.plot(self.phot.lc, fobs, linestyle='None', marker='o')
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+        plt.plot(lambdaz, temp_sed, color='blue')
+        plt.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
+        plt.plot(self.oned.lam, self.oned.flux, color='red')
+        plt.plot(igmz, model_spec/(1+z)**2, color='red')
+        w2d, f2d = self.twod.optimal_extract(model_spec_2D)
+        f2d /= self.oned.data.sensitivity
+        plt.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='red', linewidth=1)
+        plt.scatter(self.phot.lc, model_spec_t, color='red', marker='s', s=50, alpha=0.5)
+        plt.plot(igmz, model_phot/(1+z)**2, color='green')
+        plt.scatter(self.phot.lc, model_phot_t, color='green', marker='s', s=50, alpha=0.5)
+        plt.scatter(self.phot.lc, self.phot_flam, marker='o', color='purple', s=50)
         plt.loglog()
-        plt.xlim(0.8e4, 2.e4)
-        plt.ylim(0.1,10)
+        plt.xlim(0.3e4, 6.e4)
+        plt.ylim(0.01,10)
     
-    def fit_photz(self, zrange=[0,4], dz=0.005):
+    def ln_zgrid(self, zrange=[0,4], dz=0.001):
         zgrid = np.exp(np.arange(np.log(1.0+zrange[0]), np.log(1.+zrange[1]), dz))-1
+        return zgrid
+        
+    def new_fit_zgrid(self, zrange=[0,4], dz=0.001, ignore_photometry=False, ignore_spectrum=False, is_grid=False):
+        
+        if is_grid:
+            zgrid = zrange
+        else:
+            zgrid = self.ln_zgrid(zrange, dz)
+        
         chi2 = zgrid*0.
         for i in range(len(zgrid)):
-            chi2[i] = self.fit_combined(zgrid[i], nmf_toler=1.e-4, te_scale = 0.5, get_chi2=True, ignore_photometry=True)
-            print zgrid[i], chi2[i]
+            chi2[i] = self.fit_combined(zgrid[i], nmf_toler=1.e-6, te_scale = 0.5, get_chi2=True, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum)
+            print unicorn.noNewLine+'%.4f  %.4e' %(zgrid[i], chi2[i])
             #chi2[i] = self.fit_at_z(zgrid[i], nmf_toler=1.e-5, te_scale = 0.5)
+                        
+        pz = -0.5*chi2
+        pz -= pz.max()
         
-        prior_pz = self.get_prior(zgrid)
-                
-        pz = -0.5*chi2+prior_pz
-        plt.plot(self.phot_zgrid, self.phot_lnprob-self.phot_lnprob.max())
-        plt.plot(zgrid, pz-pz.max())
-        plt.plot(zgrid, prior_pz-prior_pz.max())
-        plt.ylim(-20,0.5)
+        self.fit_zgrid = zgrid*1.
+        self.lnprob_spec = pz*1.
+        
+        # plt.plot(zgrid, pz-pz.max())
+        # 
+        # plt.plot(self.phot_zgrid, self.phot_lnprob-self.phot_lnprob.max(), color='green')
+        # plt.plot(zgrid, prior_pz-prior_pz.max(), color='orange')
+        # plt.ylim(-20,0.5)
+        # zsp = self.zout.z_spec[self.ix]
+        # if zsp > 0:
+        #     plt.fill_between([zsp-0.003*(1+zsp), zsp+0.003*(1+zsp)], [-20,-20], [0.5,0.5], color='red', alpha=0.5)
+        #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
+        #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
     
+    def new_fit_in_steps(self, zrfirst=[0.,3.8], dzfirst=0.005, dzsecond=0.0002, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
+        import scipy.ndimage as nd
+        
+        # self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=True, ignore_photometry=False)
+        # self.new_z_phot = self.fit_zgrid[np.argmax(self.lnprob_spec+self.get_prior(self.fit_zgrid))]
+        # self.get_spectrum_tilt(self.new_z_phot)
+        
+        #### First loop through a coarser grid
+        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry)
+        self.fit_zgrid_first = self.fit_zgrid*1.
+        self.fit_lnprob_first = self.lnprob_spec+self.get_prior(self.fit_zgrid_first)
+        self.fit_lnprob_first[0] = self.fit_lnprob_first[1]
+        
+        zsecond = self.ln_zgrid(zrfirst, dzsecond) #np.arange(zrfirst[0], zrfirst[1], dzsecond)
+        pzint = np.interp(zsecond, self.fit_zgrid_first, self.fit_lnprob_first)
+        pzint -= pzint.max()
+        
+        z_max = self.fit_zgrid_first[np.argmax(self.fit_lnprob_first)]
+        min_width = 0.003*(1+z_max)
+        
+        #### Smooth it with a gaussian
+        wz = 0.008
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+        yg = np.exp(-xg**2/2/wz**2)
+        sm = nd.convolve1d(np.exp(pzint), yg/yg.max(), mode='constant', cval=0.)
+        
+        #zsub = pzint > np.log(1.e-5)
+        zsub = (sm/sm.max()) > 1.e-4
+        if zsub.sum() == 0:
+            threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
+            print pzint.max(), pzint.min(), self.fit_lnprob_first.max()
+            return False
+        #
+        if (zsecond[zsub].max() - zsecond[zsub].min()) < min_width*2:
+            zrange = self.ln_zgrid([z_max-min_width, z_max + min_width], dzsecond)
+        else:
+            zrange = zsecond[zsub]
+        
+        print 'Finer grid step: %.4f (%.4f,%.4f)\n\n' %(z_max, zrange.min(), zrange.max())
+        
+        #### Second loop over a finer grid
+        self.new_fit_zgrid(zrange=zrange, is_grid=True, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry)
+        
+        wz = 0.0005
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+        yg = np.exp(-xg**2/2/wz**2)
+        sm = np.log(nd.convolve1d(np.exp(self.lnprob_spec), yg/yg.max(), mode='constant', cval=0.))
+        self.lnprob_spec = sm-sm.max()
+        
+        self.fit_zgrid_second = self.fit_zgrid*1.
+        self.fit_lnprob_second = self.lnprob_spec + self.get_prior(self.fit_zgrid_second)
+        self.fit_lnprob_second[0] = self.fit_lnprob_second[1]
+        
+        if make_plot:
+            self.make_new_fit_figure()
+        
+        
+    def make_new_fit_figure(self, z_show=None):
+        
+        from scipy import polyval
+        
+        if z_show is None:
+            self.z_show = self.fit_zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+        else:
+            self.z_show = z_show
+            
+        self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False)
+        self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_show)**2
+        self.best_photom = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
+        self.best_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        
+        self.oned_wave, self.best_1D = self.twod.optimal_extract(self.best_2D)
+        
+        #### Initialize the figure
+        fig = unicorn.catalogs.plot_init(xs=10,aspect=1./3.8, left=0.1, right=0.02, bottom=0.09, top=0.08, NO_GUI=False)
+
+        show = self.oned.data.flux != 0.0
+        #### Spectrum in e/s
+        ax = fig.add_subplot(141)
+        
+        wuse = (self.oned.data.wave > 1.15e4) & (self.oned.data.wave < 1.6e4)
+        
+        if self.grism_element == 'G102':
+            wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
+        
+        yflux, ycont = self.oned.data.flux, self.oned.data.contam
+        y = yflux-ycont
+        
+        yerr = self.oned.data.error #[show]
+        ax.fill_between(self.oned.data.wave[show]/1.e4, (y+yerr)[show], (y-yerr)[show], color='blue', alpha=0.1)
+        
+        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show], color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, (yflux-ycont)[show], color='black')
+        
+        ax.plot(self.oned_wave[show]/1.e4, self.best_1D[show], color='red', alpha=0.5, linewidth=2)
+        ax.plot(self.oned_wave/1.e4, self.best_1D, color='red', alpha=0.08, linewidth=2)
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        ax.set_ylabel(r'e$^-$ / s')
+        if wuse.sum() > 5:
+            ymax = yflux[wuse].max(); 
+        else:
+            ymax = yflux.max()
+            
+        ax.set_ylim(-0.05*ymax, 1.1*ymax) 
+        if self.grism_element == 'G102':
+            ax.set_xlim(0.7, 1.15)
+        else:
+            ax.set_xlim(1.0, 1.73)
+            
+        #### Spectrum in f_lambda
+        #self.oned.data.sensitivity /= 100
+        
+        ax = fig.add_subplot(142)
+        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show]/self.oned.data.sensitivity[show]*100, color='black', alpha=0.1)
+        
+        show_flux = (yflux[show]-ycont[show])/self.oned.data.sensitivity[show]*100
+        show_err = self.oned.data.error[show]/self.oned.data.sensitivity[show]*100
+        ax.plot(self.oned.data.wave[show]/1.e4, show_flux, color='black')
+        #ax.fill_between(self.oned.data.wave[show]/1.e4, show_flux+show_err, show_flux-show_err, color='0.5', alpha=0.2)
+        
+        ax.plot(self.oned_wave/1.e4, self.best_1D/self.oned.data.sensitivity*100, color='red', alpha=0.08, linewidth=2)
+        ax.plot(self.oned_wave[show]/1.e4, self.best_1D[show]/self.oned.data.sensitivity[show]*100, color='red', alpha=0.5, linewidth=2)
+        #ax.plot(self.oned_wave[show]/1.e4, self.slope_1D[show]/self.oned.data.sensitivity[show], color='orange', alpha=0.2, linewidth=1)
+        
+        ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
+        ax.set_ylabel(r'$f_\lambda$')
+        if wuse.sum() > 5:
+            ymax = (yflux/self.oned.data.sensitivity*100)[wuse].max()
+        else:
+            ymax = (yflux/self.oned.data.sensitivity*100).max()
+            
+        ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        if self.grism_element == 'G102':
+            ax.set_xlim(0.7, 1.15)
+        else:
+            ax.set_xlim(1.0, 1.73)
+
+        
+        #### p(z)
+        ax = fig.add_subplot(143)
+        ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
+        if self.fit_zgrid is not None:
+            ax.plot(self.fit_zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.4)
+            ax.fill_between(self.fit_zgrid, np.exp(self.lnprob_spec), self.fit_zgrid*0., color='blue', alpha=0.2)
+            
+        #ax.plot(zgrid1, np.exp(full_prob1), color='blue')
+
+        # ax.plot(self.phot_zgrid, (self.phot_lnprob-self.phot_lnprob.max()), color='green')
+        # ax.plot(zgrid0, (full_prob0), color='blue', alpha=0.4)
+        # ax.plot(zgrid1, (full_prob1), color='blue')
+        
+        zsp = -1
+        if not self.skip_photometric:
+            zsp = self.zout.z_spec[self.ix]
+            if zsp > 0:
+                ax.plot(zsp*np.array([1,1]), [0,1], color='red', alpha=0.9, linewidth=2)
+
+        if self.dr < 1:
+            ax.set_xlim(np.min([self.fit_zgrid.min(), self.zout.l99[self.ix]]), np.max([self.fit_zgrid.max(), self.zout.u99[self.ix]]))
+
+        ax.set_xlabel(r'$z$')
+        ax.set_ylabel(r'$p(z)$')
+        ax.set_yticklabels([])
+        ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(5, prune='both'))
+        
+        #### Make title text
+        if not self.skip_photometric:
+            deltaz = ''
+            if zsp > 0:
+                deltaz = '$\Delta z$ = %.4f' %(-(self.zout.z_spec[self.ix]-self.z_show)/(1+self.zout.z_spec[self.ix]))
+            #
+            ax.text(-0.05, 1.1, r'%s  %s  $H_{140}=$%.2f $z_\mathrm{spec}$=%.3f  $z_\mathrm{phot}$=%.3f  $z_\mathrm{gris}$=%.3f  %s' %(self.grism_id, self.zout.id[self.ix], self.twod.im[0].header['MAG'], self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], self.z_show, deltaz), transform=ax.transAxes, horizontalalignment='center')
+        else:
+            ax.text(-0.05, 1.1, r'%s  $H_{140}=$%.2f  $z_\mathrm{gris}$=%.3f' %(self.grism_id, self.twod.im[0].header['MAG'], self.z_show), transform=ax.transAxes, horizontalalignment='center')
+            unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
+            return True
+        
+        ####  Show the (photometric) SED with the spectrum overplotted
+        ax = fig.add_subplot(144)
+
+        lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+        
+        #### Use new fit
+        lambdaz, temp_sed = self.phot.templam*(1+self.z_show), self.best_spec
+        obs_sed = self.best_photom
+        
+        temp_sed_int = np.interp(self.oned.data.wave, lambdaz, temp_sed)
+        keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
+        if self.grism_element == 'G102':
+            keep = (self.oned.data.wave > 0.85) & (self.oned.data.wave < 1.05e4)
+        
+        flux_spec = (self.oned.data.flux-self.oned.data.contam)/self.oned.data.sensitivity*100
+        
+        ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
+        #anorm = np.sum(temp_sed_int[keep]*flux_spec[keep])/np.sum(flux_spec[keep]**2)
+        #scale = 100.
+        anorm = 1
+        scale = 100
+        
+        ax.plot(lambdaz, temp_sed*scale, color='blue', alpha=0.5, zorder=-1)
+        ax.scatter(self.phot.lc, obs_sed*scale, color='purple', alpha=0.5, zorder=100)
+        
+        ax.errorbar(lci, fobs*scale, efobs*scale, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
+        s = polyval(self.tilt_coeffs, 1.4e4)
+        ax.plot(self.oned.data.wave, flux_spec*anorm/polyval(self.tilt_coeffs, self.oned.data.wave)*s, color='red', alpha=0.3)
+        bin = 4
+        binned = unicorn.utils_c.interp_conserve(self.oned.data.wave[::4], self.oned.data.wave, flux_spec)
+        ax.plot(self.oned.data.wave[::4], binned/polyval(self.tilt_coeffs, self.oned.data.wave[::4])*s, color='red', alpha=0.7)
+        
+        ax.set_xlabel(r'$\lambda$')
+        ax.set_ylabel(r'$f_\lambda$')
+        
+        good = efobs > 0
+        if good.sum() > 0:
+            ymax = fobs[good].max()
+        else:
+            ymax = fobs.max()
+        
+        ymax *= scale
+        
+        ax.semilogx(); ax.set_xlim(3000.,8.e4); ax.set_ylim(-0.05*ymax, 1.5*ymax)
+        #ax.set_xlim(0.8e4,2.e4)
+        
+        #### Save the result to a file
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.%s' %(self.FIGURE_FORMAT))
+        
     def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False):
         
         from scipy import polyfit, polyval
@@ -348,9 +672,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ##
         #### Template error function
         te_func = self.te.interpolate(self.phot.lc, z)*te_scale
-        phot_var = self.phot_efnu**2+(self.phot_fnu*te_func)**2
+        phot_var = self.phot_eflam**2+(self.phot_flam*np.max(te_func, 0.02))**2
         full_variance[:self.phot.NFILT] += phot_var
-        full_flux[:self.phot.NFILT] += self.phot_fnu
+        full_flux[:self.phot.NFILT] += self.phot_flam
         #### Interpolated template photometry
         self.templates[:, :self.phot.NFILT] = self.phot.interpolate_photometry(z).reshape((self.phot.NFILT, self.phot.NTEMP)).T
         
@@ -360,10 +684,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if not ignore_spectrum:
             igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
             #### Include both IGM and computed tilt
-            scale = igm_factor*polyval(self.tilt_coeffs, igmz)
+            scale = igm_factor*polyval(self.tilt_coeffs, igmz)/(1+z)**2
             #### Get full 2D template models
             for i in range(self.phot.NTEMP):
-                self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale)
+                self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale/self.twod.total_flux)
                 self.templates[i,self.phot.NFILT:] = self.twod.model.flatten()
             #
             full_variance[self.phot.NFILT:] += self.spec_var
@@ -379,105 +703,105 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             chi2 = np.sum(((full_flux-self.model)**2/full_variance)[mask])
             return chi2
             
-    def fit_spec(self, z, nmf_toler=1.e-5, te_scale = 0.5, tilt_coeffs = [1]):
-        
-        ####
-        ######## Get template spectra at redshift, z
-        ####
-
-        #### Full flattened template array
-        template_spec = np.zeros((self.phot.NTEMP, self.flux.shape[0]))
-        #### IGM factor
-        igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
-        #### Include both IGM and computed tilt
-        scale = igm_factor*polyval(tilt_coeffs, igmz)
-        #### Get full 2D template models
-        for i in range(self.phot.NTEMP):
-            self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale)
-            template_spec[i,:] = self.twod.model.flatten()
-                
-        #### Fit Non-negative coefficients
-        amatrix = utils_c.prepare_nmf_amatrix(self.spec_var[self.spec_use], template_spec[:,self.spec_use])
-        coeffs = utils_c.run_nmf(flux[self.spec_use], self.spec_var[self.spec_use], template_spec[:,self.spec_use], amatrix, toler=nmf_toler, MAXITER=1e6)
-        
-        #### Store results
-        self.spec_coeffs = coeffs
-        self.model_spec_full = np.dot(coeffs, self.phot.temp_seds.T)*igm_factor
-        self.model_spec = np.dot(coeffs, template_spec)        
-        
-        #### Chi2 of the fit
-        self.chi2_spec = np.sum(((flux-model_spec)**2/var)[self.spec_use])
-
-        subregion = (np.diff(igmz) > 1) & (igmz[1:] > 1.e4) & (igmz[1:] < 1.8e4)
-        
-        x, y = igmz[1:][subregion], (model_spec_full/model_phot_full)[1:][subregion]
-        
-        from scipy import polyfit, polyval
-        p = polyfit(x, y, 6)
-        f = polyval(p, x)
-        plt.plot(x, f)
-        plt.plot(x, y)
-        
-        for i in range(self.phot.NTEMP):
-            self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*igm_factor*polyval(p, igmz))
-            template_spec[i,:] = self.twod.model.flatten()
-                                                     
-        #
-        amatrix = utils_c.prepare_nmf_amatrix(var[use], template_spec[:,use])
-        coeffs = utils_c.run_nmf(flux[use], var[use], template_spec[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
-
-        model_spec2 = np.dot(coeffs, template_spec)        
-        
-        # model_spec = np.dot(coeffs, template_spec).reshape(self.twod.im['SCI'].data.shape)
-        # v2d = var.reshape(model_spec.shape)
-        # u2d = use.reshape(v2d.shape)
-        # f2d = flux.reshape(v2d.shape)
-        # 
-        # shifts = np.arange(-1,1,0.1)
-        # chi2 = shifts*0.
-        # for i in range(len(shifts)):
-        #     sh = nd.shift(model_spec, (shifts[i], 0))
-        #     chi2[i] = np.sum(((f2d-sh)**2/v2d)[u2d])
-        # 
-        # best_yshift = shifts[chi2 == chi2.min()][0]
-        # sh = nd.shift(model_spec, (best_yshift, 0))
-        # 
-        # flux = np.cast[float](nd.shift(self.twod.im['SCI'].data, (-best_yshift, 0))-self.twod.im['CONTAM'].data).flatten()
-        # coeffs = utils_c.run_nmf(flux[use], var[use], template_spec[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
-        # model_spec2 = np.dot(coeffs, template_spec).reshape(self.twod.im['SCI'].data.shape)
-        
-        
-    def fit_at_z(self, z, nmf_toler=1.e-5, te_scale = 0.5):
-        
-        #### Template error
-        te_func = self.te.interpolate(lci, z)*te_scale
-        phot_var = self.efobs_fnu**2+(self.fobs_fnu*te_func)**2
-        
-        template_phot = self.phot.interpolate_photometry(z).reshape((self.phot.NFILT, self.phot.NTEMP)).T #[:-3,:]
-        
-        #tfull = self.phot.interpolate_photometry(zgrid)
-        #i = 148
-        #template_phot = tfull[:,:,i].reshape((self.phot.NFILT, self.phot.NTEMP)).T
-        
-        #### Fit the template to photometry
-        amatrix = utils_c.prepare_nmf_amatrix(var[use], template_phot[:,use])
-        coeffs = utils_c.run_nmf(fobs_fnu[use], var[use], template_phot[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
-        model_phot = np.dot(coeffs, template_phot)
-        igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
-        model_phot_full = np.dot(coeffs, self.phot.temp_seds.T)*igm_factor
-        
-        chi2 = np.sum((model_phot[use]-fobs_fnu[use])**2/var[use])
-        chi2_obs = np.sum((model_phot[use]-obs_sed[use])**2/var[use])
-        resid =  (model_phot[use]-fobs_fnu[use])/np.sqrt(var[use])
-        #print resid
-        return chi2
-        
-        #plt.errorbar(lci, fobs_fnu/(lci/5500.)**2, efobs_fnu/(lci/5500.)**2, color='blue')
-        # plt.errorbar(lci, model_phot-fobs_fnu, efobs_fnu, color='red', marker='o', alpha=0.5)
-        # plt.errorbar(lci, obs_sed*(lci/5500.)**2-fobs_fnu, efobs_fnu, color='green', marker='o', alpha=0.5)
-        plt.errorbar(lci, fobs_fnu, efobs_fnu, color='blue', marker='o', alpha=0.5)
-        plt.scatter(lci, obs_sed*(lci/5500.)**2, color='green', marker='o', alpha=0.5)
-        plt.scatter(lci, model_phot, color='red', marker='o', alpha=0.5)
+    # def fit_spec(self, z, nmf_toler=1.e-5, te_scale = 0.5, tilt_coeffs = [1]):
+    #     
+    #     ####
+    #     ######## Get template spectra at redshift, z
+    #     ####
+    # 
+    #     #### Full flattened template array
+    #     template_spec = np.zeros((self.phot.NTEMP, self.flux.shape[0]))
+    #     #### IGM factor
+    #     igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
+    #     #### Include both IGM and computed tilt
+    #     scale = igm_factor*polyval(tilt_coeffs, igmz)
+    #     #### Get full 2D template models
+    #     for i in range(self.phot.NTEMP):
+    #         self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale)
+    #         template_spec[i,:] = self.twod.model.flatten()
+    #             
+    #     #### Fit Non-negative coefficients
+    #     amatrix = utils_c.prepare_nmf_amatrix(self.spec_var[self.spec_use], template_spec[:,self.spec_use])
+    #     coeffs = utils_c.run_nmf(flux[self.spec_use], self.spec_var[self.spec_use], template_spec[:,self.spec_use], amatrix, toler=nmf_toler, MAXITER=1e6)
+    #     
+    #     #### Store results
+    #     self.spec_coeffs = coeffs
+    #     self.model_spec_full = np.dot(coeffs, self.phot.temp_seds.T)*igm_factor
+    #     self.model_spec = np.dot(coeffs, template_spec)        
+    #     
+    #     #### Chi2 of the fit
+    #     self.chi2_spec = np.sum(((flux-model_spec)**2/var)[self.spec_use])
+    # 
+    #     subregion = (np.diff(igmz) > 1) & (igmz[1:] > 1.e4) & (igmz[1:] < 1.8e4)
+    #     
+    #     x, y = igmz[1:][subregion], (model_spec_full/model_phot_full)[1:][subregion]
+    #     
+    #     from scipy import polyfit, polyval
+    #     p = polyfit(x, y, 6)
+    #     f = polyval(p, x)
+    #     plt.plot(x, f)
+    #     plt.plot(x, y)
+    #     
+    #     for i in range(self.phot.NTEMP):
+    #         self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*igm_factor*polyval(p, igmz))
+    #         template_spec[i,:] = self.twod.model.flatten()
+    #                                                  
+    #     #
+    #     amatrix = utils_c.prepare_nmf_amatrix(var[use], template_spec[:,use])
+    #     coeffs = utils_c.run_nmf(flux[use], var[use], template_spec[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
+    # 
+    #     model_spec2 = np.dot(coeffs, template_spec)        
+    #     
+    #     # model_spec = np.dot(coeffs, template_spec).reshape(self.twod.im['SCI'].data.shape)
+    #     # v2d = var.reshape(model_spec.shape)
+    #     # u2d = use.reshape(v2d.shape)
+    #     # f2d = flux.reshape(v2d.shape)
+    #     # 
+    #     # shifts = np.arange(-1,1,0.1)
+    #     # chi2 = shifts*0.
+    #     # for i in range(len(shifts)):
+    #     #     sh = nd.shift(model_spec, (shifts[i], 0))
+    #     #     chi2[i] = np.sum(((f2d-sh)**2/v2d)[u2d])
+    #     # 
+    #     # best_yshift = shifts[chi2 == chi2.min()][0]
+    #     # sh = nd.shift(model_spec, (best_yshift, 0))
+    #     # 
+    #     # flux = np.cast[float](nd.shift(self.twod.im['SCI'].data, (-best_yshift, 0))-self.twod.im['CONTAM'].data).flatten()
+    #     # coeffs = utils_c.run_nmf(flux[use], var[use], template_spec[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
+    #     # model_spec2 = np.dot(coeffs, template_spec).reshape(self.twod.im['SCI'].data.shape)
+    #     
+    #     
+    # def fit_at_z(self, z, nmf_toler=1.e-5, te_scale = 0.5):
+    #     
+    #     #### Template error
+    #     te_func = self.te.interpolate(lci, z)*te_scale
+    #     phot_var = self.efobs_fnu**2+(self.fobs_fnu*te_func)**2
+    #     
+    #     template_phot = self.phot.interpolate_photometry(z).reshape((self.phot.NFILT, self.phot.NTEMP)).T #[:-3,:]
+    #     
+    #     #tfull = self.phot.interpolate_photometry(zgrid)
+    #     #i = 148
+    #     #template_phot = tfull[:,:,i].reshape((self.phot.NFILT, self.phot.NTEMP)).T
+    #     
+    #     #### Fit the template to photometry
+    #     amatrix = utils_c.prepare_nmf_amatrix(var[use], template_phot[:,use])
+    #     coeffs = utils_c.run_nmf(fobs_fnu[use], var[use], template_phot[:,use], amatrix, toler=nmf_toler, MAXITER=1e6)
+    #     model_phot = np.dot(coeffs, template_phot)
+    #     igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
+    #     model_phot_full = np.dot(coeffs, self.phot.temp_seds.T)*igm_factor
+    #     
+    #     chi2 = np.sum((model_phot[use]-fobs_fnu[use])**2/var[use])
+    #     chi2_obs = np.sum((model_phot[use]-obs_sed[use])**2/var[use])
+    #     resid =  (model_phot[use]-fobs_fnu[use])/np.sqrt(var[use])
+    #     #print resid
+    #     return chi2
+    #     
+    #     #plt.errorbar(lci, fobs_fnu/(lci/5500.)**2, efobs_fnu/(lci/5500.)**2, color='blue')
+    #     # plt.errorbar(lci, model_phot-fobs_fnu, efobs_fnu, color='red', marker='o', alpha=0.5)
+    #     # plt.errorbar(lci, obs_sed*(lci/5500.)**2-fobs_fnu, efobs_fnu, color='green', marker='o', alpha=0.5)
+    #     plt.errorbar(lci, fobs_fnu, efobs_fnu, color='blue', marker='o', alpha=0.5)
+    #     plt.scatter(lci, obs_sed*(lci/5500.)**2, color='green', marker='o', alpha=0.5)
+    #     plt.scatter(lci, model_phot, color='red', marker='o', alpha=0.5)
         
 
     

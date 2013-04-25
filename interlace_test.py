@@ -251,7 +251,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.fitting_mask['both'][:self.phot.NFILT] |= self.phot_use
                    
         #
-        self.fit_zgrid = None
+        self.coeffs = np.ones(self.phot.NTEMP)
+        self.zgrid = None
         self.lnprob_spec = None
          
     def get_prior(self, zgrid):
@@ -405,7 +406,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         pz = -0.5*chi2
         pz -= pz.max()
         
-        self.fit_zgrid = zgrid*1.
+        self.zgrid = zgrid*1.
         self.lnprob_spec = pz*1.
         
         # plt.plot(zgrid, pz-pz.max())
@@ -419,7 +420,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
         #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
     
-    def new_fit_in_steps(self, zrfirst=[0.,3.8], dzfirst=0.005, dzsecond=0.0002, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
+    def new_fit_in_steps(self, zrfirst=[0.,3.8], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
         import scipy.ndimage as nd
         
         # self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=True, ignore_photometry=False)
@@ -428,15 +429,15 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### First loop through a coarser grid
         self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry)
-        self.fit_zgrid_first = self.fit_zgrid*1.
-        self.fit_lnprob_first = self.lnprob_spec+self.get_prior(self.fit_zgrid_first)
+        self.zgrid_first = self.zgrid*1.
+        self.fit_lnprob_first = self.lnprob_spec+self.get_prior(self.zgrid_first)
         self.fit_lnprob_first[0] = self.fit_lnprob_first[1]
         
         zsecond = self.ln_zgrid(zrfirst, dzsecond) #np.arange(zrfirst[0], zrfirst[1], dzsecond)
-        pzint = np.interp(zsecond, self.fit_zgrid_first, self.fit_lnprob_first)
+        pzint = np.interp(zsecond, self.zgrid_first, self.fit_lnprob_first)
         pzint -= pzint.max()
         
-        z_max = self.fit_zgrid_first[np.argmax(self.fit_lnprob_first)]
+        z_max = self.zgrid_first[np.argmax(self.fit_lnprob_first)]
         min_width = 0.003*(1+z_max)
         
         #### Smooth it with a gaussian
@@ -446,7 +447,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         sm = nd.convolve1d(np.exp(pzint), yg/yg.max(), mode='constant', cval=0.)
         
         #zsub = pzint > np.log(1.e-5)
-        zsub = (sm/sm.max()) > 1.e-4
+        zsub = (sm/sm.max()) > 1.e-3 ### 3.7 sigma 
         if zsub.sum() == 0:
             threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
             print pzint.max(), pzint.min(), self.fit_lnprob_first.max()
@@ -468,8 +469,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         sm = np.log(nd.convolve1d(np.exp(self.lnprob_spec), yg/yg.max(), mode='constant', cval=0.))
         self.lnprob_spec = sm-sm.max()
         
-        self.fit_zgrid_second = self.fit_zgrid*1.
-        self.fit_lnprob_second = self.lnprob_spec + self.get_prior(self.fit_zgrid_second)
+        self.zgrid_second = self.zgrid*1.
+        self.fit_lnprob_second = self.lnprob_spec + self.get_prior(self.zgrid_second)
         self.fit_lnprob_second[0] = self.fit_lnprob_second[1]
         
         if make_plot:
@@ -481,7 +482,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         from scipy import polyval
         
         if z_show is None:
-            self.z_show = self.fit_zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+            self.z_show = self.zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
         else:
             self.z_show = z_show
             
@@ -560,9 +561,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #### p(z)
         ax = fig.add_subplot(143)
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
-        if self.fit_zgrid is not None:
-            ax.plot(self.fit_zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.4)
-            ax.fill_between(self.fit_zgrid, np.exp(self.lnprob_spec), self.fit_zgrid*0., color='blue', alpha=0.2)
+        if self.zgrid is not None:
+            ax.plot(self.zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.4)
+            ax.fill_between(self.zgrid, np.exp(self.lnprob_spec), self.zgrid*0., color='blue', alpha=0.2)
             
         #ax.plot(zgrid1, np.exp(full_prob1), color='blue')
 
@@ -577,7 +578,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
                 ax.plot(zsp*np.array([1,1]), [0,1], color='red', alpha=0.9, linewidth=2)
 
         if self.dr < 1:
-            ax.set_xlim(np.min([self.fit_zgrid.min(), self.zout.l99[self.ix]]), np.max([self.fit_zgrid.max(), self.zout.u99[self.ix]]))
+            ax.set_xlim(np.min([self.zgrid.min(), self.zout.l99[self.ix]]), np.max([self.zgrid.max(), self.zout.u99[self.ix]]))
 
         ax.set_xlabel(r'$z$')
         ax.set_ylabel(r'$p(z)$')
@@ -672,7 +673,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ##
         #### Template error function
         te_func = self.te.interpolate(self.phot.lc, z)*te_scale
-        phot_var = self.phot_eflam**2+(self.phot_flam*np.max(te_func, 0.02))**2
+        phot_var = self.phot_eflam**2+(self.phot_flam*np.maximum(te_func, 0.025))**2
         full_variance[:self.phot.NFILT] += phot_var
         full_flux[:self.phot.NFILT] += self.phot_flam
         #### Interpolated template photometry

@@ -233,9 +233,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #### PHOTOMETRY
         ## best-fit EAZY SED
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
-        self.lc = lci
-        self.phot_flam = fobs
-        self.phot_eflam = efobs
+        self.lc = lci*1
+        self.phot_flam = fobs*1
+        self.phot_eflam = efobs*1
         #self.phot_fnu = fobs*(lci/5500.)**2
         #self.phot_efnu = efobs*(lci/5500.)**2
         self.phot_use = (fobs > -99) & (efobs > 0)
@@ -278,23 +278,60 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if z is None:
             z = self.z_peak
         
+        #### xxx new idea:  fit redshift grids separately to get good continua
+        self.new_fit_zgrid(dz=0.02, ignore_spectrum=False, ignore_photometry=True, zrange=[0.7, 1.5])
+        self.z_show = self.zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+        self.fit_combined(self.z_show, nmf_toler=1.e-7, te_scale = 0.5, ignore_photometry=True)
+        
+        model_spec = np.dot(self.coeffs, self.phot.temp_seds.T)
+        model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
+        model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        xf, yf = self.twod.optimal_extract(f2d)
+        xspec, yspec = self.twod.optimal_extract(model_spec_2D)
+        
+        #### xxx Doesn't work because don't have spectrum templates
+        self.new_fit_zgrid(dz=0.02, ignore_spectrum=True, ignore_photometry=False, zrange=[0.7, 1.5])
+        self.z_show = self.zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+        self.fit_combined(self.z_show, nmf_toler=1.e-7, te_scale = 0.5, ignore_spectrum=True)
+        
         igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
         self.tilt_coeffs = [1]
-         
+        
+        #### Only fit photometric filters around the spectrum
+        orig_errors = self.phot_eflam*1.
+        keep = (self.phot.lc > 1.e4) & (self.phot.lc < 1.7e4)
+        self.phot_eflam[~keep] = self.phot_flam[~keep]*100
+        
         self.fit_combined(z, nmf_toler=1.e-6, te_scale = 0.5, ignore_spectrum=True)
         model_phot = np.dot(self.coeffs, self.phot.temp_seds.T)
         model_phot_t = np.dot(self.coeffs, self.templates)
+        phot_coeffs = self.coeffs*1.
+        
+        #### restore photoemtric errors
+        self.phot_eflam = orig_errors*1.
+        
         #model_phot_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
         
         self.fit_combined(z, nmf_toler=1.e-7, te_scale = 0.5, ignore_photometry=True)
         model_spec = np.dot(self.coeffs, self.phot.temp_seds.T)
         model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
         model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        model_phot_2D = np.dot(phot_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        
+        ### 
+        # f2d = self.spec_flux.reshape(self.shape2D)
+        # xf, yf = self.twod.optimal_extract(f2d)
+        # xspec, yspec = self.twod.optimal_extract(model_spec_2D)
+        # xphot, yphot = self.twod.optimal_extract(model_phot_2D)
+        # xmod, ymod = self.twod.optimal_extract(model_both_2D)
         
         #### Compute the offset scaling
-        subregion = (np.diff(igmz) > 2) & (igmz[1:] > 1.e4) & (igmz[1:] < 1.8e4)
+        subregion = (igmz > 1.e4) & (igmz < 1.8e4)
+        subregion = subregion[1:] & (np.diff(igmz) > np.max(np.diff(igmz[subregion]))-5) 
         x, y = igmz[1:][subregion], (model_spec/model_phot)[1:][subregion]
-        
+        dy = np.append(0, np.diff(y))
+        sub2 = (dy >= np.percentile(dy, 2)) & (dy <= np.percentile(dy, 98))
+        x, y = x[sub2], y[sub2]
         self.tilt_coeffs = polyfit(x, y, order)
         
         # f = polyval(self.tilt_coeffs, x)
@@ -309,6 +346,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             model_both = np.dot(self.coeffs, self.phot.temp_seds.T)
             model_both_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
             model_both_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+            
+            f2d = self.spec_flux.reshape(self.shape2D)
+            xf, yf = self.twod.optimal_extract(f2d)
+            xspec, yspec = self.twod.optimal_extract(model_spec_2D)
+            xphot, yphot = self.twod.optimal_extract(model_phot_2D)
+            xmod, ymod = self.twod.optimal_extract(model_both_2D)
             
             fig = unicorn.plotting.plot_init(xs=6, aspect=1, square=True)
             
@@ -326,21 +369,28 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             for tab, xrange in zip([222, 212], [[1.0e4,1.75e4], [0.3e4, 8.e4]]):
                 ax = fig.add_subplot(tab)
                 lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
+                
                 ax.plot(lambdaz, temp_sed, color='blue')
-                ax.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
+                                
+                #### Observed photometry
                 ax.errorbar(self.phot.lc, self.phot_flam, self.phot_eflam, marker='o', color='purple', markersize=8, linestyle='None')
-                ax.plot(self.oned.lam, self.oned.flux, color='red')
+                
+                #### Observed spectrum
+                ax.plot(xf, yf/self.oned.sens, color='red')
                 ax.plot(igmz, model_spec/(1+z)**2, color='red')
-                w2d, f2d = self.twod.optimal_extract(model_spec_2D)
-                f2d /= self.oned.data.sensitivity
-                ax.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='red', linewidth=1)
+                
                 ax.scatter(self.phot.lc, model_spec_t, color='red', marker='s', s=50, alpha=0.5)
+                w2d, f2d = self.twod.optimal_extract(model_spec_2D)
+                ax.plot(w2d, f2d/self.oned.data.sensitivity, color='white', linewidth=2); plt.plot(w2d, f2d/self.oned.data.sensitivity, color='red', linewidth=1)
+                
+                #### Fit to photometry
                 ax.plot(igmz, model_phot/(1+z)**2, color='green')
                 ax.scatter(self.phot.lc, model_phot_t, color='green', marker='s', s=50, alpha=0.5)
 
                 #### Fit to both
                 ax.plot(igmz, model_both/(1+z)**2, color='black', alpha=0.4)
                 ax.scatter(self.phot.lc, model_both_t, color='black', marker='s', s=50, alpha=0.5)
+                ax.plot(xf, yf/self.oned.sens/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
                 w2d, f2d = self.twod.optimal_extract(model_both_2D)
                 f2d /= self.oned.data.sensitivity*polyval(self.tilt_coeffs, w2d)
                 ax.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='orange', linewidth=1)
@@ -486,7 +536,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         else:
             self.z_show = z_show
             
-        self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False)
+        if self.coeffs is None:
+            self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False)
+        
         self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_show)**2
         self.best_photom = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
         self.best_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
@@ -668,6 +720,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             full_variance = np.zeros(self.phot.NFILT+np.product(self.shape2D))
             full_flux = np.zeros(self.phot.NFILT+np.product(self.shape2D))
              
+        print np.sum(mask)
         
         ###### PHOTOMETRY
         ##

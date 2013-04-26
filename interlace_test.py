@@ -536,7 +536,63 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     plt.fill_between([zsp-0.003*(1+zsp), zsp+0.003*(1+zsp)], [-20,-20], [0.5,0.5], color='red', alpha=0.5)
         #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
         #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
-    
+
+    def new_fit_constrainted(self, zrfirst=[0.,4.0], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
+        import scipy.ndimage as nd
+        
+        #### First fit photometry only with the new line templates
+        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=True, ignore_photometry=False, apply_prior=False)
+        self.zgrid_first = self.zgrid*1.
+        self.lnprob_first_photom = self.lnprob_spec*1.
+
+        #### Now fit just the spectrum
+        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=False, ignore_photometry=True, apply_prior=False)
+        self.lnprob_first_spec = self.lnprob_spec*1.
+        
+        #### Total probability with the prior
+        lnprior = self.get_prior(self.zgrid_first)
+        self.lnprob_first_total = self.lnprob_first_photom + self.lnprob_first_spec + lnprior
+        self.lnprob_first_total -= self.lnprob_first_total.max()
+        
+        #### Smooth it
+        zsecond = self.ln_zgrid(zrfirst, dzsecond) #np.arange(zrfirst[0], zrfirst[1], dzsecond)
+        pzint_photom = np.interp(zsecond, self.zgrid_first, self.lnprob_first_photom)
+        pzint_photom -= pzint_photom.max()
+        pzint_total = np.interp(zsecond, self.zgrid_first, self.lnprob_first_total)
+        pzint_total -= pzint_total.max()
+        
+        z_max = self.zgrid_first[np.argmax(self.lnprob_first_total)]
+        min_width = 0.003*(1+z_max)
+        
+        #### Smooth it with a gaussian
+        wz = 0.015
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+        yg = np.exp(-xg**2/2/wz**2)
+        sm_photom = nd.convolve1d(np.exp(pzint_photom), yg, mode='constant', cval=0.)
+        sm_photom = np.log(sm_photom/sm_photom.max())
+        sm_total = nd.convolve1d(np.exp(pzint_total), yg, mode='constant', cval=0.)
+        sm_total = np.log(sm_total/sm_total.max())
+        
+        zsub = sm_total > np.log(1.e-4)
+        
+        #### Fit spectrum again on tighter grid
+        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=True, apply_prior=False)
+        self.zgrid_second = self.zgrid
+        self.lnprob_second_spec = self.lnprob_spec*1.
+        
+        #### Total probability with the prior
+        lnprior = self.get_prior(self.zgrid_second)
+        self.lnprob_second_photom = sm_photom[zsub]
+        self.lnprob_second_total = self.lnprob_second_photom + self.lnprob_second_spec + lnprior
+        self.lnprob_second_total -= self.lnprob_second_total.max()
+        
+        self.z_max_spec = self.zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+        
+        ### For plotting
+        self.lnprob_second = self.lnprob_second_total
+        if make_plot:
+            self.make_new_fit_figure(ignore_photometry=False, NO_GUI=False)
+        
     def new_fit_in_steps(self, zrfirst=[0.,4.0], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
         import scipy.ndimage as nd
         
@@ -579,7 +635,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         print 'Finer grid step: %.4f (%.4f,%.4f)\n\n' %(z_max, zrange.min(), zrange.max())
         
         #### Second loop over a finer grid
-        self.new_fit_zgrid(zrange=zrange, is_grid=True, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry)
+        #self.new_fit_zgrid(zrange=zrange, is_grid=True, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry)
+        self.new_fit_zgrid(zrange=zrange, is_grid=True, ignore_spectrum=ignore_spectrum, ignore_photometry=True)
         
         wz = 0.0005
         xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
@@ -592,10 +649,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.lnprob_second[0] = self.lnprob_second[1]
         
         if make_plot:
-            self.make_new_fit_figure()
+            self.make_new_fit_figure(ignore_photometry=True)
         
         
-    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True):
+    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False):
         
         from scipy import polyval
         
@@ -605,7 +662,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.z_show = z_show
             
         if (self.coeffs is None) | force_refit:
-            self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False)
+            self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum)
         
         #
         igmz, igm_factor = self.phot.get_IGM(self.z_show, matrix=False)

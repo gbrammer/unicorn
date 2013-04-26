@@ -554,11 +554,18 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141'):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001):
+    """
+    Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
+    The input lam_spec / flux_spec model is interpolated to the wavelength grid.  Need to 
+    smooth it by a factor at least of order 1 pixel to get emission lines right 
+    (smooth_binned_sigma)
+    """
     import threedhst.prep_flt_files
     import unicorn.reduce as red
     import threedhst.dq
+    import scipy.ndimage as nd
     #ds9 = threedhst.dq.myDS9()
     
     ## A star in COSMOS-15-F140W
@@ -698,8 +705,16 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         if (lam_spec is not None) & (flux_spec is not None):
             #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
             spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
+            
+            #### Smooth input model
+            # xg = np.arange(-5*smooth_binned_sigma, 5.1*smooth_binned_sigma, 1)
+            # yg = np.exp(-xg**2/2/smooth_binned_sigma**2)
+            # yg /= np.sum(yg)
+            # spec_interp = nd.convolve1d(spec_interp, yg)
+
             spec_interp[~np.isfinite(spec_interp)] = 0
             spec_interp[lam < np.min(lam_spec)] = 0
+            
             sens_interp *= spec_interp
         
         ##### Needed these factors when I was having unit problems and not including
@@ -1035,7 +1050,7 @@ class Interlace2D():
         
         self.model = self.object[self.yc+ypad:self.yc-ypad,xmin:xmax]
     
-    def compute_model(self, lam_spec=None, flux_spec=None):
+    def compute_model(self, lam_spec=None, flux_spec=None, smooth_binned_sigma=0.8):
         """
         The nuts and bolts were determined in init_model.  Now just provide 
         and input spectrum and compute the model
@@ -1051,7 +1066,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma)
         
         #print orders.shape
         
@@ -1962,7 +1977,7 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=328, grow=1, miny=50, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=False):
+    def twod_spectrum(self, id=328, grow=1, miny=50, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=False):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -1991,17 +2006,21 @@ class GrismModel():
         # NY = ypix[seg_mask].max()-ypix[seg_mask].min()
         # NX = xpix[seg_mask].max()-xpix[seg_mask].min()
         #### Use only contiguous segmentation region around center pixel
-        xmi, xma, ymi, yma = threedhst.utils.contiguous_extent(seg, xc, yc)
-        NX = np.maximum(xc-xmi, xma-xc) 
-        NY = np.maximum(yc-ymi, yma-yc) 
+        xmi, xma, ymi, yma = threedhst.utils.contiguous_extent(seg == id, xc, yc)
+        NX = np.maximum(xc-xmi, xma-xc)*2
+        NY = np.maximum(yc-ymi, yma-yc)*2
         
         NT = np.max([NY*grow, NX*grow, miny])
         if miny < 0:
             NT = -miny
-            
+        
         #NT = np.min([self.pad/2, NT])
                 
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
+
+        #### Maximum size
+        NT = np.min([NT, maxy])
+        #print '!!! NT: %d' %(NT)
         
         if verbose:
             print 'Generating direct image extensions'

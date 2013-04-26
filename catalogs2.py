@@ -433,7 +433,22 @@ class SpeczCatalog():
             self.source.append('ESO_%s' %(ESO_ID[survey]))
 
         self.catid.extend(eso.oid[keep])
-          
+        
+        #### Stern (in prep) from Teplitz et al. 2011
+        ### http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/AJ/141/1
+        print '\nGOODS-N/S Stern (in prep) from Teplitz. 2011\n'
+        stern = pyfits.open(sproot+'GOODS-South/teplitz_stern.fits')[1].data
+        
+        keep = stern['zsp'] > -0.1
+        N = keep.sum()
+        
+        self.ra.extend(stern['RAJ2000'][keep])
+        self.dec.extend(stern['DEJ2000'][keep])
+        self.zspec.extend(stern['zsp'][keep])
+        self.catqual.extend(np.array([1]*N))
+        self.source.extend(['Stern']*N)
+        self.catid.extend(stern['ID'][keep])
+        
         ################### UDS
         #### UDS website compilation
         print '\nUDS\n'
@@ -488,7 +503,7 @@ def read_catalogs(field='COSMOS', force=False, v20=False):
     zout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, root))
     fout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, root))
     rf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, root))
-    irf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.interrest.rfout' %(field, field, root))
+    #irf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.interrest.rfout' %(field, field, root))
 
     zfit = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
     lines = pyfits.open(PATH+'%s/%s_CATALOGS/%s.linefit.fits' %(field, field, field))[1].data
@@ -747,7 +762,7 @@ def view_selection(sel, OUTPUT='/tmp/selection.html', verbose=True, extra={}):
 
         fp.write("""
         <tr>
-            <td> <a href="%s">%s</a><br> %13.6f <br> %13.6f <br> %s <br> %s </td>
+            <td> <a href="%s">%s</a><br> %13.6f  %13.6f <br> %s <br> %s </td>
             <td> %5.1f </td>
             <td> %5.2f </td>
             <td> %5.2f </td>
@@ -1036,6 +1051,51 @@ def high_eqw():
     
     plt.xlabel(r'$\log M/M_\odot$')   
     plt.ylabel(r'12 + log O/H')
+
+def cdfs_lowz_for_s3_lines():
+    """
+    Added [SIII] lines at ~9000A to the emission line templates.  Check line ratios.
+    
+    1) Check objects with H-alpha lines at z~0.7 where could also have [SIII]
+    2) Check X-ray sources in CDFS with 0.22 < z_phot < 0.66
+
+    """    
+    import unicorn.catalogs2 as cat2
+    cat2.read_catalogs(field='GOODS-S')
+    
+    sn = cat2.lines.SIII_FLUX/cat2.lines.SIII_FLUX_ERR > 2
+    
+    cat2.view_selection(sn)
+    
+    import astropy.io.ascii
+    from astropy import coordinates as coord
+    table = astropy.io.ascii.read('/3DHST/Ancillary/GOODS-S/CDFS/paper100-cdfs-xue-table3.txt')
+    ra, dec = [], []
+    for i in range(len(table)):
+        rstr = '%0dh%02dm%02ds' %(table['RAh'][i], table['RAm'][i], table['RAs'][i])
+        destr = '-%0dd%02dm%02s' %(table['DEd'][i], table['DEm'][i], table['DEs'][i]*0.99)
+        rd = coord.ICRSCoordinates('%s %s' %(rstr, destr))
+        ra.append(rd.ra.degrees)
+        dec.append(rd.dec.degrees)
+    
+    ra, dec = np.array(ra), np.array(dec)
+    m = catIO.CoordinateMatcher(cat2.cat)
+    dr, ix = m.match_list(ra, dec)
+    ok = (dr < 4) & (cat2.zfit.z_max_spec[ix] > 0)
+    cat2.view_selection(ix[ok])
+    
+    ok = (cat2.zfit.z_max_spec > 0) & (cat2.zout.z_spec > 0.3) & (cat2.zout.z_spec < 0.7) & (cat2.cat.m140 < 21)
+    cat2.view_selection(ok)
+    
+    obj = 'GOODS-S-23_28004'; ii = np.arange(cat2.cat.N)[cat2.zfit.spec_id == obj][0];  model = unicorn.reduce.process_GrismModel(cat2.zfit.pointing[ii]); x = catIO.CoordinateMatcher({'ra': model.ra_wcs, 'dec':model.dec_wcs}); dr, ix = x.find_nearest(cat2.cat.ra[ii], cat2.cat.dec[ii]); id = model.objects[ix]; 
+    model.twod_spectrum(id, miny=25, USE_REFERENCE_THUMB=True); gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(model.root, id)); gris.fit_in_steps()
+    
+    obj = 'GOODS-S-23_28004'
+    gris = unicorn.interlace_fit.GrismSpectrumFit(obj, RELEASE=True, lowz_thresh=0.05); gris.fit_in_steps(); os.system('open refit/%s*fit*png' %(obj))
+    
+    # GOODS-S-10_08509
+    # GOODS-S-7_11762
+    # GOODS-S-7_13537
     
 def brown_dwarf():
     

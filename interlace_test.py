@@ -198,6 +198,33 @@ def rebin(xint, x, y, err):
             
     return xint, yint, yerr, narr
     
+def check_refit_redshifts():
+    import threedhst.catIO as catIO
+    import matplotlib.pyplot as plt
+    
+    os.system('echo "# id     mag     z_spec   z_old    z_new    z_source" > refit_redshifts.dat')    
+    os.system('cat *new_zfit*dat |grep -v "id" >> refit_redshifts.dat')
+     
+    z = catIO.Readfile('refit_redshifts.dat')
+    dz_old = (z.z_old-z.z_spec)/(1+z.z_spec)
+    dz_new = (z.z_new-z.z_spec)/(1+z.z_spec)
+    
+    ok = (z.mag < 24) & (np.abs(dz_old) < 0.1)
+    plt.scatter(z.z_spec[ok], dz_old[ok], marker='o', color='blue', alpha=0.5)
+    xm, ym, ys, yn = threedhst.utils.runmed(z.z_spec[ok], dz_old[ok], NBIN=20, use_median=True, use_nmad=True)
+    plt.plot(xm, ym, color='blue')
+    plt.plot(xm, ys, color='red')
+    plt.ylim(-0.1, 0.1); plt.xlim(0, 4)
+    plt.savefig('refit_old.png'); plt.close()
+    
+    ok = (z.mag < 24) & (np.abs(dz_new) < 0.1)
+    plt.scatter(z.z_spec[ok], dz_new[ok], marker='o', color='blue', alpha=0.5)
+    xm, ym, ys, yn = threedhst.utils.runmed(z.z_spec[ok], dz_new[ok], NBIN=20, use_median=True, use_nmad=True)
+    plt.plot(xm, ym, color='blue')
+    plt.plot(xm, ys, color='red')
+    plt.ylim(-0.1, 0.1); plt.xlim(0, 4)
+    plt.savefig('refit_new.png'); plt.close()
+    
     
 ###### New simultaneous redshift fitting
 def refit_specz_objects():
@@ -206,51 +233,63 @@ def refit_specz_objects():
     
     zsp = cat2.SpeczCatalog()
     
-    model = unicorn.reduce.process_GrismModel('GOODS-S-36')
+    models = glob.glob('*model.pkl')[::-1]
+    for model_file in models:
+        model = unicorn.reduce.process_GrismModel(model_file.split('_inter')[0])
     
-    dr, idx = zsp.match_list(model.ra_wcs, model.dec_wcs)
-    ok = dr < 0.3
-    ids = model.objects[ok]
-    mags = model.cat.mag[ok]
-    zspec = zsp.zspec[idx][ok]
-        
-    for i in range(ok.sum()):
-        id = model.objects[ok][i]
-        mag = model.cat.mag[ok][i]
-        zspec = zsp.zspec[idx][ok][i]
-        zsource = zsp.source[idx][ok][i]
-        #
-        model.twod_spectrum(id, miny=12, maxy=30, USE_REFERENCE_THUMB=True)
-        model.show_2d(savePNG=True)
-        #
-        if os.path.exists('%s_%05d.new_zfit.png' %(model.root, id)):
-            continue
-        #
-        self = test.SimultaneousFit('%s_%05d' %(model.root, id), RELEASE=False, p_flat=1.e-8, lowz_thresh=0.)
-        if (self.status is False):
-            continue
-        #
-        print ' '
-        fp = open('%s_%05d.new_zfit.dat' %(model.root, id),'w')
-        header = 'id     mag     z_spec   z_old    z_new    z_source\n'
-        fp.write(header)
-        #
-        self.zout.z_spec[self.ix] = zspec*1. 
-        #### New fit, spectrum+photometry
-        self.read_master_templates() # ; self.get_spectrum_tilt()
-        self.get_spectrum_tilt(fit_for_lines=True)
-        self.new_fit_in_steps(dzfirst=0.01, ignore_spectrum=False)
-        z_new = self.z_max_spec*1.
-        #### Old fit, spectrum separate
-        self.fit_in_steps()
-        z_old = self.z_max_spec*1.
-        #### Store results
-        log = '%05d  %.3f  %.5f  %.5f  %.5f  %s\n' %(id, mag, zspec, z_old, z_new, zsource)
-        print header+log
-        fp.write(log)
-        fp.close()
-    
-    zz = zsp.zspec[idx][model.objects == id]
+        dr, idx = zsp.match_list(model.ra_wcs, model.dec_wcs)
+        ok = dr < 0.3
+        ids = model.objects[ok]
+        mags = model.cat.mag[ok]
+        zspec = zsp.zspec[idx][ok]
+
+        for i in range(ok.sum()):
+            id = model.objects[ok][i]
+            mag = model.cat.mag[ok][i]
+            zspec = zsp.zspec[idx][ok][i]
+            zsource = zsp.source[idx][ok][i]
+            #
+            if os.path.exists('%s_%05d.new_zfit.png' %(model.root, id)):
+                print '%s_%05d.new_zfit.png' %(model.root, id)
+                continue
+            #
+            model.twod_spectrum(id, miny=12, maxy=20, USE_REFERENCE_THUMB=True)
+            model.show_2d(savePNG=True)
+            #
+            self = test.SimultaneousFit('%s_%05d' %(model.root, id), RELEASE=False, p_flat=1.e-8, lowz_thresh=0.)
+            if (self.status is False):
+                continue
+            #### Check for valid pixels
+            ngood = np.sum(self.twod.im['WHT'].data != 0, axis=0)
+            okpix = (ngood > 0) & (self.oned.lam > 1.1e4) & (self.oned.lam < 1.65e4)
+            if okpix.sum() < 10:
+                continue
+            #
+            print ' '
+            fp = open('%s_%05d.new_zfit.dat' %(model.root, id),'w')
+            header = 'id     mag     z_spec   z_old    z_new    z_source\n'
+            fp.write(header)
+            #
+            self.zout.z_spec[self.ix] = zspec*1. 
+            #### New fit, spectrum+photometry
+            status = self.read_master_templates() # ; self.get_spectrum_tilt()
+            if self.phot_use.sum() < 4:
+                fp.close()
+                continue
+            #self.get_spectrum_tilt(fit_for_lines=True)
+            #self.new_fit_in_steps(dzfirst=0.01, ignore_spectrum=False)
+            self.new_fit_constrained(dzfirst=0.005, ignore_spectrum=False)
+            z_new = self.z_max_spec*1.
+            #### Old fit, spectrum separate
+            self.fit_in_steps()
+            z_old = self.z_max_spec*1.
+            #### Store results
+            log = '%05d  %.3f  %.5f  %.5f  %.5f  %s\n' %(id, mag, zspec, z_old, z_new, zsource)
+            print header+log
+            fp.write(log)
+            fp.close()
+
+    #zz = zsp.zspec[idx][model.objects == id]
     
 class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
     def read_master_templates(self):
@@ -265,10 +304,15 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### Read template photometry
         #self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
-        self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot_lines = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot = self.phot_lines
         
         #### SPECTRUM
-        self.tilt_coeffs = [1]
+        self.poly_tilt_coeffs = [1]
+        self.beta_tilt_coeffs = [0]
+        self.tilt_function = self.beta_tilt
+
         self.shape2D = self.twod.im['SCI'].data.shape
         
         ## Flatten the 2D spectroscopic flux and variance arrays
@@ -276,6 +320,17 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
         var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
+        
+        #### Downweight edges of grism sensitivity
+        x = self.twod.im['WAVE'].data
+        dx = 200
+        #### G141
+        xlimit = [1.08e4, 1.67e4]
+        sens_weight = x*0.+0
+        sens_weight += np.minimum(np.exp(-(xlimit[0]-x)**2/2./dx**2), 1); sens_weight[x < xlimit[0]] = 1.
+        sens_weight += np.minimum(np.exp(-(xlimit[1]-x)**2/2./dx**2), 1); sens_weight[x > xlimit[1]] = 1.
+        var *= (np.ones((self.shape2D[0],1))*(1+sens_weight*2.)).flatten()
+        
         self.spec_var = var
         
         ## Flux
@@ -291,7 +346,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #self.phot_fnu = fobs*(lci/5500.)**2
         #self.phot_efnu = efobs*(lci/5500.)**2
         self.phot_use = (fobs > -99) & (efobs > 0)
-        
+
         #### Masks for fitting the photometry and/or spectra
         self.fitting_mask = {}
         self.fitting_mask['phot_only'] = self.phot_use
@@ -324,6 +379,22 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         return prior_pz
             
+    def poly_tilt(self, x):
+        """
+        Polynomial tilt scaling
+        """
+        from scipy import polyval
+        return polyval(self.poly_tilt_coeffs, x)
+    
+    def beta_tilt(self, x):
+        """
+        c = self.beta_tilt_coeffs
+        beta, alpha = c[0], np.exp(c[1])
+        Scaling = alpha * (x/1.e4)**beta
+        """
+        from scipy import polyval
+        return np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
+        
     def get_spectrum_tilt(self, z=None, make_figure=True, order=6, faint_limit=24, fit_for_lines=True, NO_GUI=True):
         from scipy import polyfit, polyval
         
@@ -336,7 +407,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             fit_for_lines=True
         
         if fit_for_lines:
-            self.new_fit_zgrid(dz=0.01, ignore_spectrum=False, ignore_photometry=False, zrange=[0.8, 1.45])
+            self.new_fit_zgrid(dz=0.01, ignore_spectrum=False, ignore_photometry=True, zrange=[1.19, 2.35], nmf_toler=1.e-7)
             z = self.z_max_spec
             
         #### xxx new idea:  fit redshift grids separately to get good continua
@@ -356,14 +427,15 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         # self.fit_combined(self.z_show, nmf_toler=1.e-7, te_scale = 0.5, ignore_spectrum=True)
         
         igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
-        self.tilt_coeffs = [1]
+        self.poly_tilt_coeffs = [1]
+        self.beta_tilt_coeffs = [0]
         
         #### Only fit photometric filters around the spectrum
         orig_errors = self.phot_eflam*1.
         keep = (self.phot.lc > 0.8e4) & (self.phot.lc < 2.7e4)
         self.phot_eflam[~keep] = self.phot_flam[~keep]*100
         
-        self.fit_combined(z, nmf_toler=1.e-6, te_scale = 0.5, ignore_spectrum=True)
+        self.fit_combined(z, nmf_toler=1.e-8, te_scale = 0.5, ignore_spectrum=True)
         model_phot = np.dot(self.coeffs, self.phot.temp_seds.T)
         model_phot_t = np.dot(self.coeffs, self.templates)
         phot_coeffs = self.coeffs*1.
@@ -373,7 +445,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #model_phot_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(selfse2D)
         
-        self.fit_combined(z, nmf_toler=1.e-7, te_scale = 0.5, ignore_photometry=True)
+        self.fit_combined(z, nmf_toler=1.e-9, te_scale = 0.5, ignore_photometry=True)
         model_spec = np.dot(self.coeffs, self.phot.temp_seds.T)
         model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
         model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
@@ -387,13 +459,15 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         # xmod, ymod = self.twod.optimal_extract(model_both_2D)
         
         #### Compute the offset scaling
-        subregion = (igmz > 1.e4) & (igmz < 1.8e4)
+        subregion = (igmz > 1.1e4) & (igmz < 1.6e4)
         subregion = subregion[1:] & (np.diff(igmz) > np.percentile(np.diff(igmz[subregion]), 80.)-5) & (np.diff(igmz) > 5) 
         x, y = igmz[1:][subregion], (model_spec/model_phot)[1:][subregion]
         dy = np.append(0, np.diff(y))
         sub2 = (dy >= np.percentile(dy, 2)) & (dy <= np.percentile(dy, 98))
         x, y = x[sub2], y[sub2]
-        self.tilt_coeffs = polyfit(x, y, order)
+        self.poly_tilt_coeffs = polyfit(x, y, order)
+        self.beta_tilt_coeffs = polyfit(np.log(x/1.4e4), np.log(y), 1)
+        #ybeta = np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
         
         # f = polyval(self.tilt_coeffs, x)
         # plt.plot(x, f)
@@ -417,7 +491,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             fig = unicorn.plotting.plot_init(xs=8, aspect=0.4, square=True, NO_GUI=NO_GUI, left=0.18)
             
             ax = fig.add_subplot(121)
-            f = polyval(self.tilt_coeffs, x)
+            f = self.tilt_function(x)
             s = np.interp(1.4e4, x, f)
             ax.plot(x/1.e4, y, color='black', linewidth=4)
             ax.plot(x/1.e4, f, color='white', linewidth=2, alpha=0.5)
@@ -451,9 +525,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             #### Fit to both
             ax.plot(igmz, model_both/(1+z)**2, color='black', alpha=0.4)
             ax.scatter(self.phot.lc, model_both_t, color='black', marker='s', s=50, alpha=0.5)
-            ax.plot(xf, yf/self.oned.sens/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
+            ax.plot(xf, yf/self.oned.sens/self.tilt_function(self.oned.lam), color='orange')
             w2d, f2d = self.twod.optimal_extract(model_both_2D)
-            f2d /= self.oned.data.sensitivity*polyval(self.tilt_coeffs, w2d)
+            f2d /= self.oned.data.sensitivity*self.tilt_function(w2d)
             ax.plot(w2d, f2d, color='white', linewidth=2); ax.plot(w2d, f2d, color='orange', linewidth=1)
             
             ax.set_xlim(0.8e4, 1.9e4)
@@ -479,13 +553,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         plt.plot(igmz, model_both/(1+z)**2, color='black', alpha=0.4)
         plt.scatter(self.phot.lc, model_both_t, color='black', marker='s', s=50, alpha=0.5)
         w2d, f2d = self.twod.optimal_extract(model_both_2D)
-        f2d /= self.oned.data.sensitivity*polyval(self.tilt_coeffs, w2d)
+        f2d /= self.oned.data.sensitivity*self.tilt_function(w2d)
         plt.plot(w2d, f2d, color='white', linewidth=2); plt.plot(w2d, f2d, color='orange', linewidth=1)
         
         ### Make diagnostic plot, separate function
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
         plt.plot(lambdaz, temp_sed, color='blue')
-        plt.plot(self.oned.lam, self.oned.flux/polyval(self.tilt_coeffs, self.oned.lam), color='orange')
+        plt.plot(self.oned.lam, self.oned.flux/self.tilt_function(self.oned.lam), color='orange')
         plt.plot(self.oned.lam, self.oned.flux, color='red')
         plt.plot(igmz, model_spec/(1+z)**2, color='red')
         w2d, f2d = self.twod.optimal_extract(model_spec_2D)
@@ -503,7 +577,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         zgrid = np.exp(np.arange(np.log(1.0+zrange[0]), np.log(1.+zrange[1]), dz))-1
         return zgrid
         
-    def new_fit_zgrid(self, zrange=[0,4], dz=0.001, ignore_photometry=False, ignore_spectrum=False, is_grid=False, apply_prior=True):
+    def new_fit_zgrid(self, zrange=[0,4], dz=0.001, ignore_photometry=False, ignore_spectrum=False, is_grid=False, apply_prior=True, nmf_toler=1.e-6, refit_norm=False):
         
         if is_grid:
             zgrid = zrange
@@ -512,7 +586,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         chi2 = zgrid*0.+1.e6
         for i in range(len(zgrid)):
-            chi2[i] = self.fit_combined(zgrid[i], nmf_toler=1.e-6, te_scale = 0.5, get_chi2=True, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum)
+            chi2[i] = self.fit_combined(zgrid[i], nmf_toler=nmf_toler, te_scale = 0.5, get_chi2=True, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum, refit_norm=refit_norm)
             print unicorn.noNewLine+'%.4f  %.4e  [%.4f]' %(zgrid[i], chi2[i], zgrid[np.argmin(chi2)])
             #chi2[i] = self.fit_at_z(zgrid[i], nmf_toler=1.e-5, te_scale = 0.5)
                         
@@ -537,17 +611,28 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
         #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
 
-    def new_fit_constrainted(self, zrfirst=[0.,4.0], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
+    def new_fit_constrained(self, zrfirst=[0.,4.0], dzfirst=0.005, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True):
         import scipy.ndimage as nd
         
+        print '\n First run: photometry alone \n'
         #### First fit photometry only with the new line templates
-        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=True, ignore_photometry=False, apply_prior=False)
+        #self.phot = self.phot_eazy
+        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=True, ignore_photometry=False, apply_prior=False, nmf_toler=1.e-5)
         self.zgrid_first = self.zgrid*1.
-        self.lnprob_first_photom = self.lnprob_spec*1.
-
+        self.lnprob_first_photom = self.lnprob_spec*1. #/1
+        self.phot_zgrid = self.zgrid_first
+        self.phot_lnprob = self.lnprob_spec*1.
+        
         #### Now fit just the spectrum
-        self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=False, ignore_photometry=True, apply_prior=False)
-        self.lnprob_first_spec = self.lnprob_spec*1.
+        
+        self.phot = self.phot_lines
+        print '\n Second run: spectrum alone \n'
+        #self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=False, ignore_photometry=True, apply_prior=False, nmf_toler=1.e-5)
+        #self.lnprob_first_spec = self.lnprob_spec*1.
+        keep = self.phot_lnprob > -200
+        self.new_fit_zgrid(zrange=self.zgrid_first[keep], is_grid=True, ignore_spectrum=False, ignore_photometry=True, apply_prior=False, nmf_toler=1.e-5)
+        self.lnprob_first_spec = self.phot_lnprob*0.-200
+        self.lnprob_first_spec[keep] = self.lnprob_spec*1.
         
         #### Total probability with the prior
         lnprior = self.get_prior(self.zgrid_first)
@@ -562,6 +647,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         pzint_total -= pzint_total.max()
         
         z_max = self.zgrid_first[np.argmax(self.lnprob_first_total)]
+        if get_tilt:
+            self.get_spectrum_tilt(z_max, fit_for_lines=False, NO_GUI=True)
+        
         min_width = 0.003*(1+z_max)
         
         #### Smooth it with a gaussian
@@ -573,25 +661,63 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         sm_total = nd.convolve1d(np.exp(pzint_total), yg, mode='constant', cval=0.)
         sm_total = np.log(sm_total/sm_total.max())
         
-        zsub = sm_total > np.log(1.e-4)
+        zsub = sm_total > np.log(5.e-4)
         
-        #### Fit spectrum again on tighter grid
-        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=True, apply_prior=False)
+        #### Fit spectrum again on finer grid
+        print '\n Last run: photometry alone, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
+        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=False, apply_prior=False, refit_norm=False)
         self.zgrid_second = self.zgrid
         self.lnprob_second_spec = self.lnprob_spec*1.
+        
+        #### Smooth it with a gaussian
+        wz = 0.0005
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+        yg = np.exp(-xg**2/2/wz**2)
+        sm_spec = nd.convolve1d(np.exp(self.lnprob_second_spec*1.), yg, mode='constant', cval=0.)
+        self.lnprob_second_spec = np.log(sm_spec/sm_spec.max())
         
         #### Total probability with the prior
         lnprior = self.get_prior(self.zgrid_second)
         self.lnprob_second_photom = sm_photom[zsub]
-        self.lnprob_second_total = self.lnprob_second_photom + self.lnprob_second_spec + lnprior
+        self.lnprob_second_total = self.lnprob_second_photom*0 + self.lnprob_second_spec + lnprior
         self.lnprob_second_total -= self.lnprob_second_total.max()
         
-        self.z_max_spec = self.zgrid[self.lnprob_spec == self.lnprob_spec.max()][0]
+        self.z_max_spec = self.zgrid[np.argmax(self.lnprob_second_total)]
+        
+        self.norm_prob = np.exp(self.lnprob_second_total) / np.trapz(np.exp(self.lnprob_second_total), self.zgrid_second)
+        self.z_peak_spec = np.trapz(self.zgrid_second*self.norm_prob, self.zgrid_second)
+        self.pzsum = np.cumsum(self.norm_prob[1:]*np.diff(self.zgrid_second))
+        self.c68 = np.interp([0.16,0.84], self.pzsum, self.zgrid_second[1:])
+        self.c95 = np.interp([0.025,0.975], self.pzsum, self.zgrid_second[1:])
         
         ### For plotting
-        self.lnprob_second = self.lnprob_second_total
+        self.lnprob_spec = self.lnprob_second_total*1.
         if make_plot:
-            self.make_new_fit_figure(ignore_photometry=False, NO_GUI=False)
+            self.make_new_fit_figure(ignore_photometry=False, NO_GUI=True, log_pz=True)
+            self.new_save_fits()
+            
+    #
+    def new_save_fits(self):
+        import pyfits
+        header = pyfits.Header()
+        if self.skip_photometric:
+            header.update('PHOTID', -1)
+        else:
+            header.update('PHOTID', self.cat.id[self.ix], comment='ID in %s' %(os.path.basename(self.cat.filename)))
+        header.update('GRISID', self.grism_id, comment='Grism ID')
+        
+        hdu = [pyfits.PrimaryHDU(header=header)]
+
+        #hdu.append(pyfits.ImageHDU(data=self.phot_zgrid, name='PZGRID'))
+        #hdu.append(pyfits.ImageHDU(data=self.phot_lnprob, name='LN_PZ_PROB'))
+                
+        hdu.append(pyfits.ImageHDU(data=self.zgrid_first, name='ZGRID0'))
+        hdu.append(pyfits.ImageHDU(data=self.lnprob_first_photom, name='LNP_PHOT_0'))
+        hdu.append(pyfits.ImageHDU(data=self.lnprob_first_spec, name='LNP_SPEC_0'))
+        hdu.append(pyfits.ImageHDU(data=self.zgrid_second, name='ZGRID1'))
+        hdu.append(pyfits.ImageHDU(data=self.lnprob_second_spec, name='LNP_BOTH_1'))
+        hduList = pyfits.HDUList(hdu)
+        hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.pz.fits', clobber=True, output_verify='silentfix')
         
     def new_fit_in_steps(self, zrfirst=[0.,4.0], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
         import scipy.ndimage as nd
@@ -652,7 +778,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.make_new_fit_figure(ignore_photometry=True)
         
         
-    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False):
+    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False, log_pz=True):
         
         from scipy import polyval
         
@@ -746,7 +872,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
         if self.zgrid is not None:
             ax.plot(self.zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.4)
-            ax.fill_between(self.zgrid, np.exp(self.lnprob_spec), self.zgrid*0., color='blue', alpha=0.2)
+            ax.fill_between(self.zgrid, np.exp(self.lnprob_spec), np.exp(self.lnprob_spec)*1.e-5, color='blue', alpha=0.2)
             
         #ax.plot(zgrid1, np.exp(full_prob1), color='blue')
 
@@ -758,11 +884,17 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if not self.skip_photometric:
             zsp = self.zout.z_spec[self.ix]
             if zsp > 0:
-                ax.plot(zsp*np.array([1,1]), [0,1], color='red', alpha=0.9, linewidth=2)
-
+                ax.plot(zsp*np.array([1,1]), [1.e-8,1], color='red', alpha=0.7, linewidth=1)
+        
+        self.z_spec = zsp
+        
         if self.dr < 1:
             ax.set_xlim(np.min([self.zgrid.min(), self.zout.l99[self.ix]]), np.max([self.zgrid.max(), self.zout.u99[self.ix]]))
-
+        
+        if log_pz:
+            ax.set_ylim(1.e-3, 1)
+            ax.semilogy()
+            
         ax.set_xlabel(r'$z$')
         ax.set_ylabel(r'$p(z)$')
         ax.set_yticklabels([])
@@ -808,10 +940,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         ax.errorbar(lci, fobs*scale, efobs*scale, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
        # ax.plot(self.oned.data.wave, flux_spec*anorm/polyval(self.tilt_coeffs, self.oned.data.wave)*s, color='red', alpha=0.3)
-        ax.plot(self.oned.data.wave, flux_spec*anorm/polyval(self.tilt_coeffs, self.oned.data.wave), color='red', alpha=0.3)
+        ax.plot(self.oned.data.wave, flux_spec*anorm/self.tilt_function(self.oned.data.wave), color='red', alpha=0.3)
         bin = 4
         binned = unicorn.utils_c.interp_conserve(self.oned.data.wave[::4], self.oned.data.wave, flux_spec)
-        ax.plot(self.oned.data.wave[::4], binned/polyval(self.tilt_coeffs, self.oned.data.wave[::4]), color='red', alpha=0.7)
+        ax.plot(self.oned.data.wave[::4], binned/self.tilt_function(self.oned.data.wave[::4]), color='red', alpha=0.7)
         
         ax.set_xlabel(r'$\lambda$')
         ax.set_ylabel(r'$f_\lambda$')
@@ -829,8 +961,75 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### Save the result to a file
         unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.%s' %(self.FIGURE_FORMAT))
+    
+    def emcee_fit(self, NWALKERS=50, NSTEP=100, verbose=True):
+        """
+        Fit redshift / tilt with emcee
+        """
+        import time
+        import emcee
         
-    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False):
+        #### Get a probability distribution for the redshift
+        self.new_fit_constrained(dzfirst=0.01, dzsecond=0.001)
+        
+        ### Draw z from p(z)
+        soften = 3.
+        pz = np.exp(self.lnprob_second_spec/soften)
+        pzsum = np.cumsum(pz[1:]*np.diff(self.zgrid_second))/np.trapz(pz, self.zgrid_second)
+        z_draw = [np.interp(np.random.rand(), pzsum, self.zgrid_second[1:]) for i in range(NWALKERS)]
+        
+        #### normalization
+        b0 = [self.beta_tilt_coeffs[0]+np.random.normal()*0.3 for i in range(NWALKERS)]
+        b1 = [self.beta_tilt_coeffs[1]+np.random.normal()*0.1 for i in range(NWALKERS)]
+        p0 = np.array([z_draw,b0,b1]).T
+        
+        obj_fun = self._objective_combined
+        obj_args = [self]
+        NTHREADS=1
+        ndim = 3
+        
+        if verbose:
+            print 'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d)' %(NWALKERS, NSTEP)
+            t0 = time.time()
+        
+        self.sampler = emcee.EnsembleSampler(NWALKERS, ndim, obj_fun, threads=NTHREADS, args=obj_args)
+        result = self.sampler.run_mcmc(p0, NSTEP)
+        
+        param_names = ['z', 'b0', 'b1']
+        self.chain = unicorn.interlace_fit.emceeChain(chain=self.sampler.chain, param_names = param_names)
+        
+        if verbose:
+            print unicorn.noNewLine+'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d) -> Done (%.1f s).  Make plot...' %(NWALKERS, NSTEP, time.time()-t0)
+        
+        yh, xh = np.histogram(self.chain['z'].flatten(), bins=20)
+        self.zgrid = 0.5*(xh[1:]+xh[:-1])
+        self.lnprob_spec = np.log(np.maximum(yh*1./yh.max(), 0.1/yh.max()))
+        self.make_new_fit_figure(self.chain.median[0], ignore_photometry=False, NO_GUI=True, log_pz=True)
+        
+        ### test
+        p = self.chain.draw_random(N=100)
+        x = np.arange(1.1e4, 1.7e4, 100)
+        for i in range(N):
+            self.beta_tilt_coeffs = p[i,1:3]
+            plt.plot(x, self.tilt_function(x))
+            
+    @staticmethod
+    def _objective_combined(params, self):
+        """
+        Objective for emcee fit
+        """
+        z = params[0]
+        if z <= 0.01:
+            return -1.e10
+            
+        self.beta_tilt_coeffs = params[1:3]
+        print params
+        chi2 = self.fit_combined(z, nmf_toler=1.e-4, te_scale=0.5, ignore_spectrum=False, ignore_photometry=True, get_chi2=True, refit_norm=False, init_coeffs = None)
+        print unicorn.noNewLine, params, -0.5*chi2
+        
+        return -0.5*chi2
+        
+    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None):
         """
         
         Fit the spectrum AND the photometry at redshift, z
@@ -868,7 +1067,6 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.templates = np.zeros((self.phot.NTEMP, self.phot.NFILT+np.product(self.shape2D)))
             full_variance = np.zeros(self.phot.NFILT+np.product(self.shape2D))
             full_flux = np.zeros(self.phot.NFILT+np.product(self.shape2D))
-             
         #print np.sum(mask)
         
         ###### PHOTOMETRY
@@ -881,13 +1079,17 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #### Interpolated template photometry
         self.templates[:, :self.phot.NFILT] = self.phot.interpolate_photometry(z).reshape((self.phot.NFILT, self.phot.NTEMP)).T
         
+        #### Get normalization at grid point
+        if refit_norm:
+            self.get_spectrum_tilt(z, fit_for_lines=False, NO_GUI=False, make_figure=False)
+            
         ###### SPECTRUM
         ##
         #### IGM factor
         if not ignore_spectrum:
             igmz, igm_factor = self.phot.get_IGM(z, matrix=False)
             #### Include both IGM and computed tilt
-            scale = igm_factor*polyval(self.tilt_coeffs, igmz)/(1+z)**2
+            scale = igm_factor*self.tilt_function(igmz)/(1+z)**2
             #### Get full 2D template models
             for i in range(self.phot.NTEMP):
                 self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale/self.twod.total_flux)
@@ -897,8 +1099,14 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             full_flux[self.phot.NFILT:] += self.spec_flux
             
         #### Fit Non-negative coefficients
+        #### Need to seed the dusty template coefficient with a small number
+        if init_coeffs is None:
+            init_coeffs = np.ones(self.phot.NTEMP)
+            if self.phot.NTEMP == 10:
+                init_coeffs[-3:] *= 1.e-12
+        
         amatrix = utils_c.prepare_nmf_amatrix(full_variance[mask], self.templates[:,mask])
-        self.coeffs = utils_c.run_nmf(full_flux[mask], full_variance[mask], self.templates[:,mask], amatrix, toler=nmf_toler, MAXITER=1e6)
+        self.coeffs = utils_c.run_nmf(full_flux[mask], full_variance[mask], self.templates[:,mask], amatrix, toler=nmf_toler, MAXITER=1e6, init_coeffs=init_coeffs)
         
         #### Chi2 of the fit
         if get_chi2:

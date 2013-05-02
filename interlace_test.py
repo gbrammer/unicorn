@@ -233,7 +233,7 @@ def refit_specz_objects():
     
     zsp = cat2.SpeczCatalog()
     
-    models = glob.glob('*model.pkl')[::-1]
+    models = glob.glob('*model.pkl')#[::-1]
     for model_file in models:
         model = unicorn.reduce.process_GrismModel(model_file.split('_inter')[0])
     
@@ -280,6 +280,8 @@ def refit_specz_objects():
             #self.new_fit_in_steps(dzfirst=0.01, ignore_spectrum=False)
             self.new_fit_constrained(dzfirst=0.005, ignore_spectrum=False)
             z_new = self.z_max_spec*1.
+            #### EMCEE fit
+            self.emcee_fit(NWALKERS=20)
             #### Old fit, spectrum separate
             self.fit_in_steps()
             z_old = self.z_max_spec*1.
@@ -325,7 +327,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         x = self.twod.im['WAVE'].data
         dx = 200
         #### G141
-        xlimit = [1.08e4, 1.67e4]
+        xlimit = [1.07e4, 1.68e4]
         sens_weight = x*0.+0
         sens_weight += np.minimum(np.exp(-(xlimit[0]-x)**2/2./dx**2), 1); sens_weight[x < xlimit[0]] = 1.
         sens_weight += np.minimum(np.exp(-(xlimit[1]-x)**2/2./dx**2), 1); sens_weight[x > xlimit[1]] = 1.
@@ -356,28 +358,35 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         self.fitting_mask['both'] = np.zeros(self.phot.NFILT + np.size(self.spec_flux), dtype=np.bool) | self.fitting_mask['spec_only']
         self.fitting_mask['both'][:self.phot.NFILT] |= self.phot_use
-                   
+         
+        self.initialize_prior()          
         #
         self.coeffs = np.ones(self.phot.NTEMP)
         self.zgrid = None
         self.lnprob_spec = None
          
-    def get_prior(self, zgrid):
+    def initialize_prior(self):
         """
         Get EAZY apparent mag prior
         """
+        from scipy import interpolate
+        
         prior = open('%s/data/prior_K_zmax7_coeff.dat' %(os.path.dirname(threedhst.__file__))).readlines()
         prior_mag = np.cast[float](prior[0].split()[2:])
         prior_z0 = np.cast[float](prior[1].split()[1:])
         prior_gamma = np.cast[float](prior[2].split()[1:])
+        
         z0 = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_z0, left=prior_z0[0], right=prior_z0[-1])
         gamma = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_gamma, left=prior_gamma[0], right=prior_gamma[-1])
         
+        zgrid = self.ln_zgrid(zrange=[0,10], dz=0.01)
         prior_pz = np.log(zgrid**gamma * np.exp(-(zgrid / z0)**gamma))
-        prior_pz[~np.isfinite(prior_pz)] = -300
-        prior_pz -= prior_pz.max()
+        prior_pz[0] = prior_pz[1]-10
+        prior_pz -= np.log(np.trapz(np.exp(prior_pz), zgrid)) #prior_pz.max()
         
-        return prior_pz
+        self.get_prior = interpolate.InterpolatedUnivariateSpline(zgrid, prior_pz)
+        
+        #return prior_pz
             
     def poly_tilt(self, x):
         """
@@ -468,7 +477,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.poly_tilt_coeffs = polyfit(x, y, order)
         self.beta_tilt_coeffs = polyfit(np.log(x/1.4e4), np.log(y), 1)
         #ybeta = np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
-        
+        if np.isfinite(self.beta_tilt_coeffs).sum() != 2:
+            self.beta_tilt_coeffs = [0,0]
+            
         # f = polyval(self.tilt_coeffs, x)
         # plt.plot(x, f)
         # plt.plot(x, y)
@@ -778,7 +789,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.make_new_fit_figure(ignore_photometry=True)
         
         
-    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False, log_pz=True):
+    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False, log_pz=True, OUT_ROOT='new_zfit'):
         
         from scipy import polyval
         
@@ -960,9 +971,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #ax.set_xlim(0.8e4,2.e4)
         
         #### Save the result to a file
-        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.%s' %(self.FIGURE_FORMAT))
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.%s.%s' %(OUT_ROOT, self.FIGURE_FORMAT))
     
-    def emcee_fit(self, NWALKERS=50, NSTEP=100, verbose=True):
+    def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True):
         """
         Fit redshift / tilt with emcee
         """
@@ -970,7 +981,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         import emcee
         
         #### Get a probability distribution for the redshift
-        self.new_fit_constrained(dzfirst=0.01, dzsecond=0.001)
+        self.new_fit_constrained(dzfirst=0.01, dzsecond=0.001, make_plot=False)
         
         ### Draw z from p(z)
         soften = 3.
@@ -979,12 +990,16 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         z_draw = [np.interp(np.random.rand(), pzsum, self.zgrid_second[1:]) for i in range(NWALKERS)]
         
         #### normalization
-        b0 = [self.beta_tilt_coeffs[0]+np.random.normal()*0.3 for i in range(NWALKERS)]
-        b1 = [self.beta_tilt_coeffs[1]+np.random.normal()*0.1 for i in range(NWALKERS)]
+        b0 = [self.beta_tilt_coeffs[0]+np.random.normal()*1 for i in range(NWALKERS)]
+        b1 = [self.beta_tilt_coeffs[1]+np.random.normal()*0.2 for i in range(NWALKERS)]
         p0 = np.array([z_draw,b0,b1]).T
         
         obj_fun = self._objective_combined
-        obj_args = [self]
+        obj_args = [self, False, False] ## self, ignore_spectrum, ignore_photometry
+        # init_pz = np.zeros(NWALKERS)
+        # for i in range(NWALKERS):
+        #     init_pz[i] = obj_fun(p0[i,:], *obj_args)
+            
         NTHREADS=1
         ndim = 3
         
@@ -1001,20 +1016,22 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if verbose:
             print unicorn.noNewLine+'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d) -> Done (%.1f s).  Make plot...' %(NWALKERS, NSTEP, time.time()-t0)
         
-        yh, xh = np.histogram(self.chain['z'].flatten(), bins=20)
+        yh, xh = np.histogram(self.chain['z'].flatten(), bins=80)
         self.zgrid = 0.5*(xh[1:]+xh[:-1])
         self.lnprob_spec = np.log(np.maximum(yh*1./yh.max(), 0.1/yh.max()))
-        self.make_new_fit_figure(self.chain.median[0], ignore_photometry=False, NO_GUI=True, log_pz=True)
+        
+        self.make_new_fit_figure(self.chain.median[0], ignore_photometry=False, NO_GUI=True, log_pz=True, OUT_ROOT='new_zfit_chain')
+        self.chain.save_fits(file='%s.new_zfit_chain.fits' %(self.root))
         
         ### test
-        p = self.chain.draw_random(N=100)
-        x = np.arange(1.1e4, 1.7e4, 100)
-        for i in range(N):
-            self.beta_tilt_coeffs = p[i,1:3]
-            plt.plot(x, self.tilt_function(x))
+        # p = self.chain.draw_random(N=100)
+        # x = np.arange(1.1e4, 1.7e4, 100)
+        # for i in range(N):
+        #     self.beta_tilt_coeffs = p[i,1:3]
+        #     plt.plot(x, self.tilt_function(x))
             
     @staticmethod
-    def _objective_combined(params, self):
+    def _objective_combined(params, self, ignore_spectrum, ignore_photometry):
         """
         Objective for emcee fit
         """
@@ -1023,11 +1040,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             return -1.e10
             
         self.beta_tilt_coeffs = params[1:3]
-        print params
-        chi2 = self.fit_combined(z, nmf_toler=1.e-4, te_scale=0.5, ignore_spectrum=False, ignore_photometry=True, get_chi2=True, refit_norm=False, init_coeffs = None)
+        print unicorn.noNewLine, params
+        chi2 = self.fit_combined(z, nmf_toler=1.e-4, te_scale=0.5, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry, get_chi2=True, refit_norm=False, init_coeffs = None)
         print unicorn.noNewLine, params, -0.5*chi2
         
-        return -0.5*chi2
+        return -0.5*chi2+self.get_prior(z)[0]
         
     def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None):
         """

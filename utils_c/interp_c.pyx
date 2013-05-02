@@ -222,7 +222,7 @@ def prepare_nmf_amatrix(np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t
     return amatrix
     
 @cython.boundscheck(False)
-def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t, ndim=2] templates, np.ndarray[DTYPE_t, ndim=2] amatrix, double toler=1.e-4, long MAXITER=100000, verbose=False):
+def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t, ndim=2] templates, np.ndarray[DTYPE_t, ndim=2] amatrix, double toler=1.e-4, long MAXITER=100000, init_coeffs=1, verbose=False):
     """
     run_nmf(flux, variance, templates, amatrix, toler=1.e-4, MAXITER=100000, verbose=False)
     
@@ -257,7 +257,7 @@ def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] varian
             bvector[i]+=flux[k]*templates[i,k]/variance[k];
     
     #### Fit coefficients
-    cdef np.ndarray[DTYPE_t, ndim=1] coeffs = np.ones(NTEMP, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t, ndim=1] coeffs = np.ones(NTEMP, dtype=DTYPE)*init_coeffs
     tol = 100
 
     itcount=0;

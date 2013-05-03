@@ -290,6 +290,20 @@ def prepare():
     CATALOG = '../HUDF12/hudf12.cat'
     unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F160W', REFERENCE = '../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits', SEGM = '../HUDF12/hudf12_seg.fits', sci_extension=0)
     
+    ## Use new F140W image
+    REF_ROOT = 'HUDF12-F140W'
+    CATALOG = '../F140W/HUDF12-F140W.cat'
+    unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F140W', REFERENCE = '../F140W/HUDF12-F140W_drz_sci.fits', SEGM = '../F140W/HUDF12-F140W_seg.fits', sci_extension=0)
+    
+    ### Generate DRZ images
+    files=glob.glob('*F*asn.fits')
+    for file in files: 
+        threedhst.prep_flt_files.startMultidrizzle(file,
+                     use_shiftfile=True, skysub=False,
+                     final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                     updatewcs=False, clean=True, median=False)
+    
+        
     NGROW=125
     ROOT = 'PRIMO-1101'
     ROOT = 'GOODS-SOUTH-34'
@@ -297,15 +311,15 @@ def prepare():
         ROOT = 'GOODS-SOUTH-%d' %(p)
         unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = ROOT+'-F140W', NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine_blot(root=ROOT+'-F140W', view=False, pad=60+200*(ROOT=='PRIMO-1026'), REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, auto_offsets=True, NSEGPIX=3)
-        seg = pyfits.open(ROOT+'_inter_seg.fits', mode='update')
-        seg[0].data[seg[0].data < 0] = 0
-        seg.flush()
+        # seg = pyfits.open(ROOT+'_inter_seg.fits', mode='update')
+        # seg[0].data[seg[0].data < 0] = 0
+        # seg.flush()
         #
         unicorn.reduce.interlace_combine(root=ROOT+'-G141', view=False, pad=60+200*(ROOT=='PRIMO-1026'),  NGROW=NGROW, auto_offsets=True)
         unicorn.reduce.interlace_combine(root=ROOT+'-F140W', view=False, pad=60+200*(ROOT=='PRIMO-1026'),  NGROW=NGROW, auto_offsets=True)
         #
         ref = pyfits.open(ROOT+'_ref_inter.fits', mode='update')
-        ref[0].header['FILTER'] = 'F160W'
+        ref[0].header['FILTER'] = 'F140W'
         ref.flush()
     
     ### Shift 1026-G141 image right by 130 pixels 
@@ -319,10 +333,20 @@ def prepare():
     im[2].data = fill*1
     im.flush()
     
+    #### Shift 1101-G141 image down by 1 pixel
+    im = pyfits.open('PRIMO-1101-G141_inter.fits', mode='update')
+    fill = im[1].data*0
+    fill[100:-100,:] = im[1].data[101:-99,:]
+    im[1].data = fill*1
+    fill = im[2].data*0
+    fill[100:-100,:] = im[2].data[101:-99,:]
+    im[2].data = fill*1
+    im.flush()
+    
     if ROOT.startswith('PRIMO'):
         ref = pyfits.open(ROOT+'_ref_inter.fits')
         im140 = pyfits.open(ROOT+'-F140W_inter.fits', mode='update')
-        im140[0].header['FILTER'] = 'F160W'
+        im140[0].header['FILTER'] = 'F140W'
         im140[1].data = ref[1].data #/ 10**(-0.4*(26.46-25.96))
         #im140[2].data = im140[2].data # / 10**(-0.4*(26.46-25.96))
         im140.flush()
@@ -344,7 +368,37 @@ def prepare():
     
     #for p in [34,36,37,38]:
     #    ROOT = 'GOODS-SOUTH-%d' %(p)
-
+    
+    
+    ##### Extract all objects
+    c = threedhst.sex.mySexCat('../F140W/HUDF12-F140W.cat')
+    c.write(c.filename.replace('.cat','.reform.cat'), reformat_header=True)
+    c = catIO.Readfile('../F140W/HUDF12-F140W.reform.cat')
+    ok = c.mag_auto < 27.5
+    hudf.extract_all(c.number[ok], miny=-80)
+    
+    for id in c.number[ok]:
+        twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
+        ### temporary
+        if (len(twod) < 2) | os.path.exists('UDF_%05d_stack.png' %(id)):
+            continue
+        #
+        if len(twod) == 0:
+            try:
+                hudf.extract_all(id, miny=-80)
+                hudf.stack(id, dy=40, inverse=True)
+                hudf.fix_2d_background('UDF_%05d' %(id))
+            except:
+                pass
+        #
+        twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
+        ### Get just center of the trace
+        if len(twod) > 0:
+            try:
+                hudf.stack(id, dy=12, inverse=True)
+            except:
+                pass
+                
 def extract_dropouts():
     """
     Extract all targets from Ellis et al.
@@ -360,7 +414,7 @@ def extract_dropouts():
         hudf.stack(id,dy=30, inverse=True, fcontam=1.2)
         hudf.fix_2d_background('UDF_%05d' %(id), force=False)
             
-def extract_all(id=6818, fit=False, miny=-200, MAGLIMIT=28):
+def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     """
     Extract spectra from 3D-HST + CANDELS pointings
     """
@@ -371,21 +425,34 @@ def extract_all(id=6818, fit=False, miny=-200, MAGLIMIT=28):
         #if id not in model.objects:
         #    continue
         #
-        if id not in model.cat.id:
-            continue
+        if isinstance(id_extract, np.int):
+            ids = [id_extract]
+        else:
+            ids = id_extract
         
-        object_mag = model.cat['MAG_AUTO'][model.cat.id == id][0]
-        model.twod_spectrum(id, verbose=True, CONTAMINATING_MAGLIMIT=MAGLIMIT, miny=miny, USE_REFERENCE_THUMB=True, refine=object_mag < 23)
-        model.show_2d(savePNG=True, verbose=True)
-        oned = unicorn.reduce.Interlace1D(ROOT+'_%05d.1D.fits' %(id), PNG=True, flux_units=True)
-        if fit:
-            gris = unicorn.interlace_fit.GrismSpectrumFit(ROOT+'_%05d' %(id))
-            gris.fit_in_steps()
+        for id in ids:
+            if id not in model.cat.id:
+                continue
+            
+            if os.path.exists(ROOT+'_%05d.1D.fits' %(id)) & (not FORCE):
+                print 'Skip: %s_%05d' %(ROOT, id)
+                continue
+                
+            object_mag = model.cat['MAG_AUTO'][model.cat.id == id][0]
+            status = model.twod_spectrum(id, verbose=True, CONTAMINATING_MAGLIMIT=MAGLIMIT, miny=miny, USE_REFERENCE_THUMB=True, refine=object_mag < 23)
+            if status is False:
+                continue
+            #
+            model.show_2d(savePNG=True, verbose=True)
+            oned = unicorn.reduce.Interlace1D(ROOT+'_%05d.1D.fits' %(id), PNG=True, flux_units=True)
+            if fit:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(ROOT+'_%05d' %(id))
+                gris.fit_in_steps()
         
-    stack(id, dy=20, save=True, inverse=True)
+    #stack(id, dy=20, save=True, inverse=True)
     
 #
-def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0., ref_wave = 1.4e4, root='UDF'):
+def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF'):
     """
     Stack all UDF spectra for a given object ID
     """
@@ -458,15 +525,25 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0.
     diff = sum_flux-sum_contam
     if len(scale) == 0:
         scale = [scale, scale]
-    vmin, vmax = np.percentile(diff.flatten(), scale[0]), np.percentile(diff.flatten(), 100-scale[1])
-    if inverse:
-        vmin, vmax = -vmax, -vmin
+    
+    ok = (sum_var > 0) & (sum_flux != 0)
+    #return sum_flux, sum_contam, ok
+    if ok.sum() > 1:
+        #print 'xxx', scale
+        vmin, vmax = np.percentile(diff[ok].flatten(), scale[0]), np.percentile(diff[ok].flatten(), scale[1])
+    else:
+        vmin, vmax = -1,1
+        
+    # if inverse:
+    #     vmin, vmax = -vmax, -vmin
+    
+    #print ok.sum(), np.percentile(diff[ok].flatten(), [10,20,30]), vmin, vmax, scale
         
     #### Make the plot
     sh = sum_flux.shape
     aspect = (NF+2)*sh[0]*1./(3*sh[1])
-    fig = unicorn.plotting.plot_init(square=True, left=0.01, right=0.01, top=0.01, bottom=0.01, hspace=0.0, wspace=0.0, aspect=aspect, xs=10, NO_GUI=False)
-    
+    fig = unicorn.plotting.plot_init(square=True, left=0.01, right=0.01, top=0.01, bottom=0.01, hspace=0.0, wspace=0.0, aspect=aspect, xs=10, NO_GUI=True)
+
     counter = 4
     for i in range(NF):
         ax = fig.add_subplot(NF+2,3,counter); counter += 1
@@ -504,9 +581,9 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0.
     if save:
         outfile='%s_%05d_stack.png' %(root, id)
         print outfile
-        fig.savefig(outfile)
-        plt.close()
-        os.system('open %s' %(outfile))
+        unicorn.plotting.savefig(fig, outfile)
+        #plt.close()
+        #os.system('open %s' %(outfile))
     
     #
     # fig = unicorn.plotting.plot_init(square=True, left=0.1, right=0.01, top=0.01, bottom=0.1, hspace=0.0, wspace=0.0, aspect=1, xs=5, NO_GUI=False)
@@ -529,6 +606,9 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[0.5,0.01], fcontam=0.
     
     #
     udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root)
+    if udf.status is False:
+        return False
+    
     udf.go_stacks()
     udf.fix_oned_arrays()
     
@@ -577,7 +657,9 @@ class UDF():
         Read in 2D fits files and get information.
         """
         import scipy.ndimage as nd
-    
+        
+        self.status = False
+        
         NPIX = self.NPIX
         
         self.twod = []
@@ -602,7 +684,7 @@ class UDF():
             yarr = np.arange(im['SCI'].data.shape[0])
             ycenter = np.trapz(profile*yarr, yarr)/np.trapz(profile, yarr)
             cc = nd.correlate1d(profile, yref)
-            iy = yarr[cc == cc.max()]
+            iy = yarr[np.argmax(cc)]
             print 'CC:  %d' %(iy-im['SCI'].data.shape[0]/2)
             #self.y0[i] += iy-im['SCI'].data.shape[0]/2
             #self.y0[i] = ycenter
@@ -660,6 +742,10 @@ class UDF():
         #print 'DX: ', dx
         self.wave = nd.shift(im['WAVE'].data, dx)[:NX]
         ### Fix case when you have zeros in the wavelength grid after shifting
+        if (self.wave > 0).sum() == 0:
+            self.status = False
+            return False
+            
         if (self.wave == 0).sum() > 0:
             i0 = np.where(self.wave > 0)[0][0]
             delta = np.median(np.diff(self.wave))
@@ -681,7 +767,7 @@ class UDF():
         
         
         ### Profile figure
-        fig = unicorn.plotting.plot_init(square=True, left=0.1, right=0.01, top=0.01, bottom=0.1, hspace=0.0, wspace=0.0, aspect=1, xs=5, NO_GUI=False)
+        fig = unicorn.plotting.plot_init(square=True, left=0.1, right=0.01, top=0.01, bottom=0.1, hspace=0.0, wspace=0.0, aspect=1, xs=5, NO_GUI=True)
         ax = fig.add_subplot(111)
         for i in range(self.N):
             im = self.twod[i].im
@@ -693,8 +779,10 @@ class UDF():
 
         ax.legend(prop=dict(size=8), numpoints=1)
 
-        fig.savefig('profile.pdf')
-        plt.close()
+        #fig.savefig('profile.pdf')
+        unicorn.plotting.savefig(fig, 'profile.pdf')
+        #plt.close()
+        self.status = True
         
     def stack_spectra(self):
         """
@@ -2269,6 +2357,7 @@ def fix_2d_background(object = 'UDF_06001', force=False, clip=100):
     twod.im[0].header.update('BG_CY', chain.median[2])
         
     twod.im.writeto(twod.im.filename(), clobber='True')
+    twod.oned_spectrum()
     
 def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy=1, dx=0, model_params=[(1.4e4, 6.1e-18)], tex=False, ADD_MODEL=False, use_thumb_kernel=False, full_2d=False):
     """

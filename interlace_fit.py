@@ -286,7 +286,7 @@ class GrismSpectrumFit():
         if p_flat > 0:
             y0 = self.phot_zgrid*0.+np.log(p_flat/np.sum(np.diff(self.phot_zgrid)))
             y0[self.phot_lnprob < -200] = -200
-            self.phot_lnprob = np.maximum(self.phot_lnprob, y0)
+            self.phot_lnprob = np.maximum(self.phot_lnprob-self.phot_lnprob.max(), y0)
             norm  = np.trapz(np.exp(self.phot_lnprob), self.phot_zgrid)
             self.phot_lnprob -= np.log(norm)
             self.phot_linear = np.exp(self.phot_lnprob)
@@ -320,6 +320,10 @@ class GrismSpectrumFit():
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
         var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+        # 
+        # w2d = np.dot(np.ones((self.twod.im['CONTAM'].data.shape[0],1)), self.twod.im['WAVE'].data.reshape(1,-1)).flatten()
+        # var[w2d < 1.08e4] *= 10
+        # var[w2d > 1.68e4] *= 10
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
@@ -342,7 +346,7 @@ class GrismSpectrumFit():
         tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
         self.twod.compute_model(self.templam_nolines, tilt_blue)
         tilt_blue_model = self.twod.model*1.
-
+        #tilt_red_model = tilt_blue_model*1.
         #### Loop through redshift grid
         pmax = -1.e10
         zbest = 0
@@ -370,6 +374,9 @@ class GrismSpectrumFit():
 
             #### Put in the spectral templates
             templates[0,:] = continuum_model.flatten()
+            ### Don't use slope
+            # templates[2,:] = continuum_model.flatten()
+            # templates[3,:] = continuum_model.flatten()
             templates[1,:] = line_model.flatten()
             
             #### Second line template
@@ -415,7 +422,7 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.005, zrfirst = (0.01,6), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
+    def fit_in_steps(self, dzfirst=0.003, zrfirst = (0.00,3.8), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -424,6 +431,7 @@ class GrismSpectrumFit():
         
         If `make_plot` is set, make the diagnostic plot.
         """
+        import scipy.ndimage as nd
         zout = self.zout
 
         print '\n'
@@ -438,11 +446,20 @@ class GrismSpectrumFit():
         
         zgrid0, spec_lnprob0 = result
         
+        #### Smooth it with a gaussian???
+        wz = 0.004
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzfirst)
+        yg = 1./np.sqrt(2*np.pi*wz**2)*np.exp(-xg**2/2/wz**2)
+        sm = np.log(nd.convolve1d(np.exp(spec_lnprob0-spec_lnprob0.max()), yg/yg.sum(), mode='constant', cval=0.))
+        #spec_lnprob0 = (sm)
+        
         #### Interpolate the photometric p(z) to apply it as a prior
         phot_int0 = np.interp(zgrid0, self.phot_zgrid,  self.phot_lnprob, left=-1.e8, right=-1.e8)
         phot_int0[~np.isfinite(phot_int0)] = -1.e8
         full_prob0 = phot_int0 + spec_lnprob0 - spec_lnprob0.max()
         full_prob0 -= full_prob0.max()  ### normalize p_max = 1
+        
+        #print full_prob0, phot_int0, spec_lnprob0
         
         z_max = zgrid0[full_prob0 == full_prob0.max()][0]
         zsub = full_prob0 > np.log(1.e-10)
@@ -456,8 +473,15 @@ class GrismSpectrumFit():
             #zrange, dz = (z_max-width, z_max+width), dzsecond
             zsecond = np.arange(zrfirst[0], zrfirst[1], dzsecond)
             pzint = np.interp(zsecond, zgrid0, full_prob0)
+            #
+            #### Smooth it with a gaussian???
+            wz = 0.008
+            xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+            yg = np.exp(-xg**2/2/wz**2)
+            sm = np.log(nd.convolve1d(np.exp(pzint), yg/yg.sum(), mode='constant', cval=0.))
+            
             #zsub = pzint > np.log(1.e-5)
-            zsub = (pzint-pzint.max()) > np.log(1.e-4)
+            zsub = (sm-sm.max()) > np.log(1.e-5)
             if zsub.sum() == 0:
                 threedhst.showMessage('Something went wrong with the redshift grid...', warn=True)
                 print pzint.max(), pzint.min(), full_prob0.max()
@@ -478,7 +502,15 @@ class GrismSpectrumFit():
         phot_int1 = np.interp(zgrid1, self.phot_zgrid,  self.phot_lnprob)
         full_prob1 = phot_int1 + spec_lnprob1 - spec_lnprob1.max()
         full_prob1 -= full_prob1.max()
-
+        
+        #### Smooth the high resolution p(z) because otherwise get "ringing" behavior related
+        #### to the discrete input pixels
+        wz = 0.0005
+        xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
+        yg = np.exp(-xg**2/2./wz**2)
+        sm = np.log(nd.convolve1d(np.exp(full_prob1), yg/yg.sum(), mode='constant', cval=0.))
+        full_prob1 = sm-sm.max()
+        
         self.z_max_spec = zgrid1[full_prob1 == full_prob1.max()][0]
         
         #### Save results and make the diagnostic plot
@@ -501,6 +533,13 @@ class GrismSpectrumFit():
             self.make_spectrum_fits()
             
         return True
+        
+    def fit_mcmc():
+        """
+        Fit on a grid just fine enough to find lines.  Then run the MCMC sampler with lines
+        and continuum templates free
+        """
+        pass
         
     def save_results(self, verbose=True):
         """
@@ -803,7 +842,7 @@ class GrismSpectrumFit():
         #z_peaks = zgrid[1:-1][(full_prob[1:-1] > np.log(0.05)) & (np.diff(full_prob,2) < 0)]
         #zrange, dz = (z_peaks[0]-0.02*(1+z_peaks[0]), z_peaks[0]+0.02*(1+z_peaks[0])), 0.0002
     
-    def twod_figure(self, vmax=None):
+    def twod_figure(self, vmax=None, base='zfit'):
         """
         Make a figure showing the raw twod-spectrum, plus contamination- and 
         continuum-subtracted versions.
@@ -835,32 +874,34 @@ class GrismSpectrumFit():
             
         #### Raw spectrum
         ax = fig.add_subplot(311)
-        ax.imshow(0-self.twod.im[4].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.imshow(0-self.twod.im[4].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_xticks(ax_int)
-        ax.set_ylabel('Raw')
+        ax.text(0.98,0.96, '-Raw', ha='right', va='top', color='red', size=7,  transform=ax.transAxes)
         #ax.text(0.95,1+0.1*aspect,self.grism_id, transform=ax.transAxes, horizontalalignment='right', verticalalignment='bottom')
         ax.set_title(self.grism_id)
         
         #### Contam-subtracted spectrum
         ax = fig.add_subplot(312)
-        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_xticks(ax_int)
-        ax.set_ylabel('-Contam.')
+        ax.text(0.98,0.96, '-Contam.', ha='right', va='top', color='red', size=7, transform=ax.transAxes)
 
         #### Continuum-subtracted spectrum
         ax = fig.add_subplot(313)
-        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data+self.cont_model, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto')
+        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data+self.cont_model, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels(xint)
         ax.set_xticks(ax_int)
-        ax.set_ylabel('-Continuum')
+        #ax.set_ylabel('-Continuum')
+        ax.text(0.98,0.96, '-Continuum', ha='right', va='top', color='red', size=7,  transform=ax.transAxes)
+        
         ax.set_xlabel(r'$\lambda\ (\mu\mathrm{m})$')
         
-        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.2D.%s' %(self.FIGURE_FORMAT))
+        unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.%s.2D.%s' %(base, self.FIGURE_FORMAT))
         
     def line_free_template(self):
         """
@@ -1090,7 +1131,7 @@ class GrismSpectrumFit():
         ax.set_xlim(1.0,1.73)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
-        ymax = self.model_1D.max()
+        ymax = self.model_1D[np.isfinite(self.model_1D)].max()
         ax.set_ylim(-0.1*ymax, 1.5*ymax)
         
         unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' +  self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
@@ -1119,7 +1160,7 @@ class GrismSpectrumFit():
         
         #### Initialize fit
         amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
-        coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
+        coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-7)
         flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.twod.im['SCI'].data.shape))
         
         coeffs = np.maximum(coeffs, 1.e-5)
@@ -1247,7 +1288,7 @@ class GrismSpectrumFit():
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
-        line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
+        #line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
         line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
@@ -1261,7 +1302,7 @@ class GrismSpectrumFit():
         fancy['OII']  = ( 'O II', line_wavelengths['OII'] )
         fancy['SII']  = ( 'S II', line_wavelengths['SII'] ) 
         fancy['SIII'] = ( 'S III', line_wavelengths['SIII'] )
-        fancy['HeI']  = ( 'He I', line_wavelengths['HeI'] ) 
+        #fancy['HeI']  = ( 'He I', line_wavelengths['HeI'] ) 
         fancy['MgII'] = ( 'Mg II', line_wavelengths['MgII'] )
         fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 
         fancy['Lya'] = (r'Ly$\alpha$', line_wavelengths['Lya'] )
@@ -1314,7 +1355,7 @@ class GrismSpectrumFit():
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
-        line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
+        #line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
         line_wavelengths['CIII'] = [1908.7]; line_ratios['CIII'] = [1.]
@@ -1329,7 +1370,7 @@ class GrismSpectrumFit():
         fancy['OII']  =  'O II' 
         fancy['SII']  =  'S II' 
         fancy['SIII'] =  'S III'
-        fancy['HeI']  =  'He I' 
+        #fancy['HeI']  =  'He I' 
         fancy['MgII'] =  'Mg II'
         fancy['CIV']  =  'C IV' 
         fancy['CIII']  =  'C III' 
@@ -1894,7 +1935,7 @@ class emceeChain():
             hdu.append(pyfits.ImageHDU(data=self.__getitem__(param), header=header, name=param))
         
         hduList = pyfits.HDUList(hdu)
-        hduList.writeto(file, clobber=True)
+        hduList.writeto(file, clobber=True, output_verify='silentfix')
     
         if verbose:
             print 'Wrote %s.' %(file)

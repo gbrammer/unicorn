@@ -380,25 +380,43 @@ def prepare():
     for id in c.number[ok]:
         twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
         ### temporary
-        if (len(twod) < 2) | os.path.exists('UDF_%05d_stack.png' %(id)):
-            continue
-        #
-        if len(twod) == 0:
-            try:
-                hudf.extract_all(id, miny=-80)
-                hudf.stack(id, dy=40, inverse=True)
-                hudf.fix_2d_background('UDF_%05d' %(id))
-            except:
-                pass
-        #
-        twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
-        ### Get just center of the trace
+        # if (len(twod) < 2) | os.path.exists('UDF_%05d_stack.png' %(id)):
+        #     continue
+        # #
         if len(twod) > 0:
             try:
+                hudf.stack(id, dy=40, inverse=True)
+                hudf.fix_2d_background('UDF_%05d' %(id), force=True)
                 hudf.stack(id, dy=12, inverse=True)
             except:
                 pass
-                
+        #
+        # twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
+        # ### Get just center of the trace
+        # if len(twod) > 0:
+        #     try:
+        #         hudf.stack(id, dy=12, inverse=True)
+        #     except:
+        #         pass
+    
+    for id in c.number[ok]:
+        if os.path.exists('UDF_%05d.new_zfit.png' %(id)):
+            continue
+        #
+        try:
+            unicorn.analysis.FORCE_GOODSS = False
+            self = test.SimultaneousFit('UDF_%05d' %(id), RELEASE=False, p_flat=1.e-8, lowz_thresh=0.)
+            if self.dr > 0.5:
+                unicorn.analysis.FORCE_GOODSS = True
+                self = test.SimultaneousFit('UDF_%05d' %(id), RELEASE=False, p_flat=1.e-8, lowz_thresh=0.)
+            #
+            self.read_master_templates()
+            self.new_fit_constrained(faint_limit=25)
+            #os.system('open UDF_%05d.new_zfit.png' %(id))
+            self.new_fit_free_emlines()
+        except:
+            pass
+                 
 def extract_dropouts():
     """
     Extract all targets from Ellis et al.

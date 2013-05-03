@@ -554,6 +554,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             
             #unicorn.plotting.savefig(fig, self.root+'.zfit.tilt.png')
             unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit_tilt.%s' %(self.FIGURE_FORMAT))
+            fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit_tilt.dat','w')
+            fp.write('poly\n')
+            np.savetxt(fp, self.poly_tilt_coeffs)
+            fp.write('beta\n')
+            np.savetxt(fp, self.beta_tilt_coeffs)
+            fp.close()
             
         
         return True
@@ -705,13 +711,19 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.c68 = np.interp([0.16,0.84], self.pzsum, self.zgrid_second[1:])
         self.c95 = np.interp([0.025,0.975], self.pzsum, self.zgrid_second[1:])
         
-        ### For plotting
+        ###### Save fit information
+        fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit_tilt.dat','w')
+        fp.write('poly\n')
+        np.savetxt(fp, self.poly_tilt_coeffs)
+        fp.write('beta\n')
+        np.savetxt(fp, self.beta_tilt_coeffs)
+        fp.close()
+
         self.lnprob_spec = self.lnprob_second_total*1.
         if make_plot:
             self.make_new_fit_figure(ignore_photometry=(self.dr < 0.5), NO_GUI=True, log_pz=True)
             self.new_save_fits()
             
-    #
     def new_save_fits(self):
         import pyfits
         header = pyfits.Header()
@@ -983,7 +995,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.cont_model = np.dot(continuum_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
         self.flux_model = self.best_2D
         self.twod_figure(base='new_zfit')
-
+        
+        #### For new_free_emlines
+        self.zgrid1 = self.zgrid_second
+        self.full_prob1 = self.lnprob_second_total
+        
     def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True):
         """
         Fit redshift / tilt with emcee

@@ -399,8 +399,8 @@ def prepare():
         #     except:
         #         pass
     
-    for id in c.number[ok]:
-        if os.path.exists('UDF_%05d.new_zfit.png' %(id)):
+    for id in c.number[ok][::-1]:
+        if (os.path.exists('UDF_%05d.new_zfit.png' %(id))) | (not os.path.exists('UDF_%05d.bg.png' %(id))):
             continue
         #
         try:
@@ -413,7 +413,7 @@ def prepare():
             self.read_master_templates()
             self.new_fit_constrained(faint_limit=25)
             #os.system('open UDF_%05d.new_zfit.png' %(id))
-            self.new_fit_free_emlines()
+            #self.new_fit_free_emlines()
         except:
             pass
                  

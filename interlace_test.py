@@ -686,7 +686,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### Fit spectrum again on finer grid
         print '\n Last run: photometry alone, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
-        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr < 0.5), apply_prior=False, refit_norm=False)
+        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr > 0.5), apply_prior=False, refit_norm=False)
         self.zgrid_second = self.zgrid
         self.lnprob_second_spec = self.lnprob_spec*1.
         
@@ -721,7 +721,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
 
         self.lnprob_spec = self.lnprob_second_total*1.
         if make_plot:
-            self.make_new_fit_figure(ignore_photometry=(self.dr < 0.5), NO_GUI=True, log_pz=True)
+            self.make_new_fit_figure(ignore_photometry=(self.dr > 0.5), NO_GUI=True, log_pz=True)
             self.new_save_fits()
             
     def new_save_fits(self):
@@ -827,6 +827,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         xflux_1D, yflux_1D = self.twod.optimal_extract(flux_2D)
         
         self.oned_wave, self.best_1D = self.twod.optimal_extract(self.best_2D)
+        self.model_1D = self.best_1D
         
         #### Initialize the figure
         fig = unicorn.catalogs.plot_init(xs=10,aspect=1./3.8, left=0.1, right=0.02, bottom=0.09, top=0.08, NO_GUI=NO_GUI)

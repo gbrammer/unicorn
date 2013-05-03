@@ -409,12 +409,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         if z is None:
             z = self.z_peak
-        
-        #### For faint objects, run a grid to fit any lines with [OIII]
-        if self.twod.im[0].header['MAG'] > faint_limit:
-            order=0
-            fit_for_lines=True
-        
+                
         if fit_for_lines:
             self.new_fit_zgrid(dz=0.01, ignore_spectrum=False, ignore_photometry=True, zrange=[1.19, 2.35], nmf_toler=1.e-7)
             z = self.z_max_spec
@@ -479,6 +474,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #ybeta = np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
         if np.isfinite(self.beta_tilt_coeffs).sum() != 2:
             self.beta_tilt_coeffs = [0,0]
+        
+        #### Skip for faint objects
+        if self.twod.im[0].header['MAG'] > faint_limit:
+            self.poly_tilt_coeffs = [1]
+            self.beta_tilt_coeffs = [0]
             
         # f = polyval(self.tilt_coeffs, x)
         # plt.plot(x, f)
@@ -622,7 +622,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
         #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
 
-    def new_fit_constrained(self, zrfirst=[0.,4.0], dzfirst=0.005, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True):
+    def new_fit_constrained(self, zrfirst=[0.,4.0], dzfirst=0.005, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True, faint_limit=24):
         import scipy.ndimage as nd
         
         print '\n First run: photometry alone \n'
@@ -634,6 +634,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.phot_zgrid = self.zgrid_first
         self.phot_lnprob = self.lnprob_spec*1.
         
+        if self.dr > 0.5:
+            self.phot_lnprob*=0
+            self.lnprob_first_photom*=0
+            
         #### Now fit just the spectrum
         
         self.phot = self.phot_lines
@@ -659,7 +663,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         z_max = self.zgrid_first[np.argmax(self.lnprob_first_total)]
         if get_tilt:
-            self.get_spectrum_tilt(z_max, fit_for_lines=False, NO_GUI=True)
+            self.get_spectrum_tilt(z_max, fit_for_lines=False, NO_GUI=True, faint_limit=faint_limit)
         
         min_width = 0.003*(1+z_max)
         
@@ -676,7 +680,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### Fit spectrum again on finer grid
         print '\n Last run: photometry alone, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
-        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=False, apply_prior=False, refit_norm=False)
+        self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr < 0.5), apply_prior=False, refit_norm=False)
         self.zgrid_second = self.zgrid
         self.lnprob_second_spec = self.lnprob_spec*1.
         
@@ -704,7 +708,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ### For plotting
         self.lnprob_spec = self.lnprob_second_total*1.
         if make_plot:
-            self.make_new_fit_figure(ignore_photometry=False, NO_GUI=True, log_pz=True)
+            self.make_new_fit_figure(ignore_photometry=(self.dr < 0.5), NO_GUI=True, log_pz=True)
             self.new_save_fits()
             
     #
@@ -972,7 +976,14 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### Save the result to a file
         unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.%s.%s' %(OUT_ROOT, self.FIGURE_FORMAT))
-    
+        
+        ### Make 2D spectrum figure
+        continuum_coeffs = self.coeffs*1
+        continuum_coeffs[-3:-1] = 0.
+        self.cont_model = np.dot(continuum_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        self.flux_model = self.best_2D
+        self.twod_figure(base='new_zfit')
+
     def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True):
         """
         Fit redshift / tilt with emcee

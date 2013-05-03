@@ -1996,8 +1996,8 @@ class GrismModel():
             
         #
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
-        xc = np.int(np.round(self.cat.x_pix[ii]))-1
-        yc = np.int(np.round(self.cat.y_pix[ii]))-1
+        xc = np.int(np.round(self.cat.x_pix[ii]))#-1
+        yc = np.int(np.round(self.cat.y_pix[ii]))#-1
         
         seg = np.cast[int](self.segm[0].data)
         # seg_mask = seg == id
@@ -2019,7 +2019,9 @@ class GrismModel():
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
 
         #### Maximum size
-        NT = np.min([NT, maxy])
+        if maxy is not None:
+            NT = np.min([NT, maxy])
+        
         #print '!!! NT: %d' %(NT)
         
         if verbose:

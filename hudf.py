@@ -2570,6 +2570,11 @@ def fix_2d_background(object = 'UDF_06001', force=False, clip=100, remove=False)
     chain = unicorn.interlace_fit.emceeChain(file='%s.bg.fits' %(object))
     
     flux = twod.im['SCI'].data
+    err = twod.im['WHT'].data
+    contam = twod.im['CONTAM'].data
+    poisson = (0.5+flux)/twod.im[0].header['EXPTIME']  # 0.5 ~ min zodi
+    var = err**2+contam**2+np.maximum(poisson, 0)
+
     ny, nx = flux.shape
     yi, xi = np.indices(flux.shape)
     indices, step_sig = [], []
@@ -2580,24 +2585,28 @@ def fix_2d_background(object = 'UDF_06001', force=False, clip=100, remove=False)
     
     obj_fun = hudf._objective_poly2d
     
-    background = obj_fun(chain.median, indices, flux, flux, 1)
+    background = obj_fun(chain.median, indices, flux, var, 1)
     twod.im['SCI'].data -= background
     
     if 'BG_C0' in twod.im[0].header.keys():
-        if np.log10(np.abs(twod.im[0].header['BG_C0']/chain.median[0])) < 0.001:
-            print 'BG seems to already be applied.'
-            if remove:
-                print unicorn.noNewLine+'BG seems to already be applied. Take it back out.'
-                twod.im['SCI'].data += background*2
-                for key in ['BG_C0', 'BG_CX', 'BG_CY']:
-                    p = twod.im[0].header.pop(key)
+        print 'BG seems to already be applied.'
+        if remove:
+            twod.im['SCI'].data += background  ### remove the one just subtracted
+            h = twod.im[0].header
+            coeffs = [h['BG_C0'], h['BG_CX'], h['BG_CY']]
+            new_background = obj_fun(chain.median, indices, flux, flux, 1)
+            print unicorn.noNewLine+'BG seems to already be applied. Take it back out.'
+            twod.im['SCI'].data += new_background  ## remove the one applied ot the file
+            
+            for key in ['BG_C0', 'BG_CX', 'BG_CY']:
+                p = twod.im[0].header.pop(key)
                     
-                twod.im.writeto(twod.im.filename(), clobber='True')
-                twod.oned_spectrum()
-                return True
-                
-            else:
-                return False
+            twod.im.writeto(twod.im.filename(), clobber='True')
+            twod.oned_spectrum()
+            return True
+            
+        else:
+            return False
     else:        
         twod.im[0].header.update('BG_C0', chain.median[0])
         twod.im[0].header.update('BG_CX', chain.median[1])
@@ -3204,10 +3213,13 @@ def get_2d_background(object = 'UDF_06001', clip=100):
     flux = twod.im['SCI'].data
     err = twod.im['WHT'].data
     contam = twod.im['CONTAM'].data
+    poisson = (0.5+flux)/twod.im[0].header['EXPTIME']  # 0.5 ~ min zodi
     
     cleaned = flux-contam
-    var = err**2+10*contam**2
+    var = err**2+10*contam**2+np.maximum(poisson, 0)
     var[err == 0] = 1.e8
+    model = twod.im['MODEL'].data
+    var[model > 0.02*model.max()] = 1.e8
     
     ### Mask outlying un-subtracted contamination
     if clip is not None:

@@ -141,7 +141,146 @@ def find_red():
         except:
             hudf.stack(id, dy=30, inverse=True, fcontam=1)
             
-            
+def reduce_f140w():
+    """
+    Make own stack of the F140W UDF images from 3D-HST / HUDF12
+    """ 
+    
+    import unicorn.candels
+    
+    unicorn.candels.make_asn_files()
+    
+    ALIGN_IMAGE = '../../UDF/XDF/xdfh_sci_scaled.fits'
+        
+    files=glob.glob('ibp*asn.fits')
+    files=glob.glob('G*asn.fits')
+    
+    FORCE=False
+    
+    for file in files:
+        if ((not os.path.exists(file.replace('asn','drz'))) & (not os.path.exists(file.replace('asn','drz')+'.gz'))) | FORCE:
+            threedhst.process_grism.fresh_flt_files(file)
+            #threedhst.prep_flt_files.threedhst.shifts.run_tweakshifts(file)
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+    #
+    files=glob.glob('[Gi]*asn.fits')
+    threedhst.utils.combine_asn_shifts(files, out_root='HUDF12-F140W', path_to_FLT='./', run_multidrizzle=False)
+    files = glob.glob('IB*drz.fits')
+    for file in files:
+        os.remove(file)
+    
+    #
+    files=glob.glob('[Gi]*asn.fits')
+    threedhst.utils.combine_asn_shifts(files, out_root='HUDF12-F140W', path_to_FLT='./', run_multidrizzle=False)
+    files = glob.glob('IB*drz.fits')
+    for file in files:
+        os.remove(file)
+    
+    files = glob.glob('GOO*-3[4678]*asn.fits')
+    files.append('GOODS-SOUTH-8-F140W_asn.fits')
+    for file in files:
+        asn = threedhst.utils.ASNFile(file)
+        bp = pyfits.open('/research/HST/GRISM/IREF/flat_BPM_v0.1.fits')[0].data
+        for exp in asn.exposures:
+            print exp
+            flt = pyfits.open('%s_flt.fits' %(exp), mode='update')
+            fgz = pyfits.open('../RAW/%s_flt.fits.gz' %(exp))
+            flt[3].data |= (bp > 0)*(4+32+64)
+            flt[3].data[fgz[3].data == 4196] = 100
+            flt.flush()
+        #
+        threedhst.prep_flt_files.startMultidrizzle(file, use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False)
+    #
+    threedhst.utils.combine_asn_shifts(files, out_root='3D', path_to_FLT='./', run_multidrizzle=False)
+    threedhst.prep_flt_files.startMultidrizzle('3D_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False)
+        
+    threedhst.prep_flt_files.startMultidrizzle('HUDF12-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+    #### Make separate IVAR and EXP weight images
+    threedhst.prep_flt_files.startMultidrizzle('HUDF12-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False, ivar_weights=True, build_drz=False, ra=53.159383, dec=-27.782799, final_outnx=4000, final_outny=4000)
+    
+    shutil.move('HUDF12-F140W_drz_weight.fits', 'HUDF12-F140W_drz_ivar.fits')
+    
+    threedhst.prep_flt_files.startMultidrizzle('HUDF12-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False, ivar_weights=False, build_drz=False, ra=53.159383, dec=-27.782799, final_outnx=4000, final_outny=4000)
+    
+    shutil.move('HUDF12-F140W_drz_weight.fits', 'HUDF12-F140W_drz_exp.fits')
+    
+    #### Clean up remaining bad pixels with large values
+    drz = pyfits.open('HUDF12-F140W_drz_sci.fits', mode='update')
+    exp = pyfits.open('HUDF12-F140W_drz_exp.fits', mode='update')
+    ivar = pyfits.open('HUDF12-F140W_drz_ivar.fits', mode='update')
+    
+    bad = drz[0].data > 1000
+    drz[0].data[bad] = 0
+    drz.flush()
+    
+    #### Some bad pixels
+    import scipy.ndimage as nd
+    med = nd.median_filter(drz[0].data+0.1, size=(3,3))
+    yi, xi = np.indices(bad.shape)
+    R = np.sqrt((xi-2005)**2+(yi-3331)**2)
+    bad = ((R < 60) & ((drz[0].data+0.1)/med > 1.2))*1.
+    grow = nd.convolve(bad, weights=np.ones((3,3))/9.)
+    drz[0].data[grow > 0] = 0
+    ivar[0].data[grow > 0] /= 10
+    drz.flush()
+    ivar.flush()
+    
+    #### Make sigma image
+    counts = drz[0].data*exp[0].data
+    GAIN = 2.5
+    # sigma_poisson = np.sqrt(counts/s*t_exp/GAIN)/t_exp
+    poisson =  drz[0].data/GAIN/exp[0].data # squared for variance
+    poisson[counts < 10] = 0
+    zero = ivar[0].data == 0
+    var = 1./ivar[0].data + poisson
+    var[zero] = 0
+    var[var == 0] = 1.e4
+    
+    #### Region of spurious sources
+    import pyregion
+    reg_file = 'rms_mask.reg'
+    r = pyregion.open(reg_file).as_imagecoord(header=drz[0].header)
+    aper = r.get_mask(hdu=drz[0])
+    var[aper > 0] *= 3**2
+    
+    pyfits.writeto('HUDF12-F140W_drz_rms.fits', header=drz[0].header, data=np.sqrt(var), clobber=True)
+    
+    #### Make catalog
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['CHECKIMAGE_NAME'] = 'HUDF12-F140W_seg.fits'
+    se.options['WEIGHT_TYPE']     = 'MAP_RMS'
+    se.options['WEIGHT_IMAGE']    = 'HUDF12-F140W_drz_rms.fits[0]'
+    se.options['WEIGHT_GAIN'] = 'N'
+    se.options['GAIN'] = '0'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_THRESH']    = '1.1' 
+    se.options['ANALYSIS_THRESH']  = '1.1' 
+    
+    se.options['DEBLEND_NTHRESH']    = '32' 
+    se.options['DEBLEND_MINCONT']  = '0.0001' 
+    #
+    #apertures = np.arange(0.2,1.5,0.1)
+    #apertures = np.append(apertures, np.arange(1.5,3,0.3) )
+    #apertures = np.append(apertures, np.arange(3,8,0.6) )
+    apertures = [0.2]
+    str_ap = ['%.3f' %(ap/0.06) for ap in apertures]
+    se.options['PHOT_APERTURES'] = ','.join(str_ap)
+    
+    #### Run SExtractor on direct and alignment images
+    ## direct image
+    se.options['MAG_ZEROPOINT'] = '%.2f' %(unicorn.reduce.ZPs['F140W'])
+    se.options['CATALOG_NAME']    = 'HUDF12-F140W.cat'
+    status = se.sextractImage('HUDF12-F140W_drz_sci.fits')
+    threedhst.sex.sexcatRegions('HUDF12-F140W.cat', 'HUDF12-F140W.reg', format=2)
+    
 def prepare():
     
     import os
@@ -398,6 +537,16 @@ def prepare():
         #         hudf.stack(id, dy=12, inverse=True)
         #     except:
         #         pass
+    
+    ######### Subtract background on smaller cutout
+    for id in c.number[ok]:
+        twod = glob.glob('[GP]*_%05d.2D.fits' %(id))
+        if len(twod) > 0:
+            try:
+                hudf.stack(id, dy=18, inverse=True)
+                hudf.fix_2d_background('UDF_%05d' %(id), force=False)
+            except:
+                pass
     
     for id in c.number[ok][::-1]:
         if (os.path.exists('UDF_%05d.new_zfit.png' %(id))) | (not os.path.exists('UDF_%05d.bg.png' %(id))):
@@ -748,6 +897,9 @@ class UDF():
             self.model[i,:,:] = nd.shift(im['MODEL'].data[y0i-NPIX:y0i+NPIX,:], (0,dx), order=3)[:,:NX]
             #
             exp_wht_i = np.median(im['WHT'].data[im['WHT'].data > 0])**2
+            if (im['WHT'].data > 0).sum() == 0:
+                exp_wht_i = 1.e10
+            #
             print self.twod[i].im.filename(), exp_wht_i
             self.dsci += im['DSCI'].data[y0i-NPIX:y0i+NPIX, y0i-NPIX:y0i+NPIX]/exp_wht_i
             exp_wht += 1./exp_wht_i
@@ -1127,7 +1279,35 @@ def check_full_process():
     for s in [m0, m4, m8]:
         stats = s[0]
         print 'Flux (x 1.e-18) = %.2f +/- %.2f (obs) - %.2f +/- %.2f (bg) - %.2f (contam)  ///  %.2f (cleaned)' %(stats['obs'][0], stats['obs'][1], stats['bg'][0], stats['bg'][1], stats['contam'], stats['cleaned'])
+ 
+def for_marijn():
+    """
+    Extract Marijn's favorite UDF objects
+    """  
+    id, lam, dy = 7507, 9.559*1215.66, 1
+    id, lam, dy = 4948, 2.313*6564, 0
+    id, lam, dy = 6001, 1.599e4, 0
     
+    force_bg=True # can set to false if want to just regenerate the stacks
+    
+    ### the big z=2 disk, something at z=0.66, 
+    ids = [5599, 18, 3041]
+    lams = [1.5e4]*3
+    
+    for id, lam, in zip(ids, lams):
+        plt.rcParams['text.usetex'] = False
+        hudf.extract_all(id, miny=-200, MAGLIMIT=28)
+        hudf.stack(id, dy=100, fcontam=1, inverse=True, ref_wave=lam)
+        hudf.fix_2d_background('UDF_%05d' %(id), force=force_bg, clip=8)
+        hudf.evaluate_2d_errors('UDF_%05d' %(id))
+        
+        tex=False; thumb_kernel=True; 
+        hudf.plot_aper_fluxes(object='UDF_%05d' %(id), dy=0, model_params=[(1.599e4, 3.4e-18)], tex=tex, use_thumb_kernel=thumb_kernel, aper_radius=0.3, full_2d=True)
+        
+        gris = unicorn.interlace_fit.GrismSpectrumFit('UDF_%05d' %(id), lowz_thresh=0.0, skip_photometric=False)
+        gris.fit_in_steps(zrfirst=zr)
+        gris.fit_free_emlines()
+        
 def prepare_for_paper():
     
     id, lam, dy = 7507, 9.559*1215.66, 1
@@ -1742,6 +1922,13 @@ def rgb_browser():
     threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_i_drz_img.fits'], matchImage='hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits', match_extension=0, output='UDF_ACS_i.fits')
     threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_z_drz_img.fits'], matchImage='hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits', match_extension=0, output='UDF_ACS_z.fits')
     
+    #### Match to my F140W mosaic
+    threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_i_drz_img.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='UDF_ACS_i.fits')
+
+    threedhst.shifts.matchImagePixels(input= ['../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='HUDF12_F125W.fits')
+
+    threedhst.shifts.matchImagePixels(input= ['../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='HUDF12_F160W.fits')
+    
     ### HJi
     scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
     
@@ -1815,6 +2002,37 @@ def rgb_browser():
     #
     unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='HUDF12_iJH_%06.2f.png' %(f), shape=sh)
     
+    ############## Match to my F140W mosaic
+    threedhst.shifts.matchImagePixels(input= ['/Volumes/Crucial/3DHST/Ancillary//HUDF09/ACS/h_udf_wfc_i_drz_img.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='UDF_ACS_i.fits')
+
+    threedhst.shifts.matchImagePixels(input= ['../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='HUDF12_F125W.fits')
+
+    threedhst.shifts.matchImagePixels(input= ['../HUDF12/hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits'], matchImage='HUDF12-F140W_drz_sci.fits', match_extension=0, output='HUDF12_F160W.fits')
+    
+    ### HJi
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
+
+    f140 = pyfits.open('HUDF12-F140W_drz_sci.fits')
+    match = ['HUDF12_F160W.fits', 'HUDF12_F125W.fits', 'UDF_ACS_i.fits']
+    
+    f125 = pyfits.open('HUDF12_F125W.fits')
+    mask = f125[0].data == 0
+
+    for i in range(3):
+        print match[i]
+        im = pyfits.open(match[i], mode='update')
+        scale = 10**(-0.4*(26.46-25.96))/scales[i]
+        im[0].data[mask] = f140[0].data[mask]*scale
+        im.flush()
+    #
+    f = 6
+    rgb1 = 'HUDF12_F160W.fits[0]*%.3f, HUDF12_F125W.fits[0]*%.3f, UDF_ACS_i.fits[0]*%.3f' %(scales[0]*f, scales[1]*f*1., scales[2]*f*1.)
+    f = 20
+    rgb2 = 'HUDF12_F160W.fits[0]*%.3f, HUDF12_F125W.fits[0]*%.3f, UDF_ACS_i.fits[0]*%.3f' %(scales[0]*f, scales[1]*f*1., scales[2]*f*1.)
+    
+    #threedhst.gmap.makeImageMap([rgb1,rgb2], aper_list=[15, 16], tileroot=['HJY','deep'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
+    threedhst.gmap.makeImageMap([rgb1,rgb2], aper_list=[15,16,17], tileroot=['iJH', 'deep'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
+        
 def comparison_objects(id=4581, zr=(0.4,2.2), bg=True):
     
     hudf.extract_all(id, miny=-200, MAGLIMIT=24)
@@ -2341,7 +2559,7 @@ def evaluate_2d_errors(object='UDF_06001'):
     
     fig.savefig('%s.pixel_values.pdf' %(object))
     
-def fix_2d_background(object = 'UDF_06001', force=False, clip=100):
+def fix_2d_background(object = 'UDF_06001', force=False, clip=100, remove=False):
     import unicorn.hudf as hudf
     
     if (not os.path.exists('%s.bg.fits' %(object))) | force:
@@ -2368,14 +2586,27 @@ def fix_2d_background(object = 'UDF_06001', force=False, clip=100):
     if 'BG_C0' in twod.im[0].header.keys():
         if np.log10(np.abs(twod.im[0].header['BG_C0']/chain.median[0])) < 0.001:
             print 'BG seems to already be applied.'
-            return False
-            
-    twod.im[0].header.update('BG_C0', chain.median[0])
-    twod.im[0].header.update('BG_CX', chain.median[1])
-    twod.im[0].header.update('BG_CY', chain.median[2])
+            if remove:
+                print unicorn.noNewLine+'BG seems to already be applied. Take it back out.'
+                twod.im['SCI'].data += background*2
+                for key in ['BG_C0', 'BG_CX', 'BG_CY']:
+                    p = twod.im[0].header.pop(key)
+                    
+                twod.im.writeto(twod.im.filename(), clobber='True')
+                twod.oned_spectrum()
+                return True
+                
+            else:
+                return False
+    else:        
+        twod.im[0].header.update('BG_C0', chain.median[0])
+        twod.im[0].header.update('BG_CX', chain.median[1])
+        twod.im[0].header.update('BG_CY', chain.median[2])
         
-    twod.im.writeto(twod.im.filename(), clobber='True')
-    twod.oned_spectrum()
+        twod.im.writeto(twod.im.filename(), clobber='True')
+        twod.oned_spectrum()
+    
+    return True
     
 def plot_aper_fluxes(object = 'UDF_06001', aper_radius=0.25, pix_scale=0.064, dy=1, dx=0, model_params=[(1.4e4, 6.1e-18)], tex=False, ADD_MODEL=False, use_thumb_kernel=False, full_2d=False):
     """
@@ -4320,7 +4551,8 @@ def go_line_stats():
             jh.append([sjh['eqw'], sjh['mag']])
         #
         plt.plot(np.array(j)[:,0], np.array(jh)[:,1]-np.array(j)[:,1], label=r'$\lambda=%.4f\ \mu\mathrm{m}$' %(l0/1.e4))
-    
+        print 'l0: %.4f, Beta: %.1f, EW=%f' %(l0, beta, np.interp(1.5, (np.array(jh)[:,1]-np.array(j)[:,1])[::-1], np.array(j)[:,0][::-1]))
+        
     plt.fill_between([1,1.e6], [2.17-0.2, 2.17-0.2], [2.17+0.2, 2.17+0.2], color='0.6', alpha=0.7, label=r'UDFj, $1\sigma$')
     
     plt.legend(loc='lower right')
@@ -4335,6 +4567,75 @@ def go_line_stats():
     
     sjh = hudf.line_stats(1.599e4, 1e-18, continuum=10**cont, filter='F140W', fnu=flat_fnu, beta=beta)
     print sjh['mag'] - sj['mag']
+    
+    #### EW as a function of line flux for a fixed F160W mag
+    l0 = 1.599e4
+    mag = 29.04
+    flux_max = -17.4
+    sj = hudf.line_stats(l0, 10**flux_max, continuum=10**-100, filter='F160W', fnu=True, beta=-2)
+    while sj['mag'] < mag:
+        flux_max -= 0.01
+        sj = hudf.line_stats(l0, 10**flux_max, continuum=10**-100, filter='F160W', fnu=True, beta=-2)
+       
+    igmz = 12.1
+     
+    cont = -3.54
+    sj = hudf.line_stats(l0, 10**flux_max, continuum=10**cont, filter='F160W', fnu=True, beta=-2, igmz=igmz)
+    
+    fluxes, EWs = [], []
+    for flux in np.arange(flux_max, -19, -0.01):
+        sj = hudf.line_stats(l0, 10**flux, continuum=10**cont, filter='F160W', fnu=True, beta=-2, igmz=igmz)
+        while sj['mag'] > mag:
+            cont += 0.01
+            sj = hudf.line_stats(l0, 10**flux, continuum=10**cont, filter='F160W', fnu=True, beta=-2, igmz=igmz)
+            print cont, sj['mag']
+        #
+        fluxes.append(flux)
+        EWs.append(sj['eqw'])
+        print ' --> ', fluxes[-1], EWs[-1]
+        
+    fp = open('line_flux_EW_%5.2f_%5.3f_%4.1f.dat' %(mag, l0/1.e4, igmz), 'w')
+    fp.write('# flux EW_obs\n# m160=%.2f, l0=%.4f\n' %(mag, l0))
+    np.savetxt(fp, np.array([fluxes, EWs]).T)
+    fp.close()
+    
+    #### Figure for proposal
+    fluxes, EWs = np.loadtxt('line_flux_EW_29.04_1.599.dat', unpack=True)
+    fluxes_z12, EWs_z12 = np.loadtxt('line_flux_EW_29.04_1.599_12.1.dat', unpack=True)
+    #### Factor of 3.5 offset for Beta=-2, lyman break at z=12.1
+    
+    y0 = [100, 7.e4]
+    
+    fig = unicorn.plotting.plot_init(xs=6, aspect=0.7, square=True, left=0.11, bottom=0.1, right=0.11, use_tex='True', fontsize=12)
+    ax = fig.add_subplot(111)
+    
+    ax.plot(10**fluxes, EWs, color='black', linewidth=5)
+    
+    #### Show G141 detection
+    flux, sn = 3.51, 2.81
+    err = flux/sn
+    ax.fill_betweenx(y0, (flux-err)*np.ones(2)*1.e-18, (flux+err)*np.ones(2)*1.e-18, color='black', alpha=0.5)
+    
+    #### 2-sigma limits on F140W-F160W
+    #l0: 15990.0000, Beta: 0.0, EW=14411.427505
+    #l0: 15990.0000, Beta: -2.0, EW=20517.264012
+    ax.plot([1.e-18, 1.2e-18], 14411*np.ones(2), color='red', label=r'$\beta=0$', linewidth=4)
+    ax.plot([1.3e-18, 1.5e-18], 20517*np.ones(2), color='green', label=r'$\beta=-2$', linewidth=4)
+    ax.legend(loc='upper left')
+    
+    ax.loglog()
+    ax.set_ylim(y0)
+    ax.set_xlabel('line flux')
+    ax.set_ylabel(r'EW obs. [$\AA$]')
+    
+    ax2 = ax.twinx()
+    ax2.loglog()
+    ax2.set_ylim(np.array(y0)/3.5/(12.1+1))  ### Scale to Ly-a EW, rest
+    ax2.set_xlim(1.e-19, 1.e-17)
+    ax2.set_ylabel('EW rest (z=12.1)')
+    ax.text(0.1, 0.5, r'$\lambda$=%.3f $\mu$m, $H_{160}$=%.2f' %(l0/1.e4, mag), transform=ax.transAxes, ha='left', va='center')
+    
+    unicorn.plotting.savefig(fig, 'line_flux_EW.pdf')
     
 def line_stats(l0=1.5116e4, flux=8.74e-18, continuum=0, filter='F160W', get_model=False, fnu=True, igmz=0, beta=-2):
     """

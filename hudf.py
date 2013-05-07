@@ -634,7 +634,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         twod = unicorn.reduce.Interlace2D(file)
         im = twod.im
         sh = im['SCI'].data.shape
-        dy = np.minimum(sh[0], dy)
+        dy = np.minimum(sh[0], dy/2)
         
     #dy = 20
     NX = 270

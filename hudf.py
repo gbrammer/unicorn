@@ -630,7 +630,12 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         plt.gray()
         
     files=glob.glob('[PG][RO]*%05d.2D.fits' %(id))
-
+    for file in files:
+        twod = unicorn.reduce.Interlace2D(file)
+        im = twod.im
+        sh = im['SCI'].data.shape
+        dy = np.minimum(sh[0], dy)
+        
     #dy = 20
     NX = 270
     flux = np.zeros((len(files), 2*dy, NX))

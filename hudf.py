@@ -4925,7 +4925,7 @@ def _gauss_center_objfun(params, xdata, ydata, yerr, sigma, ret):
         return -0.5*np.sum((model-ydata)**2/yerr**2)+prior
         
     
-def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True, rgb_channel=0):
+def udf_RGB_thumbnails(field='HUDF', nx_size = 30, mag_limit = 28., skip=True, rgb_channel=0):
     """
     Make thumbnails for all grism objects in a given 3D-HST field
     
@@ -5033,8 +5033,8 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
         m0 = np.interp(mag[idx][i], mag_i, m0_i, left=m0_i[0], right=m0_i[1])
         #
         unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=sub_r.shape)
-        print i+1, len(idx)
-        print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
+        print 'Object ', i+1, ' of ', len(idx)
+        #print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
     
     
     

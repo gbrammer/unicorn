@@ -5001,7 +5001,7 @@ def udf_RGB_thumbnails(field='HUDF', nx_size = 30, mag_limit = 28., skip=True, r
         #ra, dec = np.cast[float](ds9.get('pan fk5').split())
         xy = np.round(wcs.wcs_sky2pix(ra, dec,0))
         xc, yc = int(xy[0]), int(xy[1])
-        if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
+        if (xc < NY | (yc < NY) | (xc > shape[1]-NX) | (yc > shape[0]-NY):
             continue
         
         ### F160W

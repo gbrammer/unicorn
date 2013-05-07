@@ -4949,7 +4949,7 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
     catalogs = {}
     catalogs['UDF'] = 'udf_3dhst.v2.1.cat'
     
-    cat = catIO.Readfile('/Volumes/robot/3DHST/Spectra/Work/UDF/F140W/HUDF12-F140W.reform.cat', save_fits=False)
+    cat = catIO.Readfile('/Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/F140W/HUDF12-F140W.reform.cat', save_fits=False)
     
     #### Images
     mag = 25-2.5*np.log10(cat.f_f140w)

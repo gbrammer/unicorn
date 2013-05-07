@@ -4938,6 +4938,7 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
     """
     import pywcs
     import threedhst.catIO as catIO
+    import pyfits
     
     #### Working directory
     os.chdir('/Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/RGB/')
@@ -4952,8 +4953,8 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
     cat = catIO.Readfile('/Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/F140W/HUDF12-F140W.reform.cat', save_fits=False)
     
     #### Images
-    mag = 25-2.5*np.log10(cat.f_f140w)
-    PATH = 'Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/RGB/'
+    mag = cat.mag_auto
+    PATH = '/Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/RGB/'
     im_r = pyfits.open(os.path.join(PATH, 'HUDF12_F160W.fits'))
     im_g = pyfits.open(os.path.join(PATH, 'HUDF12_F125W.fits'))
     im_b = pyfits.open(os.path.join(PATH, 'UDF_ACS_i.fits'))
@@ -4969,13 +4970,7 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
     idx = np.arange(len(keep))[keep]
     idx = idx[np.argsort(mag[idx])]
         
-    ### Box size
-    pix_scale = im_r[0].header['CD1_1']**2
-    if 'CD1_2' in im_r[0].header.keys():
-        pix_scale += im_r[0].header['CD1_2']**2
-    
-    pix_scale = np.sqrt(pix_scale)*3600.
-        
+    ### Box size        
     #NX = int(np.round(box_size/pix_scale))
     #NY = NX
     NX = nx_size
@@ -4997,23 +4992,17 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
     mag_i = [18,21]
     
     for i in range(len(idx)):
-        obj = zfit.spec_id[idx][i]
-        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, box_size)
+        obj = cat.number[idx][i]
+        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, NY)
         if os.path.exists(out_image) & skip:
             continue
         #
-        ra, dec = cat.ra[idx][i], cat.dec[idx][i]
+        ra, dec = cat.x_world[idx][i], cat.y_world[idx][i]
         #ra, dec = np.cast[float](ds9.get('pan fk5').split())
         xy = np.round(wcs.wcs_sky2pix(ra, dec,0))
         xc, yc = int(xy[0]), int(xy[1])
         if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
             continue
-        #
-        # Browse with DS9 one by one
-        if use_ds9:
-            xy = np.round(np.cast[float](ds9.get('pan').split()))
-            xc, yc = int(xy[0]), int(xy[1])
-            obj = 'tmp'
         
         ### F160W
         sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
@@ -5044,6 +5033,7 @@ def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True,
         m0 = np.interp(mag[idx][i], mag_i, m0_i, left=m0_i[0], right=m0_i[1])
         #
         unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=sub_r.shape)
+        print i+1, len(idx)
         print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
     
     

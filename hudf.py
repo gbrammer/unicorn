@@ -4925,4 +4925,126 @@ def _gauss_center_objfun(params, xdata, ydata, yerr, sigma, ret):
         return -0.5*np.sum((model-ydata)**2/yerr**2)+prior
         
     
+def udf_RGB_thumbnails(field='COSMOS', nx_size = 30, mag_limit = 28., skip=True, rgb_channel=0):
+    """
+    Make thumbnails for all grism objects in a given 3D-HST field
+    
+    Thumbnail `box_size` is the radius, given in arcsec
+    
+    rgb_channel = 0: All RGB
+    rgb_chanel = (1,2,3): only (R,G,B)
+    
+    GBB, 10/10/2012
+    """
+    import pywcs
+    import threedhst.catIO as catIO
+    
+    #### Working directory
+    os.chdir('/Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/RGB/')
+    try:
+        os.mkdir(field)
+    except:
+        pass
+        
+    catalogs = {}
+    catalogs['UDF'] = 'udf_3dhst.v2.1.cat'
+    
+    cat = catIO.Readfile('/Volumes/robot/3DHST/Spectra/Work/UDF/F140W/HUDF12-F140W.reform.cat', save_fits=False)
+    
+    #### Images
+    mag = 25-2.5*np.log10(cat.f_f140w)
+    PATH = 'Volumes/robot/3DHST/Spectra/Work/UDF/RELEASE/RGB/'
+    im_r = pyfits.open(os.path.join(PATH, 'HUDF12_F160W.fits'))
+    im_g = pyfits.open(os.path.join(PATH, 'HUDF12_F125W.fits'))
+    im_b = pyfits.open(os.path.join(PATH, 'UDF_ACS_i.fits'))
+        
+    print 'Reading large images....'
+    
+    ### Image WCS
+    shape = im_r[0].data.shape
+    wcs = pywcs.WCS(im_r[0].header)
+
+    ### Objects with bright enough magnitudes IDs
+    keep = (mag < mag_limit)
+    idx = np.arange(len(keep))[keep]
+    idx = idx[np.argsort(mag[idx])]
+        
+    ### Box size
+    pix_scale = im_r[0].header['CD1_1']**2
+    if 'CD1_2' in im_r[0].header.keys():
+        pix_scale += im_r[0].header['CD1_2']**2
+    
+    pix_scale = np.sqrt(pix_scale)*3600.
+        
+    #NX = int(np.round(box_size/pix_scale))
+    #NY = NX
+    NX = nx_size
+    NY = NX
+    
+    ### View in DS9
+    use_ds9 = False
+    
+    #### Scale parameters
+    Q, alpha, m0 = 5.,3.,-0.02
+  
+    #### for fainter galaxies, lower SB features
+    Q, alpha, m0 = 3.5, 5, -0.01
+    
+    #### Interpolate scale parameters with mag
+    Q_i = [5,3.5]
+    alpha_i = [3,5]
+    m0_i = [-0.02,-0.01]
+    mag_i = [18,21]
+    
+    for i in range(len(idx)):
+        obj = zfit.spec_id[idx][i]
+        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, box_size)
+        if os.path.exists(out_image) & skip:
+            continue
+        #
+        ra, dec = cat.ra[idx][i], cat.dec[idx][i]
+        #ra, dec = np.cast[float](ds9.get('pan fk5').split())
+        xy = np.round(wcs.wcs_sky2pix(ra, dec,0))
+        xc, yc = int(xy[0]), int(xy[1])
+        if (xc < 0) | (yc < 0) | (xc > shape[1]) | (yc > shape[0]):
+            continue
+        #
+        # Browse with DS9 one by one
+        if use_ds9:
+            xy = np.round(np.cast[float](ds9.get('pan').split()))
+            xc, yc = int(xy[0]), int(xy[1])
+            obj = 'tmp'
+        
+        ### F160W
+        sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
+        ### F125W
+        sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
+        ### F814W
+        sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+        
+        if rgb_channel == 1:
+            sub_g*=0
+            sub_b*=0
+            out_image = out_image.replace('.png','_R.png')
+        
+        if rgb_channel == 2:
+            sub_r*=0
+            sub_b*=0
+            out_image = out_image.replace('.png','_G.png')
+        
+        if rgb_channel == 3:
+            sub_r*=0
+            sub_g*=0
+            out_image = out_image.replace('.png','_B.png')
+
+        #
+        #### Interpolate scale parameters
+        Q = np.interp(mag[idx][i], mag_i, Q_i, left=Q_i[0], right=Q_i[1])
+        alpha = np.interp(mag[idx][i], mag_i, alpha_i, left=alpha_i[0], right=alpha_i[1])
+        m0 = np.interp(mag[idx][i], mag_i, m0_i, left=m0_i[0], right=m0_i[1])
+        #
+        unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename=out_image, shape=sub_r.shape)
+        print unicorn.noNewLine + obj + ' (%d of %d)' %(i+1, len(idx))
+    
+    
     

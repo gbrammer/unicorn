@@ -635,7 +635,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         im = twod.im
         sh = im['SCI'].data.shape
         if sh[0] < 200:
-            p = pop(files[i])
+            p = files.pop[i]
             continue
         #
         dy = np.minimum(sh[0], dy/2)

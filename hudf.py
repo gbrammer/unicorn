@@ -1938,7 +1938,6 @@ def rgb_browser():
     rgb1 = 'hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f105w_v1.0_drz.fits[0]*%.3f' %(scales[0]*6, scales[1]*6*1.1, scales[2]*6*1.1)
     rgb2 = 'hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f105w_v1.0_drz.fits[0]*%.3f' %(scales[0]*20, scales[1]*20*1.1, scales[2]*20*1.1)
     rgb3 = 'hlsp_hudf12_hst_wfc3ir_udfmain_f160w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f125w_v1.0_drz.fits[0]*%.3f, hlsp_hudf12_hst_wfc3ir_udfmain_f105w_v1.0_drz.fits[0]*%.3f' %(scales[0]*50, scales[1]*50*1.1, scales[2]*50*1.1)
-
     threedhst.gmap.makeImageMap([rgb3], aper_list=[15], tileroot=['HJY'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
 
     threedhst.gmap.makeImageMap([rgb1,rgb2,rgb3], aper_list=[15], tileroot=['HJY','deep','deeper'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
@@ -2017,7 +2016,8 @@ def rgb_browser():
     
     f125 = pyfits.open('HUDF12_F125W.fits')
     mask = f125[0].data == 0
-
+    
+    #### Fill empty HUDF12 images with wide-F140W
     for i in range(3):
         print match[i]
         im = pyfits.open(match[i], mode='update')

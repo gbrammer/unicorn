@@ -459,11 +459,36 @@ def new_background():
         im.flush()
         
 def rgb_mosaic_browser():
+    
+    #### UDF browser, note "f" parameter for deeper UDF images
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
 
+    f140 = pyfits.open('HUDF12-F140W_drz_sci.fits')
+    match = ['HUDF12_F160W.fits', 'HUDF12_F125W.fits', 'UDF_ACS_i.fits']
+    
+    f125 = pyfits.open('HUDF12_F125W.fits')
+    mask = f125[0].data == 0
+    
+    #### Fill empty HUDF12 images with wide-F140W
+    for i in range(3):
+        print match[i]
+        im = pyfits.open(match[i], mode='update')
+        scale = 10**(-0.4*(26.46-25.96))/scales[i]
+        im[0].data[mask] = f140[0].data[mask]*scale
+        im.flush()
+    #
+    f = 6
+    rgb1 = 'HUDF12_F160W.fits[0]*%.3f, HUDF12_F125W.fits[0]*%.3f, UDF_ACS_i.fits[0]*%.3f' %(scales[0]*f, scales[1]*f*1., scales[2]*f*1.)
+    f = 20
+    rgb2 = 'HUDF12_F160W.fits[0]*%.3f, HUDF12_F125W.fits[0]*%.3f, UDF_ACS_i.fits[0]*%.3f' %(scales[0]*f, scales[1]*f*1., scales[2]*f*1.)
+    
+    #threedhst.gmap.makeImageMap([rgb1,rgb2], aper_list=[15, 16], tileroot=['HJY','deep'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
+    threedhst.gmap.makeImageMap([rgb1,rgb2], aper_list=[15,16,17], tileroot=['iJH', 'deep'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
+    
     #### iJH
     scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
     
-    #### UDF
+    #### UDS
     #acs_f814w = '/3DHST/Ancillary/UDS/CANDELS/public/hlsp_candels_hst_acs_uds-tot_f814w_v1.0_drz.fits'
     wfc3_f125w = '/3DHST/Ancillary/UDS/CANDELS/ASTRODRIZZLE/uds-f125w-astrodrizzle-v0.1_drz_sci.fits'
     wfc3_f160w = '/3DHST/Ancillary/UDS/CANDELS/ASTRODRIZZLE/uds-f160w-astrodrizzle-v0.1_drz_sci.fits'
@@ -516,10 +541,28 @@ def rgb_mosaic_browser():
     #### cosmos
     wfc3_f125w = '/3DHST/Ancillary/COSMOS/CANDELS/ASTRODRIZZLE/cosmos-f125w-astrodrizzle-v0.1_drz_sci.fits'
     wfc3_f160w = '/3DHST/Ancillary/COSMOS/CANDELS/ASTRODRIZZLE/cosmos-f160w-astrodrizzle-v0.1_drz_sci.fits'
-    threedhst.shifts.matchImagePixels(input=glob.glob('/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_ni_sect*_v2.0_drz_img.fits'), matchImage=wfc3_f160w, output='GOODS-N_F775W_match3.0.fits', input_extension=0, match_extension=0)
-    acs_f814w = 'GOODS-N_F775W_match3.0.fits'
+    threedhst.shifts.matchImagePixels(input=glob.glob('/3DHST/Ancillary//COSMOS/ACS/acs_I_030mas_*_sci.fits'), matchImage=wfc3_f160w, output='COSMOS_F814W_match3.0.fits', input_extension=0, match_extension=0)
+    acs_f814w = 'COSMOS_F814W_match3.0.fits'
     
-    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.666-25.96))*1.5]
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
+    
+    rgb = '%s[0]*%.3f, %s[0]*%.3f, %s[0]*%.3f' %(wfc3_f160w, scales[0]*f, wfc3_f125w, scales[1]*f, acs_f814w, scales[2]*f)
+    
+    threedhst.gmap.makeImageMap([rgb], aper_list=[14,15,16], tileroot=['iJH'], extension=0, path='./HTML/', zmin=-0.05, zmax=1)
+    
+    #### AEGIS
+    wfc3_f125w = '/3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f125w-astrodrizzle-v0.1_drz_sci.fits'
+    wfc3_f160w = '/3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f160w-astrodrizzle-v0.1_drz_sci.fits'
+        
+    # swarp /3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f160w-astrodrizzle-v0.1_drz_sci.fits[0] -c make_square.swarp
+    # mv coadd.fits AEGIS_F160W_v0.1_sq.fits; rm coadd.weight.fits
+    # swarp /3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f125w-astrodrizzle-v0.1_drz_sci.fits[0] -c make_square.swarp
+    # mv coadd.fits AEGIS_F125W_v0.1_sq.fits; rm coadd.weight.fits
+    wfc3_f125w, wfc3_f160w = 'AEGIS_F125W_v0.1_sq.fits', 'AEGIS_F160W_v0.1_sq.fits' 
+    threedhst.shifts.matchImagePixels(input = glob.glob('/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1_section*[0-9]_drz.fits'), matchImage=wfc3_f160w, output='AEGIS_F814W_match3.0_sq.fits', input_extension=0, match_extension=0)
+    acs_f814w = 'AEGIS_F814W_match3.0_sq.fits'
+    
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
     
     rgb = '%s[0]*%.3f, %s[0]*%.3f, %s[0]*%.3f' %(wfc3_f160w, scales[0]*f, wfc3_f125w, scales[1]*f, acs_f814w, scales[2]*f)
     

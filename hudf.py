@@ -638,7 +638,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
             p = files.pop(i)
             continue
         #
-        dy = np.minimum(sh[0], dy/2)
+        dy = np.minimum(sh[0]/2, dy)
         
     print 'DY: %d' %(dy)
     #dy = 20

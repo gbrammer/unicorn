@@ -4994,7 +4994,7 @@ def udf_RGB_thumbnails(field='HUDF', nx_size = 30, mag_limit = 28., skip=True, r
     
     for i in range(len(idx)):
         obj = cat.number[idx][i]
-        out_image = '%s/%s_rgb_%04.1f.png' %(field, obj, NY)
+        out_image = '%s/%05d_rgb_%04.1f.png' %(field, obj, NY)
         if os.path.exists(out_image) & skip:
             continue
         #

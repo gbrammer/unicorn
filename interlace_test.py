@@ -4,6 +4,7 @@ Tests on the UDF interlaced data
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pyfits
 
 import unicorn
 import threedhst
@@ -314,7 +315,22 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.poly_tilt_coeffs = [1]
         self.beta_tilt_coeffs = [0]
         self.tilt_function = self.beta_tilt
-
+        
+        tilt_file = '%s.new_zfit_tilt.dat' %(self.root)
+        if os.path.exists(tilt_file):
+            lines = open(tilt_file).readlines()
+            i=1
+            self.poly_tilt_coeffs = []
+            while 'beta' not in lines[i]:
+                self.poly_tilt_coeffs.append(float(lines[i]))
+                i += 1
+            #
+            self.beta_tilt_coeffs = []
+            i += 1
+            for line in lines[i:]:
+                self.beta_tilt_coeffs.append(float(lines[i]))
+                i += 1
+                
         self.shape2D = self.twod.im['SCI'].data.shape
         
         ## Flatten the 2D spectroscopic flux and variance arrays
@@ -703,6 +719,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.lnprob_second_total = self.lnprob_second_photom*0 + self.lnprob_second_spec + lnprior
         self.lnprob_second_total -= self.lnprob_second_total.max()
         
+        self.get_redshift_stats()
+        
         self.z_max_spec = self.zgrid[np.argmax(self.lnprob_second_total)]
         
         self.norm_prob = np.exp(self.lnprob_second_total) / np.trapz(np.exp(self.lnprob_second_total), self.zgrid_second)
@@ -745,6 +763,47 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         hdu.append(pyfits.ImageHDU(data=self.lnprob_second_spec, name='LNP_BOTH_1'))
         hduList = pyfits.HDUList(hdu)
         hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.pz.fits', clobber=True, output_verify='silentfix')
+    
+    def new_load_fits(self, PATH='./'):
+        pzfits = '%s/%s.new_zfit.pz.fits' %(PATH, self.grism_id)
+        if not os.path.exists(pzfits):
+            return False
+        
+        im = pyfits.open(pzfits)
+        self.zgrid_first = im['ZGRID0'].data*1
+        self.lnprob_first_phot = im['LNP_PHOT_0'].data*1
+        self.lnprob_first_spec = im['LNP_SPEC_0'].data*1
+        self.zgrid_second = im['ZGRID1'].data*1
+        self.lnprob_second_spec = im['LNP_BOTH_1'].data*1
+        
+        self.lnprior = self.get_prior(self.zgrid_second)
+        self.lnprob_second_total = self.lnprob_second_spec + self.lnprior
+        self.lnprob_second_total -= self.lnprob_second_total.max()
+        ### 
+        self.zgrid = self.zgrid_second*1
+        self.lnprob_spec = self.lnprob_second_spec*1
+        
+        self.get_redshift_stats()
+        
+        print 'Read p(z) from %s.' %(pzfits)
+        
+        return True
+        
+    def get_redshift_stats(self):
+        """
+        Compute best redshift and confidence intervals from p(z)
+        """
+        from scipy import interpolate
+
+        self.z_max_spec = self.zgrid_second[np.argmax(self.lnprob_second_total)]
+        self.norm_prob = np.exp(self.lnprob_second_total) / np.trapz(np.exp(self.lnprob_second_total), self.zgrid_second)
+        self.z_peak_spec = np.trapz(self.zgrid_second*self.norm_prob, self.zgrid_second)
+        
+        self.pzsum = np.cumsum(self.norm_prob[1:]*np.diff(self.zgrid_second))
+        self.pzsum /= self.pzsum[-1]
+        self.c68 = np.interp([0.16,0.84], self.pzsum, self.zgrid_second[1:])
+        self.c95 = np.interp([0.025,0.975], self.pzsum, self.zgrid_second[1:])
+        self.width = [np.diff(self.c68), np.diff(self.c95)]
         
     def new_fit_in_steps(self, zrfirst=[0.,4.0], dzfirst=0.003, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False):
         import scipy.ndimage as nd
@@ -842,6 +901,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
+        wuse = wuse & np.isfinite(yflux)
+        
         y = yflux-ycont
         #y = yflux_1D
         
@@ -859,7 +920,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ymax = yflux[wuse].max(); 
         else:
             ymax = yflux.max()
-            
+                
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
         if self.grism_element == 'G102':
             ax.set_xlim(0.7, 1.15)
@@ -1001,7 +1062,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.zgrid1 = self.zgrid_second
         self.full_prob1 = self.lnprob_second_total
         
-    def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True):
+    def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True, refit=False):
         """
         Fit redshift / tilt with emcee
         """
@@ -1009,7 +1070,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         import emcee
         
         #### Get a probability distribution for the redshift
-        self.new_fit_constrained(dzfirst=0.01, dzsecond=0.001, make_plot=False)
+        try:
+            dummy = self.zgrid_second
+        except:
+            refit = True
+        
+        if refit:
+            self.new_fit_constrained(dzfirst=0.01, dzsecond=0.001, make_plot=False)
         
         ### Draw z from p(z)
         soften = 3.

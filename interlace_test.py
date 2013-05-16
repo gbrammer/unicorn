@@ -699,9 +699,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         sm_total = np.log(sm_total/sm_total.max())
         
         zsub = sm_total > np.log(5.e-4)
+        if zsub.sum() == 0:
+            zsub = zsecond < 0.1
         
         #### Fit spectrum again on finer grid
-        print '\n Last run: photometry alone, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
+        print '\n Last run: photometry+spectrum, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
         self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr > 0.5), apply_prior=False, refit_norm=False)
         self.zgrid_second = self.zgrid
         self.lnprob_second_spec = self.lnprob_spec*1.

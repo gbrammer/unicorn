@@ -619,7 +619,7 @@ def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     #stack(id, dy=20, save=True, inverse=True)
     
 #
-def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF'):
+def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]'):
     """
     Stack all UDF spectra for a given object ID
     """
@@ -629,7 +629,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     if plt.cm.get_cmap().name != 'gray':
         plt.gray()
         
-    files=glob.glob('[PG][RO]*%05d.2D.fits' %(id))
+    files=glob.glob('%s*%05d.2D.fits' %(search, id))
     for i in range(len(files))[::-1]:
         twod = unicorn.reduce.Interlace2D(files[i])
         im = twod.im
@@ -783,7 +783,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     # plt.close()
     
     #
-    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root)
+    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root, search=search)
     if udf.status is False:
         return False
     
@@ -800,14 +800,14 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     ### Should be able to sum spectra for any object like this....
 
 class UDF():
-    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF'):
+    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF', search='[GP][OR]'):
         """
         Read in the 2D FITS files
         """        
         self.verbose = verbose
         
         self.id = id
-        self.files=glob.glob('[GP][OR]*%05d.2D.fits' %(id))
+        self.files=glob.glob('%s*%05d.2D.fits' %(search, id))
         self.NPIX = NPIX
         self.fcontam = fcontam
         self.ref_wave = ref_wave
@@ -981,6 +981,7 @@ class UDF():
         self.sum_contam = (self.contam*weight).sum(axis=0)/sum_weight
         self.sum_model = (self.model*weight).sum(axis=0)/sum_weight
         self.sum_var = 1./sum_weight
+        #self.sum_var = (self.err**2).sum(axis=0)
         
     def make_stacked_FITS(self):
         """
@@ -1005,7 +1006,7 @@ class UDF():
         
         im.writeto('%s_%05d.2D.fits' %(root, self.id), clobber=True)
         
-        #### 1D FITS file
+        ### 1D FITS file
         self.optimal_flux = self.wave*0.+1
         self.optimal_contam = self.wave*0.
         self.optimal_error = self.optimal_flux/10.
@@ -1013,6 +1014,8 @@ class UDF():
         self.trace_err = self.wave*0.+1
         
         self.make_1D_spectrum()
+        twod = unicorn.reduce.Interlace2D('%s_%05d.2D.fits' %(root, self.id))
+        twod.oned_spectrum()
         
     def make_1D_spectrum(self):
         root=self.root

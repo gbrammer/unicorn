@@ -2105,7 +2105,7 @@ def make_new_flats():
         for i in range(N):
             subset = so[ok][(i*NT):(i+1)*NT]
             flt_files = info.file[subset]
-            unicorn.prepare.make_flat(flt_files, output='flat_%s_t%d_v0.1.fits' %(filter, i+1), GZ='')
+            unicorn.prepare.make_flat(flt_files, output='flat_%s_t%d_v0.2.fits' %(filter, i+1), GZ='')
     #
     for filter in ['F125W', 'F160W']:
         ok = info.filter == filter
@@ -2114,17 +2114,18 @@ def make_new_flats():
         for i in range(N):
             subset = so[ok][(i*NT):(i+1)*NT]
             flt_files = info.file[subset]
-            print 'flat_%s_t%d_v0.1.fits  %.1f' %(filter, i+1, t.mjd[subset][0])
+            print 'flat_%s_t%d_v0.2.fits  %.1f' %(filter, i+1, t.mjd[subset][0])
      
-     # flat_F125W_t1_v0.1.fits  55071.0
-     # flat_F125W_t2_v0.1.fits  55770.0
-     # flat_F160W_t1_v0.1.fits  55079.0
-     # flat_F160W_t2_v0.1.fits  55717.0
+    # flat_F125W_t1_v0.1.fits  55071.0
+    # flat_F125W_t2_v0.1.fits  55770.0
+    # flat_F160W_t1_v0.1.fits  55079.0
+    # flat_F160W_t2_v0.1.fits  55717.0
      
     
 def clean_flat():
     """
     """
+
 def make_flat(flt_files, output='master_flat.fits', GZ=''):
     """
     Given a list of FLT files, make a median average master flat
@@ -2174,7 +2175,6 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         else:
             flat = pipeline_flats[pfl]
         #
-        flt[1].data *= flat
         ### Segmentation mask
         segm = pyfits.open(segfile)[0].data
         grow = nd.maximum_filter(segm, size=(5,5))
@@ -2185,7 +2185,8 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
         #
         ok = masked & np.isfinite(flt[1].data) & (dq_ok)
         background =  np.median(flt[1].data[ok])
-        flt[1].data /= background
+        flt[1].data *= flat/background
+        #flt[1].data /= background
         flt[1].data[(ok == False)] = 0
         X[i,:] = flt[1].data.flatten()
         ### For imcombine

@@ -2099,22 +2099,22 @@ def make_new_flats():
     so = np.argsort(t.mjd)
     
     for filter in ['F125W', 'F160W']:
-        ok = info.filter == filter
+        ok = info.filter[so] == filter
         N = 2
         NT = ok.sum()/N
         for i in range(N):
             subset = so[ok][(i*NT):(i+1)*NT]
             flt_files = info.file[subset]
-            unicorn.prepare.make_flat(flt_files, output='flat_%s_t%d_v0.2.fits' %(filter, i+1), GZ='')
+            unicorn.prepare.make_flat(flt_files, output='flat_%s_t%d_v0.3.fits' %(filter, i+1), GZ='')
     #
     for filter in ['F125W', 'F160W']:
-        ok = info.filter == filter
+        ok = info.filter[so] == filter
         N = 2
         NT = ok.sum()/N
         for i in range(N):
             subset = so[ok][(i*NT):(i+1)*NT]
             flt_files = info.file[subset]
-            print 'flat_%s_t%d_v0.2.fits  %.1f' %(filter, i+1, t.mjd[subset][0])
+            print 'flat_%s_t%d_v0.3.fits  %.1f' %(filter, i+1, t.mjd[subset][0])
      
     # flat_F125W_t1_v0.1.fits  55071.0
     # flat_F125W_t2_v0.1.fits  55770.0

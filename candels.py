@@ -916,7 +916,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                        bg_skip=False,
                        geometry='rxyscale,shift',
                        clean=True,
-                       redo_segmentation=True):
+                       redo_segmentation=True,
+                       clean_zeros=True):
     
     import threedhst
     import threedhst.prep_flt_files
@@ -945,7 +946,14 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     IMAGES=[], clean=clean,
                     initial_order=DIRECT_HIGHER_ORDER, save_fit=False,
                     redo_segmentation=redo_segmentation)
-
+    
+    #### Set pixels with zero weight to zero value
+    if clean_zeros:
+        print 'Clean pixels with zero weight.'
+        drz = pyfits.open(asn_file.replace('asn','drz'), mode='update')
+        drz[1].data[drz[2].data == 0] = 0
+        drz.flush()
+        
 def make_test_catalog():
     """
     Run SExtractor on some CANDELS images to see what the mag vs. size relation looks like

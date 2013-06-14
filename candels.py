@@ -197,7 +197,6 @@ def cosmos():
         # threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-V%02d-F160W' %(visit+44), ALIGN_IMAGE=file.replace('asn','drz'), fitgeometry='shift', clean=True, ALIGN_EXTENSION=1)
         # threedhst.prep_flt_files.startMultidrizzle('COSMOS-V%02d-F160W_asn.fits' %(visit+44), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
     
-            
     for filt in ['F125W', 'F160W']:
         # files=glob.glob('COSMOS-V[0-4]*-'+filt+'_asn.fits')
         # files.append('COSMOS-V50-'+filt+'_asn.fits')
@@ -357,6 +356,10 @@ def uds():
     os.chdir('/3DHST/Ancillary/UDS/CANDELS')
     for band in ['f814w', 'f606w']:
         threedhst.shifts.matchImagePixels(input= glob.glob('hlsp_candels_hst_acs_uds-tot_%s_v1.0_drz.fits' %(band)), matchImage='hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits', match_extension=0, output='UDS-%s.fits' %(band))
+    #
+    os.chdir('/3DHST/Ancillary/UDS/CANDELS')
+
+    threedhst.shifts.matchImagePixels(input= glob.glob('../UKIDSS/UDS_K.fits'), matchImage='hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits', match_extension=0, output='UDS-K.fits')
     
 def cdfs():
     import unicorn.candels
@@ -684,8 +687,56 @@ def goodss():
     ### scaling is related to the filter AB zeropoint
     scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
     rgb = '/Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits[0]*%.3f, /Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits[0]*%.3f, /Volumes/Crucial/3DHST/Ancillary/GOODS-S/GS-ACSi.fits[0]*%.3f' %(scales[0], scales[1], scales[2])
-
-    threedhst.gmap.makeImageMap([rgb], aper_list=[15,16], tileroot=['iJH'], extension=1)
+    
+    #### SWarp G141 images to put in same map
+    ref = '/Volumes/Crucial/3DHST/Ancillary/GOODS-S/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    ext = 0
+    
+    ref = '/3DHST/Spectra/Work/GOODS-S/PREP_FLT/GOODS-S-34-F140W_drz.fits'
+    ext = 1
+    
+    #### Subimage around interesting sources
+    #10820.215 6150.307
+    #5633.7106 11078.678
+    #6125.7472 8651.4943 
+    imcopy('/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits[0][5000:11400,5500:11600]', 'GS_ref.fits')
+    ref = 'GS_ref.fits'
+    ext = 0
+    
+    os.chdir('/Users/gbrammer/Sites/GS_MAP/')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/Users/gbrammer/Sites/GS_MAP/GOODS-S-G141_drz_v0.5.fits'), matchImage=ref, match_extension=ext, input_extension=1, output='GS-G141.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/GOODS-S/GOODS_ACS/GS-ACSi.fits'), matchImage=ref, match_extension=ext, input_extension=0, output='GS-i.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits'), matchImage=ref, match_extension=ext, input_extension=0, output='GS-J.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits'), matchImage=ref, match_extension=ext, input_extension=0, output='GS-H.fits')
+    
+    scales = [10**(-0.4*(25.96-25.96)), 10**(-0.4*(26.25-25.96)), 10**(-0.4*(25.94-25.96))*1.5]
+    
+    scales = np.array(scales)*2
+    
+    rgb = 'GS-H.fits[0]*%.3f, GS-J.fits[0]*%.3f, GS-i.fits[0]*%.3f' %(scales[0], scales[1], scales[2])
+    
+    threedhst.gmap.makeImageMap(['GS-i.fits[0]*%.3f' %(scales[2]), 'GS-H.fits[0]*%.3f' %(scales[0]), rgb, 'GS-G141.fits[0]*3'], aper_list=[14,16,17], tileroot=['ACS-i','WFC3-H', 'iJH', 'G141'], extension=1, path='/Users/gbrammer/Sites/GS_MAP/')
+    
+    #### Equirect image
+    im_r = pyfits.open('/Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits')
+    im_g = pyfits.open('/Volumes/Crucial/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F125W_wfc3ir_drz_sci.fits')
+    im_b = pyfits.open('/Volumes/Crucial/3DHST/Ancillary/GOODS-S/GS-ACSi.fits')
+    xc, yc = 8193, 10055
+    NX, NY = 6000, 6000
+    #NX, NY = 500, 500
+    #NX, NY = 1500, 800
+    
+    xc, yc = 16384/2, 20108/2
+    
+    ### F160W
+    sub_r = im_r[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.96-25.96))
+    ### F125W
+    sub_g = im_g[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(26.25-25.96))
+    ### F814W
+    sub_b = im_b[0].data[yc-NY:yc+NY, xc-NX:xc+NX]*10**(-0.4*(25.94-25.96))*1.5
+    
+    Q, alpha, m0 = 10.,8.,-0.02
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='goodss-rgb.jpg', shape=(sub_r.shape[1]/2, sub_r.shape[0]/2))
     
 def goodsn():
     import unicorn.candels
@@ -864,7 +915,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                        SCALE=0.06,
                        bg_skip=False,
                        geometry='rxyscale,shift',
-                       clean=True):
+                       clean=True,
+                       redo_segmentation=True):
     
     import threedhst
     import threedhst.prep_flt_files
@@ -883,7 +935,7 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[],
                     align_geometry=geometry, clean=clean,
-                    initial_order=0, save_fit=False, TWEAKSHIFTS_ONLY=(ALIGN_IMAGE is None))
+                    initial_order=0, save_fit=False, TWEAKSHIFTS_ONLY=(ALIGN_IMAGE is None), redo_segmentation=redo_segmentation)
     
     if DIRECT_HIGHER_ORDER > 0:
         threedhst.prep_flt_files.prep_flt(asn_file=asn_file,
@@ -891,7 +943,8 @@ def prep_candels(asn_file='ib3706050_asn.fits',
                     bg_only=False, bg_skip=bg_skip, redo_background=False,
                     skip_drz=False, final_scale=SCALE, pixfrac=0.8,
                     IMAGES=[], clean=clean,
-                    initial_order=DIRECT_HIGHER_ORDER, save_fit=False)
+                    initial_order=DIRECT_HIGHER_ORDER, save_fit=False,
+                    redo_segmentation=redo_segmentation)
 
 def make_test_catalog():
     """

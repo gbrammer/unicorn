@@ -109,6 +109,25 @@ def egs():
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
     
+def cosmos_prep():
+    
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    #ALIGN_IMAGE = '/3DHST/Ancillary/COSMOS/CANDELS/candels_public/hlsp_candels_hst_wfc3_cos-tot_f125w_v1.0_drz.fits'
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/COSMOS/CANDELS/ASTRODRIZZLE/cosmos-f160w-astrodrizzle-v0.1_drz_sci.fits'
+    
+    for filter in ['F125W','F160W']:
+        files=glob.glob('COSMOS-V*'+filter+'_asn.fits')
+        for file in files:
+            if not os.path.exists(file.replace('asn','drz')):
+                unicorn.candels.prep_candels(asn_file=file, 
+                    ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                    SCALE=0.06, geometry='rotate,shift')    
+
 def cosmos():
     from pyraf import iraf
     from iraf import stsdas,dither,slitless,axe 
@@ -240,7 +259,28 @@ def cosmos():
     
     
     # p!sh ~/Sites/FITS/keys.sh
+
+def uds_prep():
     
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    #ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    ALIGN_IMAGE = ''
+    
+    for filter in ['F125W','F160W']:
+        files=glob.glob('UDS-V*'+filter+'_asn.fits')
+        for file in files:
+            if not os.path.exists(file.replace('asn','drz')):
+                unicorn.candels.prep_candels(asn_file=file, 
+                    ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                    SCALE=0.06, geometry='rotate,shift')    
+
+
+
 def uds():
     import unicorn.candels
     
@@ -738,6 +778,53 @@ def goodss():
     Q, alpha, m0 = 10.,8.,-0.02
     unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='goodss-rgb.jpg', shape=(sub_r.shape[1]/2, sub_r.shape[0]/2))
     
+def goodsn_prep(only_f140w=False, only_flat=False):
+    
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    #ALIGN_IMAGE = '/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits'
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-N/CANDELS/ASTRODRIZZLE/goods-n-f160w-astrodrizzle-v0.1_drz_sci.fits'
+
+    if not only_f140w and not only_flat:
+        for filter, bad_files in zip(['F125W','F160W'],[bad_f125w,bad_f160w]):
+            files=glob.glob('GOODSN-ORI*-V*'+filter+'_asn.fits')
+            for bad_file in bad_files:
+                print 'Will skip ', bad_file+'_asn.fits'
+                files.remove(bad_file+'_asn.fits')
+            for file in files:
+                if not os.path.exists(file.replace('asn','drz')):
+                    unicorn.candels.prep_candels(asn_file=file, 
+                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                        SCALE=0.06, geometry='rotate,shift')  
+
+    if only_f140w:
+        for filter in ['F140W']:
+            files = glob.glob('GOODSN-ORI*-V*'+filter+'_asn.fits')
+            for file in files:
+                if not os.path.exists(file.replace('asn','drz')):
+                    unicorn.candels.prep_candels(asn_file=file, 
+                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                        SCALE=0.06, geometry='rotate,shift')    
+            
+    if only_flat:
+        for filter, bad_files in zip(['F125W','F160W'],[bad_f125w,bad_f160w]):
+            files=glob.glob('GOODSN-ORI*-V*'+filter+'_asn.fits')
+            for bad_file in bad_files:
+                print 'Will skip ', bad_file+'_asn.fits'
+                files.remove(bad_file+'_asn.fits')
+            for file in files:
+                unicorn.candels.prep_candels(asn_file=file, 
+                    GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                    redo_segmentation=False)    
+
+
+    
+
 def goodsn():
     import unicorn.candels
     

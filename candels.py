@@ -24,14 +24,16 @@ def goods_ers():
     
     unicorn.candels.make_asn_files()
     
-    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    #ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v0.1_drz_sci.fits'
         
     files=glob.glob('WFC3-*asn.fits')
     for file in files:
         if not os.path.exists(file.replace('asn','drz')):
             unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
     #
     #### Make detection images for the grism
     os.system('cp '+unicorn.GRISM_HOME+'/ERS/PREP_FLT/WFC3-ERSII-G01-F140W_drz.fits .')
@@ -108,6 +110,24 @@ def egs():
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*2','EGS-epoch2-F125W_drz.fits', 'EGS-epoch2-F160W_drz.fits'], aper_list=[14], tileroot=['F814W','F125W','F160W'], polyregions=glob.glob('*F125W_asn.pointing.reg'))
     
     threedhst.gmap.makeImageMap(['/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits[0]*0.04', '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale2_drz.fits[0]*5', 'PREP_FLT/EGS-epoch2-F125W_drz.fits', 'PREP_FLT/EGS-epoch2-F160W_drz.fits'], aper_list=[12], tileroot=['WIRDS','F814W', 'F125W', 'F160W'])
+
+def tile41_prep():
+    
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()    
+    
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/COSMOS/CANDELS/ASTRODRIZZLE/cosmos-f160w-astrodrizzle-v0.1_drz_sci.fits'
+    
+    files = glob.glob('TILE*asn.fits')
+
+    for file in files:
+        #if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')    
     
 def cosmos_prep():
     
@@ -268,18 +288,17 @@ def uds_prep():
     unicorn.candels.make_asn_files()
 
     #ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
-    ALIGN_IMAGE = ''
+    ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
     
     for filter in ['F125W','F160W']:
         files=glob.glob('UDS-V*'+filter+'_asn.fits')
+        files.remove('UDS-V5K-'+filter+'_asn.fits')
         for file in files:
             if not os.path.exists(file.replace('asn','drz')):
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                     SCALE=0.06, geometry='rotate,shift')    
-
-
 
 def uds():
     import unicorn.candels
@@ -400,7 +419,190 @@ def uds():
     os.chdir('/3DHST/Ancillary/UDS/CANDELS')
 
     threedhst.shifts.matchImagePixels(input= glob.glob('../UKIDSS/UDS_K.fits'), matchImage='hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits', match_extension=0, output='UDS-K.fits')
+
+def cdfs_prep():
+
+    import unicorn.candels
+    import glob
     
+    unicorn.candels.make_asn_files()
+
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v0.1_drz_sci.fits'
+
+    if not only_f140w and not only_flat:
+        for filter in ['F125W','F160W']:
+            files=glob.glob('GOODS-*-*'+filter+'_asn.fits')
+            files.remove('GOODS-SD2-V7G-'+filter+'_asn.fits')
+            files.remove('GOODS-SD5-VGQ-'+filter+'_asn.fits')
+            files.remove('GOODS-SD5-VGX-'+filter+'_asn.fits')
+            threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-'+filter,
+                path_to_FLT='./', run_multidrizzle=False)
+            for file in files:
+                if not os.path.exists(file.replace('asn','drz')):
+                    unicorn.candels.prep_candels(asn_file=file, 
+                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                        SCALE=0.06, geometry='rotate,shift')  
+
+    if only_f140w:
+        for filter in ['F140W']:
+            files = glob.glob('GOODS-SOUTH-*'+filter+'_asn.fits')
+            threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-'+filter,
+                path_to_FLT='./', run_multidrizzle=False)
+            for file in files:
+                if not os.path.exists(file.replace('asn','drz')):
+                    unicorn.candels.prep_candels(asn_file=file, 
+                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                        SCALE=0.06, geometry='rotate,shift')    
+
+    if only_flat:
+        for filter in ['F125W','F160W']:
+            files=glob.glob('GOODS-*-*'+filter+'_asn.fits')
+            files.remove('GOODS-SD2-V7G-'+filter+'_asn.fits')
+            files.remove('GOODS-SD5-VGQ-'+filter+'_asn.fits')
+            files.remove('GOODS-SD5-VGX-'+filter+'_asn.fits')
+            for file in files:
+                unicorn.candels.prep_candels(asn_file=file, 
+                    GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                    redo_segmentation=False)    
+
+def george_prep():
+
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v0.1_drz_sci.fits'
+
+    files = glob.glob('GEORGE*asn.fits')
+    
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')  
+    
+def cdfs_agn1_prep():
+
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v0.1_drz_sci.fits'
+     
+    files = glob.glob('CDFS*asn.fits')
+    
+    for file in files:
+        #if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')  
+        
+def hudf_prep():
+    
+    import unicorn.candels
+    import glob
+    
+    files = glob.glob
+
+
+def hudf_v3_prep():
+    
+    ### HUDF
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09_F160W_v1_sci.fits'
+    
+    files_f125w = glob.glob('ib5x0[cde]020_asn.fits')
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f125w[0])
+    for file in files_f125w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f125w[0])
+    
+    files_f160w = glob.glob('ib5x1[efg]020_asn.fits')
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f160w[0])
+    for file in files_f160w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f160w[0])
+    
+    
+    for file in [files_f125w[0],files_f160w[0]]:
+        unicorn.candels.prep_candels(asn_file=file,
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+            GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
+            
+    ### Flanking pointing 1
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits'  
+    files_f125w, files_f160w = [],[]
+    
+    files_f125w = glob.glob('ib5x3[9ad]020_asn.fits')
+    
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f125w[0])
+    for file in files_f125w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        print 'Appending '+files_f125w[0]+' with '+file+'.'
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f125w[0])
+    
+    #files_f160w = glob.glob('ib5x4[578]020_asn.fits')
+    files_f160w = glob.glob('ib5x4[578cf]020_asn.fits')
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f160w[0])
+    for file in files_f160w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        print 'Appending '+files_f160w[0]+' with '+file+'.'
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f160w[0])
+    
+    
+    for file in [files_f125w[0],files_f160w[0]]:
+        unicorn.candels.prep_candels(asn_file=file,
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+            GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
+            
+    ### Flanking pointing 2
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits'  
+    files_f125w, files_f160w = [],[]
+    
+    files_f125w = glob.glob('ib5x5[ade]020_asn.fits')
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f125w[0])
+    for file in files_f125w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        print 'Appending '+files_f125w[0]+' with '+file+'.'
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f125w[0])
+    
+    files_f160w = glob.glob('ib5x6[5678]020_asn.fits')
+    asn1 = threedhst.utils.ASNFile('../RAW/'+files_f160w[0])
+    for file in files_f160w[1:]:
+        asn_tmp = threedhst.utils.ASNFile('../RAW/'+file)
+        print 'Appending '+files_f160w[0]+' with '+file+'.'
+        asn1.append(asn_tmp)
+    asn1.write(out_file = files_f160w[0])
+    
+    
+    for file in [files_f125w[0],files_f160w[0]]:
+        unicorn.candels.prep_candels(asn_file=file,
+            ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+            GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+            SCALE=0.06, geometry='rotate,shift')
+            
+    files = ['ib5x39020_asn.fits','ib5x5a020_asn.fits']
+    root = 'HUDF-DEEP'
+    filter = 'F125W'
+    threedhst.utils.combine_asn_shifts(files, out_root='%s-%s' %(root, filter), path_to_FLT='./', run_multidrizzle=False)
+
+    files = ['ib5x45020_asn.fits','ib5x65020_asn.fits']
+    root = 'HUDF-DEEP'
+    filter = 'F160W'
+    threedhst.utils.combine_asn_shifts(files, out_root='%s-%s' %(root, filter), path_to_FLT='./', run_multidrizzle=False)
+
 def cdfs():
     import unicorn.candels
 
@@ -778,6 +980,7 @@ def goodss():
     Q, alpha, m0 = 10.,8.,-0.02
     unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='goodss-rgb.jpg', shape=(sub_r.shape[1]/2, sub_r.shape[0]/2))
     
+
 def goodsn_prep(only_f140w=False, only_flat=False):
     
     import unicorn.candels
@@ -788,12 +991,17 @@ def goodsn_prep(only_f140w=False, only_flat=False):
     #ALIGN_IMAGE = '/3DHST/Spectra/Work/GOODS-N/PREP_FLT/GOODS-N-F140W_drz.fits'
     ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-N/CANDELS/ASTRODRIZZLE/goods-n-f160w-astrodrizzle-v0.1_drz_sci.fits'
 
+    bad_f125w = ['GOODSN-ORI090-V7P-F125W', 'GOODSN-ORI180-V1C-F125W', 'GOODSN-ORI180-V1F-F125W', 'GOODSN-ORI180-V1K-F125W', 'GOODSN-ORI180-V1N-F125W', 'GOODSN-ORI180-V1R-F125W']
+    bad_f160w = ['GOODSN-ORI326-V5L-F160W','GOODSN-ORI090-V7P-F160W','GOODSN-ORI180-V1C-F160W', 'GOODSN-ORI180-V1F-F160W', 'GOODSN-ORI180-V1K-F160W', 'GOODSN-ORI180-V1N-F160W', 'GOODSN-ORI180-V1R-F160W']
+
     if not only_f140w and not only_flat:
         for filter, bad_files in zip(['F125W','F160W'],[bad_f125w,bad_f160w]):
             files=glob.glob('GOODSN-ORI*-V*'+filter+'_asn.fits')
             for bad_file in bad_files:
                 print 'Will skip ', bad_file+'_asn.fits'
                 files.remove(bad_file+'_asn.fits')
+            threedhst.utils.combine_asn_shifts(files, out_root='GOODS-N-'+filter,
+                path_to_FLT='./', run_multidrizzle=False)
             for file in files:
                 if not os.path.exists(file.replace('asn','drz')):
                     unicorn.candels.prep_candels(asn_file=file, 
@@ -803,7 +1011,9 @@ def goodsn_prep(only_f140w=False, only_flat=False):
 
     if only_f140w:
         for filter in ['F140W']:
-            files = glob.glob('GOODSN-ORI*-V*'+filter+'_asn.fits')
+            files = glob.glob('GOODS-N-*-'+filter+'_asn.fits')
+            threedhst.utils.combine_asn_shifts(files, out_root='GOODS-N-'+filter,
+                path_to_FLT='./', run_multidrizzle=False)
             for file in files:
                 if not os.path.exists(file.replace('asn','drz')):
                     unicorn.candels.prep_candels(asn_file=file, 
@@ -822,9 +1032,24 @@ def goodsn_prep(only_f140w=False, only_flat=False):
                     GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
                     redo_segmentation=False)    
 
-
+def colfax_prep():
+       
+       import unicorn.candels
+       import glob
     
-
+       unicorn.candels.make_asn_files()
+       
+       ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-N/CANDELS/ASTRODRIZZLE/goods-n-f160w-astrodrizzle-v0.1_drz_sci.fits'
+       
+       files = glob.glob('*asn.fits')
+       
+       for file in files:                
+           if not os.path.exists(file.replace('asn','drz')):
+                    unicorn.candels.prep_candels(asn_file=file,
+                        ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                        GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                        SCALE=0.06, geometry='rotate,shift')       
+    
 def goodsn():
     import unicorn.candels
     

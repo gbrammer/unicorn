@@ -141,6 +141,8 @@ def cosmos_prep():
     
     for filter in ['F125W','F160W']:
         files=glob.glob('COSMOS-V*'+filter+'_asn.fits')
+        threedhst.utils.combine_asn_shifts(files, out_root='COSMOS-'+filter,
+                           path_to_FLT='./', run_multidrizzle=False)
         for file in files:
             if not os.path.exists(file.replace('asn','drz')):
                 unicorn.candels.prep_candels(asn_file=file, 
@@ -287,18 +289,37 @@ def uds_prep():
     
     unicorn.candels.make_asn_files()
 
-    #ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
     ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
-    
+
     for filter in ['F125W','F160W']:
-        files=glob.glob('UDS-V*'+filter+'_asn.fits')
+        files = glob.glob('UDS-V*'+filter+'_asn.fits')
         files.remove('UDS-V5K-'+filter+'_asn.fits')
+        threedhst.utils.combine_asn_shifts(files, out_root='UDS-'+filter,
+                           path_to_FLT='./', run_multidrizzle=False)
         for file in files:
             if not os.path.exists(file.replace('asn','drz')):
                 unicorn.candels.prep_candels(asn_file=file, 
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                    SCALE=0.06, geometry='rotate,shift')       
+            
+def uds_marshall_prep():
+    
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+
+    ALIGN_IMAGE = '/3DHST/Ancillary/UDS/CANDELS/candels_public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
+    
+    for filter in ['F125W','F160W']:
+        files=glob.glob('MARSHALL-*'+filter+'_asn.fits')
+        for file in files:
+            #if not os.path.exists(file.replace('asn','drz')):
+                unicorn.candels.prep_candels(asn_file=file, 
+                    ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
-                    SCALE=0.06, geometry='rotate,shift')    
+                    SCALE=0.06, geometry='rotate,shift')       
 
 def uds():
     import unicorn.candels
@@ -508,8 +529,41 @@ def hudf_prep():
     import unicorn.candels
     import glob
     
-    files = glob.glob
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits'  
 
+    files = glob.glob('HUDF05-01-DEEP-WFC3*asn.fits')
+
+    for file in files:
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')  
+
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits'  
+
+    ### removed ib5x5b*, ib5x5c* and ib5x5f form the files.info file --> lost pointing
+    unicorn.candels.make_asn_files()
+    files = glob.glob('HUDF05-02-DEEP-WFC3*asn.fits')
+
+    for file in files:
+        unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')  
+                
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09_F160W_v1_sci.fits'
+    
+    ## removed ib5x0ei6q_flt.fits, ib5x0ei8q_flt.fits and ib5x0eicq_flt.fits 
+    ## from files.info --> weird persistence pattern
+    unicorn.candels.make_asn_files()
+    files = glob.glob('HUDF-DEEP-WFC3-*_asn.fits')
+
+    for file in files:
+        unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')  
+        
 
 def hudf_v3_prep():
     

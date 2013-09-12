@@ -56,11 +56,14 @@ try:
     ### Latest STSCI_PYTHON (Python2.7)
     import stsci.tools.wcsutil as wcsutil
 except:
-    ### Older STSCI_PYTHON (Python2.5.4)
-    import pytools.wcsutil as wcsutil
+    try:
+        ### Older STSCI_PYTHON (Python2.5.4)
+        import pytools.wcsutil as wcsutil
+    except:
+        print "No WCSUtil, unicorn.reduce won't work."
 
 ###### Globals for compute_model
-conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.0.conf', path=os.getenv('THREEDHST')+'/CONF/').params
+conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.5.conf', path=os.getenv('THREEDHST')+'/CONF/').params
 conf_grism = 'G141'
 sens_files = {}
 for beam in ['A','B','C','D','E']:
@@ -80,8 +83,11 @@ BWs = {'F105W': 2700.6102248267212,
  'F140W': 3840.2311460823043,
  'F160W': 2682.9565027757253}
 
-import pywcs
-
+try:
+    import pywcs
+except:
+    print 'No pywcs found.'
+    
 def set_grism_config(grism='G141'):
     import unicorn.reduce as red
     if red.conf_grism == grism:
@@ -194,6 +200,46 @@ def combine_all(FORCE=False):
         if (not os.path.exists(pointing+'-G141_inter.fits')) | FORCE:
             unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
 
+def acs_interlace_combine(asn_file):
+    asn_file = 'jbhm19010_asn.fits'
+    asn_file = 'jbhm19020_asn.fits'
+
+    asn = threedhst.utils.ASNFile(asn_file)
+    
+    xoff, yoff = unicorn.reduce.acs_interlace_offsets(asn_file, growx=1, growy=1)
+    
+    xoff = np.array([  0,  14,  -4, -18])
+    yoff = np.array([ 0, 24, 30,  7])
+    
+    xoff[1] -= 2; yoff[1] += 2
+    xoff[2] -= 2; yoff[2] += 1
+    xoff[3] -= 1; yoff[3] -= 2
+    
+    im = pyfits.open(asn.exposures[0]+'_flt.fits')
+    full = np.zeros((2200, 4200))
+    narr = full*0.
+    x0, y0 = 50, 50
+    tile = im[4].data*0
+    cr_mask = (im[6].data & 4096) == 0
+    bg = np.median(im[4].data[cr_mask & (im[4].data != 0)])
+    tile[cr_mask] = im[4].data[cr_mask]-bg
+    full[y0+0:y0+0+2048, x0+0:x0+0+4096] += tile
+    narr[y0+0:y0+0+2048, x0+0:x0+0+4096] += cr_mask*1.
+    
+    ds9.view(full/np.maximum(narr, 1))
+    
+    for i in np.arange(1,len(asn.exposures)):
+        im = pyfits.open(asn.exposures[i]+'_flt.fits')
+        tile = im[4].data*0
+        cr_mask = (im[6].data & 4096) == 0
+        bg = np.median(im[4].data[cr_mask & (im[4].data != 0)])
+        tile[cr_mask] = im[4].data[cr_mask] - bg
+        full[y0+yoff[i]:y0+yoff[i]+2048, x0+xoff[i]:x0+xoff[i]+4096] += tile
+        narr[y0+yoff[i]:y0+yoff[i]+2048, x0+xoff[i]:x0+xoff[i]+4096] += cr_mask*1.
+        #
+        ds9.frame(i+1)
+        ds9.view(full/np.maximum(narr, 1))
+        
 def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     """
     Get interlacing pixel offsets from postargs
@@ -275,7 +321,6 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False):
     
     from pyraf import iraf
-    from iraf import iraf
     from iraf import dither
     
     import threedhst.prep_flt_files
@@ -554,7 +599,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000):
     """
     Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
@@ -590,7 +635,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     bigY = yc - yoff
       
     #xmi, xma = -580, 730
-    xmi, xma = 1000,-1000
+    #xmi, xma = 1000,-1000
     if 'A' in BEAMS:
         xmi, xma = min(xmi,10), max(xma,213)
     if 'B' in BEAMS:
@@ -600,9 +645,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     if 'D' in BEAMS:
         xmi, xma = min(xmi, 469), max(xma,668)
     if 'E' in BEAMS:
-        xmi, xma = min(xmi, -550), max(xma,-400)
+        xmi, xma = min(xmi, -600), max(xma,-400)
         
     NX,NY = xma-xmi, 8
+
+    NX,NY = xma-xmi, 15
     
     xmi *= growx
     xma *= growx
@@ -624,7 +671,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # This wasn't needed and was giving dz/1+z = +0.0035 offset w.r.t spec-zs! 
     # xarr += 1
     
-    for ib,beam in enumerate(BEAMS):
+    for ib, beam in enumerate(BEAMS):
        
         xmi_beam, xma_beam = tuple(np.cast[int](conf['BEAM'+beam].split())) 
         xmi_beam *= growx
@@ -689,14 +736,19 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #### Sensitivity
         #sens = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
         sens = sens_files[beam]
+        #dl = np.diff(lam)[0]
+        #if dl > 0:
         sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        #else:
+        #    sens_interp = np.interp(lam[::-1], sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)[::-1]
+            
         #sens_interp = utils_c.interp_c(lam, np.array(sens.field('WAVELENGTH'), dtype=np.float64), np.array(sens.field('SENSITIVITY'), dtype=np.float64)*1.e-17, extrapolate=0.)
         
         #### Sensitivity curve is defined "per A" not "per pixel" so multiply by A / pixel and 
         #### the grow_factor term accounts for the fact that the pixels are smaller in the 
         #### spatial axis as well in the interlaced images
         #print '%s DLAM: %.3f %.3f' %(beam, np.median(np.diff(lam)), np.std(np.diff(lam)))
-        sens_interp *= np.median(np.diff(lam))/(growx*growy)
+        sens_interp *= np.median(np.abs(np.diff(lam)))/(growx*growy)
         
         if xarr[keep].size > 1:
             full_sens[y0[keep]+NY,xpix[keep]] += sens_interp[keep]
@@ -704,8 +756,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         if (lam_spec is not None) & (flux_spec is not None):
             #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
-            spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
-            
+            dl = lam[1]-lam[0]
+            if dl > 0:
+                spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
+            else:
+                spec_interp = utils_c.interp_conserve_c(lam[::-1], lam_spec, flux_spec, left=0., right=0.)[::-1]
+                
             #### Smooth input model
             # xg = np.arange(-5*smooth_binned_sigma, 5.1*smooth_binned_sigma, 1)
             # yg = np.exp(-xg**2/2/smooth_binned_sigma**2)
@@ -1468,7 +1524,6 @@ class GrismModel():
         Use iraf.dither.tran to get the real, undistorted WCS coordinates of each object
         """
         from pyraf import iraf
-        from iraf import iraf
         
         no = iraf.no
         yes = iraf.yes
@@ -2494,25 +2549,29 @@ def model_stripe():
     lam_spec = np.array([0.9e4,1.25e4,1.6e4,1.9e4])
     flux_spec = np.array([1.,1.,f160/f125,f160/f125])
     
+    skip = 5
+    
     BEAMS = ['A','B']
     BEAMS = ['A','B','C','D'] #,'E']
+    BEAMS = ['A','B','C','D','E']
+    
+    model*=0
     
     orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0)
     yord, xord = np.indices(orders.shape)
     non_zero = orders > 0
     xord, yord, ford, word = xord[non_zero], yord[non_zero], orders[non_zero], xi[2][non_zero]
-
+        
     ys = orders.shape
     xord += xi[0]
     yord -= (ys[0]-1)/2
-    
-    skip = 5
-    
-    for y in range(460, 540):
-        print unicorn.noNewLine + 'Y: %d' %(y)
-        if (y % 20) == 0:
-            pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
         
+    for y in range(490, 510):
+        print unicorn.noNewLine + 'Y: %d' %(y)
+        #if (y % 20) == 0:
+        #    pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
+        #
+        # Range tuned to have the bands in the right place
         for x in range(-190,1014+85):
             if ((x % skip) + (y % skip)) == 0:
                 orders, xi = red.grism_model(x+1, y+1, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, dydx=False)
@@ -2522,7 +2581,7 @@ def model_stripe():
                 ys = orders.shape
                 xord += xi[0]
                 yord -= (ys[0]-1)/2
-        
+            #
             xxi = x+xord
             yyi = y+yord
             use = (xxi >= 0) & (xxi < 1014) & (yyi >= 0) & (yyi < 1014)
@@ -2531,7 +2590,59 @@ def model_stripe():
         #model += object #*norm
     #
     pyfits.writeto('stripe.fits', model/model.max(), clobber=True)
-#
+    #
+    ####### Compare order contributions
+    BEAMS = []
+    flux_spec = (lam_spec/1.4e4)**-18
+    for beam in ['B','C','D','E']:
+        BEAMS = ['A']
+        BEAMS.append(beam)
+        orders, xi = red.grism_model(507,507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, xmi=-600, xma=700)
+        orders_1d = np.sum(orders, axis=0)
+        model_1d = orders_1d*0.
+        for x in range(-190,1014+85):
+            model_1d += nd.shift(orders_1d, xi[0]+x, mode='constant', cval=0)
+        #
+        plt.plot(model_1d[:1014], label=beam)
+    
+    plt.legend()
+    
+    ####### Compare vertical dependence
+    BEAMS = ['A','B','C','D','E']
+    for yi in range(0,1014,100):
+        print yi
+        orders, xi = red.grism_model(507, yi, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, xmi=-600, xma=700)
+        orders_1d = np.sum(orders, axis=0)
+        model_1d = orders_1d*0.
+        for x in range(-190,1014+85):
+            model_1d += nd.shift(orders_1d, xi[0]+x, mode='constant', cval=0)
+        #
+        plt.plot(model_1d[:1014]/model_1d[800], label='y = %d' %(yi))
+    
+    ####### Compare background spectrum color
+    BEAMS = ['A','B','C','D','E']
+    for beta in range(-20,3,2):
+        flux_spec = (lam_spec/1.4e4)**beta
+        orders, xi = red.grism_model(507, 507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, xmi=-600, xma=700)
+        orders_1d = np.sum(orders, axis=0)
+        model_1d = orders_1d*0.
+        for x in range(-190,1014+85):
+            model_1d += nd.shift(orders_1d, xi[0]+x, mode='constant', cval=0)
+        #
+        plt.plot(model_1d[:1014]/model_1d[800], label='%d' %(beta))
+    #
+    ####### Compare background emission lines
+    BEAMS = ['A','B','C','D'] #,'E']
+    for l0 in np.arange(1.e4,1.61e4,0.1e4):
+        flux_spec = (lam_spec/1.4e4)**-5*0.1+np.exp(-(lam_spec-l0)**2/2./100.**2)
+        orders, xi = red.grism_model(507, 507, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=1, growx=1, growy=1, pad=0, xmi=-600, xma=700)
+        orders_1d = np.sum(orders, axis=0)
+        model_1d = orders_1d*0.
+        for x in range(-190,1014+85):
+            model_1d += nd.shift(orders_1d, xi[0]+x, mode='constant', cval=0)
+        #
+        plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
+    
 def interlace_goodsn():
     """
     Reduce the GOODS-N pointings on Unicorn and extract spectra, using the full
@@ -4619,7 +4730,6 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     xxxxx Still not modified for differing factors in x and y!
     """
     from pyraf import iraf
-    from iraf import iraf
 
     import threedhst.prep_flt_files
     import unicorn
@@ -4797,12 +4907,18 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #s = np.ones((3,3))
     #labeled_array, num_features = nd.label(im[0].data, structure=s)
     
+    if verbose:
+        print unicorn.noNewLine+'Clean up segmentation image...[1]'
+
     #### Maximum filter to flag overlap regions
     max_filter = nd.maximum_filter(im[0].data, size=(3,3))
     bad = (max_filter - im[0].data) > 2
     inter_seg = max_filter*1
     inter_seg[bad] = 0
     
+    if verbose:
+        print unicorn.noNewLine+'Clean up segmentation image...[2]'
+
     #### Orphan pixels in the max-filtered image
     npix = nd.convolve((inter_seg > 0)*1, np.ones((3,3)))
     bad = (inter_seg > 0) & (npix < 4)
@@ -4810,6 +4926,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     im[0].data = inter_seg
     im.flush()
     
+    if verbose:
+        print unicorn.noNewLine+'Clean up segmentation image...[3]'
+
     #### Make a version of the catalog with transformed coordinates and only those objects
     #### that fall within the field
     old_cat = threedhst.sex.mySexCat(CATALOG)
@@ -4819,7 +4938,16 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         if id not in objects_in_seg:
             #print 'Pop #%05d' %(id)
             pop_id.append(id)
-    old_cat.popItem(np.array(pop_id))
+    
+    if verbose:
+        print unicorn.noNewLine+'Clean up segmentation image...[3b]'
+    
+    old_cat.popItem(np.array(pop_id), verbose=True)
+
+    # import astropy.io.ascii as aa
+    # old_cat = aa.SExtractor().read(CATALOG)
+    # objects_in_seg = np.unique(inter_seg)
+    # N = old_cat['NUMBER']
     
     # fp = open("/tmp/%s.drz_xy" %(root),'w')
     # #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
@@ -4832,6 +4960,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     # if verbose:
     #     print 'Convert from reference coords to the distorted flt frame with iraf.wblot'
     
+    if verbose:
+        print unicorn.noNewLine+'Clean up segmentation image...[4]'
+
     #flt = run.flt[0]+'.fits'
     flt = asn.exposures[0]+'_flt.fits'
     
@@ -4945,7 +5076,6 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
 
     """
     from pyraf import iraf
-    from iraf import iraf
     from iraf import dither
     
     import unicorn.reduce
@@ -5340,7 +5470,6 @@ def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeom
     import threedhst
     import numpy as np
     from pyraf import iraf
-    from iraf import iraf
 
     import os
     no = iraf.no

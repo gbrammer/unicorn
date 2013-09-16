@@ -356,6 +356,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int)
         
     inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
+    inter_weight = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     if use_error:
         inter_err = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     
@@ -451,20 +452,30 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         #        
         use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
         
-        inter_sci[yi[use]*growy+dy,xi[use]*growx+dx] += im[1].data[use]
+        ### debug
+        # errs = im[2].data[use]
+        # print im.filename(), errs.min(), np.median(errs), errs.max()
+         
+        inter_sci[yi[use]*growy+dy,xi[use]*growx+dx] += im[1].data[use]/im[2].data[use]**2
+        inter_weight[yi[use]*growy+dy,xi[use]*growx+dx] += 1./im[2].data[use]**2
+        
         N[yi[use]*growy+dy,xi[use]*growx+dx] += 1
         
-        if use_error:
-            inter_err[yi[use]*growy+dy,xi[use]*growx+dx] += im[2].data[use]**2
+        # if use_error:
+        #     inter_err[yi[use]*growy+dy,xi[use]*growx+dx] += im[2].data[use]**2
         
         if view:
             ds9.view_array(inter_sci/np.maximum(N,1), header=header)
             ds9.scale(-0.1,5)
     
     #### Average for case when dither positions overlap, e.g. CANDELS SN fields
-    inter_sci /= np.maximum(N,1) 
-    inter_err = np.sqrt(inter_err) / np.maximum(N, 1)
+    #inter_sci /= np.maximum(N,1) 
+    #inter_err = np.sqrt(inter_err) / np.maximum(N, 1)
+    inter_weight[inter_weight == 0] = 1
+    inter_sci = inter_sci / inter_weight
+    inter_err = np.sqrt(1./inter_weight)
     inter_err[N == 0] = 0.
+    #inter_err[~np.isfinite(inter_err)] = 0.
     
     if use_error:
         h0.update('WHTERROR',True,comment='WHT extension is FLT[err,1]')

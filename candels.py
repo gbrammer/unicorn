@@ -302,7 +302,18 @@ def uds_prep():
                     ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
                     SCALE=0.06, geometry='rotate,shift')       
-            
+ 
+    filter = 'F140W'
+    files = glob.glob('UDS-*-'+filter+'_asn.fits')
+    for file in files:
+        if not os.path.exists(file.replace('asn','drz')):
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2,
+                SCALE=0.06, geometry='rotate,shift')            
+    threedhst.utils.combine_asn_shifts(files, out_root='UDS-'+filter,
+                           path_to_FLT='./', run_multidrizzle=False)
+    
 def uds_marshall_prep():
     
     import unicorn.candels
@@ -452,10 +463,11 @@ def cdfs_prep():
 
     if not only_f140w and not only_flat:
         for filter in ['F125W','F160W']:
-            files=glob.glob('GOODS-*-*'+filter+'_asn.fits')
+            files=glob.glob('GOODS-*-*-'+filter+'_asn.fits')
             files.remove('GOODS-SD2-V7G-'+filter+'_asn.fits')
             files.remove('GOODS-SD5-VGQ-'+filter+'_asn.fits')
             files.remove('GOODS-SD5-VGX-'+filter+'_asn.fits')
+            files.append('GOODS-TESTORB-'+fiter+'_asn.fits')
             threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-'+filter,
                 path_to_FLT='./', run_multidrizzle=False)
             for file in files:
@@ -487,6 +499,22 @@ def cdfs_prep():
                 unicorn.candels.prep_candels(asn_file=file, 
                     GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
                     redo_segmentation=False)    
+                    
+                    
+    ### Making GOODS-S-ALL asn tables
+    ### On hyperion in /Volumes/3D-HST/MOSAICS/GOODS-S/ASN
+    files = glob.glob('*F125W*asn.fits')
+    ### Contains the following files:
+    ### ['ERS-F125W_asn.fits', 'GEORGE1-F125W_asn.fits', 'GEORGE2-F125W_asn.fits', 'GOODS-S-F125W_asn.fits', 'HUDF-DEEP-WFC3-F125W_asn.fits', 'HUDF05-01-DEEP-WFC3-F125W_asn.fits', 'HUDF05-02-DEEP-WFC3-F125W_asn.fits']
+    threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F125W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
+    
+    files = glob.glob('*F160W*asn.fits')
+    ### ['ERS-F160W_asn.fits', 'GEORGE1-F160W_asn.fits', 'GEORGE2-F160W_asn.fits', 'GOODS-S-F160W_asn.fits', 'HUDF-DEEP-WFC3-F160W_asn.fits', 'HUDF05-01-DEEP-WFC3-F160W_asn.fits', 'HUDF05-02-DEEP-WFC3-F160W_asn.fits']
+    threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F160W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
+    
+    files=glob.glob('*F140W*asn.fits')
+    #['CDFS-AGN1-F140W_asn.fits', 'GOODS-S-F140W_short_asn.fits', 'WFC3-ERSII-G01-F140W_asn.fits']
+    threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F140W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
 
 def george_prep():
 
@@ -528,7 +556,10 @@ def hudf_prep():
     
     import unicorn.candels
     import glob
+    from threedhst import catIO
     
+    ### Reduction for the pointing which matches GOODS-S-01 F140W
+
     ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits'  
 
     files = glob.glob('HUDF05-01-DEEP-WFC3*asn.fits')
@@ -539,18 +570,67 @@ def hudf_prep():
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')  
 
-    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits'  
-
+    ### Reduction for the pointing which matches GOODS-S-28 in F140W
     ### removed ib5x5b*, ib5x5c* and ib5x5f form the files.info file --> lost pointing
-    unicorn.candels.make_asn_files()
-    files = glob.glob('HUDF05-02-DEEP-WFC3*asn.fits')
+    ### Having problems processing it so break it down by date
 
+    info = catIO.Readfile('files.info')
+    asn = threedhst.utils.ASNFile('../RAW/ib5x59020_asn.fits')
+    
+    ### Make ASN files for each visit (by date_obs)
+    hudf02 = info.targname == 'HUDF05-02-DEEP-WFC3'
+    for filter in ['F125W', 'F160W']:
+        sub = hudf02 & (info.filter == filter)
+        dates = np.unique(info.date_obs[sub])
+        for date in dates:
+            visit = sub & (info.date_obs == date)
+            files = info.file[visit]
+            asn.exposures = [file.split('_flt')[0] for file in files]
+            name = 'HUDF-02-%s-%s' %(''.join(date.split('-')[1:]), filter)
+            asn.product = name
+            asn.write(name+'_asn.fits')
+            print name, asn.exposures
+    #
+    
+    ##### Process visits separately
+    files=glob.glob('HUDF-02-0*F1*W_asn.fits')
+    
+    FORCE=False
+    
+    #### Just run tweakshifts
     for file in files:
-        unicorn.candels.prep_candels(asn_file=file, 
-                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
-                SCALE=0.06, geometry='rotate,shift')  
-                
+        threedhst.process_grism.fresh_flt_files(file)
+        threedhst.prep_flt_files.threedhst.shifts.run_tweakshifts(file)
+    
+    #### For some reason, the second exposure in some visits has a large
+    #### offset.  MANUALLY change it to zero or something close and then run the prep
+    #### scripts.
+    for file in files:
+        if ((not os.path.exists(file.replace('asn','drz'))) & (not os.path.exists(file.replace('asn','drz')+'.gz'))) | FORCE:
+            unicorn.candels.prep_candels(asn_file=file, 
+                ALIGN_IMAGE = None, ALIGN_EXTENSION=0,
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                SCALE=0.06, geometry='rotate,shift')
+        
+    #### These visits are just aligned internally to check the 
+    #### tweakshifts.  You could then do "refine_shifts" to align them
+    #### to the reference, something like:
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits'  
+    
+    for file in files:
+        for geom in ['rotate','shift']:
+            threedhst.shifts.refine_shifts(ROOT_DIRECT=file.split('_asn')[0], 
+              ALIGN_IMAGE=ALIGN_IMAGE, ALIGN_EXTENSION=0,  
+              fitgeometry=geom, clean=True)
+            #
+            threedhst.prep_flt_files.startMultidrizzle(file,
+                 use_shiftfile=True, skysub=False,
+                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
+                 updatewcs=False, clean=True, median=False)
+
+
+    ### Reduce the cental HUDF pointing
+    
     ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09_F160W_v1_sci.fits'
     
     ## removed ib5x0ei6q_flt.fits, ib5x0ei8q_flt.fits and ib5x0eicq_flt.fits 
@@ -1245,7 +1325,7 @@ def make_asn_files(force=False):
     Read a files.info file and make ASN files for each visit/filter.
     """
     list = catIO.Readfile('files.info')
-    asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[1])
+    asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
     
     visits = np.unique(list.targname)
     for visit in visits:        

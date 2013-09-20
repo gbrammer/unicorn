@@ -4953,7 +4953,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if verbose:
         print unicorn.noNewLine+'Clean up segmentation image...[3b]'
     
-    old_cat.popItem(np.array(pop_id), verbose=True)
+    old_cat.popItem(np.array(pop_id), verbose=False)
 
     # import astropy.io.ascii as aa
     # old_cat = aa.SExtractor().read(CATALOG)

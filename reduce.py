@@ -4941,19 +4941,32 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         print unicorn.noNewLine+'Clean up segmentation image...[3]'
 
     #### Make a version of the catalog with transformed coordinates and only those objects
-    #### that fall within the field
+    #### that fall within the field    
     old_cat = threedhst.sex.mySexCat(CATALOG)
     objects_in_seg = np.unique(inter_seg)
-    pop_id = []
-    for id in old_cat.id[::-1]:
-        if id not in objects_in_seg:
-            #print 'Pop #%05d' %(id)
-            pop_id.append(id)
-    
+    # pop_id = []
+    # for id in old_cat.id[::-1]:
+    #     if id not in objects_in_seg:
+    #         #print 'Pop #%05d' %(id)
+    #         pop_id.append(id)
+    # 
     if verbose:
         print unicorn.noNewLine+'Clean up segmentation image...[3b]'
     
-    old_cat.popItem(np.array(pop_id), verbose=False)
+    ### Just rewrite a temporary catalog rather than using "popItem", which is very slow on large catalogs6
+    new_lines = []
+    for i, id in enumerate(old_cat.id):
+        if id in objects_in_seg:
+            new_lines.append(old_cat.rowlines[i])
+    
+    fp = open('/tmp/%s.tmp.cat' %(root), 'w')
+    fp.writelines(old_cat.headerlines)
+    fp.writelines(new_lines)
+    fp.close()
+    
+    old_cat = threedhst.sex.mySexCat('/tmp/%s.tmp.cat' %(root))
+    
+    #old_cat.popItem(np.array(pop_id), verbose=False)
 
     # import astropy.io.ascii as aa
     # old_cat = aa.SExtractor().read(CATALOG)

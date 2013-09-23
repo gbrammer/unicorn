@@ -4990,7 +4990,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
         xw, yw = wcs_this.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
-        fp.write('%.2f %.2f\n' %(np.clip(xw, -9999, 9999), np.clip(yw, -9999, 9999))
+        fp.write('%.2f %.2f\n' %(np.clip(xw, -9999, 9999), np.clip(yw, -9999, 9999)))
     
     fp.close()
     

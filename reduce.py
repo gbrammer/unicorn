@@ -1414,7 +1414,7 @@ class GrismModel():
         
         self.make_total_flux()
         
-        self.ra_wcs, self.dec_wcs = None, None
+        self.ra_wcs, self.dec_wcs = self.cat.ra, self.cat.dec
         self.model = np.zeros(self.sh, dtype=np.double)
         self.object = np.zeros(self.sh, dtype=np.double)
         #self.test_object = np.zeros(self.sh)
@@ -4990,11 +4990,10 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
         xw, yw = wcs_this.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
-        fp.write('%.3f %.3f\n' %(xw, yw))
+        fp.write('%.3f %.3f\n' %(np.clip(xw, -9999, 9999), np.clip(yw, -9999, 9999))
     
     fp.close()
-        
-
+    
     status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz.fits[1]', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
     #### To avoid re-running multidrizzle, need to get xy coordinates in the original drz image,
     #### and *then* run tran

@@ -2095,7 +2095,7 @@ class GrismModel():
             
         self.direct_thumb = self.direct[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
         self.direct_wht = self.direct[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
-        self.direct_seg = np.cast[np.int16](seg[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2])
+        self.direct_seg = np.cast[np.int32](seg[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2])
                     
         #### Initialize the output FITS file
         prim = pyfits.PrimaryHDU()
@@ -4953,7 +4953,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if verbose:
         print unicorn.noNewLine+'Clean up segmentation image...[3b]'
     
-    ### Just rewrite a temporary catalog rather than using "popItem", which is very slow on large catalogs6
+    ### Just rewrite a temporary catalog rather than using "popItem", which is very slow on large catalogs
     new_lines = []
     for i, id in enumerate(old_cat.id):
         if id in objects_in_seg:

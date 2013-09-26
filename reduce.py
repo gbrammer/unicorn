@@ -268,8 +268,8 @@ def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     # xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
     # yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
     # 
-    xinter = -np.cast[int](np.round(xoff*growx))
-    yinter = -np.cast[int](np.round(yoff*growy))
+    xinter = -np.cast[np.int32](np.round(xoff*growx))
+    yinter = -np.cast[np.int32](np.round(yoff*growy))
     
     return xinter, yinter
     
@@ -306,8 +306,8 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     else:
         x0, y0 = 0., 0.
         
-    xinter = -np.cast[int](np.round((xoff-x0)*10)/10.*growx)
-    yinter = -np.cast[int](np.round((yoff-y0)*10)/10.*growy)
+    xinter = -np.cast[np.int32](np.round((xoff-x0)*10)/10.*growx)
+    yinter = -np.cast[np.int32](np.round((yoff-y0)*10)/10.*growy)
     plot = """
     xinter = -(np.round(xoff*10)/10.*growx)
     yinter = -(np.round(yoff*10)/10.*growy)
@@ -404,8 +404,8 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     dxs += ddx
     dys += ddy
     
-    dxi = np.cast[int](np.ceil(dxs/growx))
-    dyi = np.cast[int](np.ceil(dys/growy))
+    dxi = np.cast[np.int32](np.ceil(dxs/growx))
+    dyi = np.cast[np.int32](np.ceil(dys/growy))
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
@@ -2497,7 +2497,7 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False):
+    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False, miny=24):
         """
         Extract 1D and 2D spectra of objects with id in `list`.
         """
@@ -2516,7 +2516,7 @@ class GrismModel():
             
             if verbose:
                 print '2D FITS'
-            status = self.twod_spectrum(id=id, verbose=verbose, miny=30, refine=True)
+            status = self.twod_spectrum(id=id, verbose=verbose, miny=miny, refine=True)
             
             if status is False:
                 if verbose:
@@ -4770,8 +4770,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
     inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
     #inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_seg = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=int)
-    inter_N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=int)
+    inter_seg = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int32)
+    inter_N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int32)
     
     xi+=pad/(2*growx)
     yi+=pad/(2*growy)+NGROW
@@ -4806,8 +4806,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         dys = yinter + np.int(np.round(ysh[0]))*0
         print 'Auto offsets: ', dxs, dys
         
-    dxi = np.cast[int](np.ceil(dxs/growx))
-    dyi = np.cast[int](np.ceil(dys/growy))
+    dxi = np.cast[np.int32](np.ceil(dxs/growx))
+    dyi = np.cast[np.int32](np.ceil(dys/growy))
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
@@ -4906,7 +4906,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_seg[inter_seg < 0] = 0
     inter_seg[~np.isfinite(inter_seg)] = 0
         
-    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[int](inter_seg/inter_N))
+    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[np.int32](inter_seg/inter_N))
     hdu.writeto(pointing+'_inter_seg.fits', clobber=True)
     
     if verbose:
@@ -5368,7 +5368,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         # im_seg[0].data[keep] /= ones[0].data[keep]
         # im_seg[0].data[~keep] = 0
         # im_seg[0].data = np.cast[int](np.round(im_seg[0].data))
-        im_seg[0].data = np.cast[int](np.round(ratio))
+        im_seg[0].data = np.cast[np.int32](np.round(ratio))
         
         im_seg[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
         im_seg[0].header.update('FILTER', REF_FILTER)

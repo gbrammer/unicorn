@@ -2043,7 +2043,7 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=328, grow=1, miny=14, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=False, USE_FLUX_RADIUS_SCALE=3):
+    def twod_spectrum(self, id=328, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=False, USE_FLUX_RADIUS_SCALE=3):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -2077,16 +2077,16 @@ class GrismModel():
         NY = np.maximum(yc-ymi, yma-yc)*2
         
         NT = np.max([NY*grow, NX*grow, miny])
+        if (USE_FLUX_RADIUS_SCALE is not None) & ('FLUX_RADIUS' in self.cat.column_names):
+            NT = np.max([USE_FLUX_RADIUS_SCALE*2*self.cat['FLUX_RADIUS'][ii], miny])
+        
         if miny < 0:
             NT = -miny
         
         #NT = np.min([self.pad/2, NT])
-                
+                                
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
         
-        if (USE_FLUX_RADIUS_SCALE is not None) & ('FLUX_RADIUS' in self.cat.column_names):
-            NT = USE_FLUX_RADIUS_SCALE*2*self.cat['FLUX_RADIUS'][ii]
-            
         #### Maximum size
         if maxy is not None:
             NT = np.min([NT, maxy])
@@ -2500,7 +2500,7 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False, miny=14, USE_FLUX_RADIUS_SCALE=3):
+    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False, miny=26, USE_FLUX_RADIUS_SCALE=3):
         """
         Extract 1D and 2D spectra of objects with id in `list`.
         """

@@ -10,8 +10,11 @@ import pyfits
 try:
     import stsci.convolve as convolve
 except:
-    import convolve
-    
+    try:
+        import convolve
+    except:
+        print 'No stsci.convolve found.'
+        
 import numpy as np
 import scipy.stats as stats
 import pyfits

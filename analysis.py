@@ -153,18 +153,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             FOUT_FILE = CAT_PATH+'cosmos-1.deblend.sps/cosmos-1.bc03.del.deblend.v5.1.fout'
             KTOT_COL = 'K'
 
-        # For the v2.1 reduction
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyper'):
-            CAT_PATH = '/3DHST/Photometry/Release/v2.1/COSMOS/'
-        else:
-            CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS/COSMOS_v2.0_PHOTOMETRY/'
-            
-        CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v2.1.cat'
-        ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v2.1.zout'
-        FOUT_FILE = CAT_PATH+'Fast/cosmos_3dhst.v2.1.fout'
-        KTOT_COL = 'f_k'
-
-
+        # For the v4.0 reduction
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Photometry/Work/COSMOS/Catalog/'            
+            CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v4.0/cosmos_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH+'Fast/v4.0/cosmos_3dhst.v4.0.fout'
+            KTOT_COL = 'f_k'
          
         #### ZFOURGE
         if unicorn.hostname().startswith('850dhcp'):
@@ -187,19 +182,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
         KTOT_COL = 'K'
         
-        #F140W selected catalog
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            GRISM_PATH = '/3DHST/Photometry/Release/v2.1/'
-            CAT_PATH = GRISM_PATH+'AEGIS/'
-            CAT_FILE = CAT_PATH + 'Catalog/aegis_3dhst.v2.1.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v2.1.zout'
-            FOUT_FILE = CAT_PATH+'Fast/aegis_3dhst.v2.1.fout'
+        # For the v4.0 reduction
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Photometry/Work/AEGIS/'
+            CAT_FILE = CAT_PATH + 'Catalog/aegis_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v4.0/aegis_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH+'Fast/v4.0/aegis_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'
-            #CAT_PATH = '/3DHST/Ancillary/AEGIS/NMBS/Photometry/'
-            #CAT_FILE = CAT_PATH + 'aegis-n2.deblend.v5.1.cat'
-            #ZOUT_FILE = CAT_PATH + '/aegis-n2.deblend.redshifts/aegis-n2.deblend.v5.1.zout'
-            #FOUT_FILE = CAT_PATH+'aegis-n2.deblend.sps/aegis-n2.bc03.del.deblend.v5.1.fout'
-            #KTOT_COL = 'K'
     
     if aegis_wirds:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
@@ -226,20 +215,6 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'mods.bc03.fout'
         KTOT_COL = 'ks_ap'
     
-    ##### Use Ros' new catalog (v1.7)
-    #if goodsn:
-    #    GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
-    #    CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
-    #    CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/'
-    #    
-    #    if unicorn.hostname().startswith('uni'):
-    #        CAT_PATH = '/3DHST/Photometry/Release/GOODS-N/v1.8/'
-    #        CAT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz.cat'
-    #        ZOUT_FILE = CAT_PATH+'goodsn_v1.8_eazy/goodsn_v1.8.fullz_wzp.zout'
-    #        FOUT_FILE = CAT_PATH+'goodsn_v1.8_fast/goodsn_v1.8.fullz_wzp.fout'
-    #    KTOT_COL = 'f_Ks'
-
-    ####GOODS-N run with eazy-v1.1 templates
     if goodsn:
         GRISM_PATH=unicorn.GRISM_HOME+'GOODS-N/'
         CAT_PATH = '/research/HST/GRISM/3DHST/GOODS-N/MODS/FAST/'
@@ -249,10 +224,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'goodsn_v1.7.fullz.fout'
         
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Release/v2.1/GOODS-N/'
-            CAT_FILE = CAT_PATH+'Catalog/goodsn_3dhst.v2.1.cat'
-            ZOUT_FILE = CAT_PATH+'Eazy/goodsn_3dhst.v2.1.zout'
-            FOUT_FILE = CAT_PATH+'Fast/goodsn_3dhst.v2.1.fout'
+            CAT_PATH = '/3DHST/Photometry/Work/GOODS-N/v4/'
+            CAT_FILE = CAT_PATH+'catalogs/v4.0/goodsn_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH+'eazy/v4.0/goodsn_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH+'fast/goodsn_3dhst.v4.0.fout'
         KTOT_COL = 'f_ks'
     
 
@@ -261,22 +236,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #     cdfs = True
     #     udf = False
           
-    if cdfs:
-        #GRISM_PATH=unicorn.GRISM_HOME+'GOODS-S/'
-        #CAT_PATH = GRISM_PATH+'FIREWORKS/'
-        #if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp'):
-        #    CAT_PATH = '/3DHST/Ancillary/GOODS-S/FIREWORKS/FAST/'
-        #
-        #CAT_FILE = CAT_PATH+'fireworks.cat'
-        #ZOUT_FILE = CAT_PATH+'fireworks.zout'
-        #FOUT_FILE = CAT_PATH + 'fireworks.fout'
-        #KTOT_COL = 'Ks_totf'
-        #CAT_PATH = GRISM_PATH+'INTERLACE/phot/'
-        #CAT_FILE = CAT_PATH + 'hudfcat_mar3012.cat'
-        #ZOUT_FILE = CAT_PATH + 'hudfcat_mar3012.zout'
-        #FOUT_FILE = CAT_PATH + 'hudfcat_mar3012.fout'
-        #KTOT_COL = 'f_kv2_tot'
-        
+    if cdfs:        
         #For the v2.1 reduction
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
             CAT_PATH = '/3DHST/Photometry/Release/v2.1/GOODS-S/'
@@ -309,25 +269,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'f_kv2_tot'
        
     if uds:
-        #for the v2.1 reduction:
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            GRISM_PATH= '/3DHST/Photometry/Release/v2.1/'
-            CAT_PATH = GRISM_PATH+'UDS/'
-            CAT_FILE = CAT_PATH+'Catalog/uds_3dhst.v2.1.cat'
-            ZOUT_FILE = CAT_PATH+'Eazy/uds_3dhst.v2.1.zout'
-            FOUT_FILE = CAT_PATH +'Fast/uds_3dhst.v2.1.fout'
+        #for the v4.0 reduction:
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Photometry/Work/UDS/v4/'
+            CAT_FILE = CAT_PATH+'catalogs/v4.0/uds_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH+'eazy/v4.0/uds_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH +'fast/uds_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'
-        
-        #external catalogs for uds
-        #GRISM_PATH=unicorn.GRISM_HOME+'SN-MARSHALL/'
-        #CAT_PATH = GRISM_PATH+'UDSPHOT/'
-        #if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp') | unicorn.hostname().startswith('hyper'):
-        #    CAT_PATH = '/3DHST/Ancillary/UDS/UKIDSS/FAST/'
-        #
-        #CAT_FILE = CAT_PATH+'uds.cat'
-        #ZOUT_FILE = CAT_PATH+'uds.zout'
-        #FOUT_FILE = CAT_PATH + 'uds.fout'
-        #KTOT_COL = 'K_totf'
     #
     if erb:
         GRISM_PATH=unicorn.GRISM_HOME+'Erb/'
@@ -338,12 +286,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'f_h'
         
     if uds_cluster:
-        GRISM_PATH='/3DHST/Photometry/Work/UDS/UDS-18/'
-        CAT_PATH = GRISM_PATH+'fast/'
-        CAT_FILE = GRISM_PATH+'fast/UDS-18.cat'
-        ZOUT_FILE = GRISM_PATH+'eazy/UDS-18.zout'
-        FOUT_FILE = GRISM_PATH+'fast/fast/UDS-18.fout'
-        KTOT_COL = 'F_K'
+        GRISM_PATH='/3DHST/Spectra/Work/PAPOVICH/'
+        CAT_PATH = GRISM_PATH+'CAT/'
+        CAT_FILE = GRISM_PATH+'CAT/uds_3dhst.v4.0.cat'
+        ZOUT_FILE = GRISM_PATH+'EAZY/uds_3dhst.v4.0.zout'
+        FOUT_FILE = GRISM_PATH+'FAST/uds_3dhst.v4.0.fout'
+        KTOT_COL = 'f_k'
     
     if KTOT_COL is None:
         """

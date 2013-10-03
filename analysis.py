@@ -155,7 +155,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
 
         # For the v4.0 reduction
         if unicorn.hostname().startswith('uni'):
-            CAT_PATH = '/3DHST/Photometry/Work/COSMOS/Catalog/'            
+            CAT_PATH = '/3DHST/Photometry/Work/COSMOS/'            
             CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v4.0/cosmos_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH+'Fast/v4.0/cosmos_3dhst.v4.0.fout'

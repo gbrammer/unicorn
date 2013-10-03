@@ -356,6 +356,7 @@ def interlace_cosmos0():
     import glob
     import os
     import time
+    import numpy as np
 
     os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.0')
 
@@ -397,7 +398,43 @@ def interlace_cosmos0():
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='COSMOS-11')
 
-    skip_completed = True
+    skip_completed = False
+    
+    ### Fit just the spec_z's
+    
+    id_spec_z = cat.id[np.where((cat.z_spec > 0.) & (cat.z_spec < 9.))].astype(int)
+    print 'There are {0} objects in with spec_z in this field.'.format(len(id_spec_z))
+    
+    models = glob.glob('COSMOS-[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        print "There are {0} objects with spec_z in {1}.".format(len([id for id in id_spec_z if id in model.cat.id]),pointing)
+        for id in [id for id in id_spec_z if id in model.cat.id]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            
+    ### Fit all grism redshifts:
 
     models = glob.glob('COSMOS-[0-9]_inter_model.fits')
     for file in models[::1]:
@@ -697,8 +734,8 @@ def interlace_goodsn():
         time.strftime('%X %x %Z')
         pointing = inter[i].split('-G141_inter')[0]
         if not (os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=27.1)
-            model.extract_spectra_and_diagnostics(MAG_LIMIT=27.1)
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
 
     ##### Extract and fit only mag>24 objects
     import threedhst.catIO as catIO

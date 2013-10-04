@@ -1893,3 +1893,387 @@ def interlace_uds2():
             #
             print '\n'
             gris.new_fit_free_emlines(ztry=None)	
+            
+            
+def interlace_hudf():
+    """
+    Reduce the GOODS-S pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+
+    #os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE')
+    os.chdir(unicorn.GRISM_HOME+'HUDF/INTERLACE')
+
+    #### This step is needed to strip all of the excess header keywords from the mosaic for use
+    #### with `blot`.
+    #unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F140W', filter='F160W', REFERENCE = 'phot/GOODS-S_F160W_sci.fits', SEGM = 'phot/GOODS-S_F160W_v1.seg.fits')
+    #unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F140W', filter='F160W', REFERENCE = 'phot/HUDF_F160W_detection.fits', SEGM = 'phot/HUDF_F160W_seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F140W', filter='F140W', REFERENCE = 'phot/UDF-F140W_sci_drz.fits', SEGM = 'phot/HUDF_F160W_seg.fits')
+        
+    NGROW=125
+    pad=60
+    #CATALOG='phot/GOODS-S_F160W_v1.cat'
+    CATALOG='phot/convolved_h_nomean.cat'
+
+    direct=glob.glob('GOODS-S-3[4678]-F140W_asn.fits')
+
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='GOODS-S_F140W'
+
+#    ##### Generate the interlaced images, including the "blotted" detection image
+#    for i in range(len(direct)):
+#        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
+#        #
+#        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+#        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+#        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
+#        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    inter = glob.glob('GOODS-S-3[4678]*-G141_inter.fits')
+    redo = False
+
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=25.8)
+            #model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+            #model.extract_spectra_and_diagnostics(MAG_LIMIT=24)
+
+    ##### Extract and fit only mag>24 objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-S-34')
+
+    skip_completed = True
+
+    models = glob.glob('GOODS-S-36_inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        #
+        ii = np.where(model.cat.mag < 24.)
+
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print id, '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+
+    models = glob.glob('GOODS-S-34_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where((model.cat.mag < 25.8))
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.linefit.png') & skip_completed:
+                continue  
+            if not os.path.exists(root+'.zfit.png'):
+                continue
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.new_fit_free_emlines(ztry=None)
+
+    ### Get some quality flags on the reduced spectra
+    root='HUDF'
+
+    files = glob.glob('GOODS-S-3[4678]*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+
+    fp.close()
+    fp2.close()	
+            
+def interlace_uds18():
+    """
+    Reduce the COSMOS pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+
+    os.chdir(unicorn.GRISM_HOME+'UDS/UDS-18')
+
+    #### This step is needed to strip all of the excess header keywords from the mosaic for use
+    #### with `blot`.
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='UDS-18_F140W', filter='F140W', REFERENCE = '/3DHST/Photometry/Work/UDS/UDS-18/psfmatch/run/UDS-18_F140W_sci_new/UDS_18_F140W_sci_conv.fits', SEGM = '/3DHST/Photometry/Work/UDS/UDS-18/sextr/checkimages/UDS-18_F140W.seg.fits')
+
+        
+    NGROW=125
+    pad=60
+    #CATALOG='phot/F160W_arjen.cat'
+    #CATALOG='/3DHST/Photometry/Work/AEGIS/Sex/PSF_matched/F140W.cat'
+    CATALOG = '/3DHST/Photometry/Work/UDS/UDS-18/sextr/catalogs/UDS-18_F140W.cat'
+    direct=glob.glob('UDS-18-F140W_asn.fits')
+
+    extract_limit = 25.8
+    skip_completed=False
+    REF_ROOT='UDS-18_F140W'
+
+    ##### Generate the interlaced images, including the "blotted" detection image
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
+        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
+        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
+
+    ##### Generate the spectral model and Extract all spectra
+    inter = glob.glob('UDS-18-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=25.8)
+            
+    ##### Extract and fit only spec-z objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-18')
+
+    skip_completed = True
+
+    models = glob.glob('UDS-18_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where((model.cat.mag < 25.8))
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+
+    #Fit the emission lines
+    models = glob.glob('UDS-18_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where((model.cat.mag < 25.8))
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.linefit.png') & skip_completed:
+                continue  
+            if not os.path.exists(root+'.zfit.png'):
+                continue
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.new_fit_free_emlines(ztry=None)	
+
+    ### Get some quality flags on the reduced spectra
+    root='UDS-18'
+
+    files = glob.glob('UDS-18*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+
+    fp.close()
+    fp2.close()	  	
+
+def interlace_sntile41():
+    
+    #
+    ### SWarp for color image
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f160w_v1.0_drz.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F160W.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f160w_v1.0_wht.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F160W_wht.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/Incoming/hlsp_candels_hst_wfc3_cos-tot_f125w_v1.0_drz.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F125W.fits')
+    threedhst.shifts.matchImagePixels( input=glob.glob('/3DHST/Ancillary/COSMOS/ACS/*sci.fits'), matchImage='TILE41-F160W_drz.fits', match_extension=1, output='match_F814W.fits')
+
+    ### F160W
+    sub_r = pyfits.open('match_F160W.fits')[0].data*10**(-0.4*(25.96-25.96))
+    ### F125W
+    sub_g = pyfits.open('match_F125W.fits')[0].data*10**(-0.4*(26.25-25.96))
+    ### F814W
+    sub_b = pyfits.open('match_F814W.fits')[0].data*10**(-0.4*(25.94-25.96))*1.5
+
+    Q, alpha, m0 = 4, 12, -0.005
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='TILE41.png', shape=sub_r.shape)
+    Q, alpha, m0 = 3.5, 5, -0.01
+    unicorn.candels.luptonRGB(sub_r, sub_g, sub_b, Q=Q, alpha=alpha, m0=m0, filename='TILE41_2.png', shape=sub_r.shape)
+    
+    unicorn.reduce.interlace_combine('TILE41-132-G141', NGROW=125)
+    unicorn.reduce.interlace_combine('TILE41-132-F160W', NGROW=125, auto_offsets=True)
+    
+    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=25)
+        
+    se = threedhst.sex.SExtractor()
+    
+    ## Set the output parameters required for aXe 
+    ## (stored in [threedhst source]/data/aXe.param) 
+    se.aXeParams()
+    
+    ## XXX add test for user-defined .conv file
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = 'test.cat'
+    se.options['CHECKIMAGE_NAME'] = 'test_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = 'match_F160W_wht.fits[0]'
+    se.options['FILTER']    = 'Y'
+    threedhst.sex.USE_CONVFILE =  'gauss_2.0_5x5.conv'
+    threedhst.sex.USE_CONVFILE =  'gauss_4.0_7x7.conv'
+    se.copyConvFile()
+    se.options['FILTER_NAME'] = threedhst.sex.USE_CONVFILE
+    
+    #### Detect thresholds (default = 1.5)
+    se.options['DEBLEND_NTHRESH']    = '16' 
+    se.options['DEBLEND_MINCONT']    = '0.001' 
+    se.options['DETECT_MINAREA']    = '36' 
+    se.options['DETECT_THRESH']    = '1.5' 
+    se.options['ANALYSIS_THRESH']  = '1.5'
+    se.options['MAG_ZEROPOINT'] = '%.2f' %(model.ZP)
+    
+    #### Run SExtractor
+    status = se.sextractImage('match_F160W.fits[0]')
+    threedhst.sex.sexcatRegions('test.cat', 'test.reg', format=2)
+    
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='TILE41_F160W', filter='F160W', REFERENCE = 'match_F160W.fits', SEGM = 'test_seg.fits', Force=False, sci_extension=0)
+    
+    unicorn.reduce.blot_from_reference(REF_ROOT='TILE41_F160W', DRZ_ROOT = 'TILE41-132-F160W', NGROW=125, verbose=True)
+    unicorn.reduce.interlace_combine_blot(root='TILE41-132-F160W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True, NSEGPIX=0)
+    #unicorn.reduce.fill_inter_zero('TILE41-132_inter_seg.fits')
+    unicorn.reduce.fill_inter_zero('TILE41-132_ref_inter.fits')
+    
+    unicorn.reduce.interlace_combine('TILE41-132-G141', NGROW=125, auto_offsets=True)
+    unicorn.reduce.interlace_combine('TILE41-132-F160W', NGROW=125, auto_offsets=True)
+    unicorn.reduce.fill_inter_zero('TILE41-132-F160W_inter.fits')
+    
+    model = unicorn.reduce.process_GrismModel('TILE41-132', MAG_LIMIT=25, REFINE_MAG_LIMIT=23, make_zeroth_model=False)
+    
+    unicorn.reduce.blot_from_reference(REF_ROOT='TILE41_F160W', DRZ_ROOT = 'TILE41-152-F140W', NGROW=125, verbose=True)
+    unicorn.reduce.interlace_combine_blot(root='TILE41-152-F140W', view=True, pad=60, REF_ROOT = 'TILE41_F160W', CATALOG='test.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=True, NSEGPIX=0)
+    
+    unicorn.reduce.fill_inter_zero('TILE41-152_ref_inter.fits')
+    
+    unicorn.reduce.interlace_combine('TILE41-152-G141', NGROW=125, auto_offsets=True)
+    unicorn.reduce.interlace_combine('TILE41-152-F140W', NGROW=125, auto_offsets=True)
+    unicorn.reduce.fill_inter_zero('TILE41-152-F140W_inter.fits')
+    
+    model = unicorn.reduce.process_GrismModel('TILE41-152', MAG_LIMIT=25, REFINE_MAG_LIMIT=23)
+    
+    #### Seems OK, but haven't been able to check against z_specs
+    
+    ### Extract all objects > z>0.6, m140 > X
+    cat, zout, fout = unicorn.analysis.read_catalogs('TILE41')
+    matcher = catIO.CoordinateMatcher(cat)
+    
+    dr, idx = matcher.match_list(ra=model.ra_wcs, dec=model.dec_wcs)
+    
+    ok = (dr < 0.8) & ((zout.z_peak[idx] > 0.65) & (model.cat.mag < 23)) | ((zout.z_peak[idx] > 1.2) & (model.cat.mag < 24))
+    
+    for id in model.objects[ok]:
+        try:
+            model.twod_spectrum(id)
+            gris = unicorn.interlace_fit.GrismSpectrumFit('TILE41-152_%05d' %(id))
+            gris.fit_in_steps(zrfirst=(0.5, 4))
+            #os.system('open TILE41-132_%05d*zfit*png' %(id))
+        except:
+            pass

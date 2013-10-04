@@ -357,6 +357,7 @@ def interlace_cosmos0():
     import os
     import time
     import numpy as np
+    import unicorn.interlace_test as test
 
     os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.0')
 
@@ -433,6 +434,35 @@ def interlace_cosmos0():
             #
             print '\n'
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            
+    ### New redshift fits:
+    
+    models = glob.glob('COSMOS-2[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        print "There are {0} objects with spec_z in {1}.".format(len([id for id in id_spec_z if id in model.cat.id]),pointing)
+        for id in [id for id in id_spec_z if id in model.cat.id]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            if os.path.exists(root+'.new_zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = test.SimultaneousFit(root)
+                gris.read_master_templates()
+                gris.new_fit_constrained()
+            except:
+                continue
+            if gris.status is False:
+                continue
+            if gris.dr > 1:
+                continue
+            print '\n'
+            
+    
             
     ### Fit all grism redshifts:
 
@@ -728,7 +758,7 @@ def interlace_goodsn():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
     
     ##### Generate the spectral model and extract spectra
-    inter = glob.glob('GOODS-N-1[0-9]-G141_inter.fits')
+    inter = glob.glob('GOODS-N-[0-9]-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
@@ -805,6 +835,755 @@ def interlace_goodsn():
             print '\n'
             gris.new_fit_free_emlines(ztry=None)
 
+    ### Get some quality flags on the reduced spectra
+    root='GOODS-N'
+    
+    files = glob.glob('GOODS-N-4*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+            
+    fp.close()
+    fp2.close()
+    
+    ###################### Analysis plots ################
+    ## 
+    os.system('paste %s.zfit.dat %s.dqflag.dat > %s.specz.dat' %(root, root, root))
+    
+    zfit = catIO.Readfile('%s.specz.dat' %(root))
+    
+    #### v2.0 release
+    os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-N')
+    zfit = catIO.Readfile('GOODS-N.zfit.linematched.dat')
+    dq = catIO.Readfile('GOODS-N.dqflag.linematched.dat')
+    norm = 1-np.random.normal(size=dq.f_flagged.shape)*0.05
+    dq.f_flagged *= norm
+
+    #### dq has some ****** IDL format values in max_contam
+    lines = pyfits.open('GOODS-N.linefit.fits')
+    cat = catIO.Readfile('goodsn_f140w_v1_det_reform.cat')
+    root = 'goodsn'
+    
+    ####  COSMOS
+    os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/COSMOS')
+    zfit = catIO.Readfile('COSMOS.zfit.linematched.dat')
+    dq = catIO.Readfile('COSMOS.dqflag.linematched.dat')
+    norm = 1-np.random.normal(size=dq.f_flagged.shape)*0.05
+    dq.f_flagged *= norm
+    lines = pyfits.open('COSMOS.linefit.fits')
+    cat = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Catalog/3dhst.cosmos.v2.0.cat')
+    cat.x_image, cat.y_image = cat.x, cat.y
+    root = 'cosmos'
+    fout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Fast/3dhst.cosmos.v2.0.fout')
+    zout = catIO.Readfile('COSMOS_v2.0_PHOTOMETRY/Eazy/3dhst.cosmos.v2.0.zout')
+    
+    ####  GOODS-S
+    os.chdir('/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S')
+    zfit = catIO.Readfile('GOODS-S.zfit.linematched.dat')
+    dq = catIO.Readfile('GOODS-S.dqflag.linematched.dat')
+    norm = 1-np.random.normal(size=dq.f_flagged.shape)*0.05
+    dq.f_flagged *= norm
+    lines = pyfits.open('GOODS-S.linefit.fits')
+    cat = catIO.Readfile('GOODS-S_v2.0_PHOTOMETRY/catalog/GOODS-S_v2.0.fullz_wzp.cat')
+    cat.x_image, cat.y_image = cat.ximage, cat.yimage
+    root = 'goodss'
+    
+    zfit.mag = dq.mag
+    
+    dz_spec = (zfit.z_max_spec-zfit.z_spec)/(1+zfit.z_spec)
+    dz_peak = (zfit.z_peak_spec-zfit.z_spec)/(1+zfit.z_spec)
+    sz = np.maximum((np.abs(dz_spec)/0.001)**(0.8),8)
+    
+    dz_phot = (zfit.z_peak_phot - zfit.z_spec)/(1+zfit.z_spec)
+    
+    fig = unicorn.plotting.plot_init(square=True, xs=4, left=0.13)
+    ax = fig.add_subplot(111)
+    ax.scatter(zfit.z_spec, zfit.z_max_spec, color='blue', alpha=0.2, s=2)
+    ax.set_xlim(0, 4)
+    ax.set_ylim(0, 4)
+    ax.set_xlabel(r'$z_\mathrm{spec}$')
+    ax.set_ylabel(r'$z_\mathrm{gris}$')
+    unicorn.plotting.savefig(fig, root+'_zphot_zspec.png')
+    
+    z0 = (zfit.z_spec > 0) & (zfit.z_spec < 10)
+    plt.scatter(zfit.z_spec, dz_spec, color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[z0], dz_spec[z0], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.ylim(-0.1, 0.1)
+    plt.xlabel(r'$z_\mathrm{spec}$'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_z_dz_max.png')
+    
+    plt.scatter(zfit.z_spec, dz_peak, color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[z0], dz_peak[z0], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.ylim(-0.1, 0.1)
+    plt.xlabel(r'$z_\mathrm{spec}$'); plt.ylabel(r'$\Delta z_\mathrm{peak}$')
+    plt.savefig(root+'_z_dz_peak.png')
+
+    plt.scatter(zfit.z_spec, dz_phot, color='orange', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[z0], dz_phot[z0], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.ylim(-0.1, 0.1)
+    plt.xlabel(r'$z_\mathrm{spec}$'); plt.ylabel(r'$\Delta z_\mathrm{phot}$')
+    plt.savefig(root+'_z_dz_phot.png')
+    
+    zp6 = zfit.z_spec > 0.6
+    keep = zp6
+    
+    plt.plot(dq.mag[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.1,0.1); plt.xlim(18,24.5)
+    plt.plot(dq.mag[z0 & ~keep], dz_spec[z0 & ~keep], color='red', alpha=0.2); plt.ylim(-0.1,0.1); plt.xlim(18,24.5)
+    xm, ym, ys, N = threedhst.utils.runmed(dq.mag[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(dq.mag[keep], dz_phot[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    plt.xlabel(r'dqflag.mag'); plt.ylabel(r'$\Delta z_\mathrm{phot}$')
+    plt.savefig(root+'_mag_dz_gris.png')
+    keep = keep & (dq.mag < 24)
+    
+    plt.plot(dq.max_contam[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.02,0.02); plt.xlim(0.002, 30)
+    xm, ym, ys, N = threedhst.utils.runmed(dq.max_contam[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.semilogx()
+    plt.xlabel(r'dqflag.max_contam'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_max_contam_dz_gris.png')
+    keep = keep & (dq.max_contam < 1)
+
+    plt.plot(dq.int_contam[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.1,0.1); plt.xlim(0.008,2)
+    xm, ym, ys, N = threedhst.utils.runmed(dq.int_contam[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.semilogx()
+    plt.xlabel(r'dqflag.int_contam'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_int_contam_dz_gris.png')
+    
+    keep = keep & (dq.int_contam < 0.6)
+    
+    plt.plot(dq.q_z[z0 & ~keep], dz_spec[z0 & ~keep], color='red', alpha=0.2); plt.ylim(-0.1,0.1); plt.xlim(0.001,100) ; plt.semilogx()
+    plt.plot(dq.q_z[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.1,0.1); plt.xlim(0.001,100) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(dq.q_z[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (zfit.q_z < 5)
+    
+    plt.plot(dq.f_cover[z0 & ~keep], dz_spec[z0 & ~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(dq.f_cover[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.1,0.1); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(dq.f_cover[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    plt.xlabel(r'dqflag.f_cover'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_f_cover_dz_gris.png')
+    
+    keep = keep & (dq.f_cover > 0.5)
+    
+    plt.plot(dq.f_flagged[z0 & ~keep], dz_spec[z0 & ~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(dq.f_flagged[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.01,0.01); plt.xlim(0.005,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(dq.f_flagged[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+
+    plt.xlabel(r'dqflag.f_flagged'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_f_flagged_dz_gris.png')
+
+    norm = 1-np.random.normal(size=dq.f_flagged.shape)*0.05
+    dq.f_negative = np.maximum(dq.f_negative, 1.e-2)*norm
+    
+    plt.plot(dq.f_negative[z0 & ~keep], dz_spec[z0 & ~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(dq.f_negative[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.01,0.01); plt.xlim(0.005,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(dq.f_negative[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+
+    plt.xlabel(r'dqflag.f_negative'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_f_negative_dz_gris.png')
+    
+    keep = keep & (dq.f_flagged < 0.55)
+    nopartial = zfit.f_flagged < 0.2
+    
+    #### Ha eqw
+    z15 = (zfit.z_spec > 0.7) & (zfit.z_spec < 1.5)
+    eqw_rf = np.maximum(lines[1].data['HALPHA_EQW'] / (1+lines[1].data['Z']), 0.2)
+    plt.plot(eqw_rf[z15], dz_spec[z15], color='blue', alpha=0.4); plt.ylim(-0.05,0.05); plt.xlim(0.1,5000) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(eqw_rf[z15], dz_spec[z15], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(eqw_rf[z15], dz_phot[z15], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    plt.xlabel(r'HALPHA_EQW / (1+z)'); plt.ylabel(r'$\Delta z_\mathrm{gris}$')
+    plt.savefig(root+'_ha_eqw_dz_gris_all.png')
+    
+    plt.xlim(10,1000)
+    plt.ylim(-0.01,0.01)
+    plt.savefig(root+'_ha_eqw_dz_gris.png')
+        
+    d99 = ((zout.u99-zout.l99)/(1+zout.z_peak))[zfit.phot_id-1]
+    plt.plot(d99[~keep], dz_spec[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    plt.plot(d99[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(d99[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    #### Do the optimal selection on the full catalog
+    fig = unicorn.plotting.plot_init(square=True, xs=6, aspect=0.66, left=0.08)
+    ax = fig.add_subplot(111)
+    has_gris = zfit.z_max_spec > 0.01
+    full_selection = has_gris & (dq.mag < 24) & (dq.max_contam < 1) & (dq.f_cover > 0.5) & (dq.f_flagged < 0.55) & (dq.f_negative < 0.55)
+    yh, xh = np.histogram(np.log(1+zfit.z_max_spec[full_selection]), range=(0,np.log(5+1)), bins=np.log(5+1)/0.005)
+    a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None', label='grism', color='blue')
+    yh, xh = np.histogram(np.log(1+zfit.z_max_spec[has_gris]), range=(0,np.log(5+1)), bins=np.log(5+1)/0.005)
+    a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None', label='full', color='blue', alpha=0.3)
+    yh, xh = np.histogram(np.log(1+zfit.z_spec[full_selection]), range=(0,np.log(5+1)), bins=np.log(5+1)/0.005)
+    a = ax.plot(np.exp(xh[1:])-1, 0-yh, linestyle='steps', marker='None', color='green', label='spec')
+    yh, xh = np.histogram(np.log(1+zfit.z_spec[has_gris]), range=(0,np.log(5+1)), bins=np.log(5+1)/0.005)
+    a = ax.plot(np.exp(xh[1:])-1, 0-yh, linestyle='steps', marker='None', color='green', label='spec/full', alpha=0.3)
+    ax.legend()
+
+    ax.set_ylim(-50,50)
+    ax.set_xlim(0,3)
+    
+    if root=='cosmos':
+        ax.set_ylim(-80,80)
+        ax.set_xlim(0,3)
+        
+    ax.set_xlabel('z')
+    unicorn.plotting.savefig(fig, root+'_full_zdist_compare_zspec.png')
+    
+    #### Figure looking for overdensities
+    zmax = 3
+    r0 = np.median(cat.ra)
+    
+    width = 0.005
+    ztry = 0.850
+
+    zr = (0.7,2.4)
+    for count, lz in enumerate(np.arange(np.log(1+zr[0]), np.log(1+zr[1]), width)):
+        print count
+        ztry = np.exp(lz)-1
+        #
+        bin = has_gris & (np.abs(zfit.z_max_spec-ztry)/(1+ztry) < 2*width)
+        #
+        fig = unicorn.plotting.plot_init(square=True, xs=5, aspect=1/0.7, NO_GUI=False)
+        ax = fig.add_axes((0.05, 0.8, 0.90, 0.19))
+        #
+        yh, xh = np.histogram(np.log(1+zfit.z_max_spec[has_gris]), range=(0,np.log(zmax+1)), bins=np.log(zmax+1)/0.005)
+        a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None')
+        yh, xh = np.histogram(np.log(1+zfit.z_max_spec[bin]), range=(0,np.log(zmax+1)), bins=np.log(zmax+1)/0.005)
+        a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None', color='red', linewidth=2)
+        a = ax.set_yticklabels([])
+        #
+        ax = fig.add_axes((0.05, 0.05, 0.90, 0.70))
+        a = ax.plot(r0-cat.ra, cat.dec, ',', color='0.8', alpha=0.1)
+        a = ax.plot(r0-cat.ra[bin], cat.dec[bin], 'o', alpha=0.4, color='red', ms=5)
+        a = ax.set_yticklabels([])
+        a = ax.set_xticklabels([])
+        #
+        unicorn.plotting.savefig(fig, 'goodsn_zhist_%04d.png' %(count+1))
+    
+    ### nearest neighbor density plot
+    width = 0.005
+    NX, NY = cat.x_image.max(), cat.y_image.max()
+    fact = 100
+    yi, xi = np.indices((int(NY/fact),int(NX/fact)))
+        
+    import scipy.spatial
+
+    bin = cat.x_image > 0
+    xy = np.array([cat.x_image[bin]/fact, cat.y_image[bin]/fact])
+    tree = scipy.spatial.cKDTree(xy.T, 10)
+    #
+    N = 7
+    mask = xi*0.
+    for x in xrange(int(NX/fact)):
+        #print unicorn.noNewLine+'%d' %(x)
+        for y in xrange(int(NY/fact)):
+            mask[y,x] = tree.query([x,y], k=N)[0][-1]
+    
+    mask = mask < 3
+    
+    ### which redshift to use
+    zuse = zfit.z_max_spec
+    has_gris = zuse > 0.01
+    
+    zuse = zout.z_peak
+    has_gris = (dq.mag < 25) & (cat.use == 1)
+    
+    aspect, xs = 1/0.6, 5
+    max_scale = np.log(0.2)
+            
+    if root == 'cosmos':
+        aspect = 1./0.4
+        xs = 5
+        max_scale = np.log(0.1)
+        
+    zr = (0.65, 2.4)
+    
+    for count, lz in enumerate(np.arange(np.log(1+zr[0]), np.log(1+zr[1]), width)):
+        print unicorn.noNewLine+'%d %f' %(count, lz)
+        ztry = np.exp(lz)-1
+        #
+        bin = has_gris & (np.abs(zuse-ztry)/(1+ztry) < width)
+        #
+        fig = unicorn.plotting.plot_init(square=True, xs=xs, aspect=aspect, NO_GUI=True)
+        ax = fig.add_axes((0.05, 0.8, 0.90, 0.19))
+        #
+        yh, xh = np.histogram(np.log(1+zuse[has_gris]), range=(0,np.log(zmax+1)), bins=np.log(zmax+1)/0.005)
+        a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None')
+        yh, xh = np.histogram(np.log(1+zuse[bin]), range=(0,np.log(zmax+1)), bins=np.log(zmax+1)/0.005)
+        a = ax.plot(np.exp(xh[1:])-1, yh, linestyle='steps', marker='None', color='red', linewidth=2)
+        a = ax.set_yticklabels([])
+        a = ax.text(0.95, 0.8, 'z=%.3f' %(ztry), transform=ax.transAxes, horizontalalignment='right', fontsize=12)
+        #
+        ax = fig.add_axes((0.05, 0.05, 0.90, 0.70))
+        #
+        xy = np.array([cat.x_image[bin]/fact, cat.y_image[bin]/fact])
+        tree = scipy.spatial.cKDTree(xy.T, 10)
+        #
+        R = xi*0.
+        for x in xrange(int(NX/fact)):
+            #print unicorn.noNewLine+'%d' %(x)
+            for y in xrange(int(NY/fact)):
+                R[y,x] = tree.query([x,y], k=N)[0][-1]
+        #
+        density = N/np.pi/R**2
+        #a = ax.imshow(0-np.log(density*mask), interpolation='Nearest', vmin=max_scale, vmax=6.5)
+        #### Uncertainty
+        # bin2 = has_gris & (np.abs(zuse-ztry)/(1+ztry) < width)
+        # xy = np.array([cat.x_image[bin2]/fact, cat.y_image[bin2]/fact])
+        # tree = scipy.spatial.cKDTree(xy.T, 10)
+        # Nbin = bin2.sum()
+        # points = np.zeros(Nbin)
+        # for i in range(Nbin):
+        #     points[i] = tree.query([cat.x_image[bin2][i]/fact, cat.y_image[bin2][i]/fact], k=N+1)[0][-1]
+        # #
+        # sigma = np.std(N/np.pi/points**2) 
+        density[~mask] = -10*sigma
+        #ai = ax.imshow(0-density/sigma, interpolation='Nearest', vmin=-10, vmax=0)
+        #ai = ax.imshow(density/sigma, interpolation='Nearest', vmin=0, vmax=10)
+        ai = ax.imshow(np.log(density/sigma), interpolation='Nearest', vmin=-6, vmax=max_scale)
+        a = ax.scatter(xy[0,:], xy[1,:], alpha=0.4, color='white', s=5)
+        a = ax.set_yticklabels([])
+        a = ax.set_xticklabels([])
+        a = ax.set_xlim(0, R.shape[1])#
+        a = ax.set_ylim(0, R.shape[0])
+        # ac = fig.add_axes((0.03, 0.2, 0.07, 0.5))
+        # cb = plt.colorbar(ai, cax=ac)
+        # cb.set_label(r'$\Sigma / \sigma$')
+        #
+        unicorn.plotting.savefig(fig, root+'_nn_%5.3f.png' %(ztry))
+        
+    #### Add zFOURGE
+    centers = [[150.133, 2.302], ['10:00:15.769','+02:15:39.52'], ['10:00:18.394','+02:14:58.78'], ['10:00:23.562','+02:14:34.10']]
+    xy = np.array([cat.ra, cat.dec])
+    tree = scipy.spatial.cKDTree(xy.T, 10)
+    for center in centers:
+        if isinstance(center[0],str):
+            ra = threedhst.utils.DMS2decimal(center[0], hours=True)
+            dec = threedhst.utils.DMS2decimal(center[1], hours=False)
+        else:
+            ra, dec = center[0], center[1]
+        #
+        idx = tree.query([ra, dec], k=2)[1][0]
+        a = ax.plot(cat.x_image[idx]/fact, cat.y_image[idx]/fact, marker='o', color='white', alpha=0.2, ms=20)
+    #
+    unicorn.plotting.savefig(fig, root+'_zFOURGE_%5.3f.png' %(ztry))
+    
+    ### 3D plot, doesn't really work
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    
+    zsel = (zfit.z_max_spec > 0.7) & (zfit.z_max_spec < 1.5)
+    ax.scatter(cat.ra[has_gris & zsel], cat.dec[has_gris & zsel], zfit.z_max_spec[has_gris & zsel])
+        
+    rf = catIO.Readfile('/Users/gbrammer/research/drg/PHOTZ/EAZY/GOODS_F140W/HIGHRES/OUTPUT/goodsn1.7.153-155.rf')
+    
+    rf_uv = catIO.Readfile('/research/HST/GRISM/3DHST/GOODS-S/FIREWORKS/fireworks.153-155.rf')
+    rf_vj = catIO.Readfile('/research/HST/GRISM/3DHST/GOODS-S/FIREWORKS/fireworks.155-161.rf')
+    
+    uv = (-2.5*np.log10(rf_uv.l153/rf_uv.l155))[zfit.phot_id-1]
+    vj = (-2.5*np.log10(rf_vj.l155/rf_vj.l161))[zfit.phot_id-1]
+    
+    plt.plot(uv[~keep], dz[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.01,2.5)
+    plt.plot(uv[keep], dz[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.01,2.5) 
+    xm, ym, ys, N = threedhst.utils.runmed(uv[keep], dz[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(uv[keep], dzphot[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    
+    plt.scatter(vj[keep], uv[keep], marker='o', s=sz[keep], alpha=0.4)
+    
+    plt.scatter(zfit.z_max_spec[keep], uv[keep], marker='o', s=sz[keep], alpha=0.4)
+
+    plt.scatter(zfit.z_max_spec[keep], zfit.mag[keep], marker='o', s=sz[keep], alpha=0.4)
+
+    plt.scatter(zfit.z_max_spec[keep], cat['[24um]_totf'][zfit.phot_id-1][keep], marker='o', s=sz[keep], alpha=0.4)
+    plt.ylim(0.01,1000); plt.semilogy()
+
+    plt.scatter(zfit.z_max_spec[keep], cat.Kr50[keep], marker='o', s=sz[keep], alpha=0.4)
+    
+    plt.plot(np.abs(dz[~keep]), np.abs(dzphot[~keep]), color='red', alpha=0.2)
+    plt.plot(np.abs(dz[keep]), np.abs(dzphot[keep]), color='blue', alpha=0.4)
+    plt.plot([1.e-6,10],[1e-6,10], color='black', alpha=0.4, linewidth=2, marker='', linestyle='-')
+    plt.plot([1.e-6,10],[1e-5,100], color='black', alpha=0.4, linewidth=2, marker='', linestyle='--')
+    plt.loglog()
+    plt.xlim(1.e-5,8); plt.ylim(1.e-5,8)
+    
+    delta = np.abs(zfit.z_max_spec - zfit.z_peak_phot)/(1+zfit.z_peak_phot)
+    plt.plot(delta[~keep], dz_spec[~keep], color='red', alpha=0.2); plt.ylim(-0.2,0.2); plt.xlim(0.001,1.5) ; plt.semilogx()
+    plt.plot(delta[keep], dz_spec[keep], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0.001,1.5) ; plt.semilogx()
+    xm, ym, ys, N = threedhst.utils.runmed(delta[keep], dz_spec[keep], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    
+    keep = keep & (delta < 0.1)
+    
+    yh, xh, qq = plt.hist(dz_spec[keep], range=(-0.01, 0.01), bins=40, alpha=0.5)
+    xx = xh[:-1]/2.+xh[1:]/2.
+    import gbb.pymc_gauss as gaussfit
+    fit = gaussfit.init_model(xx, yh, np.maximum(np.sqrt(yh),1))
+    NSAMP,NBURN=11000,1000
+    fit.sample(NSAMP, NBURN)
+    trace = fit.trace('eval_gaussian')[::NSAMP/25,:]
+    plt.errorbar(xx, yh, np.sqrt(yh))
+    for i in range(trace.shape[0]):
+        plt.plot(xx, trace[i,:], color='red', alpha=0.2, linestyle='-', marker='')
+        
+    ###
+    test = keep
+    test = keep & nopartial
+    plt.plot(zfit.z_spec[test], dz[test], color='blue', alpha=0.4); plt.ylim(-0.2,0.2); plt.xlim(0,4)
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[test], dz[test], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='green', linestyle='-')
+    xm, ym, ys, N = threedhst.utils.runmed(zfit.z_spec[test], dzphot[test], NBIN=20, use_nmad=False, use_median=True)
+    plt.plot(xm, ys, color='orange', linestyle='-')
+    
+    bad = keep & nopartial & (np.abs(dz) > 0.02)
+    fp = open('/tmp/bad','w')
+    for id in zfit.id[bad]:
+        fp.write('/tmp/%s.zfit.png\n' %(id))
+    fp.close()
+    
+    #### Local environmental density
+    width = 0.02
+    N = 7
+    r0, d0 = np.median(cat.ra), np.median(cat.dec)
+    dra = (cat.ra-r0)*3600.*np.cos(d0/360*2*np.pi)
+    ddec = (cat.dec-d0)*3600.
+    
+    idx = np.arange(len(cat.ra))
+    
+    nearest = np.zeros((cat.ra.shape[0], N))
+    for i in idx[has_gris]:
+        ztry = zfit.z_max_spec[i]
+        bin = has_gris & (np.abs(zfit.z_max_spec-ztry)/(1+ztry) < 2*width)
+        xy = np.array([dra[bin], ddec[bin]])
+        tree = scipy.spatial.cKDTree(xy.T, 10)
+        dist, did = tree.query([dra[i], ddec[i]], k=N+1)
+        nearest[i,:] = dist[1:]
+    
+    zbin = (zfit.z_max_spec > 0.9) & (zfit.z_max_spec < 1.4) & (fout.lmass > 10.5)
+    halpha = lines[1].data['HALPHA_FLUX']*1.
+    halpha[halpha == 0] += 0.01 * (1+0.05*np.random.normal(size=(halpha == 0).sum()))
+    plt.plot(1./nearest[zbin, 0]**2, halpha[zbin], alpha=0.2)
+    
+    #### Pairs
+    min_dist = 1.5
+    pairs = (zfit.z_max_spec > 0.8) & (zfit.z_max_spec < 2.5) & (fout.lmass > 10.) & (nearest[:,0] < min_dist)
+    detect = pyfits.open('COSMOS_v2.0_PHOTOMETRY/Detection/COSMOS_F125W-F140W-F160W_detect.fits')
+    
+    ii = idx[pairs]
+    ii = ii[np.argsort(zfit.z_max_spec[ii])]
+    
+    DX = 5/0.06
+    for i in ii:
+        ztry = zfit.z_max_spec[i]
+        bin = has_gris & (np.abs(zfit.z_max_spec-ztry)/(1+ztry) < 2*width)
+        xy = np.array([dra[bin], ddec[bin]])
+        tree = scipy.spatial.cKDTree(xy.T, 10)
+        dist, did = tree.query([dra[i], ddec[i]], k=N+1)
+        neighbors = did[(dist > 0) & (dist < min_dist)]
+        #
+        xc, yc = int(np.round(cat.x_image[i])), int(np.round(cat.y_image[i]))
+        subim = detect[0].data[yc-DX:yc+DX, xc-DX:xc+DX]
+        plt.imshow(0-subim, vmin=-10, vmax=0.03, interpolation='Nearest')
+        plt.text(DX, DX+5, '%5.3f' %(ztry), horizontalalignment='center', verticalalignment='bottom', color='red')
+        for neighbor in neighbors:
+            plt.plot(cat.x_image[bin][neighbor]-xc+DX, cat.y_image[bin][neighbor]-yc+DX, marker='o', ms=12, color='yellow', alpha=0.3)
+            plt.text(cat.x_image[bin][neighbor]-xc+DX, cat.y_image[bin][neighbor]-yc+DX+5, '%5.3f' %(zfit.z_max_spec[bin][neighbor]), horizontalalignment='center', verticalalignment='bottom', color='green')
+        #
+        plt.xlim(0,2*DX)
+        plt.ylim(0,2*DX)
+
+
+def interlace_goodss0():
+    """
+    Reduce the GOODS-S pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.0')
+
+    #### This step is needed to strip all of the excess header keywords from the mosaic for use
+    #### with `blot`.
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Work/GOODS-S/v4/images/GOODS-S_F160W_sci_sub.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/checkimages/GOODS-S_F125W_F140W_F160W.seg.fits')
+         
+    NGROW=125
+    pad=60
+    CATALOG='/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_F160W.cat'
+
+    direct=glob.glob('GOODS-S-*-F140W_asn.fits')
+            
+    extract_limit = 35.
+    skip_completed=False
+    REF_ROOT='GOODS-S_F160W'
+
+    ##### Generate the interlaced images, including the "blotted" detection image
+    for i in range(len(direct)):
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False).split('-F140')[0]
+        #
+        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW)
+        unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    inter = glob.glob('GOODS-S-[0-9]-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+
+    ##### Extract and fit only mag>24 objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-S-2')
+
+    skip_completed = True
+
+    models = glob.glob('GOODS-S-[0-9]_inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        ii = np.where(model.cat.mag < 24.)
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print id, '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+
+    models = glob.glob('GOODS-S-[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        ii = np.where((model.cat.mag < 24.))
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.linefit.png') & skip_completed:
+                continue  
+            if not os.path.exists(root+'.zfit.png'):
+                continue
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.new_fit_free_emlines(ztry=None)
+
+    ### Get some quality flags on the reduced spectra
+    root='GOODS-S'
+
+    files = glob.glob('GOODS-S-*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+
+    fp.close()
+    fp2.close()	  
+    
+
+def interlace_goodss1():
+    
+    """
+    Reduce the GOODS-S-1* pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1')
+         
+    CATALOG='/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_F160W.cat'
+    extract_limit = 35.
+    skip_completed=False
+    REF_ROOT='GOODS-S_F160W'
+
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    inter = glob.glob('GOODS-S-1[0-9]-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+
+    ##### Extract and fit only mag>24 objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-S-2')
+
+    skip_completed = True
+
+    models = glob.glob('GOODS-S-1[0-9]_inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        ii = np.where(model.cat.mag < 24.)
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print id, '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+    
+def interlace_goodss2():
+    
+    """
+    Reduce the GOODS-S-2* pointings on Unicorn and extract spectra, using the full
+    mosaic as the detection image.
+    """
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1')
+         
+    CATALOG='/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_F160W.cat'
+    extract_limit = 35.
+    skip_completed=False
+    REF_ROOT='GOODS-S_F160W'
+
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    inter = glob.glob('GOODS-S-2[0-9]-G141_inter.fits')
+    redo = False
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+
+    ##### Extract and fit only mag>24 objects
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root='GOODS-S-2')
+
+    skip_completed = True
+
+    models = glob.glob('GOODS-S-2[0-9]_inter_model.fits')
+    for file in models:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        ii = np.where(model.cat.mag < 24.)
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print id, '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
 
 def interlace_uds0():
     """

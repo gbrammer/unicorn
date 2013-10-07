@@ -2361,7 +2361,7 @@ def extract_spectra_mag_limit(pointing='UDS-10', mag_limit = 25.8, model_limit=2
             if not status:
                 continue
         #
-        if (not new_fit & os.path.exists(root+'.zfit.png') & skip_completed) || (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
+        if ((not new_fit) & os.path.exists(root+'.zfit.png') & skip_completed) | (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
             continue 
         #
         try:
@@ -2409,7 +2409,7 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8,
             if not status:
                 continue
         #
-        if (not new_fit & os.path.exists(root+'.zfit.png') & skip_completed) || (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
+        if ((not new_fit) & os.path.exists(root+'.zfit.png') & skip_completed) | (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
             continue 
         #
         try:

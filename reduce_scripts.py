@@ -75,12 +75,46 @@ def interlace_aegis0():
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=25.8)
             
-    ##### Extract and fit only spec-z objects
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='AEGIS-10')
 
     skip_completed = True
+    
+    ### Fit just the spec_z's
+    
+    id_spec_z = cat.id[np.where((cat.z_spec > 0.) & (cat.z_spec < 9.))].astype(int)
+    print 'There are {0} objects in with spec_z in this field.'.format(len(id_spec_z))
+    
+    models = glob.glob('AEGIS-2[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+        print "There are {0} objects with spec_z in {1}.".format(len([id for id in id_spec_z if id in model.cat.id]),pointing)
+        for id in [id for id in id_spec_z if id in model.cat.id]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
 
+    ##### Extract and fit only spec-z objects
     models = glob.glob('AEGIS-[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
@@ -1359,7 +1393,7 @@ def interlace_goodss0():
 
     ##### Generate the spectral model
     ##### Extract all spectra 	
-    inter = glob.glob('GOODS-S-[0-9]-G141_inter.fits')
+    inter = glob.glob('GOODS-S-*-G141_inter.fits')
     redo = False
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
@@ -1629,12 +1663,20 @@ def interlace_uds0():
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
             
-    ##### Extract and fit only spec-z objects
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-11')
 
-    skip_completed = False
+    ##### Extract and fit only spec-z objects
+    models = glob.glob('UDS-[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = False, skip_completed = False)
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = True, skip_completed = False)
 
+
+    #### Extract and fit objects with spec-z
     models = glob.glob('UDS-[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
@@ -2277,3 +2319,97 @@ def interlace_sntile41():
             #os.system('open TILE41-132_%05d*zfit*png' %(id))
         except:
             pass
+
+
+def extract_spectra_mag_limit(pointing='UDS-10', mag_limit = 25.8, model_limit=25.8, 
+    new_fit = False, skip_completed = False):
+    """
+    Make a model, if one does not already exist and extract all spectra down to a given
+    magnitude.
+    """
+    
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=pointing)
+    
+    model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=model_limit)
+    ii = np.where((model.cat.mag < mag_limit))
+    for id in model.cat.id[ii]:
+        root='%s_%05d' %(pointing, id)
+        if not os.path.exists(root+'.2D.fits'):
+            status = model.twod_spectrum(id)
+            if not status:
+                continue
+        #
+        if os.path.exists(root+'.zfit.png') & skip_completed:
+            continue  
+        #
+        try:
+            if new_fit:
+                gris = test.SimultaneousFit(root)
+            else:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+        except:
+            continue
+        #
+        if gris.status is False:
+            continue
+        #
+        if gris.dr > 1:
+            continue
+        #
+        print '\n'
+        if new_fit:
+            gris.read_master_templates()
+            gris.new_fit_constrained()
+        else:
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)    
+
+def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8, 
+    new_fit = False, skip_completed = False):
+    """
+    Make a model if one doesn not already exist and extract all spectra for objects 
+    with ground-based spec-z's.
+    """
+    
+    import unicorn.interlace_test as test
+    
+    import threedhst.catIO as catIO
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=pointing)
+    
+    id_spec_z = cat.id[np.where((cat.z_spec > 0.) & (cat.z_spec < 9.))].astype(int)
+    print 'There are {0} objects in with spec_z in this field.'.format(len(id_spec_z))
+    
+    model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
+    print "There are {0} objects with spec_z in {1}.".format(len([id for id in id_spec_z if id in model.cat.id]),pointing)
+    for id in [id for id in id_spec_z if id in model.cat.id]:
+        root='%s_%05d' %(pointing, id)
+        if not os.path.exists(root+'.2D.fits'):
+            status = model.twod_spectrum(id)
+            if not status:
+                continue
+        #
+        if os.path.exists(root+'.zfit.png') & skip_completed:
+            continue  
+        #
+        try:
+            if new_fit:
+                gris = test.SimultaneousFit(root)
+            else:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+        except:
+            continue
+        #
+        if gris.status is False:
+            continue
+        #
+        if gris.dr > 1:
+            continue
+        #
+        print '\n'
+        if new_fit:
+            gris.read_master_templates()
+            gris.new_fit_constrained()
+        else:
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+            
+

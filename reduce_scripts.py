@@ -1,9 +1,9 @@
- """
- reduce_scripts.py
+"""
+reduce_scripts.py
  
- Reduction scripts for all fields starting with the v4.0 catalogs and images. Previously versions of these scripts resided in reduce.py.
+Reduction scripts for all fields starting with the v4.0 catalogs and images. Previously versions of these scripts resided in reduce.py.
  
- """
+"""
  
 import os
 import glob

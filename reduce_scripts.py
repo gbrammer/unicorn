@@ -1629,6 +1629,7 @@ def interlace_uds0():
     import glob
     import os
     import time
+    import unicorn.reduce_scripts       
     
     os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v4.0')
 
@@ -1748,6 +1749,7 @@ def interlace_uds1():
     import glob
     import os
     import time
+    import unicorn.reduce_scripts       
 
     os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v4.0')
         
@@ -1775,7 +1777,14 @@ def interlace_uds1():
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-11')
 
-    skip_completed = True
+    ##### Extract and fit only spec-z objects
+    models = glob.glob('UDS-1[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = False, skip_completed = False)
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = True, skip_completed = False)
 
     models = glob.glob('UDS-1[0-9]_inter_model.fits')
     for file in models[::1]:
@@ -1847,6 +1856,9 @@ def interlace_uds2():
     import unicorn
     import glob
     import os
+    import numpy as np
+    import time
+    import unicorn.reduce_scripts       
 
     #os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v2.1')
         
@@ -1869,6 +1881,15 @@ def interlace_uds2():
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
             
+    ##### Extract and fit only spec-z objects
+    models = glob.glob('UDS-2[0-9]_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = False, skip_completed = False)
+        unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing, model_limit=25.8, 
+            new_fit = True, skip_completed = False)
+
     ##### Extract and fit only spec-z objects
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-11')
@@ -2340,8 +2361,8 @@ def extract_spectra_mag_limit(pointing='UDS-10', mag_limit = 25.8, model_limit=2
             if not status:
                 continue
         #
-        if os.path.exists(root+'.zfit.png') & skip_completed:
-            continue  
+        if (not new_fit & os.path.exists(root+'.zfit.png') & skip_completed) || (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
+            continue 
         #
         try:
             if new_fit:
@@ -2388,8 +2409,8 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8,
             if not status:
                 continue
         #
-        if os.path.exists(root+'.zfit.png') & skip_completed:
-            continue  
+        if (not new_fit & os.path.exists(root+'.zfit.png') & skip_completed) || (new_fit & os.path.exists(root+'.new_zfit.png') & skip_completed):
+            continue 
         #
         try:
             if new_fit:

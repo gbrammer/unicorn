@@ -734,7 +734,7 @@ class GrismSpectrumFit():
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
         if self.grism_element == 'G102':
-            ax.set_xlim(0.7, 1.15)
+            ax.set_xlim(0.74, 1.17)
         else:
             ax.set_xlim(1.0, 1.73)
             
@@ -762,7 +762,7 @@ class GrismSpectrumFit():
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
         if self.grism_element == 'G102':
-            ax.set_xlim(0.7, 1.15)
+            ax.set_xlim(0.74, 1.17)
         else:
             ax.set_xlim(1.0, 1.73)
 
@@ -809,7 +809,7 @@ class GrismSpectrumFit():
         temp_sed_int = np.interp(self.oned.data.wave, lambdaz, temp_sed)
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
         if self.grism_element == 'G102':
-            keep = (self.oned.data.wave > 0.85) & (self.oned.data.wave < 1.05e4)
+            keep = (self.oned.data.wave > 0.85e4) & (self.oned.data.wave < 1.05e4)
         flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
         ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
@@ -1066,7 +1066,12 @@ class GrismSpectrumFit():
         fig = unicorn.catalogs.plot_init(xs=5,aspect=1./1.65, left=0.15, right=0.02, bottom=0.09, top=0.02, NO_GUI=True)
         ax = fig.add_subplot(111)
         
-        wok = (self.oned_wave > 1.e4)
+        if self.grism_element == 'G141':
+            wok = (self.oned_wave > 1.e4)
+        
+        if self.grism_element == 'G102':
+            wok = (self.oned_wave > 0.74e4)
+            
         ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
         
         #### Line equivalent widths, combined error of line and continuum
@@ -1161,7 +1166,12 @@ class GrismSpectrumFit():
         ax.fill_between([0.8,0.96],np.array([0.85,0.85]), np.array([0.78, 0.78]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
         ax.text(0.95, 0.85, r'$z=%.4f$' %(ztry), horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
         
-        ax.set_xlim(1.0,1.73)
+        if self.grism_element == 'G141':
+            ax.set_xlim(1.0,1.73)
+            
+        if self.grism_element == 'G102':
+            ax.set_xlim(0.74, 1.18)
+        
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
         ymax = self.model_1D[np.isfinite(self.model_1D)].max()

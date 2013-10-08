@@ -93,12 +93,15 @@ def set_grism_config(grism='G141'):
     if red.conf_grism == grism:
         return None
     #
-    red.conf = threedhst.process_grism.Conf('WFC3.IR.%s.V2.0.conf' %(grism), path=os.getenv('THREEDHST')+'/CONF/').params
+    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf'}
+    red.conf = threedhst.process_grism.Conf(config_file[grism], path=os.getenv('THREEDHST')+'/CONF/').params
     red.conf_grism = grism
     red.sens_files = {}
     for beam in ['A','B','C','D','E']:
         red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-    
+        red.sens_files[beam].SENSITIVITY[-3:] *= 0.
+        red.sens_files[beam].SENSITIVITY[:3] *= 0.
+        
     print 'Set grism configuration files: %s' %(red.conf_grism)
     
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
@@ -647,16 +650,24 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
       
     #xmi, xma = -580, 730
     #xmi, xma = 1000,-1000
-    if 'A' in BEAMS:
-        xmi, xma = min(xmi,10), max(xma,213)
-    if 'B' in BEAMS:
-        xmi, xma = min(xmi,-210), max(xma, -170)
-    if 'C' in BEAMS:
-        xmi, xma = min(xmi,207), max(xma,454)
-    if 'D' in BEAMS:
-        xmi, xma = min(xmi, 469), max(xma,668)
-    if 'E' in BEAMS:
-        xmi, xma = min(xmi, -600), max(xma,-400)
+    limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
+             'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)}}
+    
+    for BEAM in ['A','B','C','D','E']:
+        if BEAM in BEAMS:
+            lim = limit[grism][BEAM]
+            xmi, xma = min(xmi,lim[0]), max(xma,lim[1])
+            
+    # if 'A' in BEAMS:
+    #     xmi, xma = min(xmi,10), max(xma,213)
+    # if 'B' in BEAMS:
+    #     xmi, xma = min(xmi,-210), max(xma, -170)
+    # if 'C' in BEAMS:
+    #     xmi, xma = min(xmi,207), max(xma,454)
+    # if 'D' in BEAMS:
+    #     xmi, xma = min(xmi, 469), max(xma,668)
+    # if 'E' in BEAMS:
+    #     xmi, xma = min(xmi, -600), max(xma,-400)
         
     NX,NY = xma-xmi, 8
 
@@ -1046,7 +1057,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx = self.growx, growy=self.growy, pad=self.pad)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx = self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -1083,7 +1094,7 @@ class Interlace2D():
         xarr = np.arange(NX)
         wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
         if self.grism_element == 'G102':
-            wavelength_region = (self.object_wave >= 0.75e4) & (self.object_wave <= 1.15e4)
+            wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
             
         limited = wavelength_region & ((self.object_wave-self.im['WAVE'].data.min()) > -1) & ((self.object_wave - self.im['WAVE'].data.max()) < 1)        
         
@@ -1342,7 +1353,7 @@ class Interlace2D():
                 
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141'):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W'):
         """
         Initialize: set padding, growth factor, read input files.
         """
@@ -1353,7 +1364,7 @@ class GrismModel():
         self.use_segm = use_segm
         
         #### Read the direct interlaced image        
-        self.direct = pyfits.open(self.root+'-F140W_inter.fits')
+        self.direct = pyfits.open(self.root+'-%s_inter.fits' %(direct))
         self.direct[1].data = np.cast[np.double](self.direct[1].data)
         
         self.filter = self.direct[0].header['FILTER']
@@ -1392,6 +1403,7 @@ class GrismModel():
         self.make_flux()
         
         self.grism_element = grism
+        self.direct_element = direct
         unicorn.reduce.set_grism_config(grism)
         
         self.gris = pyfits.open(self.root+'-%s_inter.fits' %(self.grism_element))
@@ -1479,7 +1491,7 @@ class GrismModel():
         se.options['CHECKIMAGE_NAME'] = self.root+'_inter_seg.fits'
         se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-        se.options['WEIGHT_IMAGE']    = self.root+'-F140W_inter.fits[1]'
+        se.options['WEIGHT_IMAGE']    = '%s-%s_inter.fits[1]' %(self.root, self.direct_element)
         se.options['FILTER']    = 'Y'
         
         #### Detect thresholds (default = 1.5)
@@ -1488,7 +1500,7 @@ class GrismModel():
         se.options['MAG_ZEROPOINT'] = '%.2f' %(self.ZP)
         
         #### Run SExtractor
-        status = se.sextractImage(self.root+'-F140W_inter.fits[0]')
+        status = se.sextractImage('%s-%s_inter.fits[0]' %(self.root, self.direct_element))
         self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
         
         #### Trim faint sources
@@ -1571,11 +1583,11 @@ class GrismModel():
             return True
         
         #### Else: use tran to get the pixel in the DRZ frame and then xy2rd to get coords        
-        wcs = wcsutil.WCSObject(self.root+'-F140W_drz.fits[1]')
+        wcs = wcsutil.WCSObject(self.root+'-%s_drz.fits[1]' %(self.direct_element))
             
         NOBJ = len(self.cat.id)
         
-        asn = threedhst.utils.ASNFile(self.root+'-F140W_asn.fits')
+        asn = threedhst.utils.ASNFile(self.root+'-%s_asn.fits' %(self.direct_element))
         flt = asn.exposures[0]+'_flt.fits'
         fp = open('/tmp/%s.flt_xy' %(self.root),'w')
         for i in range(NOBJ):
@@ -1592,11 +1604,11 @@ class GrismModel():
         ### For some reason this dies occasionally "too many positional arguments for traxy"
         ### Try running a second time if it dies once
         try:
-            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(self.direct_element), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
             os.remove("/tmp/%s.flt_xy" %(self.root))
         except:
             threedhst.process_grism.flprMulti()
-            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-F140W_drz.fits[1]', direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(self.direct_element), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
             os.remove("/tmp/%s.flt_xy" %(self.root))
             
         self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)
@@ -1653,7 +1665,7 @@ class GrismModel():
             self.lam_spec = np.arange(0.95e4,1.8e4,22.)
         
         if self.grism_element == 'G102':
-            self.lam_spec = np.arange(0.7e4, 1.25e4, 12.)
+            self.lam_spec = np.arange(0.73e4, 1.18e4, 10.)
         
         self.obj_in_model = {}
         self.flux_specs = {}
@@ -1736,7 +1748,7 @@ class GrismModel():
         #xord, yord, ford, word, sord = xord[non_zero], yord[non_zero], orders[non_zero], self.xi[2][non_zero], self.xi[3][non_zero]
         cast = np.int
         xord, yord, ford, word, sord, bord = np.array(xord[non_zero], dtype=cast), np.array(yord[non_zero], dtype=cast), np.array(orders[non_zero], dtype=np.float64), self.xi[2][non_zero], self.xi[3][non_zero], beams[non_zero]
-                
+        
         ys = orders.shape
         xord += self.xi[0]
         yord -= (ys[0]-1)/2
@@ -1979,7 +1991,7 @@ class GrismModel():
                     ly = 1+model_slope*(lx-1.4e4)/4.e3
                 
                 if self.grism_element == 'G102':
-                    lx = np.arange(0.7e4,1.2e4)
+                    lx = np.arange(0.6e4,1.3e4)
                     ly = 1+model_slope*(lx-0.98e4)/2.8e3
                 
                 if self.model_list is not None:
@@ -2195,7 +2207,7 @@ class GrismModel():
             wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
         #
         if self.grism_element == 'G102':
-            wavelength_region = (self.object_wave >= 0.75e4) & (self.object_wave <= 1.15e4)
+            wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
         
         if np.sum(wavelength_region) < 20:
             fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
@@ -2325,7 +2337,8 @@ class GrismModel():
             ax.set_xticklabels(ltick)
             ax.set_xlim(1.1e4,1.65e4)
             if self.grism_element == 'G102':
-                ax.set_xlim(0.75e4,1.12e4)
+                ax.set_xlim(0.73e4,1.18e4)
+                
             y = self.flux_specs[self.id]*self.total_fluxes[self.id]
             ax.set_ylim(-0.1*y.max(), 1.1*y.max())
             ax.set_yticklabels([]);
@@ -2656,7 +2669,6 @@ def model_stripe():
             model_1d += nd.shift(orders_1d, xi[0]+x, mode='constant', cval=0)
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
-
             
 def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, NSEGPIX=8):
     """

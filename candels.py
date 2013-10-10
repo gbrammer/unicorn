@@ -1325,6 +1325,7 @@ def make_asn_files(force=False):
     Read a files.info file and make ASN files for each visit/filter.
     """
     list = catIO.Readfile('files.info')
+    list.pa_v3 = np.cast[int](list.pa_v3*100)/100.
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
     
     visits = np.unique(list.targname)
@@ -1332,24 +1333,25 @@ def make_asn_files(force=False):
         filters = np.unique(list.filter[list.targname == visit])
         print visit, filters
         for filter in filters:
-            if (os.path.exists(visit+'-'+filter+'_asn.fits')) & (not force):
-                continue
-            
-            #print asn.in_fits[1].columns
-            
-            use = (list.targname == visit) & (list.filter == filter)
-            asn.exposures = []
-            asn.product=visit+'-'+filter
-            for fits in list.file[use]:
-                asn.exposures.append(os.path.basename(fits).split('_flt')[0])
-            
-            #try:
-            asn.write(asn.product+'_asn.fits')
-            #except:
-            #    continue
-                
-            threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
-            print asn.product
+            angles = np.unique(list.pa_v3[(list.targname == visit) & (list.filter == filter)])
+            for angle in angles:
+                if (os.path.exists('%s-%03d-%s_asn.fits' %(visit, int(angle), filter))) & (not force):
+                    continue
+
+                #print asn.in_fits[1].columns
+                use = (list.targname == visit) & (list.filter == filter) & (list.pa_v3 == angle)
+                asn.exposures = []
+                asn.product='%s-%03d-%s' %(visit, int(angle), filter)
+                for fits in list.file[use]:
+                    asn.exposures.append(os.path.basename(fits).split('_flt')[0])
+
+                #try:
+                asn.write(asn.product+'_asn.fits')
+                #except:
+                #    continue
+
+                threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                print asn.product
             
     
 def prep_candels(asn_file='ib3706050_asn.fits',

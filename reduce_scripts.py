@@ -44,14 +44,14 @@ def interlace_aegis0():
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='AEGIS_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Work/AEGIS/IMAGES/SMALL_PIXSCL/AEGIS_F160W_sci.fits', SEGM = '/3DHST/Photometry/Work/AEGIS/Sex/PSF_matched/F160W_seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='AEGIS_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/AEGIS/Sex/PSF_matched/F160W_seg.fits', Force=True)
         
     NGROW=125
     pad=60
     #CATALOG='phot/F160W_arjen.cat'
     #CATALOG='/3DHST/Photometry/Work/AEGIS/Sex/PSF_matched/F140W.cat'
     CATALOG = 'phot/F140W.cat'
-    direct=glob.glob('AEGIS-2[0-9]-F140W_asn.fits')
+    direct=glob.glob('AEGIS-[0-9]-F140W_asn.fits')
     direct.remove('AEGIS-20-F140W_asn.fits')
 
     extract_limit = 24
@@ -397,7 +397,7 @@ def interlace_cosmos0():
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
     unicorn.reduce.prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', 
-        REFERENCE = '/3DHST/Photometry/Work/COSMOS/IMAGES/SMALL_PIXSCL_V3/COSMOS_F160W_sci.fits', 
+        REFERENCE = '/3DHST/Ancillary/COSMOS/CANDELS/ASTRODRIZZLE/cosmos-f160w-astrodrizzle-v4.0_drz_join.fits', 
         SEGM = '/3DHST/Photometry/Work/COSMOS/Sex/PSF_matched/F160W_seg.fits')
     
     NGROW=125
@@ -744,7 +744,7 @@ def interlace_goodsn():
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(Force=True, REF_ROOT='GOODS-N_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Work/GOODS-N/v4/images/GOODS-N_F160W_sci_sub.fits', SEGM = '/3DHST/Photometry/Work/GOODS-N/v4/sextr/checkimages/GOODS-N_F125W_F140W_F160W.seg.fits')
+    unicorn.reduce.prepare_blot_reference(Force=True, REF_ROOT='GOODS-N_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/GOODS-N/CANDELS/ASTRODRIZZLE/goods-n-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/GOODS-N/v4/sextr/checkimages/GOODS-N_F125W_F140W_F160W.seg.fits')
      
     NGROW=125
     pad=60
@@ -767,7 +767,7 @@ def interlace_goodsn():
     
     ##### Generate the spectral model and extract spectra
     inter = glob.glob('GOODS-N-4[0-9]-G141_inter.fits')
-    redo = False
+    redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
         pointing = inter[i].split('-G141_inter')[0]
@@ -1355,7 +1355,7 @@ def interlace_goodss0():
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Work/GOODS-S/v4/images/GOODS-S_F160W_sci_sub.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/checkimages/GOODS-S_F125W_F140W_F160W.seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/checkimages/GOODS-S_F125W_F140W_F160W.seg.fits')
          
     NGROW=125
     pad=60
@@ -1379,7 +1379,7 @@ def interlace_goodss0():
     ##### Generate the spectral model
     ##### Extract all spectra 	
     inter = glob.glob('GOODS-S-*-G141_inter.fits')
-    redo = False
+    redo = True
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         if (not os.path.exists(pointing+'_model.fits')) | redo:
@@ -1631,7 +1631,7 @@ def interlace_uds0():
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(Force=True, REF_ROOT='UDS_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Work/UDS/v4/images/UDS_F160W_sci_sub.fits', SEGM = '/3DHST/Photometry/Work/UDS/v4/sextr/checkimages/UDS_F125W_F140W_F160W.seg.fits')
+    unicorn.reduce.prepare_blot_reference(Force=True, REF_ROOT='UDS_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/UDS/CANDELS/ASTRODRIZZLE/uds-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/UDS/v4/sextr/checkimages/UDS_F125W_F140W_F160W.seg.fits')
         
     NGROW=125
     pad=60

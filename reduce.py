@@ -2135,7 +2135,7 @@ class GrismModel():
         
         if '_ref_inter' in self.im.filename():
             ### Use reference image as thumbnail if it exists
-            if (xc < (self.pad / 2)) | USE_REFERENCE_THUMB:
+            if (xc < ((self.pad + self.ngrow)/ 2)) | USE_REFERENCE_THUMB:
                 prim.header.update('REFTHUMB', True)
                 self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
                 prim.header.update('FILTER', self.im[0].header['FILTER'])
@@ -3154,7 +3154,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 threedhst.process_grism.flprMulti()
                 if os.path.exists('align_blot.fits'):
                     os.remove('align_blot.fits')
-                #
+                
                 status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = 'align_blot.fits', 
                    outnx = 1014, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
                    coeffs = run.flt[idx]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
@@ -3165,6 +3165,19 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
                    dr2gpar = '', expkey = 'exptime', expout = 'input', 
                    in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+
+                # import drizzlepac
+                # from drizzlepac import astrodrizzle
+                # import stwcs
+                # ref = pyfits.open(REF_ROOT+'_ref.fits')
+                # ref_wcs = stwcs.wcsutil.HSTWCS(ref)
+                # flt_wcs = stwcs.wcsutil.HSTWCS(im_flt, ext=1)
+                # ref_wcs.wcs.crpix += np.array([xoff, yoff])
+                # ref_wcs.rotateCD(roff/360.*2*np.pi)
+                # 
+                # blotted = astrodrizzle.ablot.do_blot(ref[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
+                # pyfits.writeto('align_blot.fits', data=blotted, header=im_flt[1].header)
+                
                 #
                 dx, dy, rot, xrms, yrms = unicorn.reduce.realign_blotted(flt=FLT, blotted='align_blot.fits', fitgeometry=geom)
                 #### Transform the shifts/rotation in the FLT frame to the reference image frame
@@ -3210,6 +3223,19 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
            dr2gpar = '', expkey = 'exptime', expout = 'input', 
            in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+
+
+        # import drizzlepac
+        # from drizzlepac import astrodrizzle
+        # import stwcs
+        # ref = pyfits.open(REF_ROOT+'_ref.fits')
+        # ref_wcs = stwcs.wcsutil.HSTWCS(ref)
+        # flt_wcs = stwcs.wcsutil.HSTWCS(im_flt, ext=1)
+        # ref_wcs.wcs.crpix += np.array([xoff, yoff])
+        # ref_wcs.rotateCD(roff/360.*2*np.pi)
+        # 
+        # blotted = astrodrizzle.ablot.do_blot(ref[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
+        # pyfits.writeto(FLT.replace('_flt','_blot'), data=blotted, header=im_flt[1].header)
                 
         #### Add NGROW to header
         im_blt = pyfits.open(FLT.replace('_flt','_blot'), mode='update')
@@ -3270,6 +3296,10 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
            dr2gpar = '', expkey = 'exptime', expout = 'input', 
            in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
         
+        # seg = pyfits.open(REF_ROOT+'_seg.fits')
+        # blotted = astrodrizzle.ablot.do_blot(seg[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
+        # pyfits.writeto(FLT.replace('_flt','_seg'), data=blotted, header=im_flt[1].header)
+        
         #
         if verbose:
             print unicorn.noNewLine+'sci, weight, seg0, seg1'
@@ -3288,6 +3318,9 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
            dr2gpar = '', expkey = 'exptime', expout = 'input', 
            in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        # seg = pyfits.open(REF_ROOT+'_ones.fits')
+        # blotted = astrodrizzle.ablot.do_blot(seg[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
+        # pyfits.writeto(FLT.replace('_flt','_ones'), data=blotted, header=im_flt[1].header)
         
         #### Add NGROW to header
         im_seg = pyfits.open(FLT.replace('_flt','_seg'), mode='update')

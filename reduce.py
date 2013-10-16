@@ -3500,6 +3500,17 @@ def realign_blotted(flt='ibhj34h6q_flt.fits', blotted='align_blot.fits', fitgeom
     se.options['CATALOG_NAME']    = 'direct.cat'
     iraf.imcopy('%s[1]' %(flt),"SCI.fits")
     iraf.imcopy('%s[2]' %(flt),"WHT.fits")
+    
+    ### Clean up bad pixels and cosmic rays
+    flt_im = pyfits.open(flt)
+    bad = (flt_im['SCI'].data > 1.e5) | ((flt_im['DQ'].data & 4096) > 0)
+    sci = pyfits.open('SCI.fits', mode='update')
+    wht = pyfits.open('WHT.fits', mode='update')
+    sci[0].data[bad] = 0
+    wht[0].data[bad] = 1.e6
+    sci.flush()
+    wht.flush()
+    
     status = se.sextractImage('SCI.fits')
 
     ## alignment image
@@ -3631,7 +3642,54 @@ def all_deep():
     for file in files: 
         root=file.split('-G141')[0]
         deep_model(root=root, MAG_LIMIT=28)
-        
+
+def check_kluge_shifts():
+    files=glob.glob('AEG*G141_inter.fits')
+    for file in files:
+        unicorn.reduce.model_kluge(file)
+    
+def model_kluge(inter_grism='GOODS-S-34-G141_inter.fits', xshift=1):
+    """
+    Some indexing error somewhere results in redshifts that are too high by ~1 pixel.  Shift the 
+    interlaced grism images "left" by this amount to take it out by hand....
+    """
+    import numpy as np
+    import pyfits
+    import scipy.ndimage as nd
+    import stsci.convolve
+    import unicorn
+    
+    #inter_grism = 'COSMOS-10-G141_inter.fits'
+    #inter_grism='GOODS-S-34-G141_inter.fits'
+    print inter_grism
+    g141 = pyfits.open(inter_grism, mode='update')
+    model = pyfits.open(inter_grism.replace('-G141_inter', '_inter_model'))
+    
+    ### Taper for cross correlation
+    print unicorn.noNewLine+'%s  Taper' %(inter_grism)
+    taper = nd.gaussian_filter((model[0].data > 0.03)*1., 8)
+    NGROW = g141[1].header['NGROW']
+    pad = 300
+    g141_tapered = (g141[1].data*taper)[2*NGROW+pad*2:-2*NGROW-pad*2, 2*NGROW+pad*2:-2*NGROW-pad*2]
+    model_tapered = (model[0].data*taper)[2*NGROW+pad*2:-2*NGROW-pad*2, 2*NGROW+pad*2:-2*NGROW-pad*2]
+    
+    print unicorn.noNewLine+'%s  Corr1' %(inter_grism)
+    cross_corr = stsci.convolve.correlate2d(g141_tapered, model_tapered, fft=1)
+    print unicorn.noNewLine+'%s  Corr2' %(inter_grism)
+    cross_corr_ref = stsci.convolve.correlate2d(g141_tapered, g141_tapered, fft=1)
+    sh = cross_corr.shape
+    yi, xi = np.indices(cross_corr[sh[1]/2-20:sh[1]/2+20, sh[0]/2-20:sh[0]/2+20].shape)
+    xc, yc = xi.flatten()[np.argmax(cross_corr[sh[1]/2-20:sh[1]/2+20, sh[0]/2-20:sh[0]/2+20])], yi.flatten()[np.argmax(cross_corr[sh[1]/2-20:sh[1]/2+20, sh[0]/2-20:sh[0]/2+20])]
+    xc_ref, yc_ref = xi.flatten()[np.argmax(cross_corr_ref[sh[1]/2-20:sh[1]/2+20, sh[0]/2-20:sh[0]/2+20])], yi.flatten()[np.argmax(cross_corr_ref[sh[1]/2-20:sh[1]/2+20, sh[0]/2-20:sh[0]/2+20])]
+    dx, dy = xc-xc_ref, yc-yc_ref
+    
+    #g141[1].data[:,:-4] = g141[1].data[:,4:]
+    #g141[2].data[:,:-4] = g141[2].data[:,4:]
+    
+    print unicorn.noNewLine+'%s  %d  %d' %(inter_grism, dx, dy)
+    
+    #ds9.view(g141[1].data-model[0].data)
+    
 def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     """ 
     Use the model generator to make a full model of all objects in a pointing down to 

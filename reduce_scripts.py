@@ -83,7 +83,7 @@ def interlace_aegis0():
         unicorn.reduce_scripts.fix_thumbnails(pointing=pointing)
         time.strftime('%X %x %Z')
     
-    inter = glob.glob('AEGIS-*-G141_inter.fits'    
+    inter = glob.glob('AEGIS-*-G141_inter.fits')
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         unicorn.reduc_scripts.fix_thumbnails(pointing=pointing)

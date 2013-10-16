@@ -75,11 +75,19 @@ def interlace_aegis0():
         if (not os.path.exists(pointing+'_model.fits')) | redo:
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+        
+    time.strftime('%X %x %Z')
     inter = glob.glob('AEGIS-*-G141_inter.fits')
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        unicorn.reduce_scripts.fix_thumbnails(pointing=pointing)
+        time.strftime('%X %x %Z')
     
+    inter = glob.glob('AEGIS-*-G141_inter.fits'    
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         unicorn.reduc_scripts.fix_thumbnails(pointing=pointing)
+    time.strftime('%X %x %Z')
             
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='AEGIS-10')
@@ -2369,11 +2377,11 @@ def fix_thumbnails(pointing='AEGIS-1'):
     model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
     ii=0
     for id in model.cat.id:
-        if os.path.exists('AEGIS-1_{:5d}.2D.fits'.format(id)):
-            file_2d = pyfits.open('AEGIS-1_{:5d}.2D.fits'.format(id))
+        if os.path.exists('{0}_{1:5d}.2D.fits'.format(pointing,id)):
+            file_2d = pyfits.open('{0}_{1:5d}.2D.fits'.format(pointing,id))
             if np.min(file_2d[1].data) == 0:
-                print '{} AEGIS-1_{:5d}.2D.fits'.format(ii,id)
-                ii = ii+1
+                print '{0} {1}_{2:5d}.2D.fits'.format(ii,pointing,id)
+                ii += 1
                 model.twod_spectrum(id = id,USE_REFERENCE_THUMB=True)
                 model.show_2d(savePNG=True)
     

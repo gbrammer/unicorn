@@ -2379,6 +2379,7 @@ def fix_thumbnails(pointing='AEGIS-1'):
 
     import pyfits
     import numpy as np
+    import os
     
     model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
     ii=0
@@ -2391,6 +2392,17 @@ def fix_thumbnails(pointing='AEGIS-1'):
                 model.twod_spectrum(id = id,USE_REFERENCE_THUMB=True)
                 model.show_2d(savePNG=True)
     
-    
-        
-    
+    ii=0
+    for i in range(len(model.cat.id)):
+        id = model.cat.id[i]
+        if os.path.exists('{0}_{1:5d}.2D.fits'.format(pointing,id)):
+            file_2d = pyfits.open('{0}_{1:5d}.2D.fits'.format(pointing,id))
+            if np.max(file_2d[1].data) > 0 and np.max(file_2d[4].data) == 0:
+                print '{} {} {}_{:5d}.2D.fits'.format(ii,model.cat.MAG_AUTO[i],pointing,id)
+                ii =ii + 1
+                if os.path.exists('{}_{:5d}.1D.fits'.format(pointing, id)):
+                    print 'Deleting {}_{:5d}.1D.fits'.format(pointing, id)
+                    os.system('rm  {}_{:5d}.1D.fits'.format(pointing, id))
+                if os.path.exists('{}_{:5d}.1D.png'.format(pointing, id)):
+                    print 'Deleting {}_{:5d}.1D.png'.format(pointing, id)
+                    os.system('rm  {}_{:5d}.1D.png'.format(pointing, id))

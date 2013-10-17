@@ -122,7 +122,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #    aegis_wirds=True
         
     uds_cluster = False
-    if root.startswith('UDS-18'):
+    if root.startswith('UDS-18') | root.startswith('IRC0218'):
         uds=False
         uds_cluster=True
     #
@@ -226,9 +226,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         if unicorn.hostname().startswith('uni'):
             CAT_PATH = '/3DHST/Photometry/Work/GOODS-N/v4/'
             CAT_FILE = CAT_PATH+'catalogs/v4.0/goodsn_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH+'eazy/v4.0/goodsn_3dhst.v4.0.zout'
+            ZOUT_FILE = CAT_PATH+'eazy/goodsn_3dhst.v4.0/goodsn_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH+'fast/goodsn_3dhst.v4.0.fout'
-        KTOT_COL = 'f_ks'
+        KTOT_COL = 'f_k'
     
 
     # #### Force UDF to use FIREWORKS
@@ -237,16 +237,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #     udf = False
           
     if cdfs:        
-        #For the v2.1 reduction
-        if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyperion'):
-            CAT_PATH = '/3DHST/Photometry/Release/v2.1/GOODS-S/'
-        else:
-            CAT_PATH = '/research/HST/GRISM/3DHST/RELEASE_v2.0/GOODS-S/GOODS-S_v2.0_PHOTOMETRY/'
-
-        CAT_FILE = CAT_PATH + 'Catalog/goodss_3dhst.v2.1.cat'
-        ZOUT_FILE = CAT_PATH + 'Eazy/goodss_3dhst.v2.1.zout'
-        FOUT_FILE = CAT_PATH + 'Fast/goodss_3dhst.v2.1.fout'
-        KTOT_COL = 'f_ks'
+        #For the v4.0 reduction
+        if unicorn.hostname().startswith('uni'):
+            CAT_PATH = '/3DHST/Photometry/Work/GOODS-S/v4/'
+            CAT_FILE = CAT_PATH + 'catalogs/v4.0/goodss_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH + 'eazy/goodss_3dhst.v4.0/goodss_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH + 'fast/goodsn_3dhst.v4.0.fout'
+            KTOT_COL = 'f_k'
 
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):
@@ -273,6 +270,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         if unicorn.hostname().startswith('uni'):
             CAT_PATH = '/3DHST/Photometry/Work/UDS/v4/'
             CAT_FILE = CAT_PATH+'catalogs/v4.0/uds_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH+'eazy/uds_3dhst.v4.0/uds_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH +'fast/uds_3dhst.v4.0.fout'
+            KTOT_COL = 'f_k'
+        if unicorn.hostname().startswith('hyp'):
+            CAT_PATH = '/3DHST/Spectra/Work/PAPOVICH/REF/'
+            CAT_FILE = CAT_PATH+'eazy/uds_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH+'eazy/v4.0/uds_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH +'fast/uds_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'

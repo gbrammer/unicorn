@@ -228,7 +228,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_FILE = CAT_PATH+'catalogs/v4.0/goodsn_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH+'eazy/goodsn_3dhst.v4.0/goodsn_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH+'fast/goodsn_3dhst.v4.0.fout'
-        KTOT_COL = 'f_k'
+        KTOT_COL = 'f_ks'
     
 
     # #### Force UDF to use FIREWORKS
@@ -243,7 +243,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_FILE = CAT_PATH + 'catalogs/v4.0/goodss_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH + 'eazy/goodss_3dhst.v4.0/goodss_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH + 'fast/goodsn_3dhst.v4.0.fout'
-            KTOT_COL = 'f_k'
+            KTOT_COL = 'f_ks'
 
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):

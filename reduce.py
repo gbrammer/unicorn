@@ -2849,30 +2849,33 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if verbose:
         print 'Clean up segmentation image...'
         
+    #### xxx not necessary now when using "nearest" with blot!!!
     #### Clean up overlap region of segmentation 
     unicorn.reduce.fill_inter_zero(pointing+'_inter_seg.fits')
-    im = pyfits.open(pointing+'_inter_seg.fits', mode='update')
+    im = pyfits.open(pointing+'_inter_seg.fits') #, mode='update')
+    inter_seg = im[0].data
+    
     #s = np.ones((3,3))
     #labeled_array, num_features = nd.label(im[0].data, structure=s)
     
-    if verbose:
-        print unicorn.noNewLine+'Clean up segmentation image...[1]'
+    #if verbose:
+    #    print unicorn.noNewLine+'Clean up segmentation image...[1]'
 
     #### Maximum filter to flag overlap regions
-    max_filter = nd.maximum_filter(im[0].data, size=(3,3))
-    bad = (max_filter - im[0].data) > 2
-    inter_seg = max_filter*1
-    inter_seg[bad] = 0
-    
+    # max_filter = nd.maximum_filter(im[0].data, size=(3,3))
+    # bad = (max_filter - im[0].data) > 2
+    # inter_seg = max_filter*1
+    # inter_seg[bad] = 0
+    # 
     if verbose:
         print unicorn.noNewLine+'Clean up segmentation image...[2]'
 
     #### Orphan pixels in the max-filtered image
-    npix = nd.convolve((inter_seg > 0)*1, np.ones((3,3)))
-    bad = (inter_seg > 0) & (npix < 4)
-    inter_seg[bad] = 0
-    im[0].data = inter_seg
-    im.flush()
+    # npix = nd.convolve((inter_seg > 0)*1, np.ones((3,3)))
+    # bad = (inter_seg > 0) & (npix < 4)
+    # inter_seg[bad] = 0
+    # im[0].data = inter_seg
+    # im.flush()
     
     if verbose:
         print unicorn.noNewLine+'Clean up segmentation image...[3]'
@@ -3037,6 +3040,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
     """
     from pyraf import iraf
     from iraf import dither
+    import scipy.ndimage as nd
     
     import unicorn.reduce
     
@@ -3286,7 +3290,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         
         threedhst.process_grism.flprMulti()
         status = iraf.wblot( data = REF_ROOT+'_seg.fits', outdata = FLT.replace('_flt','_seg'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
            coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
            align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
            rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
@@ -3294,7 +3298,9 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
            decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
            dr2gpar = '', expkey = 'exptime', expout = 'input', 
-           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+           in_un = 'counts', out_un = 'counts', fillval = 0.0, mode = 'al', Stdout=1)
+        
+        #print status
         
         # seg = pyfits.open(REF_ROOT+'_seg.fits')
         # blotted = astrodrizzle.ablot.do_blot(seg[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
@@ -3303,13 +3309,13 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         #
         if verbose:
             print unicorn.noNewLine+'sci, weight, seg0, seg1'
-
+        
         if os.path.exists(FLT.replace('_flt','_ones')):
             os.remove(FLT.replace('_flt','_ones'))
         
         threedhst.process_grism.flprMulti()
         status = iraf.wblot( data = REF_ROOT+'_ones.fits', outdata = FLT.replace('_flt','_ones'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
            coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
            align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
            rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
@@ -3318,6 +3324,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
            yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
            dr2gpar = '', expkey = 'exptime', expout = 'input', 
            in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        
         # seg = pyfits.open(REF_ROOT+'_ones.fits')
         # blotted = astrodrizzle.ablot.do_blot(seg[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']
         # pyfits.writeto(FLT.replace('_flt','_ones'), data=blotted, header=im_flt[1].header)
@@ -3325,9 +3332,10 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         #### Add NGROW to header
         im_seg = pyfits.open(FLT.replace('_flt','_seg'), mode='update')
         ones = pyfits.open(FLT.replace('_flt','_ones'))
-        yh, xh = np.histogram(ones[0].data.flatten(), range=(0.1,ones[0].data.max()), bins=100)
-        keep = ones[0].data > (0.5*xh[:-1][yh == yh.max()])
-        
+        # yh, xh = np.histogram(ones[0].data.flatten(), range=(0.1,ones[0].data.max()), bins=100)
+        # keep = ones[0].data > (0.5*xh[:-1][yh == yh.max()])
+        # 
+        ones[0].data[ones[0].data == 0] = 1
         ratio = im_seg[0].data / ones[0].data
         #test = (np.abs(np.log(ratio/np.round(ratio))) < 1.e-5) & keep
         
@@ -3337,9 +3345,15 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         
         # im_seg[0].data[keep] /= ones[0].data[keep]
         # im_seg[0].data[~keep] = 0
-        # im_seg[0].data = np.cast[int](np.round(im_seg[0].data))
-        im_seg[0].data = np.cast[np.int32](np.round(ratio))
+        #im_seg[0].data = np.cast[np.int32](np.round(im_seg[0].data))
+        seg = np.cast[np.int32](np.round(ratio))
+        ### Grow regions a bit, but not where already defined at adjacent segments
+        grow = nd.maximum_filter(seg, size=3, mode='constant', cval=0)
+        grow_pix = (seg == 0) & (grow > 0)
+        seg[grow_pix] = grow[grow_pix]
+        im_seg[0].data = seg
         
+         
         im_seg[0].header.update('NGROW',NGROW, comment='Number of pixels added to X-axis (centered)')
         im_seg[0].header.update('FILTER', REF_FILTER)
         im_seg[0].header.update('EXPTIME', REF_EXPTIME)
@@ -3349,7 +3363,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         else:
             im_seg.flush()
     
-        os.remove(FLT.replace('_flt','_ones'))
+        # os.remove(FLT.replace('_flt','_ones'))
     
         #### 
         # import threedhst.dq

@@ -242,7 +242,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_PATH = '/3DHST/Photometry/Work/GOODS-S/v4/'
             CAT_FILE = CAT_PATH + 'catalogs/v4.0/goodss_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH + 'eazy/goodss_3dhst.v4.0/goodss_3dhst.v4.0.zout'
-            FOUT_FILE = CAT_PATH + 'fast/goodsn_3dhst.v4.0.fout'
+            FOUT_FILE = CAT_PATH + 'fast/goodss_3dhst.v4.0.fout'
             KTOT_COL = 'f_ks'
 
     #

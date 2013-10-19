@@ -67,7 +67,8 @@ conf = threedhst.process_grism.Conf('WFC3.IR.G141.V2.5.conf', path=os.getenv('TH
 conf_grism = 'G141'
 sens_files = {}
 for beam in ['A','B','C','D','E']:
-    sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+    if 'SENSITIVITY_'+beam in conf.keys():
+        sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937}
 PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872.}
@@ -88,19 +89,23 @@ try:
 except:
     print 'No pywcs found.'
     
-def set_grism_config(grism='G141'):
+def set_grism_config(grism='G141', chip=1):
     import unicorn.reduce as red
     if red.conf_grism == grism:
         return None
     #
-    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf'}
+    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+    if grism == 'G800L':
+        config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)
+        
     red.conf = threedhst.process_grism.Conf(config_file[grism], path=os.getenv('THREEDHST')+'/CONF/').params
     red.conf_grism = grism
     red.sens_files = {}
-    for beam in ['A','B','C','D','E']:
-        red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-        red.sens_files[beam].SENSITIVITY[-3:] *= 0.
-        red.sens_files[beam].SENSITIVITY[:3] *= 0.
+    for beam in ['A','B','C','D','E','F','G']:
+        if 'SENSITIVITY_'+beam in conf.keys():
+            red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+            red.sens_files[beam].SENSITIVITY[-3:] *= 0.
+            red.sens_files[beam].SENSITIVITY[:3] *= 0.
         
     print 'Set grism configuration files: %s' %(red.conf_grism)
     
@@ -651,9 +656,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     #xmi, xma = -580, 730
     #xmi, xma = 1000,-1000
     limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
-             'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)}}
+             'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
+             'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
     
-    for BEAM in ['A','B','C','D','E']:
+    for BEAM in limit[grism].keys():
         if BEAM in BEAMS:
             lim = limit[grism][BEAM]
             xmi, xma = min(xmi,lim[0]), max(xma,lim[1])
@@ -673,6 +679,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
     NX,NY = xma-xmi, 15
     
+    if grism == 'G800L':
+        NY = 60
+        
     xmi *= growx
     xma *= growx
     NX *= growx
@@ -694,7 +703,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # xarr += 1
     
     for ib, beam in enumerate(BEAMS):
-       
+        #print beam
+        
         xmi_beam, xma_beam = tuple(np.cast[int](conf['BEAM'+beam].split())) 
         xmi_beam *= growx
         xma_beam *= growx
@@ -729,7 +739,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         #### Wavelength
         lam = dldp_0 + dldp_1*(xarr-xoff_beam)
-                
+        
+        if 'DLDP_'+beam+'_2' in conf.keys():
+            dldp_2 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_2']) / growx**2
+            lam = dldp_0 + dldp_1*(xarr-xoff_beam) + dldp_2*(xarr-xoff_beam)**2
+            
         if not dydx:
             dydx_0 = 0.
             dydx_1 = 0.
@@ -738,6 +752,17 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         #### Interpolate pixel at shifted ycenter along beam        
         ycenter = dydx_0 + dydx_1*(xarr-xoff_beam)
+        
+        if 'DYDX_'+beam+'_2' in conf.keys():
+            dydx_2 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_2']) / growx**2
+            ycenter = dydx_0 + dydx_1*(xarr-xoff_beam) + dydx_1*(xarr-xoff_beam)**2
+        
+        ### Vertical offsets of the G800L beams
+        if grism == 'G800L':
+            off = {'A':-1, 'B':0, 'C':-3, 'D':-3, 'E':-2, 'F':-1}
+            if BEAM in off.keys():
+                ycenter += off[BEAM]
+            
         stripe = model*0
         y0 = np.cast[int](np.floor(ycenter))
         f0 = ycenter-y0
@@ -1030,7 +1055,12 @@ class Interlace2D():
             self.grism_element = self.im[0].header['GRISM']
             self.direct_filter = self.im[0].header['FILTER']
         
-        unicorn.reduce.set_grism_config(self.grism_element)
+        if self.grism_element == 'G800L':
+            chip = self.im[0].header['CCDCHIP']
+        else:
+            chip=1
+            
+        unicorn.reduce.set_grism_config(self.grism_element, chip=chip)
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
             
@@ -1095,7 +1125,10 @@ class Interlace2D():
         wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
         if self.grism_element == 'G102':
             wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
-            
+        #
+        if self.grism_element == 'G800L':
+            wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
+        
         limited = wavelength_region & ((self.object_wave-self.im['WAVE'].data.min()) > -1) & ((self.object_wave - self.im['WAVE'].data.max()) < 1)        
         
         xmin = xarr[limited].min()
@@ -1171,6 +1204,9 @@ class Interlace2D():
         xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
         if self.grism_element == 'G102':
             xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
+        #
+        if self.grism_element == 'G800L':
+            xint14 = int(np.interp(0.75e4, self.im['WAVE'].data, xarr))
         
         yprof = np.arange(osh[0])
         profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
@@ -1225,7 +1261,10 @@ class Interlace2D():
         xint14 = int(np.interp(1.3e4, self.wave, xarr))
         if self.grism_element == 'G102':
             xint14 = int(np.interp(0.98e4, self.wave, xarr))
-            
+        #
+        if self.grism_element == 'G800L':
+            xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        
         yprof = np.arange(osh[0])
         profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
         profile = profile/profile.sum()
@@ -1404,7 +1443,14 @@ class GrismModel():
         
         self.grism_element = grism
         self.direct_element = direct
-        unicorn.reduce.set_grism_config(grism)
+        
+        if self.grism_element == 'G800L':
+            self.chip = self.direct[1].header['CCDCHIP']
+        else:
+            self.chip=1
+            
+        unicorn.reduce.set_grism_config(self.grism_element, chip=self.chip)
+        #unicorn.reduce.set_grism_config(grism)
         
         self.gris = pyfits.open(self.root+'-%s_inter.fits' %(self.grism_element))
         if self.gris[1].data.shape != self.direct[1].data.shape:
@@ -1666,6 +1712,10 @@ class GrismModel():
         
         if self.grism_element == 'G102':
             self.lam_spec = np.arange(0.73e4, 1.18e4, 10.)
+        
+        #
+        if self.grism_element == 'G800L':
+            self.lam_spec = np.arange(0.2e4, 1.2e4, 20.)
         
         self.obj_in_model = {}
         self.flux_specs = {}
@@ -1988,12 +2038,20 @@ class GrismModel():
             else:
                 if self.grism_element == 'G141':
                     lx = np.arange(0.9e4,1.8e4)
-                    ly = 1+model_slope*(lx-1.4e4)/4.e3
+                    #ly = 1+model_slope*(lx-1.4e4)/4.e3
+                    ly = (lx/1.4e4)**model_slope
                 
                 if self.grism_element == 'G102':
                     lx = np.arange(0.6e4,1.3e4)
-                    ly = 1+model_slope*(lx-0.98e4)/2.8e3
+                    #ly = 1+model_slope*(lx-0.98e4)/2.8e3
+                    ly = (lx/0.98e4)**model_slope
                 
+                #
+                if self.grism_element == 'G800L':
+                    lx = np.arange(0.3e4,1.2e4)
+                    #ly = 1+model_slope*(lx-0.75e4)/2.5e3
+                    ly = (lx/0.75e4)**model_slope
+                    
                 if self.model_list is not None:
                     if id in self.model_list.keys():
                         print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d) [model_list]' %(id, mag[so][i], i+1, N)
@@ -2130,6 +2188,7 @@ class GrismModel():
         prim.header.update('EXPTIME', self.gris[0].header['EXPTIME'])
         prim.header.update('FILTER', self.filter)
         prim.header.update('GRISM', self.gris[0].header['FILTER'])
+        prim.header.update('CCDCHIP', self.chip)
         
         prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
         
@@ -2202,12 +2261,15 @@ class GrismModel():
                 self.obj_in_model[id] = True
         
         #### Find pixels of the 1st order        
-        xarr = np.arange(self.sh[0])
+        xarr = np.arange(self.sh[1])
         if self.grism_element == 'G141':
             wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
         #
         if self.grism_element == 'G102':
             wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
+        #
+        if self.grism_element == 'G800L':
+            wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
         
         if np.sum(wavelength_region) < 20:
             fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
@@ -2338,7 +2400,10 @@ class GrismModel():
             ax.set_xlim(1.1e4,1.65e4)
             if self.grism_element == 'G102':
                 ax.set_xlim(0.73e4,1.18e4)
-                
+            #
+            if self.grism_element == 'G800L':
+                ax.set_xlim(0.58e4,0.92e4)
+            
             y = self.flux_specs[self.id]*self.total_fluxes[self.id]
             ax.set_ylim(-0.1*y.max(), 1.1*y.max())
             ax.set_yticklabels([]);
@@ -2393,7 +2458,10 @@ class GrismModel():
         xint14 = int(np.interp(1.3e4, self.wave, xarr))
         if self.grism_element == 'G102':
             xint14 = int(np.interp(0.98e4, self.wave, xarr))
-            
+        #
+        if self.grism_element == 'G800L':
+            xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        
         yprof = np.arange(osh[0])
         profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
         profile = profile/profile.sum()
@@ -3398,7 +3466,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         print unicorn.noNewLine+iline
         os.remove(ifile)
 #
-def fill_inter_zero(image='TILE41-132-F160W_inter.fits'):
+def fill_inter_zero(image='TILE41-132-F160W_inter.fits', fill_error=True):
     from scipy.signal import convolve2d
 
     im = pyfits.open(image, mode='update')
@@ -3428,7 +3496,7 @@ def fill_inter_zero(image='TILE41-132-F160W_inter.fits'):
     fill_pix = bad & (npix > minpix)
     im[x0].data[fill_pix] = (sum/npix)[fill_pix]*1
     
-    if HAS_ERR:
+    if HAS_ERR & fill_error:
         sumwht = convolve2d(im[x1].data**2, kernel, boundary='fill', fillvalue=0, mode='same')
         im[x1].data[fill_pix] = np.sqrt((sumwht/npix)[fill_pix]*1.)
     
@@ -3659,9 +3727,23 @@ def all_deep():
 
 def check_kluge_shifts():
     files=glob.glob('AEG*G141_inter.fits')
+    import pyfits
     for file in files:
-        unicorn.reduce.model_kluge(file)
-    
+        pass
+        #unicorn.reduce.model_kluge(file)
+    #
+    files=glob.glob('AEG*G141_inter.fits')
+    for file in files:
+        print file
+        g141 = pyfits.open(file, mode='update')    
+        model = pyfits.open(file.replace('-G141_inter', '_inter_model'))
+        #pyfits.writeto(file.replace('inter','diff'), g141[1].data-model[0].data, header=g141[1].header, clobber=True)
+        gshift = g141[1].data
+        gshift[:,:-1] = gshift[:,1:]
+        pyfits.writeto(file.replace('inter','diff_shift1'), gshift-model[0].data, header=g141[1].header, clobber=True)
+        gshift[:,:-1] = gshift[:,1:]
+        pyfits.writeto(file.replace('inter','diff_shift2'), gshift-model[0].data, header=g141[1].header, clobber=True)
+        
 def model_kluge(inter_grism='GOODS-S-34-G141_inter.fits', xshift=1):
     """
     Some indexing error somewhere results in redshifts that are too high by ~1 pixel.  Shift the 
@@ -3677,6 +3759,8 @@ def model_kluge(inter_grism='GOODS-S-34-G141_inter.fits', xshift=1):
     #inter_grism='GOODS-S-34-G141_inter.fits'
     print inter_grism
     g141 = pyfits.open(inter_grism, mode='update')
+    unicorn.reduce.fill_inter_zero(inter_grism, fill_error=False)
+    
     model = pyfits.open(inter_grism.replace('-G141_inter', '_inter_model'))
     
     ### Taper for cross correlation

@@ -88,7 +88,7 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1.):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -172,7 +172,7 @@ class GrismSpectrumFit():
             self.skip_photometric=False
 
         #### If match distance > 1", prior is flat
-        if self.dr > 1:
+        if self.dr > dr_match:
             self.phot_lnprob *= 0
             
         else:
@@ -232,6 +232,7 @@ class GrismSpectrumFit():
         # KTOT_COL = 'Ks_totf'
 
         #### Read in EAZY files
+        print self.grism_id
         cat, zout, fout = unicorn.analysis.read_catalogs(root=self.grism_id)
         #cat.kmag = 23.86-2.5*np.log10(cat.field(KTOT_COL))
         CAT_PATH = os.path.dirname(cat.filename)
@@ -707,6 +708,9 @@ class GrismSpectrumFit():
         
         if self.grism_element == 'G102':
             wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
+        #
+        if self.grism_element == 'G800L':
+            wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         y = yflux-ycont
@@ -733,11 +737,22 @@ class GrismSpectrumFit():
             ymax = yflux.max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
+        ax.set_xlim(1.0, 1.73)
+        xint = [1.1,1.2,1.3,1.4,1.5,1.6]
+        ax_int = np.array(xint)#*1.e4
+
         if self.grism_element == 'G102':
             ax.set_xlim(0.74, 1.17)
-        else:
-            ax.set_xlim(1.0, 1.73)
-            
+            xint = [0.8, 0.9, 1.0, 1.1]
+            ax_int = np.array(xint)#*1.e4
+        #
+        if self.grism_element == 'G800L':
+            ax.set_xlim(0.58, 0.92)
+            xint = [0.6, 0.7, 0.8, 0.9]
+            ax_int = np.array(xint)#*1.e4
+        
+        ax.set_xticks(ax_int)
+        
         #### Spectrum in f_lambda
         self.oned.data.sensitivity /= 100
         
@@ -761,11 +776,16 @@ class GrismSpectrumFit():
             ymax = (yflux/self.oned.data.sensitivity).max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        ax.set_xlim(1.0, 1.73)
+
         if self.grism_element == 'G102':
             ax.set_xlim(0.74, 1.17)
-        else:
-            ax.set_xlim(1.0, 1.73)
-
+        #
+        if self.grism_element == 'G800L':
+            ax.set_xlim(0.58, 0.92)
+        
+        ax.set_xticks(ax_int)
+        
         #### p(z)
         ax = fig.add_subplot(143)
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
@@ -810,6 +830,10 @@ class GrismSpectrumFit():
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
         if self.grism_element == 'G102':
             keep = (self.oned.data.wave > 0.85e4) & (self.oned.data.wave < 1.05e4)
+        #
+        if self.grism_element == 'G800L':
+            keep = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
+        
         flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
         ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
@@ -866,6 +890,10 @@ class GrismSpectrumFit():
         #
         if self.grism_element == 'G102':
             xint = [0.8, 0.9, 1.0, 1.1]
+            ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
+        #
+        if self.grism_element == 'G800L':
+            xint = [0.6, 0.7, 0.8, 0.9]
             ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
@@ -998,6 +1026,9 @@ class GrismSpectrumFit():
         sh = self.twod.im['CONTAM'].data.shape
         wave2d = np.dot(np.ones(sh[0]).reshape((-1,1)), self.twod.im['WAVE'].data.reshape((1,-1)))
         #print use.sum()
+        if self.grism_element == 'G800L':
+            lrange = [0.6e4, 0.9e4]
+            
         wave_ok = (wave2d.flatten() >= lrange[0]) & (wave2d.flatten() <= lrange[1])
         var[~wave_ok] = 1.e6
         
@@ -1071,7 +1102,10 @@ class GrismSpectrumFit():
         
         if self.grism_element == 'G102':
             wok = (self.oned_wave > 0.74e4)
-            
+        
+        if self.grism_element == 'G800L':
+            wok = (self.oned_wave > 0.60e4)
+        
         ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
         
         #### Line equivalent widths, combined error of line and continuum
@@ -1171,6 +1205,9 @@ class GrismSpectrumFit():
             
         if self.grism_element == 'G102':
             ax.set_xlim(0.74, 1.18)
+        #
+        if self.grism_element == 'G800L':
+            ax.set_xlim(0.58, 0.92)
         
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
@@ -1360,7 +1397,7 @@ class GrismSpectrumFit():
             use_lines = []
             for line in line_wavelengths.keys():
                 lam = line_wavelengths[line][0]
-                if (lam*(1+ztry) > self.oned_wave[self.oned_wave > 0.9e4].min()) & (lam*(1+ztry) < self.oned_wave.max()):
+                if (lam*(1+ztry) > self.oned_wave.min()) & (lam*(1+ztry) < self.oned_wave.max()):
                     use_lines.append(line)
         
         ### Make sure have resolution at the desired wavelenghts

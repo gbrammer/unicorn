@@ -619,7 +619,7 @@ def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     #stack(id, dy=20, save=True, inverse=True)
     
 #
-def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]'):
+def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270):
     """
     Stack all UDF spectra for a given object ID
     """
@@ -634,7 +634,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         twod = unicorn.reduce.Interlace2D(files[i])
         im = twod.im
         sh = im['SCI'].data.shape
-        if sh[1] < 200:
+        if sh[1] < min_xpix:
             p = files.pop(i)
             continue
         #
@@ -643,7 +643,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         
     print 'DY: %d' %(dy)
     #dy = 20
-    NX = 270
+    #NX = 270
     flux = np.zeros((len(files), 2*dy, NX))
     err = np.zeros((len(files), 2*dy, NX))
     contam = np.zeros((len(files), 2*dy, NX))
@@ -668,6 +668,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         print y0, sh, x0, x0-xref, dx
         if sh[1] < NX:
             err[i,:,:] = 10000.
+            print 'NX=%d, Skip: %s' %(sh[1], file)
             continue
         #
         flux[i,:,:] = nd.shift(im['SCI'].data[y0i-dy:y0i+dy,:], (0,dx), order=3)[:,:NX]
@@ -871,7 +872,8 @@ class UDF():
                     
         #### Now store shifted flux arrays
         self.dx -= self.dx[0]
-        self.dxi[i] = np.cast[int](np.round(self.dx[i]))
+        #self.dxi[i] = np.cast[int](np.round(self.dx[i]))
+        self.dxi = np.cast[int](np.round(self.dx))
         
         ### Check shifted wavelength arrays
         # for i in range(self.N):

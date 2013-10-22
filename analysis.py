@@ -122,9 +122,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #    aegis_wirds=True
         
     uds_cluster = False
-    if root.startswith('UDS-18') | root.startswith('IRC0218'):
-        uds=False
-        uds_cluster=True
+    #if root.startswith('UDS-18') | root.startswith('IRC0218'):
+    #    uds=False
+    #    uds_cluster=True
     #
     erb = False
     for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700']:
@@ -159,6 +159,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v4.0.cat'
             ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v4.0/cosmos_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH+'Fast/v4.0/cosmos_3dhst.v4.0.fout'
+            KTOT_COL = 'f_k'
+        if unicorn.hostname().startswith('hyp'):
+            CAT_PATH = '/3DHST/Photometry/Release/v4.0/COSMOS/'            
+            CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH+'Fast/cosmos_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'
          
         #### ZFOURGE
@@ -244,6 +250,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             ZOUT_FILE = CAT_PATH + 'eazy/goodss_3dhst.v4.0/goodss_3dhst.v4.0.zout'
             FOUT_FILE = CAT_PATH + 'fast/goodss_3dhst.v4.0.fout'
             KTOT_COL = 'f_ks'
+        if unicorn.hostname().startswith('hyp'):
+            CAT_PATH = '/3DHST/Photometry/Release/v4.0/GOODS-S/'
+            CAT_FILE = CAT_PATH + 'Catalog/goodss_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/goodss_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/goodss_3dhst.v4.0.fout'
+            KTOT_COL = 'f_ks'
 
     #
     if udf and (unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('850dhcp')):
@@ -274,10 +286,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             FOUT_FILE = CAT_PATH +'fast/uds_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'
         if unicorn.hostname().startswith('hyp'):
-            CAT_PATH = '/3DHST/Spectra/Work/PAPOVICH/REF/'
-            CAT_FILE = CAT_PATH+'eazy/uds_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH+'eazy/v4.0/uds_3dhst.v4.0.zout'
-            FOUT_FILE = CAT_PATH +'fast/uds_3dhst.v4.0.fout'
+            CAT_PATH = '/3DHST/Photometry/Release/v4.0/UDS/'
+            CAT_FILE = CAT_PATH+'Catalog/uds_3dhst.v4.0.cat'
+            ZOUT_FILE = CAT_PATH+'Eazy/uds_3dhst.v4.0.zout'
+            FOUT_FILE = CAT_PATH +'Fast/uds_3dhst.v4.0.fout'
             KTOT_COL = 'f_k'
     #
     if erb:

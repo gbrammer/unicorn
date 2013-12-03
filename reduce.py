@@ -70,7 +70,7 @@ for beam in ['A','B','C','D','E']:
     if 'SENSITIVITY_'+beam in conf.keys():
         sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
 
-ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937}
+ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777}
 PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872.}
 
 # BWs = {}
@@ -842,10 +842,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, grism='G141'):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, direct='F140W', grism='G141', BEAMS=['A','B','C','D']):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, grism=grism)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism)
     
     model.model_list = model_list
     
@@ -862,9 +862,9 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
             model.model*=0
         
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope)   
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope, BEAMS=BEAMS)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
-        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope)
+        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
         
     return model
     
@@ -1459,7 +1459,7 @@ class GrismModel():
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         
-        if not os.path.exists(root+'_inter_seg.fits'):
+        if not os.path.exists(self.root+'_inter_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
             self.find_objects(MAG_LIMIT=MAG_LIMIT)
                 
@@ -2129,13 +2129,17 @@ class GrismModel():
         if id not in self.cat.id:
             print 'Object #%d not in catalog.' %(id)
             return False
-            
+        
+        unicorn.reduce.set_grism_config(grism=self.grism_element)            
         #
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
         xc = np.int(np.round(self.cat.x_pix[ii]))#-1
         yc = np.int(np.round(self.cat.y_pix[ii]))#-1
         
+        #count=0; print 'HERE%d' %(count)
+        
         seg = np.cast[int](self.segm[0].data)
+        
         # seg_mask = seg == id
         # ypix, xpix = self.yf, self.xf
         # 
@@ -2156,7 +2160,7 @@ class GrismModel():
         #NT = np.min([self.pad/2, NT])
                                 
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
-        
+                
         #### Maximum size
         if maxy is not None:
             NT = np.min([NT, maxy])
@@ -2191,7 +2195,7 @@ class GrismModel():
         prim.header.update('CCDCHIP', self.chip)
         
         prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
-        
+                
         if '_ref_inter' in self.im.filename():
             ### Use reference image as thumbnail if it exists
             if (xc < ((self.pad + self.ngrow)/ 2)) | USE_REFERENCE_THUMB:
@@ -2202,7 +2206,7 @@ class GrismModel():
         extensions = [prim]
 
         header = pyfits.ImageHDU().header
-        
+                
         #### Direct thumbnails
         header.update('EXTNAME','DSCI')
         extensions.append(pyfits.ImageHDU(self.direct_thumb, header))
@@ -2210,7 +2214,7 @@ class GrismModel():
         extensions.append(pyfits.ImageHDU(self.direct_wht, header))
         header.update('EXTNAME','DSEG')
         extensions.append(pyfits.ImageHDU(self.direct_seg, header))
-        
+                
         #### Find objects that could contaminate the current one
         radius = None
         if 'KRON_RADIUS' in self.cat.column_names:
@@ -2221,17 +2225,17 @@ class GrismModel():
         
         if radius is None:
             radius = 30.  ### stop-gap
-            
+                    
         dylo = self.cat.y_pix-self.cat.y_pix[ii]-radius*3
         dy0 = self.cat.y_pix-self.cat.y_pix[ii]
         dyhi = self.cat.y_pix-self.cat.y_pix[ii]+radius*3
         dy = np.minimum(np.abs(dylo), np.abs(dy0))
         dy = np.minimum(np.abs(dyhi), dy)
-        
+                
         dx = self.cat.x_pix-self.cat.x_pix[ii]
         nearby = (dy < (NT/2.+5)) & (dx < 420*self.growx) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
         
-        BEAMS=['A','B','C','D']
+        BEAMS=['A','B','C','D','E']
         view=False
         if nearby.sum() > 0:
             ids = self.cat.id[nearby][np.argsort(self.cat.mag[nearby])]

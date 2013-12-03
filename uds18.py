@@ -76,6 +76,7 @@ def mcmc_fit():
 
     import emcee
     import unicorn
+    import threedhst.dq
     
     import unicorn.uds18 as uds18
     
@@ -116,12 +117,13 @@ def mcmc_fit():
     
     ### init = [lens_a0, lens_beta, z_lens, contam_a0, contam_beta, z_arc, arc_lo, arc_hi]
     init = np.array([0, 0, 1.634, 0, 0, 2.263, 0.223, 0.223])
+    init = np.array([-0.1, -0.03, 1.638, 0.01, 0, 2.261, 0.223, 0.7])
     
     ## test
-    test = uds18._objective_full_fit(init, data)
+    model_init = uds18._objective_full_fit(init, data)
     
     NWALKERS, NSTEP = 100, 50
-    step_sigma = np.array([0.2, 0.1, 0.03, 0.2, 0.1, 0.02, 0.1, 0.1])
+    step_sigma = np.array([0.2, 0.1, 0.03, 0.2, 0.1, 0.02, 0.3, 0.3])
     ndim = len(init)
     
     p0 = [init + np.random.normal(size=ndim)*step_sigma for i in range(NWALKERS)]
@@ -136,6 +138,29 @@ def mcmc_fit():
     param_names = ['lens_a0', 'lens_beta', 'z_lens', 'contam_a0', 'contam_beta', 'z_arc', 'arc_lo', 'arc_hi']
     
     chain = unicorn.interlace_fit.emceeChain(chain=sampler.chain, param_names = param_names)
+    
+    data['getModel'] = True
+    model_best = uds18._objective_full_fit(chain.median, data)
+
+    p_clean = chain.median*1
+    p_clean[-2:] = -100
+    model_clean = uds18._objective_full_fit(p_clean, data)
+
+    p_line = chain.median*1
+    p_line[0] = -100; p_line[3] = -100
+    model_line = uds18._objective_full_fit(p_line, data)
+    
+    err = np.random.normal(size=model_line.shape)*twod_line.im['WHT'].data
+    
+    #### Smooth cleaned model by line kernel
+    import scipy.ndimage as nd
+    kernel = twod_line.im['DSCI'].data*1
+    kernel[twod_line.im['DSEG'].data != 31684] = 0
+    kernel /= kernel.sum()
+    resid = twod_orig.im['SCI'].data-model_clean
+    sm_resid = nd.correlate(resid, kernel, mode='reflect', cval=0.0)
+    sm_line = nd.correlate(resid, kernel, mode='reflect', cval=0.0)
+    sm_x = nd.correlate(twod_orig.im['SCI'].data, kernel, mode='reflect', cval=0.0)
     
     
 def _objective_full_fit(params, data):
@@ -170,7 +195,7 @@ def _objective_full_fit(params, data):
     ### First component is the lens
     xlens, ylens = data['lens_template']
     xlens_i = xlens*(1+z_lens)
-    ylens_i = ylens*lens_tilt_a0 * (xlens/1.4e4)**lens_tilt_beta
+    ylens_i = ylens*lens_tilt_a0 * (xlens_i/1.4e4)**lens_tilt_beta
     data['twod_lens'].compute_model(xlens_i, ylens_i)
     full_model = data['twod_lens'].model*1
     
@@ -197,15 +222,15 @@ def _objective_full_fit(params, data):
     
     ## compute log likelihood
     chi2 = np.sum((data['spec2d']-full_model)**2/data['var'])
-    lnprob = -0.5*np.log(chi2)
+    lnprob = -0.5*chi2
     
     ### apply priors
-    prior_z_arc = scipy.stats.norm.logpdf(z_arc, loc=2.263, scale=0.05)
-    prior_z_lens = scipy.stats.norm.logpdf(z_lens, loc=1.634, scale=0.02)
+    prior_z_arc = scipy.stats.norm.logpdf(z_arc, loc=2.261, scale=0.02)
+    prior_z_lens = scipy.stats.norm.logpdf(z_lens, loc=1.634, scale=0.1)
         
     lnprob += prior_z_arc + prior_z_lens
     
-    print '%.3f %.3f %.3f   %.3f %.3f   %.3f   %.3f  %.3f    %.2f' %(lens_tilt_a0, lens_tilt_beta, z_lens, contam_tilt_a0, contam_tilt_beta, z_arc, arc_coeff_lo, arc_coeff_hi, lnprob)
+    print '%6.3f %6.3f %6.3f   %6.3f %6.3f   %6.3f   %6.3f  %6.3f    %13.2f' %(lens_tilt_a0, lens_tilt_beta, z_lens, contam_tilt_a0, contam_tilt_beta, z_arc, arc_coeff_lo, arc_coeff_hi, lnprob)
     
     return lnprob    
     

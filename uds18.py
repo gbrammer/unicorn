@@ -35,6 +35,21 @@ def test():
     
     status = twod_model.compute_model()
     
+def make_segmentation_for_ACS():
+    """
+    Modify the segmentation of the ACS thumbail to just include parts of the image where 
+    the arc has flux.
+    """
+    import pyregion
+    
+    twod = pyfits.open('acs_31684.2D.fits', mode='update')
+    r = pyregion.open('arc_acs.reg').as_imagecoord(header=twod['DSEG'].header)
+    mask = r.get_mask(hdu=twod['DSEG'])
+    new_seg = twod['DSEG'].data*0
+    new_seg[mask] = 31684
+    twod['DSEG'].data = new_seg
+    twod.flush()
+    
 def _objective_full_fit(params, **data):
     """
     Get log(chi2/2) for some set of input parameters

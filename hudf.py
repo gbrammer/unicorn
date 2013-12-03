@@ -43,7 +43,7 @@ def make_ellis12_regions():
         fp.write('%15s  %s  %s  %.5f  %.5f  %.1f\n' %(id[i], ra[i], dec[i], threedhst.utils.DMS2decimal(ra[i], hours=True), threedhst.utils.DMS2decimal(dec[i], hours=False), redshift[i]))
     fp.close()
     
-    
+
 def extract_hudf12():
     """
     Make catalog and segmentation image from the 
@@ -293,6 +293,7 @@ def prepare():
     os.chdir(unicorn.GRISM_HOME+'UDF/PREP_FLT')
     
     ALIGN = '../XDF/xdfh_sci.fits'
+    ALIGN = '/Users/brammer/3DHST/Ancillary/UDF/XDF/hlsp_xdf_hst_wfc3ir-60mas_hudf_f160w_v1_sci.fits'
     ALIGN_EXT=0
     
     info = catIO.Readfile('files.info')
@@ -390,6 +391,7 @@ def prepare():
     sci = pyfits.open('xdfh_sci.fits')
     texp = 3.e3
     f = 10**(-0.4*(33.4549980163574-25.96))
+    f = 1 ## XDF F160W image
     #wht[0].data = wht[0].data*1000.-
     wht[0].data = (1.e5*wht[0].data**2+1./((sci[0].data*f+0.5)/texp))*f**2
     wht.writeto('xdfh_VAR.fits', clobber=True)
@@ -399,7 +401,7 @@ def prepare():
     sci.writeto('xdfh_sci_scaled.fits')
     
     ## Make catalog
-    os.chdir("/research/HST/GRISM/3DHST/UDF/XDF")
+    #os.chdir("/research/HST/GRISM/3DHST/UDF/XDF")
     se = threedhst.sex.SExtractor()
     se.aXeParams()
     se.copyConvFile()
@@ -407,23 +409,34 @@ def prepare():
     se.options['CATALOG_NAME']    = 'xdf.cat'
     se.options['CHECKIMAGE_NAME'] = 'xdf_seg.fits'
     se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
-    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-    se.options['WEIGHT_IMAGE']    = 'xdfh_VAR.fits'
+    # se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    # se.options['WEIGHT_IMAGE']    = 'xdfh_VAR.fits'
+    se.options['WEIGHT_TYPE']     = 'MAP_RMS'
+    se.options['WEIGHT_IMAGE']    = 'xdfh_SIG.fits'
     se.options['FILTER']    = 'Y'
-    se.options['DETECT_THRESH']    = '1.5'
-    se.options['ANALYSIS_THRESH']  = '1.5'
-    se.options['MAG_ZEROPOINT'] = '33.45499801'
+    se.options['DETECT_THRESH']    = '1.'
+    se.options['ANALYSIS_THRESH']  = '1.'
+    #se.options['MAG_ZEROPOINT'] = '33.45499801'
+    se.options['MAG_ZEROPOINT'] = '%.3f' %(unicorn.reduce.ZPs['F160W'])
     se.options['DEBLEND_NTHRESH'] = '64'
     se.options['DEBLEND_MINCONT'] = '0.00005'
     
     status = se.sextractImage('xdfh_sci.fits')
     
     threedhst.sex.sexcatRegions('xdf.cat', 'xdf.reg', format=2)
+
+    c = threedhst.sex.mySexCat('hlsp_xdf_tot.cat')
+    
+    threedhst.sex.sexcatRegions('hlsp_xdf_tot.reform.cat', 'hlsp_xdf_tot.reform.reg', format=2)
     
     ## Prep blot drizzle images
     REF_ROOT = 'XDF-F160W'
     CATALOG = '../XDF/xdf.cat'
     unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F160W', REFERENCE = '../XDF/xdfh_sci_scaled.fits', SEGM = '../XDF/xdf_seg.fits', sci_extension=0)
+
+    REF_ROOT = 'XDF2-F160W'
+    CATALOG = '../XDF/hlsp_xdf_tot.reform.cat'
+    unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F160W', REFERENCE = '../XDF/xdfh_sci_scaled.fits', SEGM = '../XDF/hlsp_xdf_seg.fits', sci_extension=0)
     
     REF_ROOT = 'HUDF12-F160W'
     CATALOG = '../HUDF12/hudf12.cat'
@@ -444,10 +457,13 @@ def prepare():
     
         
     NGROW=125
+    ROOT = 'PRIMO-1026'
     ROOT = 'PRIMO-1101'
     ROOT = 'GOODS-SOUTH-34'
+    # for ROOT in ['PRIMO-1026', 'PRIMO-1101']:
     for p in [34, 36, 37, 38]:
         ROOT = 'GOODS-SOUTH-%d' %(p)
+        #for ROOT in ['PRIMO-1026', 'PRIMO-1101']:
         unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = ROOT+'-F140W', NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine_blot(root=ROOT+'-F140W', view=False, pad=60+200*(ROOT=='PRIMO-1026'), REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, auto_offsets=True, NSEGPIX=3)
         # seg = pyfits.open(ROOT+'_inter_seg.fits', mode='update')
@@ -482,20 +498,26 @@ def prepare():
     im[2].data = fill*1
     im.flush()
     
-    if ROOT.startswith('PRIMO'):
+    #if ROOT.startswith('PRIMO'):
+    for root in ['PRIMO-1026','PRIMO-1101']:
         ref = pyfits.open(ROOT+'_ref_inter.fits')
         im140 = pyfits.open(ROOT+'-F140W_inter.fits', mode='update')
-        im140[0].header['FILTER'] = 'F140W'
+        #im140[0].header['FILTER'] = 'F140W'
+        im140[0].header['FILTER'] = 'F160W'
         im140[1].data = ref[1].data #/ 10**(-0.4*(26.46-25.96))
         #im140[2].data = im140[2].data # / 10**(-0.4*(26.46-25.96))
         im140.flush()
     
     #
     files = glob.glob('*ref_inter.fits')
+    models = []
     for file in files:
         ROOT=file.split('_ref_inter')[0]
-        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=28, REFINE_MAG_LIMIT=23, make_zeroth_model=False, grism='G141')
+        #model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=21, REFINE_MAG_LIMIT=20, make_zeroth_model=False, grism='G141', BEAMS=['A','B','C','D','E'])
+        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=30, REFINE_MAG_LIMIT=23, make_zeroth_model=False, grism='G141', BEAMS=['A','B','C','D','E'])
+        model.get_corrected_wcs()
         model.make_wcs_region_file()
+        models.append(model)
         
     #model = unicorn.reduce.GrismModel(root=ROOT, MAG_LIMIT=30, grism='G141')
     ### Force use F160W as detection image
@@ -565,7 +587,83 @@ def prepare():
             #self.new_fit_free_emlines()
         except:
             pass
-                 
+    
+    #### Extract objects
+    id=2838
+    search = 'GO' #  only 3D-HST / '[GU][OD]'
+    fix_bg = True
+    
+    for model in models:
+        if id in model.objects:
+             model.twod_spectrum(id, miny=-40, USE_REFERENCE_THUMB=True)  
+    #
+    hudf.stack(id, dy=13, inverse=True) #, min_xpix=200, NX=270, search=search)
+    if fix_bg:
+        hudf.fix_2d_background('UDF_%05d' %(id))
+        
+    unicorn.analysis.FORCE_GOODSS = True
+    self = test.SimultaneousFit('UDF_%05d' %(id), RELEASE=False, p_flat=1.e-8, lowz_thresh=0.)
+    self.read_master_templates()
+    self.new_fit_constrained(faint_limit=25)
+    os.system('open UDF_%05d*zfit*png UDF_%05d*stack.png' %(id, id))
+    
+def dropouts():
+    """ 
+    Dropout lists from Ivo.
+    """
+    search = 'GO' #  only 3D-HST 
+    search = '[GU][OD]'
+    fix_bg = True
+    
+    cat = threedhst.sex.mySexCat('../XDF/xdf.cat')
+    cat.write('../XDF/xdf.reform.cat', reformat_header=True)
+    c = catIO.Readfile('../XDF/xdf.reform.cat', force_lowercase=False)    
+    m = catIO.CoordinateMatcher(c)
+    
+    ### Dropouts
+    filter = 'i'
+    drop = catIO.Readfile('../Dropouts/hudf_%sdrop.cat' %(filter))
+    fp = open('../Dropouts/hudf_%sdrop.match' %(filter), 'w')
+    fp.write('# id_xdf id dr ra dec mag_f160w\n')
+    for i in range(drop.N):
+        ra, dec = threedhst.utils.DMS2decimal(drop.ra[i], hours=True), threedhst.utils.DMS2decimal(drop.dec[i], hours=False)
+        dr, idx = m.find_nearest(ra, dec, N=10)
+        ids = c.NUMBER[idx]
+        for j in range(10):
+            if dr[j] > 1:
+                break
+            #
+            fp.write('%s  %5d %.2f %.6f %.6f %.6f\n' %(drop.id[i], ids[j], dr[j], ra, dec, drop.mag_f160w[i]))
+    
+    fp.close()
+    
+    mat = catIO.Readfile('../Dropouts/hudf_%sdrop.match' %(filter), save_fits=False)
+    ids = mat.id[mat.mag_f160w < 29]
+    
+    files = glob.glob('*ref_inter.fits')
+    models = []
+    for file in files:
+        ROOT=file.split('_ref_inter')[0]
+        #model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=21, REFINE_MAG_LIMIT=20, make_zeroth_model=False, grism='G141', BEAMS=['A','B','C','D','E'])
+        model = unicorn.reduce.process_GrismModel(root=ROOT, MAG_LIMIT=30, REFINE_MAG_LIMIT=23, make_zeroth_model=False, grism='G141', BEAMS=['A','B','C','D','E'])
+        #model.get_corrected_wcs()
+        #model.make_wcs_region_file()
+        models.append(model)
+    
+    fix_bg = True
+    for id in ids:
+        count = 0
+        for model in models:
+            if id in model.objects:
+                count += 1
+                model.twod_spectrum(id, miny=-40, USE_REFERENCE_THUMB=True)  
+        #
+        if count > 0:
+            hudf.stack(id, dy=13, inverse=True) #, min_xpix=200, NX=270, search=search)
+            if fix_bg:
+                hudf.fix_2d_background('UDF_%05d' %(id))
+    
+    
 def extract_dropouts():
     """
     Extract all targets from Ellis et al.
@@ -815,7 +913,7 @@ class UDF():
         self.root = root
         
         self.N = len(self.files)
-        self.nx = np.ones(self.N, dtype=int)
+        self.nx = np.ones(self.N, dtype=int)*1.e4
         self.ny = np.ones(self.N, dtype=int)
         self.y0 = np.ones(self.N)
         self.dx = np.ones(self.N)
@@ -843,20 +941,37 @@ class UDF():
         
         self.twod = []
         for i in range(self.N):
-            if self.verbose:
-                print self.files[i]
             ### Size of FITS arrays
             self.twod.append(unicorn.reduce.Interlace2D(self.files[i]))
             im = self.twod[i].im
             self.ny[i], self.nx[i] = im['SCI'].data.shape
+
             ### Ycenter of trace
             self.y0[i] = np.interp(1.4e4, im['WAVE'].data, im['YTRACE'].data)
             ### Xoffset to register wavelength
             x0 = np.interp(self.ref_wave, im['WAVE'].data, np.arange(self.nx[i]))
             profile = np.sum(im['MODEL'].data[:,x0-10:x0+10], axis=1)
-            if i == 0:
-                xref = x0
-                yref = profile
+
+            if self.nx[i] == self.nx[i].min():
+                xref = x0*1
+                yref = profile*1
+                iref = i*1
+        #
+        for i in range(self.N):
+            if self.verbose:
+                print self.files[i]
+            ### Size of FITS arrays
+            im = self.twod[i].im
+            self.ny[i], self.nx[i] = im['SCI'].data.shape
+            
+            ### Ycenter of trace
+            self.y0[i] = np.interp(1.4e4, im['WAVE'].data, im['YTRACE'].data)
+            ### Xoffset to register wavelength
+            x0 = np.interp(self.ref_wave, im['WAVE'].data, np.arange(self.nx[i]))
+            profile = np.sum(im['MODEL'].data[:,x0-10:x0+10], axis=1)
+            # if i == 0:
+            #     xref = x0
+            #     yref = profile
             #
             self.dx[i] = xref-x0
             ### Try using the profile itself for the center position
@@ -871,7 +986,7 @@ class UDF():
             print self.y0[i], im['SCI'].data.shape, x0, x0-xref, int(np.round(self.dx[i])), ycenter
                     
         #### Now store shifted flux arrays
-        self.dx -= self.dx[0]
+        self.dx -= self.dx[iref]
         #self.dxi[i] = np.cast[int](np.round(self.dx[i]))
         self.dxi = np.cast[int](np.round(self.dx))
         
@@ -923,6 +1038,9 @@ class UDF():
             # p = plt.plot(nd.shift(xarr, -(149.68-x0), order=3), im['WAVE'].data-1.4e4, alpha=0.5, marker='o')
         
         #print 'DX: ', dx
+        im = self.twod[iref].im
+        dx = self.dxls[iref]
+        
         self.wave = nd.shift(im['WAVE'].data, dx)[:NX]
         ### Fix case when you have zeros in the wavelength grid after shifting
         if (self.wave > 0).sum() == 0:

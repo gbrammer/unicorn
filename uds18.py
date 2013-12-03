@@ -162,18 +162,20 @@ def mcmc_fit():
     #### Get best-fit model
     data['getModel'] = True
     model_best = uds18._objective_full_fit(chain.median, data)
-
+    
+    ### Model of contaminating objects, without the arc
     p_clean = chain.median*1
     p_clean[-2:] = -1000
     model_clean = uds18._objective_full_fit(p_clean, data)
 
+    ### model of the arc
     p_line = chain.median*1
     p_line[0] = -1000; p_line[3] = -1000; p_line[5] = -1000; p_line[7] = -100
     model_line = uds18._objective_full_fit(p_line, data)
     
     err = np.random.normal(size=model_line.shape)*twod_line.im['WHT'].data
     
-    #### Smooth cleaned model by line kernel
+    #### Smooth cleaned spectrum by line kernel
     import scipy.ndimage as nd
     kernel = twod_line.im['DSCI'].data*1
     kernel[twod_line.im['DSEG'].data != 31684] = 0
@@ -181,7 +183,25 @@ def mcmc_fit():
     resid = twod_orig.im['SCI'].data-model_clean
     sm_resid = nd.correlate(resid, kernel, mode='reflect', cval=0.0)
     sm_line = nd.correlate(resid, kernel, mode='reflect', cval=0.0)
+    sm_model_line = nd.correlate(model_line, kernel, mode='reflect', cval=0.0)
     sm_x = nd.correlate(twod_orig.im['SCI'].data, kernel, mode='reflect', cval=0.0)
+    
+    ##### Examples using the chain
+    chain = unicorn.interlace_fit.emceeChain(file='emcee_chain.pkl')
+    
+    print chain.stats  # show parameter statistics
+    plt.scatter(chain.chain[:,chain.nburn:,-2], chain.chain[:,chain.nburn:,-1], alpha=0.01) # scatter plots of parameters
+    draw = chain.draw_random(N=100)
+    
+    ### Save image in ds9
+    ds9.frame(1)
+    ds9.view(data['spec2d'])
+    ds9.frame(2)
+    ds9.view(model_best)
+    ds9.frame(3)
+    ds9.view(data['spec2d']-model_clean)
+    ds9.frame(4)
+    ds9.view(model_line)
     
     
 def _objective_full_fit(params, data):

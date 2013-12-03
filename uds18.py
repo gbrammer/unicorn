@@ -100,10 +100,12 @@ def mcmc_fit():
 
     twod_flat = unicorn.reduce.Interlace2D('flat_31684.2D.fits')
     twod_nobcg = unicorn.reduce.Interlace2D('nobcg_31684.2D.fits')
+    twod_nopoint = unicorn.reduce.Interlace2D('nopoint_31684.2D.fits')
     
     data = {}
-    data['contam'] = twod_nobcg.im['CONTAM'].data*1
     data['bcg'] = twod_flat.im['CONTAM'].data-twod_nobcg.im['CONTAM'].data
+    data['point'] = twod_flat.im['CONTAM'].data-twod_nopoint.im['CONTAM'].data
+    data['contam'] = twod_nobcg.im['CONTAM'].data*1-data['point']
     
     data['var'] = twod_orig.im['WHT'].data**2
     data['var'][data['var'] == 0] = 1.e10
@@ -133,15 +135,15 @@ def mcmc_fit():
     data['x2d'] = np.dot(np.ones(sh[0]).reshape((-1,1)), twod_model.oned.lam.reshape(1,-1))
     data['getModel'] = True
     
-    ### init = [lens_a0, lens_beta, z_lens, contam_a0, contam_beta, bcg_a0, bcg_beta, bcg_yshift, z_arc, arc_lo, arc_hi]
-    init = np.array([0, 0, 1.634, 0, 0, 0, 0, 0, 2.263, 0.223, 0.223])
-    init = np.array([-0.1, -0.03, 1.634, 0.01, 0, 0, 0, 0.2, 2.261, 0.223, 0.7])
+    ### init = [lens_a0, lens_beta, z_lens, contam_a0, contam_beta, point_a0, point_beta, bcg_a0, bcg_beta, bcg_yshift, z_arc, arc_lo, arc_hi]
+    init = np.array([0, 0, 1.634, 0, 0, 0, 0, 0, 0, 0, 2.263, 0.223, 0.223])
+    init = np.array([-0.1, -0.03, 1.634, 0.01, 0, 1, 0, 0.25, 0.2, 0.6, 2.261, 0.223, 0.7])
     
     ## test
     model_init = uds18._objective_full_fit(init, data)
     
-    NWALKERS, NSTEP = 100, 200
-    step_sigma = np.array([0.2, 0.1, 0.05, 0.2, 0.1, 0.2, 0.1, 0.5, 0.02, 0.3, 0.3])
+    NWALKERS, NSTEP = 100, 300
+    step_sigma = np.array([0.2, 0.1, 0.05, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.5, 0.02, 0.3, 0.3])
     ndim = len(init)
     
     p0 = [init + np.random.normal(size=ndim)*step_sigma for i in range(NWALKERS)]
@@ -153,8 +155,7 @@ def mcmc_fit():
     
     result = sampler.run_mcmc(p0, NSTEP)
     
-    param_names = ['lens_a0', 'lens_beta', 'z_lens', 'contam_a0', 'contam_beta', 'bcg_a0', 'bcg_beta', 'bcg_yshift', 'z_arc', 'arc_lo', 'arc_hi']
-    
+    param_names = ['lens_a0', 'lens_beta', 'z_lens', 'contam_a0', 'contam_beta', 'point_a0', 'point_beta', 'bcg_a0', 'bcg_beta', 'bcg_yshift', 'z_arc', 'arc_lo', 'arc_hi']
     chain = unicorn.interlace_fit.emceeChain(chain=sampler.chain, param_names = param_names)
     chain.save_chain()
     
@@ -167,7 +168,7 @@ def mcmc_fit():
     model_clean = uds18._objective_full_fit(p_clean, data)
 
     p_line = chain.median*1
-    p_line[0] = -1000; p_line[3] = -1000
+    p_line[0] = -1000; p_line[3] = -1000; p_line[5] = -1000; p_line[7] = -100
     model_line = uds18._objective_full_fit(p_line, data)
     
     err = np.random.normal(size=model_line.shape)*twod_line.im['WHT'].data
@@ -208,14 +209,17 @@ def _objective_full_fit(params, data):
     contam_a0 = np.exp(params[3])
     contam_beta = params[4]
     
-    bcg_a0 = np.exp(params[5])
-    bcg_beta = params[6]
-    bcg_yshift = params[7]
+    point_a0 = np.exp(params[5])
+    point_beta = params[6]
     
-    z_arc = params[8]
-    arc_lo = np.exp(params[9])
-    arc_hi = np.exp(params[10])
-        
+    bcg_a0 = np.exp(params[7])
+    bcg_beta = params[8]
+    bcg_yshift = params[9]
+    
+    z_arc = params[10]
+    arc_lo = np.exp(params[11])
+    arc_hi = np.exp(params[12])
+    
     ### First component is the lens
     xlens, ylens = data['lens_template']
     xlens_i = xlens*(1+z_lens)
@@ -225,6 +229,9 @@ def _objective_full_fit(params, data):
     
     ### Next component is (tilted) contamination
     full_model += contam_a0 * (data['x2d']/1.4e4)**(contam_beta)*data['contam']
+    
+    ### Tilted "point-source" contamination
+    full_model += point_a0 * (data['x2d']/1.4e4)**(point_beta)*data['point']
     
     ### Add shifted, tilted BCG
     bcg = nd.shift(bcg_a0 * (data['x2d']/1.4e4)**(bcg_beta)*data['bcg'], (bcg_yshift, 0))
@@ -264,9 +271,11 @@ def _objective_full_fit(params, data):
 
     prior_bcg_a0 = scipy.stats.norm.logpdf(bcg_a0, loc=0, scale=2)
     prior_bcg_beta = scipy.stats.norm.logpdf(bcg_beta, loc=0, scale=2)
-    prior_bcg_yshift = scipy.stats.norm.logpdf(bcg_yshift, loc=0, scale=1)
+    prior_bcg_yshift = scipy.stats.norm.logpdf(bcg_yshift, loc=0.4, scale=1)
+
+    prior_arc_lo = scipy.stats.norm.logpdf(np.log(arc_lo/arc_hi), loc=-0.3, scale=0.5)
         
-    lnprob += prior_z_arc + prior_z_lens + prior_lens_a0 + prior_lens_beta + prior_contam_a0 + prior_contam_beta + prior_bcg_a0 + prior_bcg_beta + prior_bcg_yshift
+    lnprob += prior_z_arc + prior_z_lens + prior_lens_a0 + prior_lens_beta + prior_contam_a0 + prior_contam_beta + prior_bcg_a0 + prior_bcg_beta + prior_bcg_yshift + prior_arc_lo
     
     print '%6.3f %6.3f %6.3f   %6.3f %6.3f  %6.3f %6.3f %4.1f  %6.3f   %6.3f  %6.3f  %13.2f' %(lens_a0, lens_beta, z_lens, contam_a0, contam_beta, bcg_a0, bcg_beta, bcg_yshift, z_arc, arc_lo, arc_hi, lnprob)
     

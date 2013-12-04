@@ -50,8 +50,8 @@ def interlace_aegis0():
     pad=60
     #CATALOG='phot/F160W_arjen.cat'
     #CATALOG='/3DHST/Photometry/Work/AEGIS/Sex/PSF_matched/F140W.cat'
-    CATALOG = 'phot/F140W.cat'
-    direct=glob.glob('AEGIS-[0-9]-F140W_asn.fits')
+    CATALOG = 'phot/F160W.cat'
+    direct=glob.glob('AEGIS-*-F140W_asn.fits')
     direct.remove('AEGIS-20-F140W_asn.fits')
 
     extract_limit = 24
@@ -67,7 +67,7 @@ def interlace_aegis0():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('AEGIS-[0-9]-G141_inter.fits')
+    inter = glob.glob('AEGIS-2[0-9]-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
@@ -99,18 +99,18 @@ def interlace_aegis0():
                         
     ### Fit all grism redshifts down to F160/F140=24.0:
 
-    models = glob.glob('AEGIS-[0-9]_inter_model.fits')
+    models = glob.glob('AEGIS-1[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
-            mag_limit = 24.0, model_limit=25.8, new_fit = False, skip_completed = True)
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = False)
 
     #Fit the emission lines
     models = glob.glob('AEGIS-[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -134,8 +134,32 @@ def interlace_aegis0():
             if gris.dr > 1:
                 continue
             #
-            print '\n'
             gris.new_fit_free_emlines(ztry=None)	
+
+    ### Get some quality flags on the reduced spectra
+    root='AEGIS'
+
+    files = glob.glob('AEGIS*zfit.dat')
+    fp = open(root+'.dqflag.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
+    first = True
+    for file in files:
+        print unicorn.noNewLine+file
+        spec = unicorn.interlace_fit.GrismSpectrumFit(file.split('.zfit')[0], verbose=False)   
+        lines = open(file).readlines()
+        status = spec.stats(return_string=True)
+        if status is not False:
+            if first:
+                fp.write(status[0])
+                fp2.write(lines[0])
+                first = False
+            #    
+            fp.write(status[1])
+            fp2.write(lines[-1])
+
+    fp.close()
+    fp2.close()
+
 
 def interlace_aegis1():
     """
@@ -187,7 +211,7 @@ def interlace_aegis1():
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
-            mag_limit = 24.0, model_limit=25.8, new_fit = False, skip_completed = True)
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = True)
 
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='AEGIS-10')
@@ -272,13 +296,13 @@ def interlace_aegis2():
             new_fit = True, skip_completed = True)
 
                         
-    ### Fit all grism redshifts down to F160/F140=24.0:
+    ### Fit all grism redshifts down to F160/F140=23.0:
 
     models = glob.glob('AEGIS-[2-3][0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
-            mag_limit = 24.0, model_limit=25.8, new_fit = False, skip_completed = True)
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = True)
 
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='AEGIS-10')
@@ -289,8 +313,8 @@ def interlace_aegis2():
     models = glob.glob('AEGIS-2[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -329,6 +353,7 @@ def interlace_cosmos0():
     import time
     import numpy as np
     import unicorn.interlace_test as test
+    import unicorn.reduce_scripts
 
     os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.0')
 
@@ -357,8 +382,8 @@ def interlace_cosmos0():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('COSMOS-[0-9]-G141_inter.fits')
-    redo = False
+    inter = glob.glob('COSMOS-*-G141_inter.fits')
+    redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
         pointing = inter[i].split('-G141_inter')[0]
@@ -389,11 +414,11 @@ def interlace_cosmos0():
                         
     ### Fit all grism redshifts down to F160/F140=24.0:
 
-    models = glob.glob('COSMOS-[0-9]_inter_model.fits')
+    models = glob.glob('COSMOS-2[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
-            mag_limit = 24.0, model_limit=25.8, new_fit = False, skip_completed = True)
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = False)
 
     #Fit the emission lines
     models = glob.glob('COSMOS-[0-9]_inter_model.fits')
@@ -539,7 +564,7 @@ def interlace_cosmos2():
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -569,7 +594,7 @@ def interlace_cosmos2():
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -658,16 +683,16 @@ def interlace_goodsn():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
     
     ##### Generate the spectral model and extract spectra
-    inter = glob.glob('GOODS-N-4[0-9]-G141_inter.fits')
+    inter = glob.glob('GOODS-N-4*-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
         pointing = inter[i].split('-G141_inter')[0]
-        if not (os.path.exists(pointing+'_model.fits')) | redo:
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
 
-    inter = glob.glob('AEGIS-*-G141_inter.fits')
+    inter = glob.glob('GOODS-N-*-G141_inter.fits')
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         unicorn.reduce_scripts.fix_thumbnails(pointing=pointing)
@@ -691,41 +716,19 @@ def interlace_goodsn():
 
 
     #Fit the redshift for objects brighter than F140W=24.
-    models = glob.glob('GOODS-N-3[0-9]_inter_model.fits')
+    models = glob.glob('GOODS-N-4[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))# & (model.cat.mag > 17.)) #& (model.mag.id != 1876))
-        for id in model.cat.id[ii]:
-            root='%s_%05d' %(pointing, id)
-            if not os.path.exists(root+'.2D.fits'):
-                status = model.twod_spectrum(id)
-                if not status:
-                    continue
-            #
-            if os.path.exists(root+'.zfit.png') & skip_completed:
-                continue  
-            #
-            try:
-                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root,p_flat = 0.0)
-            except:
-                continue
-            #
-            if gris.status is False:
-                continue
-            #
-            if gris.dr > 1:
-                continue
-            #
-            print '\n'
-            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+        unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = False)
+
 
     #Fit the emission lines
     models = glob.glob('GOODS-N-4[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -755,9 +758,9 @@ def interlace_goodsn():
     ### Get some quality flags on the reduced spectra
     root='GOODS-N'
     
-    files = glob.glob('GOODS-N-4*zfit.dat')
+    files = glob.glob('GOODS-N*zfit.dat')
     fp = open(root+'.dqflag.dat','w')
-    fp2 = open(root+'.new_zfit.dat','w')
+    fp2 = open(root+'.zfit.dat','w')
     first = True
     for file in files:
         print unicorn.noNewLine+file
@@ -1248,12 +1251,13 @@ def interlace_goodss0():
     import glob
     import os
     import numpy as np
+    import time
 
     os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.0')
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
-    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/checkimages/GOODS-S_F125W_F140W_F160W.seg.fits')
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v4.0_drz_join.fits', SEGM = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/checkimages/GOODS-S_F125W_F140W_F160W.seg.fits', Force=True)
          
     NGROW=125
     pad=60
@@ -1276,13 +1280,19 @@ def interlace_goodss0():
 
     ##### Generate the spectral model
     ##### Extract all spectra 	
-    inter = glob.glob('GOODS-S-*-G141_inter.fits')
+    inter = glob.glob('GOODS-S-3[0-9]-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         pointing = inter[i].split('-G141_inter')[0]
         if (not os.path.exists(pointing+'_model.fits')) | redo:
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+
+    inter = glob.glob('GOODS-S-*-G141_inter.fits')
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        unicorn.reduce_scripts.fix_thumbnails(pointing=pointing)
+        time.strftime('%X %x %Z')
 
 
     ##### Extract and fit only spec-z objects
@@ -1301,11 +1311,11 @@ def interlace_goodss0():
 
     skip_completed = True
 
-    models = glob.glob('GOODS-S-[0-9]_inter_model.fits')
+    models = glob.glob('GOODS-S-3[0-9]_inter_model.fits')
     for file in models:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where(model.cat.mag < 24.)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25.8)
+        ii = np.where(model.cat.mag < 23.)
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -1333,7 +1343,7 @@ def interlace_goodss0():
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
+        ii = np.where((model.cat.mag < 23.))
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -1425,7 +1435,7 @@ def interlace_goodss1():
     for file in models:
         pointing = file.split('_inter')[0]
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where(model.cat.mag < 24.)
+        ii = np.where(model.cat.mag < 23.)
         for id in model.cat.id[ii]:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
@@ -1549,7 +1559,7 @@ def interlace_uds0():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('UDS-[0-9]-G141_inter.fits')
+    inter = glob.glob('UDS-*-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
@@ -1558,6 +1568,12 @@ def interlace_uds0():
             model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
             
+    inter = glob.glob('UDS-*-G141_inter.fits')
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        unicorn.reduce_scripts.fix_thumbnails(pointing=pointing)
+        time.strftime('%X %x %Z')
+
     import threedhst.catIO as catIO
     cat, zout, fout = unicorn.analysis.read_catalogs(root='UDS-11')
 
@@ -1571,35 +1587,13 @@ def interlace_uds0():
             new_fit = True, skip_completed = True)
 
 
-    #### Extract and fit objects with spec-z
-    models = glob.glob('UDS-[0-9]_inter_model.fits')
+    #Fit the redshift for objects brighter than F140W=24.
+    models = glob.glob('UDS-2[0-9]_inter_model.fits')
     for file in models[::1]:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where((model.cat.mag < 24.))
-        for id in model.cat.id[ii]:
-            root='%s_%05d' %(pointing, id)
-            if not os.path.exists(root+'.2D.fits'):
-                status = model.twod_spectrum(id)
-                if not status:
-                    continue
-            #
-            if os.path.exists(root+'.zfit.png') & skip_completed:
-                continue  
-            #
-            try:
-                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
-            except:
-                continue
-            #
-            if gris.status is False:
-                continue
-            #
-            if gris.dr > 1:
-                continue
-            #
-            print '\n'
-            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+        unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, 
+            mag_limit = 23.0, model_limit=25.8, new_fit = False, skip_completed = False)
+
 
     #Fit the emission lines
     models = glob.glob('UDS-[0-9]_inter_model.fits')
@@ -2381,6 +2375,9 @@ def fix_thumbnails(pointing='AEGIS-1'):
     import numpy as np
     import os
     
+inter = glob.glob('COSMOS-*-G141_inter.fits')
+for i in range(len(inter)):
+    pointing = inter[i].split('-G141_inter')[0]
     model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
     ii=0
     for id in model.cat.id:
@@ -2388,7 +2385,7 @@ def fix_thumbnails(pointing='AEGIS-1'):
             file_2d = pyfits.open('{0}_{1:5d}.2D.fits'.format(pointing,id))
             if np.max(file_2d[1].data) == 0 and np.max(file_2d[4].data) > 0:
                 print '{0} {1}_{2:5d}.2D.fits'.format(ii,pointing,id)
-                ii += 1
+                ii =ii+ 1
                 model.twod_spectrum(id = id,USE_REFERENCE_THUMB=True)
                 model.show_2d(savePNG=True)
     
@@ -2406,3 +2403,29 @@ def fix_thumbnails(pointing='AEGIS-1'):
                 if os.path.exists('{}_{:5d}.1D.png'.format(pointing, id)):
                     print 'Deleting {}_{:5d}.1D.png'.format(pointing, id)
                     os.system('rm  {}_{:5d}.1D.png'.format(pointing, id))
+
+
+
+def delete_spectra(field = 'COSMOS'):
+    
+
+    inter = glob.glob('{}-*-G141_inter.fits'.format(field))
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        print pointing
+        time.strftime('%X %x %Z')
+        os.system('rm {}_*.2D.fits'.format(pointing))
+        os.system('rm {}_*.1D.fits'.format(pointing))
+        os.system('rm {}_*.2D.png'.format(pointing))
+        os.system('rm {}_*.1D.png'.format(pointing))
+        os.system('rm {}_*.zfit.fits'.format(pointing))
+        os.system('rm {}_*.zfit.png'.format(pointing))
+        os.system('rm {}_*.zfit.pz.fits'.format(pointing))
+        os.system('rm {}_*.zfit.dat'.format(pointing))
+        os.system('rm {}_*.xxx'.format(pointing))
+    
+    
+    
+    
+    
+    

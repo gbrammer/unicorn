@@ -71,43 +71,44 @@ def GOODSS_acs (FORCE=False):
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], field = 'GOODS-S', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, align_geometry='shift')
 
-    #return False        
-    
-    #make mosaic
-    
-    #import threedhst.prep_flt_files
-    #SCALE=0.05
-    #PIXFRAC=1
-    #NX, NY, ra, dec = 22000,22000, 53.098403, -27.807325
 
-    #direct_files = glob.glob('GOODS-S-*-F814W_asn.fits')
-    #threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-F814W',
-    #                  path_to_FLT='./', run_multidrizzle=False)
-
-    #threedhst.prep_flt_files.startMultidrizzle('GOODS-S-F814W_asn.fits',
-    #         use_shiftfile=True, skysub=False,
-    #         final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
-    #         updatewcs=False, clean=True, median=False,
-    #         ra=ra, dec=dec,
-    #         final_outnx = NX, final_outny=NY)
-
-    #extract spectra
-
-    direct = glob.glob('GOODS-S-0*F814W_asn.fits')
+    #make reference catalog
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/GOODS-S/ALIGN')
+    plt.clf()
+    f606_lim = 24.5
+    f160_lim = 22.
+    f606 = threedhst.sex.mySexCat('GOODS-S_acsv_conv.cat')
+    f160 = threedhst.sex.mySexCat('GOODS-S_F160W.cat')
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'b.')
+    plt.xlim([10,40])
+    plt.ylim([10,40])
+    plt.xlabel('F160W')
+    plt.ylabel('F606W')    
+    plt.plot([f160_lim,f160_lim],[0,50],color='red')
+    plt.plot([0,50],[f606_lim,f606_lim],color='red')
+    MAG_F606W = f606['MAG_AUTO']
+    MAG_F606W[(f160['MAG_AUTO']<f160_lim) & (f606['MAG_AUTO'] >f606_lim)] = f606_lim-0.01
+    f606.renameColumn(original='MAG_AUTO', new='MAG_F606W', verbose=True)
+    f606.addColumn(data=MAG_F606W, format='%f', name='MAG_AUTO',verbose=True)
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'r.')
+    f606.write(outfile='GOODS-S_F606W_ref.cat')
+ 
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/GOODS-S/PREP_FLT')    
+    direct = glob.glob('GOODS-S-*F814W_asn.fits')
+    direct.remove('GOODS-S-09-F814W_asn.fits')
+    direct.remove('GOODS-S-12-F814W_asn.fits')
+    direct.remove('GOODS-S-25-F814W_asn.fits')
     
     for i in range(len(direct)):
         root = direct[i].split('-F814W_asn.fits')[0]
         os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/GOODS-S/DATA/')
-        #master_catalog = '../GOODS-S_fake.cat'
-        #master_segmentation = '../GOODS-S_fake.seg.fits'
-        master_catalog = '/3DHST/Photometry/Work/GOODS-S/v2/sextr/catalogs/GOODS-S_F814W.cat'
-        master_segmentation = '/3DHST/Photometry/Work/GOODS-S/v2/sextr/checkimages/GOODS-S_F814W.seg.fits'    
+        master_catalog = '/3DHST/Spectra/Work/ACS_PARALLEL/GOODS-S/ALIGN/GOODS-S_F606W_ref.cat'
+        master_segmentation = '/3DHST/Spectra/Work/ACS_PARALLEL/GOODS-S/ALIGN/GOODS-S_F125W_F140W_F160W.seg.fits'    
         unicorn.go_acs.make_external_catalog(root =root,master_segmentation=master_segmentation, \
             master_catalog=master_catalog, reference_image='../PREP_FLT/'+root+'-F814W_drz.fits')
         os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/GOODS-S/')
-        #hyperion: WFC3_DIR = '/Users/ivastar/3DHST/Data.2.0/GOODS-S/'
-        WFC3_DIR = '/3DHST/Spectra/Release/v2.0/GOODS-S/'
-        unicorn.go_acs.reduce_acs(root=root, LIMITING_MAGNITUDE=20.,match_wfc3 = True, WFC3_DIR=WFC3_DIR)
+        #WFC3_DIR = '/3DHST/Spectra/Release/v2.0/GOODS-S/'
+        unicorn.go_acs.reduce_acs(root=root, LIMITING_MAGNITUDE=24.5,match_wfc3 = False, WFC3_DIR='')
 
 
 def COSMOS_acs (FORCE=False):
@@ -137,46 +138,114 @@ def COSMOS_acs (FORCE=False):
     
         os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS/PREP_FLT')
     
-        files=glob.glob('../RAW/%s*flt.fits*' %(root))
-        for file in files:
-            os.system('cp %s .' %(file))
-            os.system('gunzip %s' %(os.path.basename(file)))
-            print file
+    files=glob.glob('../RAW/%s*flt.fits*' %(root))
+    for file in files:
+        os.system('cp %s .' %(file))
+        os.system('gunzip %s' %(os.path.basename(file)))
+        print file
 
-        threedhst.prep_flt_files.prep_acs(root=root,force=True)
+    threedhst.prep_flt_files.prep_acs(root=root,force=True)
     
-        #os.system('rm %s*flt.fits' %(root))
+    #os.system('rm %s*flt.fits' %(root))
 
-        ALIGN = '/3DHST/Ancillary/COSMOS/CANDELS/UCSC/cosmos_sect*_wfc3ir_F160W_wfc3ir_drz_sci.fits'
+    ALIGN = '/3DHST/Ancillary/COSMOS/CANDELS/UCSC/cosmos_sect*_wfc3ir_F160W_wfc3ir_drz_sci.fits'
 
+    #### Main preparation loop
+    pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False, field='COSMOS')
+    if (not os.path.exists(pointing)) | FORCE:
+        pair(direct[i], grism[i], field='COSMOS',ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, align_geometry='shift')
+
+    # make reference catalog
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/COSMOS/ALIGN')
+    plt.clf()
+    f606_lim = 24.5
+    f160_lim = 22.
+    f606 = threedhst.sex.mySexCat('F606W.cat')
+    f160 = threedhst.sex.mySexCat('F160W.cat')
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'b.')
+    plt.xlim([10,40])
+    plt.ylim([10,40])
+    plt.xlabel('F160W')
+    plt.ylabel(['F606W'])    
+    plt.plot([f160_lim,f160_lim],[0,50],color='red')
+    plt.plot([0,50],[f606_lim,f606_lim],color='red')
+    MAG_F606W = f606['MAG_AUTO']
+    MAG_F606W[(f160['MAG_AUTO']<f160_lim) & (f606['MAG_AUTO'] >f606_lim)] = f606_lim-0.01
+    f606.renameColumn(original='MAG_AUTO', new='MAG_F606W', verbose=True)
+    f606.addColumn(data=MAG_F606W, format='%f', name='MAG_AUTO',verbose=True)
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'r.')
+    f606.write(outfile='COSMOS_F606W_ref.cat')
+        
+        #extract spectra
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/COSMOS/PREP_FLT')
+    direct = glob.glob('COSMOS-*F814W_asn.fits')
+    #direct.remove('COSMOS-29-F814W_asn.fits')
+    #direct.remove('COSMOS-35-F814W_asn.fits')
+    #direct.remove('COSMOS-36-F814W_asn.fits')
+    #direct.remove('COSMOS-39-F814W_asn.fits')
+    
+    direct = ['COSMOS-54-F814W_asn.fits', 'COSMOS-55-F814W_asn.fits', 'COSMOS-56-F814W_asn.fits']
+    for i in range(len(direct)):
+        root = direct[i].split('-F814W_asn.fits')[0]
+        os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS/DATA/')
+        master_catalog = '/3DHST/Spectra/Work/ACS_PARALLEL/COSMOS/ALIGN/COSMOS_F606W_ref.cat'
+        master_segmentation = '/3DHST/Spectra/Work/ACS_PARALLEL/COSMOS/ALIGN/F160W_seg.fits'    
+        unicorn.go_acs.make_external_catalog(root =root,master_segmentation=master_segmentation, \
+            master_catalog=master_catalog, reference_image='../PREP_FLT/'+root+'-F814W_drz.fits')
+        os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS/')
+        #WFC3_DIR = '/3DHST/Spectra/Release/v2.0/GOODS-S/'
+        unicorn.go_acs.reduce_acs(root=root, LIMITING_MAGNITUDE=24.5,match_wfc3 = False, WFC3_DIR='')
+        
+    
+        
+
+def UDS_acs():
+    
+    #make reference catalog
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/UDS/ALIGN')
+    plt.clf()
+    f606_lim = 24.5
+    f160_lim = 22.
+    f606 = threedhst.sex.mySexCat('UDS_F606W_conv.cat')
+    f160 = threedhst.sex.mySexCat('UDS_F160W.cat')
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'b.')
+    plt.xlim([10,40])
+    plt.ylim([10,40])
+    plt.xlabel('F160W')
+    plt.ylabel(['F606W'])    
+    plt.plot([f160_lim,f160_lim],[0,50],color='red')
+    plt.plot([0,50],[f606_lim,f606_lim],color='red')
+    MAG_F606W = f606['MAG_AUTO']
+    MAG_F606W[(f160['MAG_AUTO']<f160_lim) & (f606['MAG_AUTO'] >f606_lim)] = f606_lim-0.01
+    f606.renameColumn(original='MAG_AUTO', new='MAG_F606W', verbose=True)
+    f606.addColumn(data=MAG_F606W, format='%f', name='MAG_AUTO',verbose=True)
+    plt.plot(f160['MAG_AUTO'],f606['MAG_AUTO'],'r.')
+    f606.write(outfile='UDS_F606W_ref.cat')
     
     
-        #### Main preparation loop
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False, field='COSMOS')
-        if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], field='COSMOS',ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, align_geometry='shift')
-
-    #return False        
+    #extract spectra
+    #on hyperion
     
-    #make mosaic
+    os.chdir('/3DHST/Spectra/Work/ACS_PARALLEL/UDS/PREP_FLT')
+    direct = glob.glob('UDS-*F814W_asn.fits')
+    direct.remove('UDS-15-F814W_asn.fits')
+    direct.remove('UDS-18-F814W_asn.fits')
+    direct.remove('UDS-20-F814W_asn.fits')
+    direct.remove('UDS-21-F814W_asn.fits')
+    direct.remove('UDS-22-F814W_asn.fits')
     
-    #import threedhst.prep_flt_files
-    #SCALE=0.05
-    #PIXFRAC=1
-    #NX, NY, ra, dec = 10700,22000, 150.12634, 2.3336697
-
-    #direct_files = glob.glob('GOODS-S-*-F814W_asn.fits')
-    #threedhst.utils.combine_asn_shifts(direct_files, out_root='GOODS-S-F814W',
-    #                  path_to_FLT='./', run_multidrizzle=False)
-
-    #threedhst.prep_flt_files.startMultidrizzle('COSMOS-F814W_asn.fits',
-    #         use_shiftfile=True, skysub=False,
-    #         final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=False,
-    #         updatewcs=False, clean=True, median=False,
-    #         ra=ra, dec=dec,
-    #         final_outnx = NX, final_outny=NY)
-
-
+    for i in range(len(direct)):
+        root = direct[i].split('-F814W_asn.fits')[0]
+        os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/UDS/DATA/')
+        master_catalog = '/3DHST/Spectra/Work/ACS_PARALLEL/UDS/ALIGN/UDS_F606W_ref.cat'
+        master_segmentation = '/3DHST/Spectra/Work/ACS_PARALLEL/UDS/ALIGN/UDS_F125W_F140W_F160W.seg.fits'    
+        unicorn.go_acs.make_external_catalog(root =root,master_segmentation=master_segmentation, \
+            master_catalog=master_catalog, reference_image='../PREP_FLT/'+root+'-F814W_drz.fits')
+        os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/UDS/')
+        #WFC3_DIR = '/3DHST/Spectra/Release/v2.0/GOODS-S/'
+        unicorn.go_acs.reduce_acs(root=root, LIMITING_MAGNITUDE=24.5,match_wfc3 = False, WFC3_DIR='')
+        
+    
     
     
     

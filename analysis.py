@@ -122,10 +122,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #    aegis_wirds=True
         
     uds_cluster = False
-    #if root.startswith('UDS-18') | root.startswith('IRC0218'):
-    #    uds=False
-    #    uds_cluster=True
-    #
+    if root.startswith('IRC0218'):
+        uds=True
+
     erb = False
     for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700']:
         if fi in root:

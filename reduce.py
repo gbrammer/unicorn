@@ -70,6 +70,10 @@ for beam in ['A','B','C','D','E']:
     if 'SENSITIVITY_'+beam in conf.keys():
         sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
 
+#### wavelength limits
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
+
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777}
 PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872.}
 
@@ -89,12 +93,15 @@ try:
 except:
     print 'No pywcs found.'
     
-def set_grism_config(grism='G141', chip=1):
+def set_grism_config(grism='G141', chip=1, use_new_config=False, force=False):
     import unicorn.reduce as red
-    if red.conf_grism == grism:
+    if (red.conf_grism == grism) & (not force):
         return None
     #
     config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+    if use_new_config:
+        config_file = {'G102':'G102.test27s.conf', 'G141':'G141.test27s.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+    
     if grism == 'G800L':
         config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)
         
@@ -107,7 +114,7 @@ def set_grism_config(grism='G141', chip=1):
             red.sens_files[beam].SENSITIVITY[-3:] *= 0.
             red.sens_files[beam].SENSITIVITY[:3] *= 0.
         
-    print 'Set grism configuration files: %s' %(red.conf_grism)
+    print 'Set grism configuration files for %s: %s' %(red.conf_grism, config_file[grism])
     
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
     """
@@ -715,6 +722,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
                     
         xoff_beam = field_dependent(bigX, bigY, conf['XOFF_'+beam]) * growx
         yoff_beam = field_dependent(bigX, bigY, conf['YOFF_'+beam]) * growy
+        
+        xmi_beam += int(np.round(xoff_beam))
+        xma_beam += int(np.round(xoff_beam))
                 
         disp_order = np.int(conf['DISP_ORDER_'+beam])
         dldp_0 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_0'])
@@ -739,7 +749,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         #### Wavelength
         lam = dldp_0 + dldp_1*(xarr-xoff_beam)
-        
+        #if beam == 'A':
+        #    print lam.min(), lam.max()
+            
         if 'DLDP_'+beam+'_2' in conf.keys():
             dldp_2 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_2']) / growx**2
             lam = dldp_0 + dldp_1*(xarr-xoff_beam) + dldp_2*(xarr-xoff_beam)**2
@@ -1122,12 +1134,14 @@ class Interlace2D():
         self.object_wave = cut.copy() #np.dot(np.ones((self.sh[0],1)),
         
         xarr = np.arange(NX)
-        wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
-        if self.grism_element == 'G102':
-            wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
-        #
-        if self.grism_element == 'G800L':
-            wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
+        # wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        # if self.grism_element == 'G102':
+        #     wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
+        # #
+        # if self.grism_element == 'G800L':
+        #     wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
+        wlim = grism_wlimit[self.grism_element]
+        wavelength_region = (self.object_wave >= wlim[0]) & (self.object_wave <= wlim[1])
         
         limited = wavelength_region & ((self.object_wave-self.im['WAVE'].data.min()) > -1) & ((self.object_wave - self.im['WAVE'].data.max()) < 1)        
         
@@ -1201,12 +1215,15 @@ class Interlace2D():
         #### Get extraction window where profile is > 10% of maximum 
         osh = self.im['MODEL'].data.shape
         xarr = np.arange(osh[1])
-        xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
-        if self.grism_element == 'G102':
-            xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
-        #
-        if self.grism_element == 'G800L':
-            xint14 = int(np.interp(0.75e4, self.im['WAVE'].data, xarr))
+        # xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
+        # if self.grism_element == 'G102':
+        #     xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
+        # #
+        # if self.grism_element == 'G800L':
+        #     xint14 = int(np.interp(0.75e4, self.im['WAVE'].data, xarr))
+        # 
+        wlim = grism_wlimit[self.grism_element]
+        xint14 = int(np.interp(wlim[3], self.im['WAVE'].data, xarr))
         
         yprof = np.arange(osh[0])
         profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
@@ -1258,12 +1275,14 @@ class Interlace2D():
         #### Get extraction window where profile is > 10% of maximum 
         osh = self.the_object.shape
         xarr = np.arange(osh[1])
-        xint14 = int(np.interp(1.3e4, self.wave, xarr))
-        if self.grism_element == 'G102':
-            xint14 = int(np.interp(0.98e4, self.wave, xarr))
-        #
-        if self.grism_element == 'G800L':
-            xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        # xint14 = int(np.interp(1.3e4, self.wave, xarr))
+        # if self.grism_element == 'G102':
+        #     xint14 = int(np.interp(0.98e4, self.wave, xarr))
+        # #
+        # if self.grism_element == 'G800L':
+        #     xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        wlim = grism_wlimit[self.grism_element]
+        xint14 = int(np.interp(wlim[3], self.wave, xarr))
         
         yprof = np.arange(osh[0])
         profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
@@ -1707,15 +1726,17 @@ class GrismModel():
         
         self.lam_spec = []
         
-        if self.grism_element == 'G141':
-            self.lam_spec = np.arange(0.95e4,1.8e4,22.)
-        
-        if self.grism_element == 'G102':
-            self.lam_spec = np.arange(0.73e4, 1.18e4, 10.)
-        
-        #
-        if self.grism_element == 'G800L':
-            self.lam_spec = np.arange(0.2e4, 1.2e4, 20.)
+        # if self.grism_element == 'G141':
+        #     self.lam_spec = np.arange(0.95e4,1.8e4,22.)
+        # 
+        # if self.grism_element == 'G102':
+        #     self.lam_spec = np.arange(0.73e4, 1.18e4, 10.)
+        # 
+        # #
+        # if self.grism_element == 'G800L':
+        #     self.lam_spec = np.arange(0.2e4, 1.2e4, 20.)
+        wlim = grism_wlimit[self.grism_element]
+        self.lam_spec = np.arange(wlim[0]*0.9, wlim[1]*1.1, wlim[2])
         
         self.obj_in_model = {}
         self.flux_specs = {}
@@ -1909,13 +1930,15 @@ class GrismModel():
             keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
         else:
             keep = (wave > 0.8e4) & (wave < 1.10e4) & (ratio_extract != 0)
-            
+        
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
         if keep.sum() < 10:
             self.model += self.object
             self.obj_in_model[id] = True
-            print 'Skipping refine: only %d wavelength steps.' %(keep.sum())
+            if verbose:
+                print 'Skipping refine: only %d wavelength steps.' %(keep.sum())
+            
             return True
             
         coeff = polyfit(wave[keep], ratio_extract[keep], 1)
@@ -2033,25 +2056,29 @@ class GrismModel():
             #     continue
             # 
             print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
+            #print 'Object #%d, m=%.2f (%d/%d)' %(id, mag[so][i], i+1, N)
             if refine:
                 self.refine_model(id, BEAMS=BEAMS, view=view)      
             else:
-                if self.grism_element == 'G141':
-                    lx = np.arange(0.9e4,1.8e4)
-                    #ly = 1+model_slope*(lx-1.4e4)/4.e3
-                    ly = (lx/1.4e4)**model_slope
+                # if self.grism_element == 'G141':
+                #     lx = np.arange(0.9e4,1.8e4)
+                #     #ly = 1+model_slope*(lx-1.4e4)/4.e3
+                #     ly = (lx/1.4e4)**model_slope
+                # 
+                # if self.grism_element == 'G102':
+                #     lx = np.arange(0.6e4,1.3e4)
+                #     #ly = 1+model_slope*(lx-0.98e4)/2.8e3
+                #     ly = (lx/0.98e4)**model_slope
+                # 
+                # #
+                # if self.grism_element == 'G800L':
+                #     lx = np.arange(0.3e4,1.2e4)
+                #     #ly = 1+model_slope*(lx-0.75e4)/2.5e3
+                #     ly = (lx/0.75e4)**model_slope                
+                wlim = grism_wlimit[self.grism_element]
+                lx = np.arange(wlim[0]*0.95,wlim[1]*1.05)
+                ly = (lx/wlim[3])**model_slope
                 
-                if self.grism_element == 'G102':
-                    lx = np.arange(0.6e4,1.3e4)
-                    #ly = 1+model_slope*(lx-0.98e4)/2.8e3
-                    ly = (lx/0.98e4)**model_slope
-                
-                #
-                if self.grism_element == 'G800L':
-                    lx = np.arange(0.3e4,1.2e4)
-                    #ly = 1+model_slope*(lx-0.75e4)/2.5e3
-                    ly = (lx/0.75e4)**model_slope
-                    
                 if self.model_list is not None:
                     if id in self.model_list.keys():
                         print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d) [model_list]' %(id, mag[so][i], i+1, N)
@@ -2266,14 +2293,17 @@ class GrismModel():
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[1])
-        if self.grism_element == 'G141':
-            wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        # if self.grism_element == 'G141':
+        #     wavelength_region = (self.object_wave >= 1.05e4) & (self.object_wave <= 1.70e4)
+        # #
+        # if self.grism_element == 'G102':
+        #     wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
+        # #
+        # if self.grism_element == 'G800L':
+        #     wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
         #
-        if self.grism_element == 'G102':
-            wavelength_region = (self.object_wave >= 0.73e4) & (self.object_wave <= 1.18e4)
-        #
-        if self.grism_element == 'G800L':
-            wavelength_region = (self.object_wave >= 0.58e4) & (self.object_wave <= 0.92e4)
+        wlim = grism_wlimit[self.grism_element]
+        wavelength_region = (self.object_wave >= wlim[0]) & (self.object_wave <= wlim[1])
         
         if np.sum(wavelength_region) < 20:
             fp = open(self.root+'_%05d.2D.xxx' %(id),'w')
@@ -2401,12 +2431,15 @@ class GrismModel():
             ax.plot(self.lam_spec, self.flux_specs[self.id]*self.total_fluxes[self.id])
             xx = ax.set_xticks(ltick*1.e4)
             ax.set_xticklabels(ltick)
-            ax.set_xlim(1.1e4,1.65e4)
-            if self.grism_element == 'G102':
-                ax.set_xlim(0.73e4,1.18e4)
-            #
-            if self.grism_element == 'G800L':
-                ax.set_xlim(0.58e4,0.92e4)
+
+            wlim = grism_wlimit[self.grism_element]
+            ax.set_xlim(wlim[0], wlim[1])
+            # ax.set_xlim(1.1e4,1.65e4)
+            # if self.grism_element == 'G102':
+            #     ax.set_xlim(0.73e4,1.18e4)
+            # #
+            # if self.grism_element == 'G800L':
+            #     ax.set_xlim(0.58e4,0.92e4)
             
             y = self.flux_specs[self.id]*self.total_fluxes[self.id]
             ax.set_ylim(-0.1*y.max(), 1.1*y.max())
@@ -2459,12 +2492,14 @@ class GrismModel():
         #### Get extraction window where profile is > 10% of maximum 
         osh = self.the_object.shape
         xarr = np.arange(osh[1])
-        xint14 = int(np.interp(1.3e4, self.wave, xarr))
-        if self.grism_element == 'G102':
-            xint14 = int(np.interp(0.98e4, self.wave, xarr))
-        #
-        if self.grism_element == 'G800L':
-            xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        # xint14 = int(np.interp(1.3e4, self.wave, xarr))
+        # if self.grism_element == 'G102':
+        #     xint14 = int(np.interp(0.98e4, self.wave, xarr))
+        # #
+        # if self.grism_element == 'G800L':
+        #     xint14 = int(np.interp(0.75e4, self.wave, xarr))
+        wlim = grism_wlimit[self.grism_element]
+        xint14 = int(np.interp(wlim[3], self.wave, xarr))
         
         yprof = np.arange(osh[0])
         profile = np.sum(self.the_object[:,xint14-10:xint14+10], axis=1)
@@ -3010,14 +3045,21 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     wcs_this = pywcs.WCS(header=this_drz_head)
     
     fp = open("/tmp/%s.drz_xy" %(root),'w')
-    #fpr = open("/tmp/%s.flt_xy.reg" %(root),'w')
+    fpr = open("/tmp/%s.drz_xy.reg" %(root),'w')
+    fpr2 = open("/tmp/%s.drz_rd.reg" %(root),'w')
+    fpr.write('image\n')
+    fpr2.write('fk5\n')
     NOBJ = len(old_cat.id)
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
         xw, yw = wcs_this.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
-        fp.write('%.2f %.2f\n' %(np.clip(xw, -200, 4999), np.clip(yw, -200, 4999)))
+        fp.write('%.2f %.2f\n' %(np.clip(xw, -1000, 4999), np.clip(yw, -1000, 4999)))
+        fpr.write('circle(%.2f,%.2f,1")\n' %(np.clip(xw, -1000, 4999), np.clip(yw, -1000, 4999)))
+        fpr2.write('circle(%.6f,%.6f,1") # color=magenta\n' %(old_cat.ra[i], old_cat.dec[i]))
     
     fp.close()
+    fpr.close()
+    fpr2.close()
     
     status = iraf.tran(origimage=flt+'[sci,1]', drizimage=root+'_drz.fits[1]', direction="backward", x=None, y=None, xylist="/tmp/%s.drz_xy" %(root), mode="h", Stdout=1)
     #### To avoid re-running multidrizzle, need to get xy coordinates in the original drz image,

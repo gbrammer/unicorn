@@ -115,9 +115,13 @@ class GrismSpectrumFit():
         #### Get the 1D/2D spectra
         if RELEASE:
             # BASE_PATH = '%s/../Release/v2.0/%s' %(unicorn.GRISM_HOME, self.field)            
-            BASE_PATH = '/3DHST/Spectra/Release/v2.1/%s/%s-WFC3_v2.1_SPECTRA/' %(self.field, self.field)
+            #BASE_PATH = '/3DHST/Spectra/Release/v2.1/%s/%s-WFC3_v2.1_SPECTRA/' %(self.field, self.field)
+            
+            #self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+            BASE_PATH = '/Volumes/3DHST_Gabe/RELEASE_v4.0/Spectra/%s/WFC3/' %(self.field)
             
             self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+
         else:
             self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
         
@@ -145,7 +149,8 @@ class GrismSpectrumFit():
             self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
             #print '%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root)
         else:
-            self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
+            #self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
+            self.oned = unicorn.reduce.Interlace1D(self.twod.file.replace('2D','1D'), PNG=False)
             
         if self.oned.data.flux.max() <= 0:
             print '%s: No valid pixels in 1D spectrum.' %(root)
@@ -506,7 +511,10 @@ class GrismSpectrumFit():
             
         #### Interpolate the photometric p(z) to apply it as a prior
         phot_int1 = np.interp(zgrid1, self.phot_zgrid,  self.phot_lnprob)
+        phot_int1[~np.isfinite(phot_int1)] = -1000
         full_prob1 = phot_int1 + spec_lnprob1 - spec_lnprob1.max()
+        #print full_prob1, phot_int1, spec_lnprob1
+        
         full_prob1 -= full_prob1.max()
         
         #### Smooth the high resolution p(z) because otherwise get "ringing" behavior related
@@ -515,7 +523,9 @@ class GrismSpectrumFit():
         xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
         yg = np.exp(-xg**2/2./wz**2)
         sm = np.log(nd.convolve1d(np.exp(full_prob1), yg/yg.sum(), mode='constant', cval=0.))
+
         full_prob1 = sm-sm.max()
+        
         
         self.z_max_spec = zgrid1[full_prob1 == full_prob1.max()][0]
         
@@ -947,8 +957,8 @@ class GrismSpectrumFit():
         nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed1_nolines.dat', unpack=True)
         if self.skip_photometric:
             self.templam_nolines=nlx
-            self.best_fit_nolines = nlx*0.+1
-            self.best_fit_nolines_flux = nlx*0.+1
+            self.best_fit_nolines = nly #nlx*0.+1
+            self.best_fit_nolines_flux = nly #nlx*0.+1
             return True
         
         NTEMP = 7    
@@ -1028,7 +1038,9 @@ class GrismSpectrumFit():
         #print use.sum()
         if self.grism_element == 'G800L':
             lrange = [0.6e4, 0.9e4]
-            
+        
+        lrange = unicorn.reduce.grism_wlimit[self.grism_element][0:2]
+        
         wave_ok = (wave2d.flatten() >= lrange[0]) & (wave2d.flatten() <= lrange[1])
         var[~wave_ok] = 1.e6
         
@@ -2081,6 +2093,7 @@ class emceeChain():
         """
         Draw random sets of parameters from the chain
         """
+        #ok_walk = self.sampler.acceptance_fraction > min_acceptance
         iwalk = np.cast[int](np.random.rand(N)*self.nwalkers)
         istep = self.nburn + np.cast[int](np.random.rand(N)*(self.nstep-self.nburn))
         draw = self.chain[iwalk, istep, :]

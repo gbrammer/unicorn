@@ -1320,38 +1320,60 @@ def goodsn():
     
     pyfits.writeto('star.fits', data=im, clobber=True)
         
-def make_asn_files(force=False):
+def make_asn_files(force=False, make_region=False):
     """
-    Read a files.info file and make ASN files for each visit/filter.
+    Read a files.info file and make ASN files for each visit/filter[/date].
     """
     list = catIO.Readfile('files.info')
-    list.pa_v3 = np.cast[int](list.pa_v3*100)/100.
+    list.pa_v3 = np.cast[int](np.round(list.pa_v3))
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
     
-    visits = np.unique(list.targname)
-    for visit in visits:        
-        filters = np.unique(list.filter[list.targname == visit])
-        print visit, filters
-        for filter in filters:
-            angles = np.unique(list.pa_v3[(list.targname == visit) & (list.filter == filter)])
-            for angle in angles:
-                if (os.path.exists('%s-%03d-%s_asn.fits' %(visit, int(angle), filter))) & (not force):
+    dates = np.array([''.join(date.split('-')[1:]) for date in list.date_obs])
+    targets = np.unique(list.targname)
+    
+    visits = np.array([file[4:6] for file in list.file])
+    for visit in np.unique(visits):
+        angle = list.pa_v3[visits == visit][0]
+        for target in np.unique(list.targname[visits == visit]):
+            for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
+                product='%s-%s-%03d-%s' %(target, visit, int(angle), filter)
+                use = (list.targname == target) & (list.filter == filter) & (visits == visit)
+                print product, use.sum()
+                if (os.path.exists('%s_asn.fits' %(product))) & (not force):
                     continue
-
-                #print asn.in_fits[1].columns
-                use = (list.targname == visit) & (list.filter == filter) & (list.pa_v3 == angle)
+                #
                 asn.exposures = []
-                asn.product='%s-%03d-%s' %(visit, int(angle), filter)
+                asn.product=product
                 for fits in list.file[use]:
                     asn.exposures.append(os.path.basename(fits).split('_flt')[0])
-
-                #try:
+                #
                 asn.write(asn.product+'_asn.fits')
-                #except:
-                #    continue
-
-                threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
-                print asn.product
+                if make_region:
+                    threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                    
+    # for target in targets:        
+    #     filters = np.unique(list.filter[list.targname == target])
+    #     print target, filters
+    #     for filter in filters:
+    #         angles = np.unique(list.pa_v3[(list.targname == target) & (list.filter == filter)])
+    #         for angle in angles:
+    #             if (os.path.exists('%s-%03d-%s_asn.fits' %(target, int(angle), filter))) & (not force):
+    #                 continue
+    # 
+    #             #print asn.in_fits[1].columns
+    #             use = (list.targname == target) & (list.filter == filter) & (list.pa_v3 == angle)
+    #             asn.exposures = []
+    #             asn.product='%s-%03d-%s' %(target, int(angle), filter)
+    #             for fits in list.file[use]:
+    #                 asn.exposures.append(os.path.basename(fits).split('_flt')[0])
+    # 
+    #             #try:
+    #             asn.write(asn.product+'_asn.fits')
+    #             #except:
+    #             #    continue
+    # 
+    #             threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+    #             print asn.product
             
     
 def prep_candels(asn_file='ib3706050_asn.fits',

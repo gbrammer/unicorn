@@ -236,28 +236,49 @@ class IterZeropoints():
 def stars_zp():
     
     c = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.test.nzpcat', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.fixconv', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.HAWKI', force_lowercase=False)
     
     c = catIO.Readfile('../Catalogs/cosmos_3dhst.v4.0.test2.nzpcat', force_lowercase=False)
 
     c = catIO.Readfile('../Catalogs/aegis_3dhst.v4.0.test2.nzpcat', force_lowercase=False)
 
     c = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.test2.nzpcat', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat.fixconv', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat.HDFN', force_lowercase=False)
+    c.flux_radius_F160W = c.flux_radius; c.f_F814W = c.f_F775W
+    
+    c = catIO.Readfile('../Catalogs/cosmos_3dhst.v4.0.nzpcat', force_lowercase=False)
+
+    c = catIO.Readfile('../Catalogs/aegis_3dhst.v4.0.nzpcat', force_lowercase=False)
+
+    c = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.GABODS', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.FULL', force_lowercase=False)
+    c = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.fixconv', force_lowercase=False)
     
     hmag = 25-2.5*np.log10(c.f_F160W)
     plt.scatter(hmag, c.flux_radius_F160W, alpha=0.5, color='black')
     plt.xlim(11,25); plt.ylim(0,10)
     
-    xstar, ystar = [16,24], [2.8,2.4]
+    xstar, ystar = [16,20,24.8], [5.8,3., 2.4]
     yint = np.interp(hmag, xstar, ystar)
-    is_star = (hmag > xstar[0]) & (hmag < xstar[1]) & (c.flux_radius_F160W < yint)    
+    is_star = (hmag > xstar[0]) & (hmag < xstar[-1]) & (c.flux_radius_F160W < yint)    
     plt.scatter(hmag[is_star], c.flux_radius_F160W[is_star], alpha=0.5, color='orange')
     
     #### Only use stars well-spanned by the Kurucz models
-    iH = -2.5*np.log10(c.f_F814W/c.f_F160W)
+    if c.filename == '../Catalogs/goodss_3dhst.v4.0.nzpcat.fixconv':
+        iH = -2.5*np.log10(c.f_F814Wcand/c.f_F160W)
+    else:
+        iH = -2.5*np.log10(c.f_F814W/c.f_F160W)
+    
+    #iH = -2.5*np.log10(c.f_F850LP/c.f_F160W)
     sp_type = (iH > -0.2) & (iH < 0.6)
     plt.scatter(hmag[is_star & sp_type], c.flux_radius_F160W[is_star & sp_type], alpha=0.5, color='red')
     
-    c.write_text(filename='../Catalogs/uds_3dhst.v4.0.test.nzpcat.star', select=is_star & sp_type)
+    c.write_text(filename=c.filename+'.star', select=is_star & sp_type)
 
     c.write_text(filename=c.filename+'.bright', select=~is_star & (hmag < 24) & (hmag > 17))
     
@@ -359,9 +380,252 @@ def check_zeropoints(root='kurucz3', PATH='./OUTPUT/', savefig=None, adjust_zero
         ax.set_xlim(16,24)
         ax.text(0.5,0.95,'F%d  %s' %(param.filters[i].fnumber, os.path.basename(param.filters[i].name)), ha='center', va='top', transform=ax.transAxes)
 
-def loop_cosmos():
+def get_v40_zeropoints():
     import unicorn.zp
     
+    ##### Fit HST first, then fix
+    cat = catIO.Readfile('../Catalogs/cosmos_3dhst.v4.0.test2.nzpcat.bright')
+    cat = catIO.Readfile('../Catalogs/cosmos_3dhst.v4.0.nzpcat.bright', force_lowercase=False)
+    keep = cat.z_spec > 0
+    cat.write_text(cat.filename+'.zspec', select=keep)
+    
+    os.system('eazy -p zphot.param.cosmos.step -t zphot.translate.cosmos.step')
+    unicorn.zp.loop_zeropoints(root='cosmos.step', tfile='zphot.translate.cosmos.step',  zfile='zphot.zeropoint.cosmos.step', fix_zspec=True, fix_filter={205:1}, ignore_initial=['f_F814W','f_F140W'], init_filter={239: 0.98}, toler=0.01)
+    
+    f0, zp0 = np.loadtxt('zphot.zeropoint.cosmos.step', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+    
+    #### Fix IRAC
+    for id in np.arange(18,22):
+        fix_hst[id] = 1.
+    #
+    # fix_hst = {203: 1.0264, 204: 1.0414, 205: 1.0, 236: 1.0302, 239: 1.0005}
+    os.system('eazy -p zphot.param.cosmos -t zphot.translate.cosmos')
+    unicorn.zp.loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter=fix_hst, ignore_initial=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'], toler=0.01) #, ignore_all=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'])
+
+    #### Initial guess to get the very discrepant bands close
+    init_filter = {88:1.18, 81: 0.85, 82:1.2, 79:0.8, 190: 0.8, 192:0.7}
+    
+    os.system('eazy -p zphot.param.cosmos -t zphot.translate.cosmos')
+    unicorn.zp.loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter=fix_hst, ignore_initial=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709', 'f_R', 'f_I', 'f_UVISTA_Y', 'f_J1', 'f_J2', 'f_J3', 'f_H1', 'f_H2'], toler=0.005, init_filter=init_filter) #, ignore_all=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'])
+    os.system('mv cosmos_*png float_all_cosmos/')
+    os.system('mv zphot.zeropoint.cosmos float_all_cosmos/')
+    #### use tweaked template at beginning
+    init_filter = {88:1.18, 81: 0.85, 82:1.2, 79:0.8, 190: 0.8, 192:0.7}
+    unicorn.zp.loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter=fix_hst, ignore_initial=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709', 'f_R', 'f_I', 'f_UVISTA_Y', 'f_J1', 'f_J2', 'f_J3', 'f_H1', 'f_H2'], toler=0.005, init_filter=init_filter) #, ignore_all=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'])
+    
+    #### Use full set of zeropoints as initial guess and allow HST bands to float
+    f0, zp0 = np.loadtxt('zphot.zeropoint.cosmos', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+    #
+    os.system('mv zphot.zeropoint.cosmos float_all_cosmos/')
+    unicorn.zp.loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter={205:1.}, toler=0.003, init_filter=fix_hst) #, ignore_all=['f_Zp', 'f_Ip', 
+    
+    ### GOODS-N
+    cat = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.test2.nzpcat.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat.fixconv.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodsn_3dhst.v4.0.nzpcat.HDFN.bright', force_lowercase=False)
+    keep = cat.z_spec > 0
+    cat.write_text(cat.filename+'.zspec', select=keep)
+    
+    os.system('eazy -p zphot.param.goodsn.step -t zphot.translate.goodsn.step')
+    unicorn.zp.loop_zeropoints(root='goodsn.step', tfile='zphot.translate.goodsn.step',  zfile='zphot.zeropoint.goodsn.step', fix_zspec=True, fix_filter={205:1, 236:1}, ignore_initial=['f_F435W'], toler=0.01, check_uvj=False)
+    
+    f0, zp0 = np.loadtxt('zphot.zeropoint.goodsn.step', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+    #
+    fix_hst = {203: 1.0099,
+     204: 1.0129,
+     205: 1.0,
+     233: 1.0237,
+     236: 1.0,
+     238: 0.9899,
+     240: 0.9877}
+     
+    os.system('eazy -p zphot.param.goodsn -t zphot.translate.goodsn')
+    unicorn.zp.loop_zeropoints(root='goodsn', tfile='zphot.translate.goodsn',  zfile='zphot.zeropoint.goodsn', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_U','f_J'], fix_zspec=False, use_tweaked_templates=False)
+    
+    init_filter = {227:0.85, 231:0.97, 224:0.9, 20:1.04, 21:1.04}
+    os.system('eazy -p zphot.param.goodsn -t zphot.translate.goodsn')
+    unicorn.zp.loop_zeropoints(root='goodsn', tfile='zphot.translate.goodsn',  zfile='zphot.zeropoint.goodsn', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_U','f_J'], fix_zspec=False, use_tweaked_templates=False, init_filter=init_filter)
+
+    ## HDFN
+    fix=False #True
+    init_filter = {227:0.85, 231:0.97, 224:0.9, 20:1.04, 21:1.04, 114:0.8, 115:0.8, 116:0.7, 117:0.75, 118:0.85}
+    os.system('eazy -p zphot.param.goodsn -t zphot.translate.goodsn')
+    unicorn.zp.loop_zeropoints(root='goodsn', tfile='zphot.translate.goodsn',  zfile='zphot.zeropoint.goodsn', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_U','f_J', 'f_B', 'f_V', 'f_R', 'f_I', 'f_Z'], use_tweaked_templates=False, init_filter=init_filter, fix_zspec=fix, check_uvj=(not fix))
+    
+    #### GOODS-S
+    cat = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.GABODS.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.FULL.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/goodss_3dhst.v4.0.nzpcat.fixconv.bright', force_lowercase=False)
+    keep = cat.z_spec > 0
+    cat.write_text(cat.filename+'.zspec', select=keep)
+    
+    os.system('eazy -p zphot.param.goodss.step -t zphot.translate.goodss.step')
+    unicorn.zp.loop_zeropoints(root='goodss.step', tfile='zphot.translate.goodss.step',  zfile='zphot.zeropoint.goodss.step', fix_zspec=True, fix_filter={205:1}, ignore_initial=['f_F435W'], toler=0.01, check_uvj=False)
+    
+    f0, zp0 = np.loadtxt('zphot.zeropoint.goodss.step', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+    
+    fix_hst = {1: 1.0819,
+         4: 1.0033,
+         5: 0.9845,
+         7: 0.9838,
+         203: 1.0028,
+         204: 1.0072,
+         205: 1.0,
+         236: 1.0038,
+         239: 0.9919,
+         240: 1.0022}
+    #
+    # os.system('eazy -p zphot.param.goodss -t zphot.translate.goodss')
+    # unicorn.zp.loop_zeropoints(root='goodss', tfile='zphot.translate.goodss', fix_zspec=False,  zfile='zphot.zeropoint.goodss', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_R', 'f_H', 'f_Ks'], use_tweaked_templates=True) #, 128:0.9, 129:0.9,
+
+    #### WIth GABODS images
+    os.system('eazy -p zphot.param.goodss -t zphot.translate.goodss')
+    init_filter = {46:0.72, 50:0.95, 54: 0.95, 58: 0.91, 36:1.07, 37:1.04, 103:1.07, 107:1.02}
+    unicorn.zp.loop_zeropoints(root='goodss', tfile='zphot.translate.goodss', fix_zspec=False,  zfile='zphot.zeropoint.goodss', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_R', 'f_H', 'f_Ks', 'f_B', 'f_V', 'f_Rc', 'f_I', 'f_U38'], init_filter=init_filter, use_tweaked_templates=True) #, 128:0.9, 129:0.9,
+    
+    os.system('eazy -p zphot.param.goodss -t zphot.translate.goodss')
+    unicorn.zp.loop_zeropoints(root='goodss', tfile='zphot.translate.goodss', fix_zspec=True, check_uvj=False,  zfile='zphot.zeropoint.goodss', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_R', 'f_H', 'f_Ks', 'f_B', 'f_V', 'f_Rc', 'f_I', 'f_U38'], init_filter=init_filter, use_tweaked_templates=True) #, 128:0.9, 129:0.9,
+    
+    ####### WIth all Subaru Medium bands!
+    init_filter = {46:0.72, 50:0.95, 54: 0.95, 58: 0.91, 36:1.07, 37:1.04, 103:1.07, 107:1.02, 181:0.72, 182:0.62, 183:1.2, 184:3, 186:0.96, 187:0.9, 188:1.05, 190:0.9, 194:0.93, 195:0.92, 196:0.92, 197:1.08, 198:0.92}
+    
+    ##### "fixconv" catalog with some fixes
+    init_filter = {46:1.0, 50:0.95, 54: 0.95, 58: 1.0, 36:1.07, 37:1.04, 103:1.07, 107:1.16, 181:0.9, 182:0.9, 183:1.2, 184:3, 185:0.94, 186:0.96, 187:0.9, 188:1.0, 189:0.9, 190:0.9, 194:0.93, 195:0.92, 196:0.88, 197:1.0, 198:0.85, 220:0.85, 222:0.75}
+    
+    os.system('eazy -p zphot.param.goodss -t zphot.translate.goodss')
+    unicorn.zp.loop_zeropoints(root='goodss', tfile='zphot.translate.goodss', fix_zspec=False, check_uvj=True,  zfile='zphot.zeropoint.goodss', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_R', 'f_H', 'f_Ks', 'f_B', 'f_V', 'f_Rc', 'f_I', 'f_U38', 'f_IA427', 'f_IA445', 'f_IA464', 'f_IA484', 'f_IA505', 'f_IA527', 'f_IA550', 'f_IA574', 'f_IA598', 'f_IA624', 'f_IA651', 'f_IA679', 'f_IA738', 'f_IA767', 'f_IA797', 'f_IA827', 'f_IA856'], init_filter=init_filter, use_tweaked_templates=True) #, 128:0.9, 129:0.9,
+
+    os.system('eazy -p zphot.param.goodss -t zphot.translate.goodss')
+    unicorn.zp.loop_zeropoints(root='goodss', tfile='zphot.translate.goodss', fix_zspec=True, check_uvj=False,  zfile='zphot.zeropoint.goodss', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_R', 'f_H', 'f_Ks', 'f_B', 'f_V', 'f_Rc', 'f_I', 'f_U38', 'f_IA427', 'f_IA445', 'f_IA464', 'f_IA484', 'f_IA505', 'f_IA527', 'f_IA550', 'f_IA574', 'f_IA598', 'f_IA624', 'f_IA651', 'f_IA679', 'f_IA738', 'f_IA767', 'f_IA797', 'f_IA827', 'f_IA856'], init_filter=init_filter, use_tweaked_templates=True) #, 128:0.9, 129:0.9,
+    
+    #### AEGIS
+    cat = catIO.Readfile('../Catalogs/aegis_3dhst.v4.0.test2.nzpcat.bright', force_lowercase=False)
+    keep = cat.z_spec > 0
+    cat.write_text(cat.filename+'.zspec', select=keep)
+    
+    os.system('eazy -p zphot.param.aegis.step -t zphot.translate.aegis.step')
+    unicorn.zp.loop_zeropoints(root='aegis.step', tfile='zphot.translate.aegis.step',  zfile='zphot.zeropoint.aegis.step', fix_zspec=True, fix_filter={205:1}, ignore_initial=['f_F814W'], toler=0.01, check_uvj=False)
+    
+    f0, zp0 = np.loadtxt('zphot.zeropoint.aegis.step', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+    
+    fix_hst = {203: 0.9966, 204: 0.9967, 205: 1.0, 236: 0.9999, 239: 0.9353}
+    #### Fix IRAC
+    #for id in np.arange(18,22):
+    #    fix_hst[id] = 1.
+    
+    os.system('eazy -p zphot.param.aegis -t zphot.translate.aegis')
+    unicorn.zp.loop_zeropoints(root='aegis', tfile='zphot.translate.aegis', fix_zspec=False,  zfile='zphot.zeropoint.aegis', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_J1', 'f_J2', 'f_J3', 'f_H1', 'f_H2', 'f_K', 'f_U', 'f_I', 'f_Z'], use_tweaked_templates=False, init_filter={88:1.2} ) #, 128:0.9, 129:0.9, 130:0.92, 131:0.9, 132:0.95, 134:0.95})
+    
+    ##### UDS
+    cat = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.test.nzpcat.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.fixconv.bright', force_lowercase=False)
+    cat = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.HAWKI.bright', force_lowercase=False)
+    keep = cat.z_spec > 0
+    cat.write_text(cat.filename+'.zspec', select=keep)
+    
+    os.system('eazy -p zphot.param.uds.step -t zphot.translate.uds.step')
+    unicorn.zp.loop_zeropoints(root='uds.step', tfile='zphot.translate.uds.step',  zfile='zphot.zeropoint.uds.step', fix_zspec=True, fix_filter={205:1}, ignore_initial=['f_F814W'], toler=0.01, check_uvj=False)
+    
+    f0, zp0 = np.loadtxt('zphot.zeropoint.uds.step', unpack=True, dtype=np.str)
+    fix_hst = {}
+    for i in range(len(f0)):
+        fix_hst[int(f0[i][1:])] = float(zp0[i])
+        
+    #### Fix HST, IRAC, U
+    fix_hst = {203: 1.0051, 204: 1.025, 205: 1.0, 18:1., 19:1., 20:1., 21:1., 236: 1.0072, 239: 0.9335, 88:1.22}
+    fix_hst = {203: 1.0048, 204: 1.0257, 205: 1.0, 236: 1.0079, 239: 0.9342} #, 18:1., 19:1., 20:1., 21:1.}
+    fix_hst = {203: 1.0048, 204: 1.0257, 205: 1.0, 236: 1.0079, 239: 0.9342, 20:1.15, 21:1.15} #, 18:1., 19:1., 20:1., 21:1.}
+
+    fix=False
+
+    init_filter = {79:0.9, 123:0.9, 124:0.88, 125:0.95, 88:1.28, 264:1.04, 265:1.04}
+    init_filter = {79:0.95, 123:0.86, 124:0.8,  125:0.86, 88:1.25, 264:1.04, 265:1.04, 266:2.3, 269:1.0}
+
+    os.system('eazy -p zphot.param.uds -t zphot.translate.uds')
+    unicorn.zp.loop_zeropoints(root='uds', tfile='zphot.translate.uds', fix_zspec=fix, check_uvj=not fix, zfile='zphot.zeropoint.uds', fix_filter=fix_hst, toler=0.005, ignore_initial=['f_u', 'f_V', 'f_R', 'f_i', 'f_z', 'f_J', 'f_H', 'f_IRAC3', 'f_IRAC4', 'f_Y', 'f_Ks'], use_tweaked_templates=False, init_filter=init_filter) #, 128:0.9, 129:0.9, 130:0.92, 131:0.9, 132:0.95, 134:0.95})
+    
+    #### Fit just U
+    f0, zp0 = np.loadtxt('zphot.zeropoint.uds', unpack=True, dtype=np.str)
+    fix_all = {}
+    for i in range(len(f0)):
+        fix_all[int(f0[i][1:])] = float(zp0[i])
+    #
+    fix_all = {18: 1.0,
+     19: 1.0,
+     20: 1.0,
+     21: 1.0,
+     79: 0.9271,
+     122: 1.0291,
+     123: 0.9243,
+     124: 0.8948,
+     125: 0.9715,
+     203: 1.0051,
+     204: 1.025,
+     205: 1.0,
+     236: 1.0072,
+     239: 0.9335,
+     263: 1.0235,
+     264: 1.0543,
+     265: 1.0411}
+
+    os.system('eazy -p zphot.param.uds -t zphot.translate.uds')
+    unicorn.zp.loop_zeropoints(root='uds', tfile='zphot.translate.uds', fix_zspec=False, check_uvj=True, zfile='zphot.zeropoint.uds', fix_filter=fix_all, toler=0.005, ignore_initial=[], use_tweaked_templates=False, init_filter={88:1.3}) 
+    
+    #### Compare Galametz and Skelton Y
+    gal = pyfits.open('../Catalogs/CANDELS.UDS.F160W.v1.fits')[1].data
+    ros = catIO.Readfile('../Catalogs/uds_3dhst.v4.0.nzpcat.HAWKI.bright')
+    mat = catIO.CoordinateMatcher(ros)
+    dr, idx = mat.match_list(gal.RA, gal.Dec)
+    ok = dr < 0.1
+    
+    hmag = 23.9-2.5*np.log10(gal.Flux_F160W_hst)
+    dmag = -2.5*np.log10(gal.Flux_Y_hawki*10**(-0.4*(23.9-25))/ros.f_Y[idx])
+    split = dmag < -0.933
+    plt.scatter(hmag[ok & split], dmag[ok & split], alpha=0.1, color='blue', label='H')
+    plt.scatter(hmag[ok & ~split], dmag[ok & ~split], alpha=0.1, color='orange', label='H')
+    plt.plot([18,24], [23.9-25,23.9-25], color='black', label='23.9-25')
+    dmag = -2.5*np.log10(gal.Flux_Ks_hawki*10**(-0.4*(23.9-25))/ros.f_Ks[idx])
+    plt.scatter(hmag[ok], dmag[ok], alpha=0.1, color='red', label='Ks')
+
+    dmag = -2.5*np.log10(gal.Flux_F160W_hst*10**(-0.4*(23.9-25))/ros.f_F160W[idx])
+    plt.scatter(hmag[ok], dmag[ok], alpha=0.1, color='green', label='F160W', zorder=-10)
+
+    plt.legend(loc='upper left')
+    plt.ylim(-1.5,0.6)
+    plt.xlim(18,24)
+    plt.xlabel('F160W mag')
+    plt.ylabel(r'$\Delta$mag')
+    
+    plt.savefig('UDS_HAWKI_compare.png')
+    
+    #dmag = -2.5*np.log10(gal.Flux_Y_hawki*10**(-0.4*(23.9-25))/ros.f_Y[idx])
+    #plt.scatter(ros.flux_radius_F160W[idx][ok], dmag[ok], alpha=0.1, color='blue')
+    #plt.scatter(ros.flux_radius_F160W[idx][ok & split], dmag[ok & split], alpha=0.1, color='red')
+
+    plt.scatter(gal.RA[ok & split], gal.Dec[ok & split], color='blue', alpha=0.1)
+    plt.scatter(gal.RA[ok & ~split], gal.Dec[ok & ~split], color='orange', alpha=0.1)
+    plt.xlabel('RA'); plt.ylabel('Dec')
+    plt.savefig('UDS_HAWKI_compare_spatial.png')
+    
+    #########
     os.system('eazy -p zphot.param.cosmos -t zphot.translate.cosmos')
     unicorn.zp.loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter={205:1, 239:1}, ignore_initial=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'], toler=0.01) #, ignore_all=['f_Zp', 'f_Ip', 'f_Rp', 'f_V', 'f_IA427', 'f_IA464', 'f_IA624', 'f_IA679', 'f_IA709'])
     
@@ -374,7 +638,7 @@ def loop_cosmos():
     os.system('eazy -p zphot.param.uds -t zphot.translate.uds')
     unicorn.zp.loop_zeropoints(root='uds', tfile='zphot.translate.uds',  zfile='zphot.zeropoint.uds', fix_filter={205:1, 239:1}, toler=0.01, ignore_initial=['f_u','f_i'])
     
-def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter=None, ignore_initial=[], ignore_all=[], toler=0.005, PATH='./OUTPUT/', fix_zspec=False):
+def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter={}, ref_filter=None, init_filter={}, ignore_initial=[], ignore_all=[], toler=0.005, PATH='./OUTPUT/', fix_zspec=False, check_uvj=True, use_tweaked_templates=True):
     
     import threedhst
     import threedhst.eazyPy as eazy
@@ -390,7 +654,13 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
     ##### Make an empty zeropoint file
     fp = open(zfile,'w')
     for filter in param.filters:
-        fp.write('F%d  1.0\n' %(filter.fnumber))
+        if filter.fnumber in fix_filter.keys():
+            fp.write('F%d  %s\n' %(filter.fnumber, fix_filter[filter.fnumber]))
+        else:
+            if filter.fnumber in init_filter.keys():
+                fp.write('F%d  %s\n' %(filter.fnumber, init_filter[filter.fnumber]))
+            else:
+                fp.write('F%d  1.0\n' %(filter.fnumber))
     #
     fp.close()
     
@@ -408,7 +678,7 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
     
     fp.close()
     
-    param.params['GET_ZP_OFFSETS'] = False
+    param.params['GET_ZP_OFFSETS'] = True
     param.params['FIX_ZSPEC'] = fix_zspec
     
     param.write('zphot.param.iter')
@@ -419,10 +689,22 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
     
     tf.write('zphot.translate.iter')
     
-    os.system('eazy -p zphot.param.iter -t zphot.translate.iter')
+    os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
     
-    fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, 0))
+    fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, 0))
     
+    #### Extract UVJ
+    if check_uvj:
+        for color in ['153,155', '155,161']:
+            param.params['REST_FILTERS'] = color
+            param.params['READ_ZBIN'] = 'y'
+            param.write('zphot.param.iter')
+            os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
+        #
+        param.params['READ_ZBIN'] = 'n'
+        param.write('zphot.param.iter')
+        unicorn.zp.diagnostic_UVJ(root=root, ext='UVJ_%04d' %(0))
+        
     fp = open('%s_iter.log' %(root),'w')
     fp.write('\n\nIter #%d\n======\n' %(0))
     unicorn.zp.log_offsets(fp, fnumbers, lc_i, delta_i, toler)
@@ -448,16 +730,34 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
                 pass
             #
         
-        if i == 1:
+        if (i == 1) & (use_tweaked_templates):
             param.params['TEMPLATES_FILE'] = 'tweak/spectra.param'
             param.write('zphot.param.iter')
         
         os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
-        fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, i+1))
+        fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, i+1))
         fp.write('\n\nIter #%d\n======\n' %(i))
         unicorn.zp.log_offsets(fp, fnumbers, lc_i, delta_i, toler)
+        
         #
-        use_bands = (lc_i > 4500) & (lc_i < 2.5e4)
+        #### Extract UVJ
+        if check_uvj:
+            for color in ['153,155', '155,161']:
+                param.params['REST_FILTERS'] = color
+                param.params['READ_ZBIN'] = 'y'
+                param.write('zphot.param.iter')
+                os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
+            #
+            param.params['READ_ZBIN'] = 'n'
+            param.write('zphot.param.iter')
+            unicorn.zp.diagnostic_UVJ(root=root, ext='UVJ_%04d' %(i+1))
+        
+        fixed_bands = lc_i < 0
+        for fi in fix_filter.keys():
+            fixed_bands = fixed_bands | (fnumbers == fi)
+        
+        use_bands = (lc_i > 4500) & (lc_i < 2.5e4) & ~fixed_bands
+        
         if (np.abs(delta_i[use_bands]-1).max() < toler) & (i >= 1):
             break
     
@@ -475,4 +775,276 @@ def log_offsets(fp, fnumbers, lc_i, delta_i, toler):
         #
         print log
         fp.write(log+'\n')
+
+def diagnostic_UVJ(root='cosmos', ext='_UVJ_0000'):
     
+    zout = catIO.Readfile('OUTPUT/%s.zout' %(root))
+    uv = catIO.Readfile('OUTPUT/%s.153-155.rf' %(root))
+    vj = catIO.Readfile('OUTPUT/%s.155-161.rf' %(root))
+    
+    UmV = -2.5*np.log10(uv.l153/uv.l155)
+    VmJ = -2.5*np.log10(vj.l155/vj.l161)
+    
+    fig = unicorn.plotting.plot_init(aspect=0.4, left=0.10, bottom=0.11, xs=8, wspace=0.0, NO_GUI=True)
+    
+    zbins = [0.5,1,1.5,2]
+    for i in range(len(zbins)-1):
+        zbin = (zout.z_peak > zbins[i]) & (zout.z_peak <= zbins[i+1])
+        ax = fig.add_subplot(131+i)
+        ax.scatter(VmJ[zbin], UmV[zbin], color='black', alpha=0.1, s=5)
+        ax.set_xlim(-0.2,2.1)
+        ax.set_ylim(0.1,2.4)
+        if i == 0:
+            ax.set_ylabel('U-V')
+        else:
+            ax.set_yticklabels([])
+        #
+        ax.text(0.05,0.95, '%.1f < z < %.1f; N=%d' %(zbins[i], zbins[i+1], zbin.sum()), ha='left', va='top', transform=ax.transAxes)
+        ax.set_xlabel('V-J')
+    
+    unicorn.plotting.savefig(fig, '%s_%s.png' %(root, ext))
+    
+def compare_J():
+    """
+    Simple test:   compare J2-F125W catalog colors as f'n of mag/z to EAZY templates
+    """
+    
+    from threedhst import catIO
+    import threedhst.eazyPy as eazy
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    PATH = './OUTPUT/'
+    
+    cat = catIO.Readfile('../Catalogs/aegis_3dhst.v4.0.test2.nzpcat.bright', force_lowercase=False)
+    root='aegis'
+    f1, f2 = 10, 8 # J2, F125W
+
+    root='cosmos'
+    f1, f2 = 16, 14
+    
+    zout = catIO.Readfile('OUTPUT/%s.zout' %(root))    
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=root, OUTPUT_DIRECTORY=PATH,CACHE_FILE = 'Same')
+    param = eazy.EazyParam('%s%s.param' %(PATH, root))
+    
+    for i in range(N):
+        print '%d: %s' %(i, param.filters[i].name)
+    
+    
+    color_obs = -2.5*np.log10(tempfilt['fnu'][f1]/tempfilt['fnu'][f2])
+    color_template = -2.5*np.log10(tempfilt['tempfilt'][f1,:,:]/tempfilt['tempfilt'][f2,:,:])
+    
+    ok = (zout.z_peak > 0.1) & np.isfinite(color_obs) & (color_obs != 0)
+    
+    plt.scatter(zout.z_peak[ok], color_obs[ok], color='black', alpha=0.5)
+    xm, ym, ys, nn = threedhst.utils.runmed(zout.z_peak[ok], color_obs[ok], NBIN=ok.sum()/500)
+    plt.fill_between(xm, ym-ys, ym+ys, color='red', alpha=0.1)
+    plt.plot(xm, ym, color='red', linewidth=2)
+    
+    for i in range(tempfilt['NTEMP']):
+        plt.plot(tempfilt['zgrid'], color_template[i,:], color='blue', alpha=0.8, linewidth=2)
+        
+    plt.ylim(-1,1)
+    plt.xlim(0,2.5)
+    plt.ylabel('color')
+    plt.xlabel('z_phot')
+    plt.title('color: %s - %s' %(os.path.basename(param.filters[f1].name), os.path.basename(param.filters[f2].name)))
+    
+    hmag = 25-2.5*np.log10(cat.f_F125W)
+    plt.scatter(hmag[ok], color_obs[ok], alpha=0.5)
+    plt.ylim(-1,1)
+    plt.xlim(18,26)
+    plt.ylabel('J2-F125W')
+    plt.xlabel('F125W')
+    
+def template_error(root='cosmos', PATH='OUTPUT/'):
+    
+    #zout = catIO.Readfile('%s/%s.zout' %(PATH, root))
+    
+    param = eazy.EazyParam('%s/%s.param' %(PATH, root))
+    
+    ##### Read template fluxes and coefficients
+    tempfilt, coeffs, temp_seds, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE=root, OUTPUT_DIRECTORY=PATH,CACHE_FILE = 'Same')
+    
+    if coeffs['izbest'].max() == 0:
+        STAR_FIT = True
+    else:
+        STAR_FIT = False
+        
+    param = eazy.EazyParam(PARAM_FILE=os.path.join(PATH, root+'.param'))
+    fnumbers = np.zeros(len(param.filters), dtype=np.int)
+    for i in range(len(fnumbers)):
+        fnumbers[i] = int(param.filters[i].fnumber)
+        
+    zpfile = PATH+'/'+root+'.zeropoint'
+    if os.path.exists(zpfile):
+        zpfilts, zpf_file = np.loadtxt(zpfile, unpack=True, dtype=np.str)                                    
+        zpf = np.ones(tempfilt['NFILT'])
+        for i in range(len(zpfilts)):
+            match = fnumbers == int(zpfilts[i][1:])
+            zpf[match] = np.float(zpf_file[i])
+    else:
+        zpf = np.ones(tempfilt['NFILT'])
+        
+    zpfactors = np.dot(zpf.reshape(tempfilt['NFILT'],1), np.ones(tempfilt['NOBJ']).reshape(1,tempfilt['NOBJ']))
+    
+    tempfilt['fnu'] *= zpfactors
+    tempfilt['efnu'] *= zpfactors
+    
+    obs_sed = np.zeros((tempfilt['NFILT'], tempfilt['NOBJ']), dtype=np.float)
+    for i in xrange(tempfilt['NOBJ']):
+        obs_sed[:,i] = np.dot(tempfilt['tempfilt'][:,:,coeffs['izbest'][i]], coeffs['coeffs'][:,i])
+    
+    zi = tempfilt['zgrid'][coeffs['izbest']]
+    lc = tempfilt['lc']
+    offsets = lc*0.
+    
+    residual = (obs_sed-tempfilt['fnu'])/tempfilt['fnu']
+    observed_error = tempfilt['efnu']
+        
+    hr = (-11,-1)
+    plt.hist(np.log(residual.flatten()**2), range=hr, bins=100, alpha=0.4, color='blue', histtype='step')
+
+    deviates = np.random.normal(size=residual.shape) #*tempfilt['efnu']/tempfilt['fnu']
+
+    in_err = tempfilt['efnu']/tempfilt['fnu']
+    plt.hist(np.log((deviates*in_err).flatten()**2), range=hr, bins=100, alpha=0.4, color='red', histtype='step')
+    
+    te = eazy.TemplateError()
+    lc_rest = np.dot(lc.reshape((-1,1)), 1/(1+zi.reshape((1,-1))))
+    terr = te.interpolate(lc_rest.flatten(), tempfilt['fnu'].flatten()*0.).reshape(lc_rest.shape)
+    
+    grow_err = deviates**2*(in_err**2+(terr/2)**2)
+    yh_te_hist, xh = np.histogram(np.log(grow_err.flatten()), range=hr, bins=100)
+    plt.plot(xh[1:], yh_te_hist, alpha=0.8, color='green')
+    
+    from astroML.sum_of_norms import sum_of_norms, norm
+    ok = (te.te_x > 800) & (te.te_x < 8.e4)
+    w_best, rms, locs, widths = sum_of_norms(np.log(te.te_x)[ok], te.te_y[ok]*0.5, 15, spacing='linear', full_output=True)
+    norms = w_best * norm(np.log(te.te_x)[:, None], locs, widths)
+    plt.plot(te.te_x, te.te_y*0.5, color='black')
+    plt.plot(te.te_x, norms, color='red', alpha=0.1)
+    plt.plot(te.te_x, norms.sum(1), color='red')
+    
+    signoise = tempfilt['fnu']/np.sqrt(tempfilt['efnu']**2+(0.01*tempfilt['fnu'])**2)
+    
+    ##### Run a chain
+    init = w_best #*0.+0.01
+    step_sig = w_best*0.+0.01
+    init[0], step_sig[0] = 0.01, 0.001
+    
+    hist = ((-11,-1), 100)
+    ok = (lc_rest > 500) & (lc_rest < 8.e4)
+    residual_hist, xh = np.histogram(np.log(residual[ok]**2), range=hist[0], bins=hist[1])
+    
+    obj_fun = unicorn.zp._objective_template_error
+    obj_args = [residual_hist, deviates[ok].flatten(), in_err[ok].flatten(), lc_rest[ok].flatten(), np.log(te.te_x), locs, widths, hist, None]
+
+    obj_fun = unicorn.zp._objective_template_error_chi2
+    obj_args = [residual[ok].flatten(), in_err[ok].flatten(), lc_rest[ok].flatten(), np.log(te.te_x), locs, widths, hist, None]
+    
+    # residual_hist_0, deviates_0, in_err_0, lc_rest_0, nx, nloc, nwid, hist, axes = obj_args
+    ndim, nwalkers = len(init), 80
+    p0 = [(init+np.random.normal(size=ndim)*step_sig) 
+          for i in xrange(nwalkers)]
+    #
+    # plt.plot(xh[1:], residual_hist, color='black')
+    # for i in xrange(nwalkers):
+    #     obj_fun(p0[i], *obj_args)
+        
+    NTHREADS, NSTEP = 1, 200
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, obj_fun, args = obj_args, 
+                                    threads=NTHREADS)
+    
+    result = sampler.run_mcmc(p0, NSTEP)
+    
+    te0 = (w_best * norm(np.log(te.te_x)[:, None], locs, widths)).sum(1)
+    plt.plot(te.te_x, te0, color='black', linewidth=2)
+    te0 = (init * norm(np.log(te.te_x)[:, None], locs, widths)).sum(1)
+    plt.plot(te.te_x, te0, color='red', linewidth=2)
+
+    for i in range(nwalkers):
+        te_i = (sampler.chain[i,NSTEP-1,:]* norm(np.log(te.te_x)[:, None], locs, widths)).sum(1)
+        #te_i = (p0[i]* norm(np.log(te.te_x)[:, None], locs, widths)).sum(1)
+        plt.plot(te.te_x, te_i, color='purple', alpha=0.05)
+    
+    chain = sampler.chain[:,-40:,:].reshape((-1,15))
+    #chain[:,-2:] = 0.08
+    mean = np.dot(chain, norm(np.log(te.te_x)[:, None], locs, widths).T)
+    plt.plot(te.te_x, mean.sum(0)/2000., color='purple', alpha=0.5, linewidth=2)
+    best = mean.sum(0)/2000.
+    ### IR peak
+    best[te.te_x > te.te_x[np.argmax(best)]] = best.max()
+    ### Lyman-break
+    xuv, suv = 1500, 300.
+    scl = np.exp(-(te.te_x-xuv)**2/2./suv**2)
+    best[te.te_x <= xuv] = scl[te.te_x <= xuv]*best[te.te_x >= xuv][0]
+    
+    plt.plot(te.te_x, best, color='orange', linewidth=2)
+    
+    np.savetxt('templates/TEMPLATE_ERROR.calibrated.vX', np.array([te.te_x, best]).T, fmt='%.6e %.4f')
+    #np.savetxt('templates/TEMPLATE_ERROR.calibrated.vX', np.array([te.te_x, te0]).T, fmt='%.6e %.4f')
+    
+    #### Show distributions
+    obj_args = [residual_hist, deviates[ok].flatten(), in_err[ok].flatten(), lc_rest[ok].flatten(), np.log(te.te_x), locs, widths, ((-11,-1), 100), plt]
+    
+    plt.plot(xh[1:], residual_hist, color='black', linewidth=2)
+    plt.plot(xh[1:], yh_te_hist, color='green')
+    for i in xrange(nwalkers):
+        obj_fun(sampler.chain[i,-1,:], *obj_args)
+    
+    #median = np.median(chain, axis=0)*norm(np.log(te.te_x)[:, None], locs, widths))
+    #plt.plot(te.te_x, median.sum(1), color='red', alpha=0.5, linewidth=2)
+    
+ITER = 1
+
+def _objective_template_error_chi2(params, residuals_0, in_err_0, lc_rest_0, nx, nloc, nwid, hist, axes):
+    """
+    Objective function for fitting the distribution of fit residuals
+    """
+    from astroML.sum_of_norms import norm
+    import unicorn.zp
+    import scipy.stats
+    
+    #template_error = np.clip(params*norm(nx[:, None], nloc, nwid)).sum(1),0,1)
+    template_error = (params*norm(nx[:, None], nloc, nwid)).sum(1)
+    
+    te_interp = np.interp(lc_rest_0, np.exp(nx), template_error)
+    err = (in_err_0**2+te_interp**2)
+    lnprob = scipy.stats.chi2.logpdf(np.sum(residuals_0**2/err), err.size-1)#-1e8*(template_error.min() < 0)
+    #yh, xh = np.histogram(np.log(err), range=hist[0], bins=hist[1])
+    #yh2, xh2 = np.histogram(np.log(residual**2), range=hist[0], bins=hist[1])
+    
+    # lnprob = -0.5*np.sum((residual_hist_0-yh)**2/residual_hist_0)
+    # 
+    # if axes is not None:
+    #     axes.plot(xh[1:], yh, color='red', alpha=0.1)
+    
+    unicorn.zp.ITER += 1
+    print '%10d %d' %(lnprob, unicorn.zp.ITER)
+    
+    return lnprob
+        
+def _objective_template_error(params, residual_hist_0, deviates_0, in_err_0, lc_rest_0, nx, nloc, nwid, hist, axes):
+    """
+    Objective function for fitting the distribution of fit residuals
+    """
+    from astroML.sum_of_norms import norm
+    import unicorn.zp
+    
+    template_error = (params*norm(nx[:, None], nloc, nwid)).sum(1)
+    te_interp = np.interp(lc_rest_0, np.exp(nx), template_error)
+    err = deviates_0**2*(in_err_0**2+te_interp**2)
+    yh, xh = np.histogram(np.log(err), range=hist[0], bins=hist[1])
+    #yh2, xh2 = np.histogram(np.log(residual**2), range=hist[0], bins=hist[1])
+    
+    lnprob = -0.5*np.sum((residual_hist_0-yh)**2/residual_hist_0)
+    
+    if axes is not None:
+        axes.plot(xh[1:], yh, color='red', alpha=0.1)
+    
+    unicorn.zp.ITER += 1
+    print lnprob, unicorn.zp.ITER
+    
+    return lnprob
+        

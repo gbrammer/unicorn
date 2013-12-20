@@ -1039,7 +1039,7 @@ class UDF():
         
         #print 'DX: ', dx
         im = self.twod[iref].im
-        dx = self.dxls[iref]
+        dx = self.dx[iref]
         
         self.wave = nd.shift(im['WAVE'].data, dx)[:NX]
         ### Fix case when you have zeros in the wavelength grid after shifting

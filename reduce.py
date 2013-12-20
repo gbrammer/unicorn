@@ -645,6 +645,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # xc_full = 244.13
     # yc_full = 1244.323
     
+    #### Coordinates in FLTL frame
     xc = np.int(np.round((xc_full - pad/2)/growx))
     yc = np.int(np.round((yc_full - pad/2)/growy))
     
@@ -706,8 +707,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     yi -= NY
     xarr, xpix, yarr = np.arange(xma-xmi)+xmi, np.arange(xma-xmi), np.arange(NY*2+1)-NY
     
+    #
     # This wasn't needed and was giving dz/1+z = +0.0035 offset w.r.t spec-zs! 
-    # xarr += 1
+    ### Still have offset, adding it back in gets wave/flux standards right
+    ### with grow=1
+    #xarr += 1
+    #xarr += growx
     
     for ib, beam in enumerate(BEAMS):
         #print beam
@@ -731,8 +736,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / growx
         
         #### Improve alignment of zeroth order
-        if (beam == 'B') & (grism == 'G141'):
-            dldp_0+=1500
+        #if (beam == 'B') & (grism == 'G141'):
+        #    dldp_0+=1500
             
         # if beam == 'Bx':
         #     #dydx_1 = 0.0
@@ -749,6 +754,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         #### Wavelength
         lam = dldp_0 + dldp_1*(xarr-xoff_beam)
+
+        ### Still have offset for 0th order
+        if beam == 'B':
+            lam = dldp_0 + dldp_1*(xarr+growx-xoff_beam)
+            
         #if beam == 'A':
         #    print lam.min(), lam.max()
             
@@ -767,7 +777,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         if 'DYDX_'+beam+'_2' in conf.keys():
             dydx_2 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_2']) / growx**2
-            ycenter = dydx_0 + dydx_1*(xarr-xoff_beam) + dydx_1*(xarr-xoff_beam)**2
+            ycenter = dydx_0 + dydx_1*(xarr-xoff_beam) + dydx_2*(xarr-xoff_beam)**2
         
         ### Vertical offsets of the G800L beams
         if grism == 'G800L':
@@ -1053,7 +1063,10 @@ def get_all_emission_lines(field='GOODS-N', force=True, skip=True):
     os.chdir(PWD)
            
 class Interlace2D():
-    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2):
+    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2, ngrow=0):
+        """
+        Get 'NGROW' from the header if it exists, or use parameter.
+        """
         self.id = int(file.split('.2D')[0].split('_')[-1])
         self.file = file
         self.im = pyfits.open(file)
@@ -1086,6 +1099,12 @@ class Interlace2D():
         except:
             self.growx = 2
             self.growy = 2
+        
+        if 'NGROW' in self.im[0].header.keys():
+            self.ngrow = self.im[0].header['NGROW']
+        else:
+            self.ngrow = ngrow
+            
         #
         #### XXX need to get the zeropoint for arbitrary filter
         self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
@@ -1099,7 +1118,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx = self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx = self.growx, growy=self.growy, pad=self.pad+self.ngrow*2, grism=self.grism_element)
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -1191,7 +1210,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad+self.ngrow*2, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma)
         
         #print orders.shape
         
@@ -1806,7 +1825,7 @@ class GrismModel():
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent            
         t0 = time.time()
-        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad+self.ngrow*2, grism=self.grism_element)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -2148,7 +2167,7 @@ class GrismModel():
          use that size explicitly rather than just setting a minimum.
          
         `CONTAMINATING_MAGLIMIT` is the limit for computing contaminating
-        objets.
+        objects.
         
         `USE_REFERENCE_THUMB`: Use the reference image rather than the 
         nominal F140W image for the 2D thumbnail.
@@ -2160,8 +2179,8 @@ class GrismModel():
         unicorn.reduce.set_grism_config(grism=self.grism_element)            
         #
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
-        xc = np.int(np.round(self.cat.x_pix[ii]))#-1
-        yc = np.int(np.round(self.cat.y_pix[ii]))#-1
+        xc = np.int(np.round(self.cat.x_pix[ii]))-1
+        yc = np.int(np.round(self.cat.y_pix[ii]))-1
         
         #count=0; print 'HERE%d' %(count)
         
@@ -2212,6 +2231,7 @@ class GrismModel():
         prim.header.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
         prim.header.update('FTOTAL', self.total_fluxes[id], comment='Total flux within segmentation image (1E-17)')
         prim.header.update('PAD', self.pad, comment='Padding at edge of interlaced image')
+        prim.header.update('NGROW', self.ngrow, comment='Additional extra pixels at the image edges')
         prim.header.update('GROW', self.grow_factor, comment='"grow_factor" from unicorn.reduce')
         prim.header.update('GROWX', self.growx, comment='"growx" from unicorn.reduce')
         prim.header.update('GROWY', self.growy, comment='"growy" from unicorn.reduce')
@@ -2352,7 +2372,7 @@ class GrismModel():
         header.update('CUNIT2','arcsec')
         header.update('CTYPE2','CRDIST')
         
-        header.update('YTOFF',spec_y_offset,comment='Offset of middle of spectrum trace')
+        header.update('YTOFF', spec_y_offset, comment='Offset of middle of spectrum trace')
         
         self.grism_sci = self.gris[1].data[yc_spec-NT/2:yc_spec+NT/2, xmin:xmax]
         
@@ -2918,8 +2938,11 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_N[inter_N == 0] = 1
     
     #### Write interlaced sci/wht image
-    header.update('NGROW', NGROW, comment='Number of pixels added to X-axis (centered)')        
-    header.update('PAD', pad, comment='Additional padding around the edges') 
+    #header.update('NGROW', NGROW, comment='Number of pixels added to X-axis (centered)')        
+    #header.update('PAD', pad, comment='Additional padding around the edges') 
+    
+    header.update('PAD', pad, comment='Padding at edge of interlaced image')
+    header.update('NGROW', NGROW, comment='Additional extra pixels at the image edges')
     
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=inter_sci/inter_N, header=header)
@@ -3834,6 +3857,27 @@ def model_kluge(inter_grism='GOODS-S-34-G141_inter.fits', xshift=1):
     
     #ds9.view(g141[1].data-model[0].data)
     
+def check_stars(pointing='GOODS-S-34'):
+    os.chdir('/Users/brammer/3DHST/Spectra/Work/GOODS-S/PREP-FLT')
+    
+    model = unicorn.reduce.GrismModel(pointing)
+    
+    plt.scatter(model.cat['MAG_AUTO'], model.cat['FLUX_RADIUS'], alpha=0.5)
+    
+    stars = (model.cat['FLUX_RADIUS'] < 4) & (model.cat['MAG_AUTO'] < 23)
+    for id in model.cat['NUMBER'][stars]:
+        model.twod_spectrum(id, miny=-23)
+        model.show_2d(savePNG=True)
+        
+    for id in model.cat['NUMBER'][stars]:
+        twod = unicorn.reduce.Interlace2D('%s_%05d.2D.fits' %(pointing, id))
+        wave, flux = twod.optimal_extract(twod.im['SCI'].data-twod.im['CONTAM'].data)
+        sens = twod.im['SENS'].data
+        plt.plot(wave, np.roll(flux, 0)/sens, color='black')
+        plt.plot(wave, np.roll(flux, 2)/sens, color='blue')
+        plt.plot(wave, np.roll(flux, 4)/sens, color='red')
+        plt.plot(wave, np.roll(flux, -2)/sens, color='green')
+        
 def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     """ 
     Use the model generator to make a full model of all objects in a pointing down to 

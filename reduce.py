@@ -848,8 +848,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #    sens_interp *= 0.5
         
         #### Increase response in the zeroth order to match observations
-        if (beam == 'B') & (grism == 'G141'):
-            sens_interp *= 1.5 #3.6 * 10
+        # if (beam == 'B') & (grism == 'G141'):
+        #     sens_interp *= 1.5 #3.6 * 10
+        #
+        if (beam == 'B') & (grism == 'G102'):
+            sens_interp *= 0.9 #3.6 * 10
         
         # if beam in ['C','D','E']:
         #     sens_interp *= 0.25
@@ -1948,7 +1951,7 @@ class GrismModel():
         if self.grism_element == 'G141':
             keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
         else:
-            keep = (wave > 0.8e4) & (wave < 1.10e4) & (ratio_extract != 0)
+            keep = (wave > 0.78e4) & (wave < 1.14e4) & (ratio_extract != 0)
         
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
@@ -3296,17 +3299,54 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 if os.path.exists('align_blot.fits'):
                     os.remove('align_blot.fits')
                 
-                status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = 'align_blot.fits', 
-                   outnx = 1014, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
-                   coeffs = run.flt[idx]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
-                   align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
-                   rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
-                   refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
-                   decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1'], 
-                   yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
-                   dr2gpar = '', expkey = 'exptime', expout = 'input', 
-                   in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+                iraf.wblot.setParam('data', REF_ROOT+'_ref.fits')
+                iraf.wblot.setParam('outdata', 'align_blot.fits')
+                iraf.wblot.setParam('outnx', 1014)
+                iraf.wblot.setParam('outny', 1014)
+                iraf.wblot.setParam('geomode', 'user')
+                iraf.wblot.setParam('interpol', 'poly5')
+                iraf.wblot.setParam('sinscl', 1.0)
+                iraf.wblot.setParam('coeffs', run.flt[idx]+'_coeffs1.dat')
+                iraf.wblot.setParam('lambda', 555.)
+                iraf.wblot.setParam('xgeoim', '')
+                iraf.wblot.setParam('ygeoim', '')
+                iraf.wblot.setParam('align', 'center')
+                iraf.wblot.setParam('scale', float(run.scl))
+                iraf.wblot.setParam('xsh', run.xsh[idx]+xoff)
+                iraf.wblot.setParam('ysh', run.ysh[idx]+yoff)
+                iraf.wblot.setParam('rot', run.rot[idx]+roff)
+                iraf.wblot.setParam('shft_un', 'input')
+                iraf.wblot.setParam('shft_fr', 'input')
+                iraf.wblot.setParam('refimage', '')
+                iraf.wblot.setParam('outscl', 0.128254)
+                iraf.wblot.setParam('raref', im_flt[1].header['CRVAL1'])
+                iraf.wblot.setParam('decref', im_flt[1].header['CRVAL2'])
+                iraf.wblot.setParam('xrefpix', im_flt[1].header['CRPIX1'])
+                iraf.wblot.setParam('yrefpix', im_flt[1].header['CRPIX2'])
+                iraf.wblot.setParam('orient', im_flt[1].header['ORIENTAT'])
+                iraf.wblot.setParam('dr2gpar', '')
+                iraf.wblot.setParam('expkey', 'exptime')
+                iraf.wblot.setParam('expout', 'input')
+                iraf.wblot.setParam('in_un', 'cps')
+                iraf.wblot.setParam('out_un', 'cps')
+                iraf.wblot.setParam('fillval', 0.0)
+                iraf.wblot.setParam('mode', 'al')
 
+                iraf.wblot.setParam('mode', 'h')
+                iraf.wblot()
+                
+                # status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = 'align_blot.fits', 
+                #    outnx = 1014, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+                #    coeffs = run.flt[idx]+'_coeffs1.dat', xgeoim = '', ygeoim = '', 
+                #    align = 'center', scale = float(run.scl), xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+                #    rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
+                #    refimage = '', outscl = 0.128254, raref = im_flt[1].header['CRVAL1'], 
+                #    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1'], 
+                #    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+                #    dr2gpar = '', expkey = 'exptime', expout = 'input', 
+                #    in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=0)
+                # print status
+                
                 # import drizzlepac
                 # from drizzlepac import astrodrizzle
                 # import stwcs
@@ -3354,16 +3394,52 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
             os.remove(FLT.replace('_flt','_blot'))
         
         threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = FLT.replace('_flt','_blot'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
-           coeffs = tmpname+'_coeffs.dat', xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
-           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
-           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
-           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
-           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
-           dr2gpar = '', expkey = 'exptime', expout = 'input', 
-           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        # status = iraf.wblot( data = REF_ROOT+'_ref.fits', outdata = FLT.replace('_flt','_blot'), 
+        #    outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'poly5', sinscl = 1.0, 
+        #    coeffs = tmpname+'_coeffs.dat', xgeoim = '', ygeoim = '', 
+        #    align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+        #    rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
+        #    refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+        #    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+        #    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+        #    dr2gpar = '', expkey = 'exptime', expout = 'input', 
+        #    in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+
+        iraf.wblot.setParam('data', REF_ROOT+'_ref.fits')
+        iraf.wblot.setParam('outdata', FLT.replace('_flt','_blot'))
+        iraf.wblot.setParam('outnx', 1014+2*NGROW)
+        iraf.wblot.setParam('outny', 1014)
+        iraf.wblot.setParam('geomode', 'user')
+        iraf.wblot.setParam('interpol', 'poly5')
+        iraf.wblot.setParam('sinscl', 1.0)
+        iraf.wblot.setParam('coeffs', tmpname+'_coeffs.dat')
+        iraf.wblot.setParam('lambda', 555.)
+        iraf.wblot.setParam('xgeoim', '')
+        iraf.wblot.setParam('ygeoim', '')
+        iraf.wblot.setParam('align', 'center')
+        iraf.wblot.setParam('scale', float(run.scl))
+        iraf.wblot.setParam('xsh', run.xsh[idx]+xoff)
+        iraf.wblot.setParam('ysh', run.ysh[idx]+yoff)
+        iraf.wblot.setParam('rot', run.rot[idx]+roff)
+        iraf.wblot.setParam('shft_un', 'input')
+        iraf.wblot.setParam('shft_fr', 'input')
+        iraf.wblot.setParam('refimage', '')
+        iraf.wblot.setParam('outscl', 0.128254)
+        iraf.wblot.setParam('raref', im_flt[1].header['CRVAL1'])
+        iraf.wblot.setParam('decref', im_flt[1].header['CRVAL2'])
+        iraf.wblot.setParam('xrefpix', im_flt[1].header['CRPIX1']+NGROW)
+        iraf.wblot.setParam('yrefpix', im_flt[1].header['CRPIX2'])
+        iraf.wblot.setParam('orient', im_flt[1].header['ORIENTAT'])
+        iraf.wblot.setParam('dr2gpar', '')
+        iraf.wblot.setParam('expkey', 'exptime')
+        iraf.wblot.setParam('expout', 'input')
+        iraf.wblot.setParam('in_un', 'cps')
+        iraf.wblot.setParam('out_un', 'cps')
+        iraf.wblot.setParam('fillval', 0.0)
+        iraf.wblot.setParam('mode', 'al')
+
+        iraf.wblot.setParam('mode', 'h')
+        iraf.wblot()
 
 
         # import drizzlepac
@@ -3425,17 +3501,53 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         if os.path.exists(FLT.replace('_flt','_seg')):
             os.remove(FLT.replace('_flt','_seg'))
         
-        threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = REF_ROOT+'_seg.fits', outdata = FLT.replace('_flt','_seg'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
-           coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
-           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
-           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
-           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
-           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
-           dr2gpar = '', expkey = 'exptime', expout = 'input', 
-           in_un = 'counts', out_un = 'counts', fillval = 0.0, mode = 'al', Stdout=1)
+        # threedhst.process_grism.flprMulti()
+        # status = iraf.wblot( data = REF_ROOT+'_seg.fits', outdata = FLT.replace('_flt','_seg'), 
+        #    outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
+        #    coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
+        #    align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+        #    rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
+        #    refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+        #    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+        #    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+        #    dr2gpar = '', expkey = 'exptime', expout = 'input', 
+        #    in_un = 'counts', out_un = 'counts', fillval = 0.0, mode = 'al', Stdout=1)
+        
+        iraf.wblot.setParam('data', REF_ROOT+'_seg.fits')
+        iraf.wblot.setParam('outdata', FLT.replace('_flt','_seg'))
+        iraf.wblot.setParam('outnx', 1014+2*NGROW)
+        iraf.wblot.setParam('outny', 1014)
+        iraf.wblot.setParam('geomode', 'user')
+        iraf.wblot.setParam('interpol', 'nearest')
+        iraf.wblot.setParam('sinscl', 1.0)
+        iraf.wblot.setParam('coeffs', tmpname+'_coeffs.dat')
+        iraf.wblot.setParam('lambda', 1392.)
+        iraf.wblot.setParam('xgeoim', '')
+        iraf.wblot.setParam('ygeoim', '')
+        iraf.wblot.setParam('align', 'center')
+        iraf.wblot.setParam('scale', float(run.scl))
+        iraf.wblot.setParam('xsh', run.xsh[idx]+xoff)
+        iraf.wblot.setParam('ysh', run.ysh[idx]+yoff)
+        iraf.wblot.setParam('rot', run.rot[idx]+roff)
+        iraf.wblot.setParam('shft_un', 'input')
+        iraf.wblot.setParam('shft_fr', 'input')
+        iraf.wblot.setParam('refimage', '')
+        iraf.wblot.setParam('outscl', 0.128254)
+        iraf.wblot.setParam('raref', im_flt[1].header['CRVAL1'])
+        iraf.wblot.setParam('decref', im_flt[1].header['CRVAL2'])
+        iraf.wblot.setParam('xrefpix', im_flt[1].header['CRPIX1']+NGROW)
+        iraf.wblot.setParam('yrefpix', im_flt[1].header['CRPIX2'])
+        iraf.wblot.setParam('orient', im_flt[1].header['ORIENTAT'])
+        iraf.wblot.setParam('dr2gpar', '')
+        iraf.wblot.setParam('expkey', 'exptime')
+        iraf.wblot.setParam('expout', 'input')
+        iraf.wblot.setParam('in_un', 'cps')
+        iraf.wblot.setParam('out_un', 'cps')
+        iraf.wblot.setParam('fillval', 0.0)
+        iraf.wblot.setParam('mode', 'al')
+
+        iraf.wblot.setParam('mode', 'h')
+        iraf.wblot()
         
         #print status
         
@@ -3451,16 +3563,52 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
             os.remove(FLT.replace('_flt','_ones'))
         
         threedhst.process_grism.flprMulti()
-        status = iraf.wblot( data = REF_ROOT+'_ones.fits', outdata = FLT.replace('_flt','_ones'), 
-           outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
-           coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
-           align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
-           rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
-           refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
-           decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
-           yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
-           dr2gpar = '', expkey = 'exptime', expout = 'input', 
-           in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+        # status = iraf.wblot( data = REF_ROOT+'_ones.fits', outdata = FLT.replace('_flt','_ones'), 
+        #    outnx = 1014+2*NGROW, outny = 1014, geomode = 'user', interpol = 'nearest', sinscl = 1.0, 
+        #    coeffs = tmpname+'_coeffs.dat', lambd = 1392.0, xgeoim = '', ygeoim = '', 
+        #    align = 'center', scale = run.scl, xsh = run.xsh[idx]+xoff, ysh = run.ysh[idx]+yoff, 
+        #    rot = run.rot[idx]+roff, shft_un = 'input', shft_fr = 'input', 
+        #    refimage = '', outscl = 0.128, raref = im_flt[1].header['CRVAL1'], 
+        #    decref = im_flt[1].header['CRVAL2'], xrefpix = im_flt[1].header['CRPIX1']+NGROW, 
+        #    yrefpix = im_flt[1].header['CRPIX2'], orient = im_flt[1].header['ORIENTAT'], 
+        #    dr2gpar = '', expkey = 'exptime', expout = 'input', 
+        #    in_un = 'cps', out_un = 'cps', fillval = 0.0, mode = 'al', Stdout=1)
+
+        iraf.wblot.setParam('data', REF_ROOT+'_ones.fits')
+        iraf.wblot.setParam('outdata', FLT.replace('_flt','_ones'))
+        iraf.wblot.setParam('outnx', 1014+2*NGROW)
+        iraf.wblot.setParam('outny', 1014)
+        iraf.wblot.setParam('geomode', 'user')
+        iraf.wblot.setParam('interpol', 'nearest')
+        iraf.wblot.setParam('sinscl', 1.0)
+        iraf.wblot.setParam('coeffs', tmpname+'_coeffs.dat')
+        iraf.wblot.setParam('lambda', 1392.)
+        iraf.wblot.setParam('xgeoim', '')
+        iraf.wblot.setParam('ygeoim', '')
+        iraf.wblot.setParam('align', 'center')
+        iraf.wblot.setParam('scale', float(run.scl))
+        iraf.wblot.setParam('xsh', run.xsh[idx]+xoff)
+        iraf.wblot.setParam('ysh', run.ysh[idx]+yoff)
+        iraf.wblot.setParam('rot', run.rot[idx]+roff)
+        iraf.wblot.setParam('shft_un', 'input')
+        iraf.wblot.setParam('shft_fr', 'input')
+        iraf.wblot.setParam('refimage', '')
+        iraf.wblot.setParam('outscl', 0.128254)
+        iraf.wblot.setParam('raref', im_flt[1].header['CRVAL1'])
+        iraf.wblot.setParam('decref', im_flt[1].header['CRVAL2'])
+        iraf.wblot.setParam('xrefpix', im_flt[1].header['CRPIX1']+NGROW)
+        iraf.wblot.setParam('yrefpix', im_flt[1].header['CRPIX2'])
+        iraf.wblot.setParam('orient', im_flt[1].header['ORIENTAT'])
+        iraf.wblot.setParam('dr2gpar', '')
+        iraf.wblot.setParam('expkey', 'exptime')
+        iraf.wblot.setParam('expout', 'input')
+        iraf.wblot.setParam('in_un', 'cps')
+        iraf.wblot.setParam('out_un', 'cps')
+        iraf.wblot.setParam('fillval', 0.0)
+        iraf.wblot.setParam('mode', 'al')
+
+        iraf.wblot.setParam('mode', 'h')
+        iraf.wblot()
         
         # seg = pyfits.open(REF_ROOT+'_ones.fits')
         # blotted = astrodrizzle.ablot.do_blot(seg[0].data, ref_wcs, flt_wcs, im_flt[0].header['EXPTIME'], coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)/im_flt[0].header['EXPTIME']

@@ -2852,3 +2852,48 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     im = im.resize(shape)
     im.save(filename)
     
+def logRGB(imr, img, imb, lexp=0.8e4, cmap=[1.39165, 0.628952], zs=[-0.01, 2], scale=[1.4,1.,0.3], shape=None, filename=None):
+    """
+    Default colors for pixel-matched F140W / F814W / F435W
+    """
+    import Image
+    
+    # imgr = pyfits.open('../hlsp_clash_hst_wfc3ir_macs0717_f140w_v1_drz.fits')
+    # imgg = pyfits.open('../hlsp_clash_hst_acs_macs0717_f814w_v1_drz.fits')
+    # imgb = pyfits.open('../hlsp_clash_hst_acs_macs0717_f435w_v1_drz.fits')
+    # 
+    # imr = imgr[0].data[2000:2900, 2000:2900]
+    # img = imgg[0].data[2000:2900, 2000:2900]
+    # imb = imgb[0].data[2000:2900, 2000:2900]
+
+    # zs = [-0.01,2]
+    # lexp = 0.8e4
+    # cmap=[1.39165, 0.628952]
+    # scale = [1,1,1]
+    # 
+    # scale = [1.4,1.,0.3]
+    
+    contrast, bias = cmap
+    
+    clipped = []
+    ims = [imr, img, imb]
+    for i in range(3):
+        scl = np.array(zs)*scale[i]
+        clip = (np.clip(ims[i], scl[0], scl[1])-scl[0])/(scl[1]-scl[0])
+        clip_log = np.clip((np.log10(lexp*clip+1)/np.log10(lexp)-bias)*contrast+0.5, 0, 1)
+        clipped.append(clip_log)
+    #
+    im = Image.merge('RGB', (Image.fromarray((clipped[0][::-1,:]*255).astype('int8'), mode='L'), Image.fromarray((clipped[1][::-1,:]*255).astype('int8'), mode='L'), Image.fromarray((clipped[2][::-1,:]*255).astype('int8'), mode='L')))
+    
+    if shape is None:
+        shape = imr.shape
+    #
+    im = im.resize(shape)
+    
+    if filename is None:
+        filename='test.png'
+    
+    im.save(filename)
+    
+    return im
+    

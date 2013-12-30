@@ -625,7 +625,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False):
     """
     Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
@@ -645,6 +645,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # xc_full = 244.13
     # yc_full = 1244.323
     
+    if zeroth_position:
+        BEAMS = ['B']
+        
     #### Coordinates in FLTL frame
     xc = np.int(np.round((xc_full - pad/2)/growx))
     yc = np.int(np.round((yc_full - pad/2)/growy))
@@ -784,6 +787,14 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             off = {'A':-1, 'B':0, 'C':-3, 'D':-3, 'E':-2, 'F':-1}
             if BEAM in off.keys():
                 ycenter += off[BEAM]
+        
+        #### Get offset to zeroth order only
+        if zeroth_position:
+            lam_ref = grism_wlimit[grism][3]
+            #print xoff_beam, lam_ref
+            dx = np.interp(lam_ref, lam, xarr)
+            dy = np.interp(dx, xarr, ycenter)
+            return dx, dy
             
         stripe = model*0
         y0 = np.cast[int](np.floor(ycenter))
@@ -1525,7 +1536,7 @@ class GrismModel():
         
         # if os.path.exists('%s_inter.cat.wcsfix' %(self.root)):
         #     self.get_corrected_wcs()
-            
+        
     def read_files(self):
         """
         Read FITS files, catalogs, and segmentation images for a pair of 
@@ -2676,7 +2687,28 @@ class GrismModel():
             if verbose:
                 print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
             spec = unicorn.reduce.Interlace1D(self.root+'_%05d.1D.fits' %(id), PNG=True)
-                
+        
+    def make_zeroth_regions(self, MAG_LIMIT=22, id_label=False):
+            """ 
+            Make a regions file for just the zeroth orders
+            """
+            fp = open(self.root+'_inter_0th.reg','w')
+            fp.write('image\n')
+            N = len(self.cat.x_pix)
+            for i in range(N):
+                if self.cat.mag[i] < MAG_LIMIT:
+                    dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad+self.ngrow*2, grism=self.grism_element)
+                    a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
+                    theta = self.cat['THETA_IMAGE'][i]
+                    region = "circle(%s, %s, %.2f)"  %(self.cat.x_pix[i]+dx, self.cat.y_pix[i]+dy, np.sqrt(a**2+b**2))
+                    if id_label:
+                        region += '# text={%d}' %(self.cat['NUMBER'][i])
+                    #
+                    fp.write(region+'\n')
+            #
+            fp.close()
+            
+                    
 def field_dependent(xi, yi, str_coeffs):
     """ 
     Calculate field-dependent parameter for aXe conventions.

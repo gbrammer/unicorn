@@ -552,6 +552,24 @@ def cdfs_agn1_prep():
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')  
         
+def hudf12_prep():
+
+    import unicorn.candels
+    import glob
+    
+    unicorn.candels.make_asn_files()
+    
+    ALIGN_IMAGE = '/Volumes/robot/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f160w-astrodrizzle-v0.1_drz_sci.fits'
+    
+    for filter,order in zip(['F140W','F160W'],[2,1]):
+        files=glob.glob('HUDF-DEEP-WFC3-*-*-'+filter+'_asn.fits')
+        for file in files:
+            if not os.path.exists(file.replace('asn','drz')):
+                unicorn.candels.prep_candels(asn_file=file, 
+                    ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
+                    GET_SHIFT=True, DIRECT_HIGHER_ORDER=order,
+                    SCALE=0.06, geometry='rotate,shift')  
+
 def hudf_prep():
     
     import unicorn.candels

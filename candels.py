@@ -1338,7 +1338,7 @@ def goodsn():
     
     pyfits.writeto('star.fits', data=im, clobber=True)
         
-def make_asn_files(force=False, make_region=False):
+def make_asn_files(force=False, make_region=False, uniquename=True):
     """
     Read a files.info file and make ASN files for each visit/filter[/date].
     """
@@ -1354,7 +1354,11 @@ def make_asn_files(force=False, make_region=False):
         angle = list.pa_v3[visits == visit][0]
         for target in np.unique(list.targname[visits == visit]):
             for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
-                product='%s-%s-%03d-%s' %(target, visit, int(angle), filter)
+                if uniquename:
+                    product='%s-%s-%03d-%s' %(target, visit, int(angle), filter)
+                else:
+                    product='%s-%s' %(target, filter)             
+                #       
                 use = (list.targname == target) & (list.filter == filter) & (visits == visit)
                 print product, use.sum()
                 if (os.path.exists('%s_asn.fits' %(product))) & (not force):

@@ -407,6 +407,14 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     if root.startswith('EGS1'):
         auto_offsets=True
     
+    if 'GDN' in root:
+        if 'G1' in root:
+            dxs = np.array([   0, -150,  -13,    7])
+            dys = np.array([  0,  -7, -20, -13])
+        else:
+            dxs = np.array([-150, 7])
+            dys = np.array([-7, -12])
+            
     #### Erb quasar sightlines
     if flt[0].header['PROPOSID'] == 12471:
         dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
@@ -1685,7 +1693,13 @@ class GrismModel():
             
         NOBJ = len(self.cat.id)
         
-        asn = threedhst.utils.ASNFile(self.root+'-%s_asn.fits' %(self.direct_element))
+        #### fix for different exposure structure of Barro G102 program
+        if 'GDN' in self.root:
+            filter = self.grism_element
+        else:
+            filter = self.direct_element
+            
+        asn = threedhst.utils.ASNFile(self.root+'-%s_asn.fits' %(filter))
         flt = asn.exposures[0]+'_flt.fits'
         fp = open('/tmp/%s.flt_xy' %(self.root),'w')
         for i in range(NOBJ):
@@ -1702,11 +1716,11 @@ class GrismModel():
         ### For some reason this dies occasionally "too many positional arguments for traxy"
         ### Try running a second time if it dies once
         try:
-            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(self.direct_element), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(filter), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
             os.remove("/tmp/%s.flt_xy" %(self.root))
         except:
             threedhst.process_grism.flprMulti()
-            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(self.direct_element), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
+            status = iraf.tran(origimage=flt+'[sci,1]', drizimage=self.root+'-%s_drz.fits[1]' %(filter), direction="forward", x=None, y=None, xylist="/tmp/%s.flt_xy" %(self.root), mode="h", Stdout=1)
             os.remove("/tmp/%s.flt_xy" %(self.root))
             
         self.ra_wcs, self.dec_wcs = np.zeros(NOBJ, dtype=np.double), np.zeros(NOBJ, dtype=np.double)

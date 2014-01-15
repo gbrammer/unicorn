@@ -1355,7 +1355,7 @@ def make_asn_files(force=False, make_region=False, uniquename=True):
         for target in np.unique(list.targname[visits == visit]):
             for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
                 if uniquename:
-                    product='%s-%s-%03d-%s' %(target, visit, int(angle), filter)
+                    product='%s-%s-%03d-%s' %(target, visit.upper(), int(angle), filter)
                 else:
                     product='%s-%s' %(target, filter)             
                 #       

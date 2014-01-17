@@ -3234,11 +3234,17 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
             
     im_ref = pyfits.open(REF_ROOT+'_ref.fits')
     
+    ref_pixscale = np.sqrt(im_ref[0].header['CD1_1']**2+im_ref[0].header['CD1_2']**2)*3600
+    print '\n\nReference pixscale: %.3f\n\n' %(ref_pixscale)
+    
     if not os.path.exists(DRZ_ROOT+'.run'):
         run_multidrizzle=True
     else:
         run = threedhst.prep_flt_files.MultidrizzleRun(DRZ_ROOT)
-        if (run.outnx, run.outny) != (im_ref[0].header['NAXIS1'], im_ref[0].header['NAXIS2']):
+        #### Need multidrizzle ".run" file to tell how to blot the image to the reference
+        #### The line below makes sure the ".run" parameters match the pixel grid of the reference image
+        ####    !!! hard coded for WFC3/IR
+        if ((run.outnx, run.outny) != (im_ref[0].header['NAXIS1'], im_ref[0].header['NAXIS2'])) | (int(ref_pixscale/float(run.scl)*1.e5) != 12825):
             run_multidrizzle=True
     
     if run_multidrizzle:
@@ -3254,8 +3260,8 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         
         ref_wcs = pywcs.WCS(header=im_ref[0].header)
         ra0, dec0 = ref_wcs.wcs_pix2sky([[im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.]],1)[0]
-        
-        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=True)
+                
+        threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=ref_pixscale, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=True)
         
     if verbose:
         threedhst.showMessage('Prepare images for `BLOT`')

@@ -661,6 +661,17 @@ class GrismSpectrumFit():
         
         return True
         
+    def get_redshift_confidence(self, limits=[2.5, 16, 84, 97.5]):
+        """
+        Get confidence intervals interpolated from the full redshift PDF
+        """
+        linear_prob = np.exp(self.full_prob1*1.)
+        linear_prob /= np.trapz(linear_prob, self.zgrid1)
+        linear_prob_cumsum = np.cumsum(linear_prob[1:]*np.diff(self.zgrid1))
+        z0 = (self.zgrid1[:-1]+self.zgrid1[1:])/2.
+        zi = np.interp(np.array(limits)/100., linear_prob_cumsum, z0)
+        return zi
+        
     def get_best_fit(self):
         """
         Get the 2D fit at the redshift of peak probability
@@ -717,7 +728,7 @@ class GrismSpectrumFit():
         wuse = (self.oned.data.wave > 1.15e4) & (self.oned.data.wave < 1.6e4)
         
         if self.grism_element == 'G102':
-            wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
+            wuse = (self.oned.data.wave > 0.84e4) & (self.oned.data.wave < 1.15e4)
         #
         if self.grism_element == 'G800L':
             wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
@@ -742,7 +753,8 @@ class GrismSpectrumFit():
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
         if wuse.sum() > 5:
-            ymax = yflux[wuse].max(); 
+            #ymax = yflux[wuse].max(); 
+            ymax = y[wuse].max()
         else:
             ymax = yflux.max()
             
@@ -781,7 +793,8 @@ class GrismSpectrumFit():
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
         if wuse.sum() > 5:
-            ymax = (yflux/self.oned.data.sensitivity)[wuse].max()
+            ymax = ((yflux-ycont)/self.oned.data.sensitivity)[wuse].max()
+            #ymax = show_flux.max()
         else:
             ymax = (yflux/self.oned.data.sensitivity).max()
             
@@ -961,7 +974,9 @@ class GrismSpectrumFit():
             self.best_fit_nolines_flux = nly #nlx*0.+1
             return True
         
-        NTEMP = 7    
+        #print self.eazy_coeffs['coeffs'].shape
+        
+        NTEMP = self.eazy_coeffs['coeffs'].shape[0]    
         noline_temps = np.zeros((nlx.shape[0], NTEMP))
         noline_temps[:,0] = nly/self.eazy_coeffs['tnorm'][0]
         for i in range(2,7):
@@ -973,6 +988,11 @@ class GrismSpectrumFit():
         lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.1_lines/eazy_v1.1_sed%d.dat' %(i), unpack=True)
         noline_temps[:,6] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][6]
         
+        ### dusty old template
+        if NTEMP == 8:
+            lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/Ezgal/c09_del_8.6_z_0.019_chab_age09.40_av2.0.dat', unpack=True)
+            noline_temps[:,7] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][6]
+            
         #### Add an additional template here, need to make NTEMP=8 above
         # lx, ly = np.loadtxt(xxx path to mattia's new template xxx, unpack=True)
         # noline_temps[:,7] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][7]
@@ -1053,6 +1073,10 @@ class GrismSpectrumFit():
         for i, temp in enumerate(templates):
             self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
             twod_templates[i,:] = self.twod.model.flatten()
+        
+        #
+        amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
+        coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
         
         try:
             amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
@@ -1643,32 +1667,55 @@ class GrismSpectrumFit():
         else:    
             return DIRECT_MAG, Q_Z, F_COVER, F_FLAGGED, MAX_CONTAM, INT_CONTAM, F_NEGATIVE
     
-    def interpolate_direct_thumb(self):
+    def interpolate_direct_thumb(self, smooth_fraction=0.3):
         """
         Interpolate bad pixels in the direct image as they will mess 
         up the interlace model.
-        """
-        from scipy.signal import convolve2d
-        kernel = np.ones((3,3))
-        wht = self.twod.im['DWHT'].data != 0
-        bad = (wht == 0)
-        if wht.sum() < 10:
-            return None
-            
-        npix = convolve2d(wht, kernel, boundary='fill', fillvalue=0, mode='same')
-        sum = convolve2d(self.twod.im['DSCI'].data, kernel, boundary='fill', fillvalue=0, mode='same')
-        sumwht = convolve2d(self.twod.im['DWHT'].data, kernel, boundary='fill', fillvalue=0, mode='same')
-        fill_pix = bad & (npix > 0)
-        self.twod.im['DSCI'].data[fill_pix] = (sum/npix)[fill_pix]*1.
-        self.twod.im['DWHT'].data[fill_pix] = (sumwht/npix)[fill_pix]*1.
         
-        self.twod.thumb = self.twod.im['DSCI'].data*1.
+        If the fraction of negative pixels within the segmentation region is 
+        greater than `smooth_fraction`, smooth the thumbnail with a gaussian
+        
+        """
+        import scipy.ndimage as nd
+        #from scipy.signal import convolve2d
+        #kernel = np.ones((3,3))
+        # wht = self.twod.im['DWHT'].data != 0
+        # bad = (wht == 0) | (self.twod.im['DSCI'].data <= 0)
+        # if wht.sum() < 10:
+        #     return None
+            
+        # npix = convolve2d(wht, kernel, boundary='fill', fillvalue=0, mode='same')
+        # sum = convolve2d(self.twod.im['DSCI'].data, kernel, boundary='fill', fillvalue=0, mode='same')
+        # sumwht = convolve2d(self.twod.im['DWHT'].data, kernel, boundary='fill', fillvalue=0, mode='same')
+        # fill_pix = bad & (npix > 0)
+        # self.twod.im['DSCI'].data[fill_pix] = (sum/npix)[fill_pix]*1.
+        # self.twod.im['DWHT'].data[fill_pix] = (sumwht/npix)[fill_pix]*1.
+        # self.twod.thumb = self.twod.im['DSCI'].data*1.
+        
+        bad = (self.twod.im['DWHT'].data == 0) & (self.twod.im['DSCI'].data <= 0)
+        thumb = self.twod.im['DSCI'].data*1
+        thumb[bad] = 0
+        max_filter = nd.maximum_filter(thumb, (3,3))
+        thumb[bad] = max_filter[bad]
+        
+        thumb[thumb < 0] = 0
+        
+        seg_mask = (self.twod.seg == self.twod.id)
+        neg_pix = self.twod.im['DSCI'].data < 0
+        print seg_mask.sum()*smooth_fraction, (neg_pix & seg_mask).sum()
+        if (seg_mask.sum()*smooth_fraction < (neg_pix & seg_mask).sum()):
+            print 'Smooth direct thumbnail'
+            thumb = nd.gaussian_filter(thumb, (1.4,1.4))
+                    
+        self.twod.thumb = thumb*1
+        self.twod.im['DSCI'].data = thumb*1
+        
         # self.twod.flux = self.twod.thumb * 10**(-0.4*(26.46+48.6))* 3.e18 / 1.3923e4**2 / 1.e-17
         self.twod.flux = self.twod.thumb * 10**(-0.4*(unicorn.reduce.ZPs[self.twod.im[0].header['FILTER']]+48.6))* 3.e18 / unicorn.reduce.PLAMs[self.twod.im[0].header['FILTER']]**2 / 1.e-17
 
-        self.twod.total_flux = np.sum(self.twod.flux*(self.twod.seg == self.twod.id))
+        self.twod.total_flux = np.sum(self.twod.flux*seg_mask)
         self.twod.init_model()
-    
+            
     def show_lnprob(self):
         """
         Show ln probability from photometry and spectra

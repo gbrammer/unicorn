@@ -295,6 +295,17 @@ def refit_specz_objects():
     #zz = zsp.zspec[idx][model.objects == id]
     
 class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
+    """
+    Extension of the `unicorn.interlace_fit.GrismSpectrumFit` class. 
+    
+    Now allows simultaneous fits of spectra + photometry
+    
+    """
+    def __init__(self, *args, **kwargs):
+        unicorn.interlace_fit.GrismSpectrumFit.__init__(self, *args, **kwargs)
+        self.read_master_templates()
+        self.new_load_fits()
+        
     def read_master_templates(self):
         """
         Read the eazy-interpolated continuum + emission line templates
@@ -787,7 +798,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         self.get_redshift_stats()
         
-        print 'Read p(z) from %s.' %(pzfits)
+        print 'Read p(z) from %s: z_max = %.4f [%.3f, %.3f]' %(pzfits, self.z_max_spec, self.c68[0], self.c68[1])
         
         return True
         
@@ -866,7 +877,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.make_new_fit_figure(ignore_photometry=True)
         
         
-    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False, log_pz=True, OUT_ROOT='new_zfit'):
+    def make_new_fit_figure(self, z_show=None, force_refit=True, NO_GUI=True, ignore_photometry=False, ignore_spectrum=False, log_pz=True, OUT_ROOT='new_zfit', background=0):
         
         from scipy import polyval
         
@@ -876,7 +887,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.z_show = z_show
             
         if (self.coeffs is None) | force_refit:
-            self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum)
+            self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum, background=background)
         
         #
         igmz, igm_factor = self.phot.get_IGM(self.z_show, matrix=False)
@@ -901,18 +912,21 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         if self.grism_element == 'G102':
             wuse = (self.oned.data.wave > 0.78e4) & (self.oned.data.wave < 1.15e4)
+        #
+        if self.grism_element == 'G800L':
+            wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         wuse = wuse & np.isfinite(yflux)
-        
+                
         y = yflux-ycont
         #y = yflux_1D
         
         yerr = self.oned.data.error #[show]
-        ax.fill_between(self.oned.data.wave[show]/1.e4, (y+yerr)[show], (y-yerr)[show], color='blue', alpha=0.1)
+        ax.fill_between(self.oned.data.wave[show]/1.e4, (y+yerr-background)[show], (y-yerr-background)[show], color='blue', alpha=0.1)
         
-        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show], color='black', alpha=0.1)
-        ax.plot(self.oned.data.wave[show]/1.e4, (yflux-ycont)[show], color='black')
+        ax.plot(self.oned.data.wave[show]/1.e4, yflux[show]-background, color='black', alpha=0.1)
+        ax.plot(self.oned.data.wave[show]/1.e4, (yflux-ycont)[show]-background, color='black')
         
         ax.plot(self.oned_wave[show]/1.e4, self.best_1D[show], color='red', alpha=0.5, linewidth=2)
         ax.plot(self.oned_wave/1.e4, self.best_1D, color='red', alpha=0.08, linewidth=2)
@@ -924,10 +938,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ymax = yflux.max()
                 
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
+        ax.set_xlim(1.0, 1.73)
+
         if self.grism_element == 'G102':
-            ax.set_xlim(0.7, 1.15)
-        else:
-            ax.set_xlim(1.0, 1.73)
+            ax.set_xlim(0.74, 1.17)
+        #
+        if self.grism_element == 'G800L':
+            ax.set_xlim(0.58, 0.92)
             
         #### Spectrum in f_lambda
         #self.oned.data.sensitivity /= 100
@@ -952,10 +969,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ymax = (yflux/self.oned.data.sensitivity*100).max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
+        ax.set_xlim(1.0, 1.73)
+
         if self.grism_element == 'G102':
-            ax.set_xlim(0.7, 1.15)
-        else:
-            ax.set_xlim(1.0, 1.73)
+            ax.set_xlim(0.74, 1.17)
+        #
+        if self.grism_element == 'G800L':
+            ax.set_xlim(0.58, 0.92)
 
         
         #### p(z)
@@ -1016,9 +1036,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
         if self.grism_element == 'G102':
             keep = (self.oned.data.wave > 0.85) & (self.oned.data.wave < 1.05e4)
+        #
+        if self.grism_element == 'G800L':
+            keep = (self.oned.data.wave > 0.65) & (self.oned.data.wave < 0.85e4)
         
         #flux_spec = (self.oned.data.flux-self.oned.data.contam)/self.oned.data.sensitivity*100
-        flux_spec = yflux_1D/self.oned.sens*100
+        flux_spec = (yflux_1D-background)/self.oned.sens*100
         
         ### factor of 100 to convert from 1.e-17 to 1.e-19 flux units
         #anorm = np.sum(temp_sed_int[keep]*flux_spec[keep])/np.sum(flux_spec[keep]**2)
@@ -1031,7 +1054,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         ax.errorbar(lci, fobs*scale, efobs*scale, color='black', marker='o', ms=7, alpha=0.7, linestyle='None')
        # ax.plot(self.oned.data.wave, flux_spec*anorm/polyval(self.tilt_coeffs, self.oned.data.wave)*s, color='red', alpha=0.3)
-        ax.plot(self.oned.data.wave, flux_spec*anorm/self.tilt_function(self.oned.data.wave), color='red', alpha=0.3)
+        ax.plot(self.oned.data.wave, (flux_spec)*anorm/self.tilt_function(self.oned.data.wave), color='red', alpha=0.3)
         bin = 4
         binned = unicorn.utils_c.interp_conserve(self.oned.data.wave[::4], self.oned.data.wave, flux_spec)
         ax.plot(self.oned.data.wave[::4], binned/self.tilt_function(self.oned.data.wave[::4]), color='red', alpha=0.7)
@@ -1064,7 +1087,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.zgrid1 = self.zgrid_second
         self.full_prob1 = self.lnprob_second_total
         
-    def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True, refit=False):
+    def emcee_fit(self, NWALKERS=20, NSTEP=100, verbose=True, refit=False, fit_background=False):
         """
         Fit redshift / tilt with emcee
         """
@@ -1082,14 +1105,19 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         ### Draw z from p(z)
         soften = 3.
-        pz = np.exp(self.lnprob_second_spec/soften)
+        pz = np.exp(self.lnprob_second_total/soften)
         pzsum = np.cumsum(pz[1:]*np.diff(self.zgrid_second))/np.trapz(pz, self.zgrid_second)
         z_draw = [np.interp(np.random.rand(), pzsum, self.zgrid_second[1:]) for i in range(NWALKERS)]
         
         #### normalization
         b0 = [self.beta_tilt_coeffs[0]+np.random.normal()*1 for i in range(NWALKERS)]
         b1 = [self.beta_tilt_coeffs[1]+np.random.normal()*0.2 for i in range(NWALKERS)]
-        p0 = np.array([z_draw,b0,b1]).T
+        if fit_background:
+            back = [np.random.normal()*0.02 for i in range(NWALKERS)]
+        else:
+            back = [0 for i in range(NWALKERS)]
+            
+        p0 = np.array([z_draw,b0,b1,back]).T
         
         obj_fun = self._objective_combined
         obj_args = [self, False, False] ## self, ignore_spectrum, ignore_photometry
@@ -1098,7 +1126,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     init_pz[i] = obj_fun(p0[i,:], *obj_args)
             
         NTHREADS=1
-        ndim = 3
+        ndim = 4
+        self.emcee_step = 0
         
         if verbose:
             print 'emcee MCMC fit: (NWALKERS x NSTEPS) = (%d x %d)' %(NWALKERS, NSTEP)
@@ -1107,7 +1136,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.sampler = emcee.EnsembleSampler(NWALKERS, ndim, obj_fun, threads=NTHREADS, args=obj_args)
         result = self.sampler.run_mcmc(p0, NSTEP)
         
-        param_names = ['z', 'b0', 'b1']
+        param_names = ['z', 'b0', 'b1', 'bkg']
         self.chain = unicorn.interlace_fit.emceeChain(chain=self.sampler.chain, param_names = param_names)
         
         if verbose:
@@ -1117,7 +1146,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.zgrid = 0.5*(xh[1:]+xh[:-1])
         self.lnprob_spec = np.log(np.maximum(yh*1./yh.max(), 0.1/yh.max()))
         
-        self.make_new_fit_figure(self.chain.median[0], ignore_photometry=False, NO_GUI=True, log_pz=True, OUT_ROOT='new_zfit_chain')
+        self.make_new_fit_figure(self.chain.median[0], ignore_photometry=False, NO_GUI=True, log_pz=True, OUT_ROOT='new_zfit_chain', background=self.chain.median[3])
         self.chain.save_fits(file='%s.new_zfit_chain.fits' %(self.root))
         
         ### test
@@ -1135,15 +1164,17 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         z = params[0]
         if z <= 0.01:
             return -1.e10
-            
+        
+        self.emcee_step += 1
+        
         self.beta_tilt_coeffs = params[1:3]
         print unicorn.noNewLine, params
-        chi2 = self.fit_combined(z, nmf_toler=1.e-4, te_scale=0.5, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry, get_chi2=True, refit_norm=False, init_coeffs = None)
-        print unicorn.noNewLine, params, -0.5*chi2
+        chi2 = self.fit_combined(z, nmf_toler=1.e-4, te_scale=0.5, ignore_spectrum=ignore_spectrum, ignore_photometry=ignore_photometry, get_chi2=True, refit_norm=False, init_coeffs = None, background=params[3])
+        print unicorn.noNewLine, self.emcee_step, params, -0.5*chi2
         
-        return -0.5*chi2+self.get_prior(z)[0]
+        return -0.5*chi2+self.get_prior(z)#[0]
         
-    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None):
+    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None, background=0):
         """
         
         Fit the spectrum AND the photometry at redshift, z
@@ -1210,8 +1241,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
                 self.templates[i,self.phot.NFILT:] = self.twod.model.flatten()
             #
             full_variance[self.phot.NFILT:] += self.spec_var
-            full_flux[self.phot.NFILT:] += self.spec_flux
-            
+            full_flux[self.phot.NFILT:] += self.spec_flux-background
+                    
         #### Fit Non-negative coefficients
         #### Need to seed the dusty template coefficient with a small number
         if init_coeffs is None:

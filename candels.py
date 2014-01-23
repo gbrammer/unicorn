@@ -505,15 +505,15 @@ def cdfs_prep():
     ### On hyperion in /Volumes/3D-HST/MOSAICS/GOODS-S/ASN
     files = glob.glob('*F125W*asn.fits')
     ### Contains the following files:
-    ### ['ERS-F125W_asn.fits', 'GEORGE1-F125W_asn.fits', 'GEORGE2-F125W_asn.fits', 'GOODS-S-F125W_asn.fits', 'HUDF-DEEP-WFC3-F125W_asn.fits', 'HUDF05-01-DEEP-WFC3-F125W_asn.fits', 'HUDF05-02-DEEP-WFC3-F125W_asn.fits']
+    ### ['ERS-F125W_asn.fits', 'GEORGE1-F125W_asn.fits', 'GEORGE2-F125W_asn.fits', 'GOODS-S-F125W_asn.fits', 'HUDF09-01-DEEP-F125W_asn.fits', 'HUDF09-02-DEEP-F125W_asn.fits', 'HUDF09-DEEP-F125W_asn.fits']
     threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F125W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
     
     files = glob.glob('*F160W*asn.fits')
-    ### ['ERS-F160W_asn.fits', 'GEORGE1-F160W_asn.fits', 'GEORGE2-F160W_asn.fits', 'GOODS-S-F160W_asn.fits', 'HUDF-DEEP-WFC3-F160W_asn.fits', 'HUDF05-01-DEEP-WFC3-F160W_asn.fits', 'HUDF05-02-DEEP-WFC3-F160W_asn.fits']
+    ### ['ERS-F160W_asn.fits', 'GEORGE1-F160W_asn.fits', 'GEORGE2-F160W_asn.fits', 'GOODS-S-F160W_asn.fits', 'HUDF09-01-DEEP-F160W_asn.fits', 'HUDF09-02-DEEP-F160W_asn.fits', 'HUDF09-DEEP-F160W_asn.fits', 'HUDF12-DEEP-F160W_asn.fits']
     threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F160W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
     
     files=glob.glob('*F140W*asn.fits')
-    #['CDFS-AGN1-F140W_asn.fits', 'GOODS-S-F140W_short_asn.fits', 'WFC3-ERSII-G01-F140W_asn.fits']
+    ### ['CDFS-AGN1-F140W_asn.fits', 'GOODS-S-F140W_asn.fits', 'HUDF12-DEEP-F140W_asn.fits', 'WFC3-ERSII-G01-F140W_asn.fits']
     threedhst.utils.combine_asn_shifts(files, out_root='GOODS-S-ALL-F140W',path_to_FLT='../ALL_FLT/', run_multidrizzle=False)
 
 def george_prep():
@@ -570,6 +570,19 @@ def hudf12_prep():
                     GET_SHIFT=True, DIRECT_HIGHER_ORDER=order,
                     SCALE=0.06, geometry='rotate,shift')  
 
+    ### make ASN tables for each band:
+    
+    for filter in ['F140W','F160W']:
+        files = glob.glob('HUDF-DEEP-WFC3-*-%s_asn.fits'%(filter))
+        threedhst.utils.combine_asn_shifts(files, out_root='HUDF12-DEEP-%s'%(filter), 
+            path_to_FLT='./', run_multidrizzle=False)
+        threedhst.prep_flt_files.startMultidrizzle('HUDF12-DEEP-%s_asn.fits'%(filter),
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+        
+    
+
 def hudf_prep():
     
     import unicorn.candels
@@ -587,6 +600,16 @@ def hudf_prep():
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
                 GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')  
+
+    for filter in ['F125W','F160W']:
+        files = glob.glob('HUDF05-01-DEEP-WFC3-*-%s_asn.fits'%(filter))
+        threedhst.utils.combine_asn_shifts(files, out_root='HUDF09-01-DEEP-%s'%(filter), 
+            path_to_FLT='./', run_multidrizzle=False)
+        threedhst.prep_flt_files.startMultidrizzle('HUDF09-01-DEEP-%s_asn.fits'%(filter),
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
+
 
     ### Reduction for the pointing which matches GOODS-S-28 in F140W
     ### removed ib5x5b*, ib5x5c* and ib5x5f form the files.info file --> lost pointing
@@ -627,7 +650,7 @@ def hudf_prep():
         if ((not os.path.exists(file.replace('asn','drz'))) & (not os.path.exists(file.replace('asn','drz')+'.gz'))) | FORCE:
             unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = None, ALIGN_EXTENSION=0,
-                GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
+                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')
         
     #### These visits are just aligned internally to check the 
@@ -645,6 +668,15 @@ def hudf_prep():
                  use_shiftfile=True, skysub=False,
                  final_scale=0.06, pixfrac=0.8, driz_cr=False,
                  updatewcs=False, clean=True, median=False)
+                 
+    for filter in ['F125W','F160W']:
+        files = glob.glob('HUDF05-02-DEEP-WFC3-*-%s_asn.fits'%(filter))
+        threedhst.utils.combine_asn_shifts(files, out_root='HUDF09-02-DEEP-%s'%(filter), 
+            path_to_FLT='./', run_multidrizzle=False)
+        threedhst.prep_flt_files.startMultidrizzle('HUDF09-02-DEEP-%s_asn.fits'%(filter),
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
 
 
     ### Reduce the cental HUDF pointing
@@ -659,9 +691,17 @@ def hudf_prep():
     for file in files:
         unicorn.candels.prep_candels(asn_file=file, 
                 ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                GET_SHIFT=True, DIRECT_HIGHER_ORDER=1,
+                GET_SHIFT=False, DIRECT_HIGHER_ORDER=1,
                 SCALE=0.06, geometry='rotate,shift')  
-        
+
+    for filter in ['F125W','F160W']:
+        files = glob.glob('HUDF-DEEP-WFC3-*-%s_asn.fits'%(filter))
+        threedhst.utils.combine_asn_shifts(files, out_root='HUDF09-DEEP-%s'%(filter), 
+            path_to_FLT='./', run_multidrizzle=False)
+        threedhst.prep_flt_files.startMultidrizzle('HUDF09-DEEP-%s_asn.fits'%(filter),
+             use_shiftfile=True, skysub=False,
+             final_scale=0.06, pixfrac=0.8, driz_cr=False,
+             updatewcs=False, clean=True, median=False)
 
 def hudf_v3_prep():
     

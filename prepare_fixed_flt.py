@@ -1,0 +1,259 @@
+"""
+Big list of all of the FLTs reprocessed from the IMA files
+"""
+
+def go():
+    import unicorn
+    
+    #### GOODS-N
+    unicorn.prepare.make_IMA_FLT(raw='ib3701s4q_raw.fits', pop_reads=[1,2,3])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3701skq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3701skq_raw.fits', pop_reads=[1,2,3])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3702u8q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3702u8q_raw.fits', pop_reads=[1,2,3,4,5,6,7])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3702uoq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3702uoq_raw.fits', pop_reads=[1,2,3,4,5,6,7,8])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3703uzq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3703uzq_raw.fits', pop_reads=[1,2,3,4,5,6,7])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3703vfq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3703vfq_raw.fits', pop_reads=[11,12,13])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3703vmq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3703vmq_raw.fits', pop_reads=[1,2,3,4,8])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3704wrq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3704wrq_raw.fits', pop_reads=[1,2])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3704x8q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3704x8q_raw.fits', pop_reads=range(6,14))
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3705y1q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3705y1q_raw.fits', pop_reads=[1,2,3,4,5,6])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3705y5q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3705y5q_raw.fits', pop_reads=[4])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3705ylq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3705ylq_raw.fits', pop_reads=[4,5,6,7,8,9,10])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3706b2q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3706b2q_raw.fits', pop_reads=[2,3,4,5,6,7])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3706biq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3706biq_raw.fits', pop_reads=[12,13])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3706bpq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3706bpq_raw.fits', pop_reads=[1,2,3])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3707caq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3707caq_raw.fits', pop_reads=[1,2])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3707cqq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3707cqq_raw.fits', pop_reads=[7,8,9,10,11,12])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3708i5q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3708i5q_raw.fits', pop_reads=[7,8,9])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3708ipq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3708ipq_raw.fits', pop_reads=[2,3,4,12])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3709j3q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3709j3q_raw.fits', pop_reads=[7,8,9,10])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3709joq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3709joq_raw.fits', pop_reads=[8,11,12,13])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3710n6q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3710n6q_raw.fits', pop_reads=[])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3710nmq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3710nmq_raw.fits', pop_reads=[12,13])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3711bkq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3711bkq_raw.fits', pop_reads=[4])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3716psq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3716psq_raw.fits', pop_reads=[12,13])
+
+    #unicorn.prepare.show_MultiAccum_reads('ib3719v7q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3719v7q_raw.fits', pop_reads=[5])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3724riq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3724riq_raw.fits', pop_reads=[13])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3726bpq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3726bpq_raw.fits', pop_reads=[13])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3726c5q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3726c5q_raw.fits', pop_reads=[10])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3747zyq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3747zyq_raw.fits', pop_reads=[11])
+
+    # unicorn.prepare.show_MultiAccum_reads('ib3747a5q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3747a5q_raw.fits', pop_reads=[5])
+        
+    # unicorn.prepare.show_MultiAccum_reads('ib3749o5q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3749o5q_raw.fits', pop_reads=[3])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ib3749oqq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3749oqq_raw.fits', pop_reads=[11])
+
+    
+    #### 3D-HST
+    # unicorn.prepare.show_MultiAccum_reads('ibhj10vmq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj10vmq_raw.fits', pop_reads=[9])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhj30bzq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj30bzq_raw.fits', pop_reads=[6])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj36j3q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj36j3q_raw.fits', pop_reads=[10])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj37uvq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj37uvq_raw.fits', pop_reads=[11])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj39uuq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj39uuq_raw.fits', pop_reads=[9,10,11,12])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj39viq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj39viq_raw.fits', pop_reads=[11,12,13])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj42oqq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj42oqq_raw.fits', pop_reads=[10])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj59cvq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj59cvq_raw.fits', pop_reads=[3])
+        
+    # unicorn.prepare.show_MultiAccum_reads('ibhj66dfq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj66dfq_raw.fits', pop_reads=[3])
+    
+    # unicorn.prepare.show_MultiAccum_reads('ibhj69hgq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhj69hgq_raw.fits', pop_reads=[10,11,12])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm05fjq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm05fjq_raw.fits', pop_reads=[7])
+
+    # # unicorn.prepare.show_MultiAccum_reads('ibhm12udq_raw.fits')
+    # unicorn.prepare.make_IMA_FLT(raw='ibhm12udq_raw.fits', pop_reads=[])
+    # 
+    # # unicorn.prepare.show_MultiAccum_reads('ibhm12ukq_raw.fits')
+    # unicorn.prepare.make_IMA_FLT(raw='ibhm12ukq_raw.fits', pop_reads=[])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm13kfq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm13kfq_raw.fits', pop_reads=[6,7])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm14vhq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm14vhq_raw.fits', pop_reads=[9])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm18oeq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm18oeq_raw.fits', pop_reads=[2])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm19pjq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm19pjq_raw.fits', pop_reads=[9])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm20l1q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm20l1q_raw.fits', pop_reads=[10])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm24f8q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm24f8q_raw.fits', pop_reads=[3])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm26n0q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm26n0q_raw.fits', pop_reads=[9])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm27qiq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm27qiq_raw.fits', pop_reads=[11])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm31rcq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm31rcq_raw.fits', pop_reads=[3])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm36ksq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm36ksq_raw.fits', pop_reads=[11])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm38dfq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm38dfq_raw.fits', pop_reads=[5])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm45y1q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm45y1q_raw.fits', pop_reads=[6])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm51x2q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm51x2q_raw.fits', pop_reads=[5])
+
+    # unicorn.prepare.show_MultiAccum_reads('ibhm53o3q_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ibhm53o3q_raw.fits', pop_reads=[1])
+
+
+    
+    #### Reprocess *all* of the FLTs with variable backgrounds that 
+    #### weren't already refit above
+    import glob
+    import os
+    
+    import numpy as np
+    
+    import unicorn
+    import threedhst
+    from threedhst import catIO
+    
+    files = glob.glob('ib3719*G141_orbit.dat')
+    redo_list = []
+    for file in files:
+        ## Variable background?
+        bg = catIO.Readfile(file, save_fits=False, force_lowercase=True)
+        var_bg = np.ptp(bg.bg[1:]) > 0.15
+        ## already processed above rejecting reads?
+        skip = threedhst.utils.gethead('%sq_flt.fits' %(file.split('j_')[0]), keys=['IMA2FLT'])[0]
+        rawfile='%sq_raw.fits' %(file.split('j_')[0])
+        print rawfile, np.ptp(bg.bg[1:])
+        #
+        if var_bg & (skip == '___'):
+            redo_list.append(rawfile)
+            if not os.path.exists(rawfile):
+                continue
+            #
+            unicorn.prepare.make_IMA_FLT(raw=rawfile, pop_reads=[])
+            
+        
+def redo_prep():
+    """
+    Redo prep steps on all of the grism pointings with the reprocessed
+    FLT images.
+    """
+    import glob
+    import threedhst
+    import os
+    
+    files=glob.glob('*[0-9]-F140W_asn.fits')
+    skip = True
+    
+    for file in files:
+        if os.path.exists(file.replace('F140W_asn', 'G141_drz')) & skip:
+            continue
+        else:
+            print file
+        #
+        if ('AEGIS-20' in file):
+            continue
+        #
+        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = None, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
+    
+    files=glob.glob('*[0-9]-G141_drz.fits')
+    skip = True
+    
+    for file in files:
+        if os.path.exists(file.replace('drz', 'inter')) & skip:
+            continue
+        else:
+            print file
+        #
+        unicorn.reduce.set_grism_config(use_new_config=True)
+        unicorn.reduce.interlace_combine(file.split('_drz')[0], pad=60, NGROW=125, view=False)
+    
+    
+    
+    

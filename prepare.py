@@ -39,7 +39,6 @@ def check_COSMOS_stars():
     which had many stars with central pixels rejected by the CR rejection.
     """    
     from pyraf import iraf
-    from iraf import iraf
 
     import matplotlib.pyplot as plt
     import unicorn.go_3dhst as go
@@ -433,14 +432,115 @@ def GOODSN_mosaic():
     threedhst.gmap.makeImageMap(['/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-F140W_drz.fits[1]', '/Volumes/robot/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/GOODS-N-G141_drz.fits[1]*2', '/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsb_trim.fits[0]*15','/3DHST/Photometry/Work/GOODS-N/DATA/mosaics/goodsn_acsz_trim.fits[0]*6','/3DHST/Ancillary/GOODS-N/MIPS/n_mips_1_s1_v0.36_sci.fits[0]*100','/3DHST/Ancillary/GOODS-N/HERSCHEL/L2_GOODS-N_All250_DR1/L2_GOODS-N_image_SMAP250_dr1.fits[1]*20000.','/3DHST/Ancillary/GOODS-N/CDFN/paper13-cdfn-figure3-FB-binned1pix-smooth.fits[0]*8','/3DHST/Ancillary/GOODS-N/VLA/GOODSN_1_4GHz.fits[0]*60000.'], aper_list=zooms, tileroot=['F140W', 'G141', 'ACSb-F435W','ACSz-F850LP','MIPS-24','SPIRE-250','0.5-8keV','VLA'], polyregions=glob.glob('GOODS-N*F140W_asn.pointing.reg'),path='/3DHST/Spectra/Work/GOODS-N/MOSAIC_HTML/')
     
     from pyraf import iraf
-    from iraf import iraf
 
     iraf.imcopy('GOODS-N-F140W_drz.fits[1]', '../MOSAIC/GOODS-N-F140w_11-10-06_sci.fits')
     iraf.imcopy('GOODS-N-F140W_drz.fits[2]', '../MOSAIC/GOODS-N-F140w_11-10-06_wht.fits')
     # !tar czvf GOODS-N-F140w_11-09-08.tar.gz GOODS-N-*-F140W_shifts.txt GOODS-N-*-F140W_tweak.fits GOODS-N-*-F140W_asn.fits GOODS-N-F140W_shifts.txt GOODS-N-F140W_asn.fits
     # !mv GOODS-N-F140w_11-09-08* ../MOSAIC
     
-  
+    ##### Fix associations of GOODS-N revisits to just include FLTs not affected by the background blowout
+    # Targets where the revisit angle was the same can be interlaced
+    #
+    # Target   Angle_offset
+    # GNGRISM11: 0.459
+    # GNGRISM12: 0.001
+    # GNGRISM13: 0.000
+    # GNGRISM14: 0.557
+    # GNGRISM21: 0.000
+    # GNGRISM22: 0.000
+    # GNGRISM23: 6.000
+    # GNGRISM24: 0.000
+    # GNGRISM31: 0.000
+    
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT/')
+    os.chdir('/3DHST/Spectra/Work/GOODS-N/INTERLACE_v4.0_REVISIT')
+    #### 
+    info = catIO.Readfile('files.info')
+    asn = threedhst.utils.ASNFile('../RAW/ib3701050_asn.fits')
+    new_pointings = np.unique(info.targname[(info.date_obs > '2011-01-01') & (info.dec_targ > 62.)])
+    for pointing in new_pointings:
+        #### Only do pointings that were re-observed at the same ORIENT
+        test = (info.targname == pointing)
+        angles = np.diff(info.pa_v3[test])
+        print '%s: %.3f' %(pointing, np.abs(angles).max())
+        if np.abs(angles).max() > 0.1:
+            continue
+        #
+        for filter in ['F140W', 'G141']:
+            #### Original images and re-visit images
+            print filter
+            old = (info.targname == pointing) & (info.date_obs < '2011-01-01') & (info.filter == filter)
+            new = (info.targname == pointing) & (info.date_obs > '2011-01-01') & (info.filter == filter)
+            asn.exposures = ['' for i in range(4)]
+            #### Loop through the four exposures and replace with newer if postarg is the same
+            for i in range(4):
+                match = info.postarg1[old][i] == info.postarg1[new]
+                if match.sum() == 0:
+                    asn.exposures[i] = info.file[old][i].replace('_flt.fits.gz','')
+                    print info.file[old][i].replace('_flt.fits.gz','')
+                    continue
+                #
+                asn.exposures[i] = info.file[new][match][0].replace('_flt.fits.gz','')
+                #### Make a differenc image to see if shifts are OK.  Some show offsets of a pixel maybe
+                old_img = pyfits.open('../RAW/'+info.file[old][i])
+                new_img = pyfits.open('../RAW/'+info.file[new][match][0])
+                diff = old_img[1].data-new_img[1].data
+                pyfits.writeto(info.file[old][i].replace('.fits.gz','_diff.fits'), diff, header=old_img[1].header, clobber=True)
+                print info.file[old][i].replace('_flt.fits.gz','') + '  ->  ' + info.file[new][match][0].replace('_flt.fits.gz','')
+                #### Keep direct images that were OK before
+                # if (FILTER == 'F140W')  & (np.median(diff[100:400,100:400]) < 0.1):
+                #     asn.exposures.append(info.file[old][i].replace('_flt.fits.gz',''))
+                #     print info.file[old][i].replace('_flt.fits.gz','') + ' was OK.  Keep it.'
+            #
+            #### Write the ASN file
+            asn.product=pointing.replace('GNGRISM','GOODS-N-')+'-'+filter
+            asn.write(pointing.replace('GNGRISM','GOODS-N-')+'-'+filter+'_asn.fits')
+    #
+    files = glob.glob('*F140W_asn.fits')
+    
+    ALIGN = '/Users/brammer/3DHST/Ancillary/Mosaics/goods-n-f160w-astrodrizzle-v4.0_drz_sci.fits'
+    ALIGN = '/3DHST/Ancillary/GOODS-N/CANDELS/ASTRODRIZZLE/goods-n-f160w-astrodrizzle-v4.0_drz_sci.fits'
+    
+    for file in files:
+        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+            
+    ### Have cleaned up the bad-sky G141 reads of the revisits that can't be interlaced
+    threedhst.prep_flt_files.process_3dhst_pair('../RAW/ib3701050_asn.fits', '../RAW/ib3701060_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+    threedhst.prep_flt_files.process_3dhst_pair('../RAW/ib3704050_asn.fits', '../RAW/ib3704060_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+    threedhst.prep_flt_files.process_3dhst_pair('../RAW/ib3707050_asn.fits', '../RAW/ib3707060_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+    
+    ### This one had a big satellite trail that was masked in the MultiAccum file
+    file='GOODS-N-31-F140W_asn.fits'
+    threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+    
+    files = glob.glob('*F140W_asn.fits')
+    for file in files:
+        unicorn.reduce.interlace_combine(file.split('_asn')[0], view=False, NGROW=125)
+        unicorn.reduce.interlace_combine(file.split('_asn')[0].replace('F140W', 'G141'), view=False, NGROW=125)
+    
+    #### Shifts of new G141 images from misalignment of revisit
+    # files=glob.glob('/tmp/OLD/*G141_inter.fits.gz')
+    # for i in range(len(files)):
+    #     file = files[i]
+    #     old = pyfits.open(file)
+    #     new = pyfits.open(os.path.basename(file).split('.gz')[0])
+    #     shift = new[1].data*0.
+    #     shift[:-1,:] += new[1].data[1:,:]
+    #     #shift[1:,:] += new[1].data[:-1,:]
+    #     #shift[:,:] += new[1].data[:,:]
+    #     ds9.view(old[1].data-shift)
+        
+    # Just these two need y shifts
+    im = pyfits.open('GOODS-N-22-G141_inter.fits', mode='update')
+    im[1].data[:-1,:] = im[1].data[1:,:]*1
+    im[2].data[:-1,:] = im[2].data[1:,:]*1
+    im.flush()
+    
+    im = pyfits.open('GOODS-N-31-G141_inter.fits', mode='update')
+    im[1].data[:-1,:] = im[1].data[1:,:]*1
+    im[2].data[:-1,:] = im[2].data[1:,:]*1
+    im.flush()
+    
 def COSMOS(FORCE=False):
     import unicorn
     from threedhst.prep_flt_files import process_3dhst_pair as pair
@@ -544,7 +644,6 @@ def COSMOS_mosaic():
     
     ### Temporary release of the direct mosaic
     from pyraf import iraf
-    from iraf import iraf
 
     iraf.imcopy('COSMOS-F140W_drz.fits[1]',
         '../MOSAIC/COSMOS-F140w_11-10-06_sci.fits')
@@ -937,7 +1036,54 @@ def AEGIS(FORCE=False):
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='AEGIS-*-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)
+    ##
+    os.chdir('/3DHST/Spectra/Work/AEGIS/REVISIT/')
+    #### Shifts of REVISIT
+    new = pyfits.open('../RAW/ibhj69heq_flt.fits.gz')[1].data
+    old = pyfits.open('../RAW/ibhj39usq_flt.fits.gz')[1].data
+    ### dx, dy = -2, 0
     
+    os.chdir('/Users/brammer/3DHST/Spectra/Work/AEGIS/REVISIT/MultiAccum')
+    bad=1024
+    unicorn.prepare.make_mask_crr_file(bad_value=bad)
+    unicorn.prepare.flag_bad_reads('ibhj39uuq_raw.fits', ds9=ds9, bad_value=bad)
+    unicorn.prepare.flag_bad_reads('ibhj39viq_raw.fits', ds9=ds9, bad_value=bad)
+    unicorn.prepare.flag_bad_reads('ibhj69hgq_raw.fits', ds9=ds9, bad_value=bad)
+    unicorn.prepare.flag_bad_reads('ibhj69hnq_raw.fits', ds9=ds9, bad_value=bad)
+    
+    #### Shift the later visit
+    os.system("cp ../../RAW/ibhj69heq_flt.fits.gz ../../RAW/ibhj69hlq_flt.fits.gz .; gunzip *.gz")
+    files=glob.glob('ibhj69*flt.fits')
+    for file in files:
+        flt = pyfits.open(file, mode='update')
+        for ext in range(1,6):
+            flt[ext].data[:,0:-2] = flt[ext].data[:,2:]
+        #
+        flt.flush()
+    #
+    os.system('cp *flt.fits ../../RAW/')
+    
+    #### Make ASN files
+    os.chdir('/3DHST/Spectra/Work/AEGIS/REVISIT/')
+    info = catIO.Readfile('files.info')
+    asn = threedhst.utils.ASNFile('../RAW/ibhj70030_asn.fits')
+    for filter in ['F140W', 'G141']:
+        sel = (info.targname == 'AEGIS-1') & (info.filter == filter) & (info.date_obs < '2013-01-01')
+        asn.exposures = []
+        for file in info.file[sel]:
+            asn.exposures.append(file.split('_flt')[0])
+        #
+        asn.product = 'AEGIS-1-%s' %(filter)
+        asn.write('AEGIS-1-%s_asn.fits' %(filter))
+        print asn.product
+    
+    ALIGN = '/Users/brammer/3DHST/Ancillary/Mosaics/aegis-f160w-astrodrizzle-v4.0_drz_sci.fits'
+    ALIGN = '/3DHST/Ancillary/AEGIS/CANDELS/ASTRODRIZZLE/aegis-f160w-astrodrizzle-v4.0_drz_sci.fits'
+    
+    threedhst.prep_flt_files.process_3dhst_pair('AEGIS-1-F140W_asn.fits', 'AEGIS-1-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+    unicorn.reduce.interlace_combine(root='AEGIS-1-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=125, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False)
+    unicorn.reduce.interlace_combine(root='AEGIS-1-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=125, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False)
+
 def AEGIS_mosaic():
     import threedhst.prep_flt_files
     
@@ -1116,111 +1262,92 @@ def UDS_mosaic():
     
 def Koekemoer():
     """ High-z AGN from Koekemoer program """
-    """ Supernova in COSMOS """
     import os
     import threedhst
     import unicorn
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
     import threedhst.catIO as catIO
+    import glob
     
     os.chdir(unicorn.GRISM_HOME+'Koekemoer/PREP_FLT')
     
     ALIGN = '/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits'
+    ALIGN = '/Users/brammer/3DHST/Ancillary/Mosaics/goods-s-f160w-astrodrizzle-v4.0_drz_sci.fits'
+    
     ALIGN_EXT=0
     
     info = catIO.Readfile('files.info')
     
+    unicorn.candels.make_asn_files(make_region=False)
+    
     #### Make ASN files for different grisms / orientations
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
+    files = glob.glob('*F140W_asn.fits')
     
-    for targ in [1,2]:
-      for angle in [83,91]:
-        for filter in ['F140W','G141','G102']:
-            match = (info.targname == 'CDFS-AGN%d' %(targ)) & (info.filter == filter) & (np.abs(info.pa_v3-angle) < 1)
-            if match.sum() == 0:
-                continue
-            #
-            asn.exposures = []
-            for exp in info.file[match]:
-                asn.exposures.append(exp.split('_flt')[0])
-            asn.product = 'CDFS-AGN%d-%d-%s' %(targ, angle, filter)
-            asn.write(asn.product+'_asn.fits', clobber=True)
-        ##
-        ## Run the preparation steps
-        for gris in ['G141', 'G102']:
-            if not os.path.exists('CDFS-AGN%d-%d-%s_drz.fits' %(targ, angle, gris)):
-                pair('CDFS-AGN%d-%d-F140W_asn.fits' %(targ, angle), 'CDFS-AGN%d-%d-%s_asn.fits' %(targ, angle, gris), adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=(gris == 'G141'), SKIP_DIRECT=os.path.exists('CDFS-AGN%d-%d-F140W_align.fits' %(targ, angle)), align_geometry='rotate,shift')
+    for file in files[1:]:
+        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W','G141'), adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W','G102'), adjust_targname=False, ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate,shift', sky_images=['sky_g102_f105w.fits'])
     
-    for targ in [1,2]:
-        asn_files = glob.glob('CDFS-AGN%d-[0-9]*F140W*asn.fits' %(targ))
-        threedhst.utils.combine_asn_shifts(asn_files, out_root='CDFS-AGN%d-F140W' %(targ), path_to_FLT='./', run_multidrizzle=False)
-        threedhst.prep_flt_files.startMultidrizzle('CDFS-AGN%d-F140W_asn.fits' %(targ),
-                     use_shiftfile=True, skysub=False,
-                     final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                     updatewcs=False, clean=True, median=False)
+    ## Use v4.0 as reference
+    REF_ROOT='GS-F125W'
+    unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F125W', REFERENCE='goodss_3dhst.v4.0.F125W_orig_sci.fits', SEGM = 'goodss_3dhst.v4.0.F160W_seg.fits', sci_extension=0)
     
-    #### Combined reference for the two angles
-    for targ in [1,2]:
-        REF_ROOT = 'CDFS-AGN%d' %(targ)
-        se = threedhst.sex.SExtractor()
-        se.aXeParams()
-        se.copyConvFile()
-        se.overwrite = True
-        se.options['CATALOG_NAME']    = REF_ROOT+'-F140W.cat'
-        se.options['CHECKIMAGE_NAME'] = REF_ROOT+'-F140W_seg.fits'
-        se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
-        se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
-        se.options['WEIGHT_IMAGE']    = REF_ROOT+'-F140W_drz.fits[1]'
-        se.options['FILTER']    = 'Y'
-        se.options['DETECT_THRESH']    = '1.8'
-        se.options['ANALYSIS_THRESH']  = '1.8'
-        se.options['MAG_ZEROPOINT'] = '26.46'
-        status = se.sextractImage(REF_ROOT+'-F140W_drz.fits[0]')
+    #### Make interlaced images
+    for file in files[1:]:
+        NGROW=125
+        CATALOG='goodss_3dhst.v4.0.F125W_conv.cat'
+        CATALOG='goodss_3dhst.v4.0.F125W_F140W_F160W_det.cat'
+        pointing = file.split('_asn.fits')[0]
+        #unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing, NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing, view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, auto_offsets=True)
+        #
+        unicorn.reduce.interlace_combine(pointing, pad=60, NGROW=NGROW, auto_offsets=True)
+        unicorn.reduce.interlace_combine(pointing.replace('F140W','G141'), pad=60, NGROW=NGROW, auto_offsets=True)
+        unicorn.reduce.interlace_combine(pointing.replace('F140W','G102'), pad=60, NGROW=NGROW, auto_offsets=True)
+        
+    #### Need to change the MAG_AUTO fluxes from combined to F125W
+    import research.v4 as cat2
+    cat2.read_catalogs('GOODS-S')
+    for file in files:
+        pointing = file.split('-F140W_asn.fits')[0]
+        c = threedhst.sex.mySexCat(pointing+'_inter.cat')
+        c.renameColumn('MAG_AUTO', 'MAG_COMBINE')
+        jmag = np.clip(25-2.5*np.log10(cat2.cat.f_F125W[c.id-1]), 0,30)
+        c.addColumn(jmag, format='%.4f', name='MAG_AUTO')
+        os.system('cp %s %s.OLD' %(c.filename, c.filename))
+        c.write()
+        
+    #### G141 and G102
+    for grism in ['G102','G141']:
+        #os.mkdir(grism+'_Nor')
+        os.chdir(grism+'_Nor'*0)
+        os.system('ln -s ../CDFS-AGN2*%s* .' %(grism))
+        os.system('ln -s ../CDFS-AGN2*F140W* .')
+        os.system('ln -s ../CDFS-AGN2*F140W* .')
+        os.system('ln -s ../CDFS-AGN2-??-???_*inter* .')
+        os.chdir('../')
     
-    for targ in [1,2]:
-        REF_ROOT = 'CDFS-AGN%d' %(targ)
-        unicorn.reduce.prepare_blot_reference(REF_ROOT=REF_ROOT, filter='F140W', REFERENCE = REF_ROOT+'-F140W_drz.fits', SEGM = REF_ROOT+'-F140W_seg.fits', sci_extension=1)
+    grism = 'G141'
     
-    ### Need an ASN file + MDRZ for just the first four exposures
-    ### of each target / orientation pair for the reference
-    for targ in [1,2]:
-        for angle in [83, 91]:
-            pointing='CDFS-AGN%d-%d' %(targ, angle)
-            asn = threedhst.utils.ASNFile(pointing+'-F140W_asn.fits')
-            sf = threedhst.shifts.ShiftFile(pointing+'-F140W_shifts.txt')
-            asn.exposures = asn.exposures[0:4]
-            asn.product = pointing+'-0-F140W'
-            asn.write(asn.product+'_asn.fits')
-            status = os.system('head -8 %s-F140W_shifts.txt > %s-0-F140W_shifts.txt' %(pointing, pointing))
-            #
-            asn = asn.product+'_asn.fits'
-            threedhst.prep_flt_files.startMultidrizzle(asn,
-                         use_shiftfile=True, skysub=False,
-                         final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                         updatewcs=False, clean=True, median=False)
+    os.chdir(grism)
+    files = glob.glob('*F140W_asn.fits')
+    unicorn.reduce.set_grism_config(grism=grism, chip=1, use_new_config=False, force=True)
+    for file in files[0:1]:
+        pointing = file.split('-F140W_asn.fits')[0]
+        model = unicorn.reduce.process_GrismModel(root=pointing, grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, REFINE_MAG_LIMIT=22, make_zeroth_model=True, use_segm=False, model_slope=0, direct='F140W', grism=grism)
     
-    #### Make the blotted reference images and combined the interlaced 
-    #### images       
-    for targ in [1,2]:
-        REF_ROOT = 'CDFS-AGN%d' %(targ)
-        CATALOG = REF_ROOT+'-F140W.cat'
-        for angle in [83, 91]:
-            pointing='CDFS-AGN%d-%d' %(targ, angle)
-            NGROW=125
-            unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-0-F140W', NGROW=NGROW, verbose=True)
-            unicorn.reduce.interlace_combine_blot(root=pointing+'-0-F140W', view=True, pad=60, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, auto_offsets=True)
-            #
-            #### Make symlinks for correct reference images / catalogs
-            files=glob.glob('%s-0_*' %(pointing))
-            for file in files:
-                status = os.system('ln -sf %s %s' %(file, file.replace('-0_', '_')))
-            #### Interlace combine full images
-            unicorn.reduce.interlace_combine(pointing+'-F140W', pad=60, NGROW=NGROW, auto_offsets=True)
-            unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW, auto_offsets=True)
-            unicorn.reduce.interlace_combine(pointing+'-G102', pad=60, NGROW=NGROW, auto_offsets=True)
-            
-    #
+    ### Use Nor's test config files
+    os.chdir(grism+'_Nor')
+    import unicorn
+    import glob
+    unicorn.reduce.set_grism_config(grism=grism, chip=1, use_new_config=True, force=True)
+    files = glob.glob('*F140W_asn.fits')
+    for file in files[0:1]:
+        pointing = file.split('-F140W_asn.fits')[0]
+        model = unicorn.reduce.process_GrismModel(root=pointing, grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, REFINE_MAG_LIMIT=22, make_zeroth_model=True, use_segm=False, model_slope=0, direct='F140W', grism=grism)
+    
+    
     for targ in [1,2]:
         for angle in [83, 91]:
             pointing='CDFS-AGN%d-%d' %(targ, angle)
@@ -1255,6 +1382,9 @@ def SN_TILE41():
     os.chdir(unicorn.GRISM_HOME+'SN-TILE41/PREP_FLT')
     
     ALIGN = os.getenv('CANDELS')+'/COSMOS/PREP_FLT/COSMOS-full-F160W_drz_sci.fits'
+    ALIGN_EXT=0
+    
+    ALIGN = '/Users/brammer/3DHST/Ancillary/Mosaics/cosmos-f160w-astrodrizzle-v4.0_drz_sci.fits'
     ALIGN_EXT=0
     
     info = catIO.Readfile('files.info')
@@ -1364,11 +1494,11 @@ def SN_TILE41():
     ###### Now do grism
     ### G102 Flat
     sky = pyfits.open('../CONF/WFC3.IR.G102.sky.V1.0.fits')
-    flat = pyfits.open('/3DHST/Spectra/Work/iref//uc72113oi_pfl.fits')
+    IREF = os.getenv('iref')
+    flat = pyfits.open(IREF+'/uc72113oi_pfl.fits')
     flat_im = flat[1].data[5:-5,5:-5]
     pyfits.writeto('../CONF/sky_g102_f105w.fits', data=sky[0].data/flat_im, header=sky[0].header, clobber=True)
     
-    IREF = os.getenv('iref')
     threedhst.grism_sky.flat_f140 = pyfits.open(IREF+'/uc72113oi_pfl.fits')
     threedhst.grism_sky.flat_g141 = pyfits.open(IREF+'/u4m1335li_pfl.fits')
     threedhst.grism_sky.flat = threedhst.grism_sky.flat_g141[1].data[5:1019,5:1019] / threedhst.grism_sky.flat_f140[1].data[5:1019, 5:1019]
@@ -1402,7 +1532,6 @@ def SN_TILE41():
         threedhst.prep_flt_files.startMultidrizzle('TILE41-%s_asn.fits' %(filter), use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.6, driz_cr=False, updatewcs=False, clean=True, median=False, ra=150.0726, dec=2.1947412, final_outnx=2890, final_outny=2680)
     #
     from pyraf import iraf
-    from iraf import iraf
 
     for filter in ['F105W','F125W','F160W']:
         try:
@@ -1442,7 +1571,7 @@ def SN_TILE41():
 #
 def SN_CLASH():
     """
-    GOODS-ERS field (not candels)
+    Reductions for the Perlmutter MACS1720 grism observations
     """
     import glob
     import unicorn.candels
@@ -1455,33 +1584,139 @@ def SN_CLASH():
     
     ALIGN_IMAGE = '/Volumes/WD3_Data/Users/gbrammer/CLASH/macs1720/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
     
-    ALIGN_IMAGE = '../Image/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
+    ALIGN_IMAGE = '../CLASH/hlsp_clash_hst_wfc3ir_macs1720_f160w_v1_drz.fits'
     files=glob.glob('MACS*F1*asn.fits')
-    
-    files=glob.glob('SN-*F1*asn.fits')
-    
+    files.extend(glob.glob('SN-*F1*asn.fits'))
+        
+    ## Subtract imaging backgrounds
     for file in files:
         if not os.path.exists(file.replace('asn','drz')):
-            unicorn.candels.prep_candels(asn_file=file, 
-                ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0,
-                GET_SHIFT=True, DIRECT_HIGHER_ORDER=2)
+            threedhst.shifts.make_blank_shiftfile(asn_file=file, xshift=0, yshift=0, rot=0., scale=1.0)
+            #
+            unicorn.candels.prep_candels(asn_file=file, ALIGN_IMAGE = ALIGN_IMAGE, ALIGN_EXTENSION=0, GET_SHIFT=False, DIRECT_HIGHER_ORDER=2)
     
-    info = catIO.Readfile('files.info')
-    angles = np.unique(np.cast[int](info.pa_v3))
-    asn = threedhst.utils.ASNFile('SN-L1-PANCHA-F160W_asn.fits')
-    for angle in angles:
-        asn.exposures = []
-        exps = info.file[(np.cast[int](info.pa_v3) == angle) & (info.filter == 'G141')]
-        for exp in exps:
-            asn.exposures.append(exp.split('_flt')[0])
-        #
-        asn.product = 'SN-L1-PANCHA-%03d-G141' %(angle)
-        asn.write('SN-L1-PANCHA-%03d-G141_asn.fits' %(angle), clobber=True)
+    ##  Align to clash
+    for file in files:
+        for geom in ['rotate', 'shift']:
+            threedhst.shifts.refine_shifts(ROOT_DIRECT=file.split('_asn')[0], ALIGN_IMAGE=ALIGN_IMAGE, ALIGN_EXTENSION=0, fitgeometry=geom, clean=True)
+            #
+            threedhst.prep_flt_files.startMultidrizzle(file, use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+    ## Make combined reference images
+    threedhst.utils.combine_asn_shifts(glob.glob('[SM]*-3*F105W_asn.fits'), 'MACSJ1720+3536-F105W')
+    threedhst.prep_flt_files.startMultidrizzle('MACSJ1720+3536-F105W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=1, driz_cr=False, updatewcs=False, clean=True, median=False)
+
+    threedhst.utils.combine_asn_shifts(glob.glob('[SM]*-3*F1[46]0W_asn.fits'), 'MACSJ1720+3536-F140W')
+    threedhst.prep_flt_files.startMultidrizzle('MACSJ1720+3536-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=1, driz_cr=False, updatewcs=False, clean=True, median=False)
+    
+    ### Subtract grism background (SKIP_DIRECT=True)
+    threedhst.prep_flt_files.process_3dhst_pair('SN-L1-PANCHA-307-F160W_asn.fits', 'SN-L1-PANCHA-307-G141_asn.fits', ALIGN_IMAGE = None, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
+    threedhst.prep_flt_files.process_3dhst_pair('SN-L1-PANCHA-312-F160W_asn.fits', 'SN-L1-PANCHA-312-G141_asn.fits', ALIGN_IMAGE = None, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
+    
+    threedhst.prep_flt_files.process_3dhst_pair('SN-L1-PANCHA-307-F105W_asn.fits', 'SN-L1-PANCHA-307-G102_asn.fits', ALIGN_IMAGE = None, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False, sky_images=['../CONF/G102_master_flatcorr.fits'])
+    threedhst.prep_flt_files.process_3dhst_pair('SN-L1-PANCHA-312-F105W_asn.fits', 'SN-L1-PANCHA-312-G102_asn.fits', ALIGN_IMAGE = None, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False, sky_images=['../CONF/G102_master_flatcorr.fits'])
+    
+    #### Make catalog and segmentation image from F140W
+    se = threedhst.sex.SExtractor()
+    se.aXeParams()
+    se.copyConvFile()
+    se.overwrite = True
+    se.options['CATALOG_NAME']    = 'MACSJ1720+3536-F140W.cat'
+    se.options['CHECKIMAGE_NAME'] = 'MACSJ1720+3536-F140W_seg.fits'
+    se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
+    se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
+    se.options['WEIGHT_IMAGE']    = 'MACSJ1720+3536-F140W_drz.fits[1]'
+    se.options['FILTER']    = 'Y'
+    se.options['DETECT_MINAREA']    = '10'
+    se.options['DETECT_THRESH']    = '1.5'
+    se.options['ANALYSIS_THRESH']  = '1.5'
+    se.options['MAG_ZEROPOINT'] = '%.5f' %(unicorn.reduce.ZPs['F140W'])
+    se.options['DEBLEND_NTHRESH'] = '64'
+    se.options['DEBLEND_MINCONT'] = '0.00002'
+    se.options['PHOT_APERTURES'] = '6.6667,8.333333,16.667,8.335,20'
+    se.options['GAIN']  = '1.0'
+    
+    status = se.sextractImage('MACSJ1720+3536-F140W_drz.fits[0]')
+    
+    threedhst.sex.sexcatRegions('MACSJ1720+3536-F140W.cat', 'MACSJ1720+3536-F140W.reg', format=2)
+    
+    ### xxx regenerate drz images
+    files=glob.glob('SN*F1*asn.fits')
+    for file in files:
+        threedhst.prep_flt_files.startMultidrizzle(file, use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
+        
+    #### Need to make fake grism reference images with four exposures so that blot_combine will work
+    #### Then need to run multidrizzle.  The results will be nonsense because direct/grism mixed
+    switch = {'F160W':'G141', 'F105W':'G102'}
+    for filter in switch.keys():
+        files=glob.glob('SN-L1*%s*asn.fits' %(filter))
+        for file in files:
+            #### Put last three grism exposures in the direct ASN
+            asn_grism = threedhst.utils.ASNFile(file.replace(filter, switch[filter]))
+            asn_direct = threedhst.utils.ASNFile(file)
+            for i in range(1,4):
+                asn_direct.exposures.append(asn_grism.exposures[i])
+            #
+            asn_direct.product = 'X'+asn_direct.product
+            asn_direct.write('X'+asn_direct.file)
+            ### Make shiftfile for the new list, overwriting the old
+            threedhst.shifts.make_grism_shiftfile(asn_grism.file, 'X'+asn_direct.file)
+            threedhst.prep_flt_files.startMultidrizzle('X'+file, use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, refimage='MACSJ1720+3536-F140W_drz.fits[1]')
+    
+
+    #### Now set up blotting back
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='M1720_F160W', filter='F140W', REFERENCE = 'MACSJ1720+3536-F140W_drz.fits', SEGM = 'MACSJ1720+3536-F140W_seg.fits', sci_extension=1)
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='M1720_F105W', filter='F105W', REFERENCE = 'MACSJ1720+3536-F105W_drz.fits', SEGM = 'MACSJ1720+3536-F140W_seg.fits', sci_extension=1)
+    
+    NGROW=0 #125
+    pad=60
+    CATALOG = 'MACSJ1720+3536-F140W.cat'
+    
+    for filter in ['F105W', 'F160W']:
+        files=glob.glob('XSN-L1-PANCHA*%s_asn.fits' %(filter))
+        REF_ROOT = 'M1720_%s' %(filter)
+        for file in files:
+            unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT=file.split('_asn')[0], NGROW=NGROW, verbose=True)
+    
+    #### above not working
+    #### 
+    for filter in ['F105W']:
+        files=glob.glob('XSN-L1-PANCHA*%s_asn.fits' %(filter))
+        REF_ROOT = 'M1720_%s' %(filter)
+        for file in files:
+            unicorn.reduce.interlace_combine_blot(root=file.split('_asn')[0], view=False, pad=pad, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, growx=2, growy=2, auto_offsets=True)
+            #
+            unicorn.reduce.interlace_combine(root=file.split('_asn')[0][1:], view=False, pad=pad,  NGROW=NGROW, growx=2, growy=2, auto_offsets=True)
+            unicorn.reduce.interlace_combine(root=file.split('_asn')[0][1:].replace(filter,'G141'), view=False, pad=pad,  NGROW=NGROW, growx=2, growy=2, auto_offsets=True)
+    
+    #### have to rename XSN*_ref_inter.fits to SN*_ref_inter.fits 
     #
-    pair('SN-L1-PANCHA-F160W_asn.fits', 'SN-L1-PANCHA-307-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
-    pair('SN-L1-PANCHA-F160W_asn.fits', 'SN-L1-PANCHA-312-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_DIRECT=True, SKIP_GRISM=False, adjust_targname=False)
+    model = unicorn.reduce.GrismModel(root='SN-L1-PANCHA-307', grow_factor=2, growx=2, growy=2, MAG_LIMIT=22, use_segm=False, grism='G102', direct='F105W')
     
-       
+    model = unicorn.reduce.GrismModel(root='SN-L1-PANCHA-307', grow_factor=2, growx=2, growy=2, MAG_LIMIT=22, use_segm=False, grism='G141', direct='F160W')
+    model.compute_full_model(BEAMS=['A', 'B', 'C', 'D'], view=None, MAG_LIMIT=22.0, save_pickle=True, refine=True, model_slope=0)
+    
+
+    model2 = unicorn.reduce.GrismModel(root='SN-L1-PANCHA-312', grow_factor=2, growx=2, growy=2, MAG_LIMIT=22, use_segm=False, grism='G141', direct='F160W')
+    model2.compute_full_model(BEAMS=['A', 'B', 'C', 'D'], view=None, MAG_LIMIT=22.0, save_pickle=True, refine=True, model_slope=0)
+    
+    id=622
+    for m in [model, model2]:
+        m.twod_spectrum(id, miny=-60, USE_REFERENCE_THUMB=True)
+        m.show_2d(savePNG=True)
+        
+    #
+    unicorn.hudf.stack(id=id, dy=20, save=True, inverse=False, scale=[1,99], fcontam=100., ref_wave = 1.4e4, root='MACSJ1720', search='SN-L1-PANCHA')
+    
+    #### Set up redshift fits.  Will read photometric/eazy catalogs defined in unicorn.analysis.read_catalogs
+    gris = unicorn.interlace_fit.GrismSpectrumFit('MACSJ1720_%05d' %(id))
+    gris = unicorn.interlace_fit.GrismSpectrumFit('SN-L1-PANCHA-307_%05d' %(id))
+    gris = unicorn.interlace_fit.GrismSpectrumFit('SN-L1-PANCHA-312_%05d' %(id))
+    #gris = unicorn.interlace_fit.GrismSpectrumFit('MACSJ1720_%05d' %(id))
+    
+    ### Fit it!
+    gris.fit_in_steps(zrfirst=[0.4,2.4])
+    
 def SN_GEORGE():
     ####********************************************####
     ####              SN-GEORGE (GOODS-S)
@@ -1706,6 +1941,10 @@ def GOODS_ERS():
     #ALIGN = '/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits'
     ALIGN_FILES=['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits']
     
+    ALIGN_FILES=['goodss_3dhst.v2.1.F140W_orig_sci.fits']
+    direct = [1,'WFC3-ERSII-G01-F140W_asn.fits']
+    grism = [1,'WFC3-ERSII-G01-G141_asn.fits']
+    
     direct = glob.glob('../RAW/ib*20_asn.fits')
     grism = glob.glob('../RAW/ib*10_asn.fits')
     
@@ -1723,6 +1962,28 @@ def GOODS_ERS():
     
     ##### Check results
     threedhst.gmap.makeImageMap(['WFC3-ERSII-G01-F140W_drz.fits', 'WFC3-ERSII-G01-F140W_align.fits[0]*4', 'WFC3-ERSII-G01-F098M_drz.fits', 'WFC3-ERSII-G01-G141_drz.fits','WFC3-ERSII-G01-G102_drz.fits'], zmin=-0.06, zmax=0.6, aper_list=[14, 15])
+    
+    ##### Try interlacing it
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='ERS_F140W', filter='F140W', REFERENCE = 'goodss_3dhst.v2.1.F140W_orig_sci.fits', SEGM = 'goodss_3dhst.v2.1.F125W_F140W_F160W_seg.fits')
+
+    NGROW=200
+    pad=350
+    CATALOG='goodss_3dhst.v2.1.F125W_F140W_F160W_det.cat'
+    
+    direct='WFC3-ERSII-G01-F140W_asn.fits'
+
+    extract_limit = 24
+    skip_completed=False
+    REF_ROOT='ERS_F140W'
+
+    ##### Generate the interlaced images, including the "blotted" detection image
+    pointing=threedhst.prep_flt_files.make_targname_asn(direct, newfile=False).split('-F140')[0]
+    #
+    unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing+'-F140W', NGROW=NGROW, verbose=True)
+
+    unicorn.reduce.interlace_combine_blot(root=pointing+'-F140W', view=True, pad=pad, REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, growx=1, growy=1, auto_offsets=True)
+    unicorn.reduce.interlace_combine(pointing+'-F140W', pad=pad, NGROW=NGROW, growx=1, growy=1, auto_offsets=True)
+    unicorn.reduce.interlace_combine(pointing+'-G141', pad=pad, NGROW=NGROW, growx=1, growy=1, auto_offsets=True)
     
 #
 def SN_PRIMO():
@@ -2391,5 +2652,360 @@ def check_weights():
     threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits[1]', 'COSMOS-F140W_drz.fits[2]*0.0008'], aper_list=[15], zmin=-0.1, zmax=0.5, polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
 
     threedhst.gmap.makeImageMap(['COSMOS-23-F140W_drz.fits[1]', 'COSMOS-23-F140W_drz.fits[2]*0.0008'], aper_list=[16], zmin=-0.1, zmax=0.5, polyregions=glob.glob('COSMOS-*-F140W_asn.pointing.reg'))
+
+def make_mask_crr_file(bad_value=1024):
+    """
+    Need to edit CRR file in $iref to not make flagged reads UNSTABLE
+    """
+    import pyfits
+    crr = pyfits.open(os.getenv('iref')+'/u6a1748ri_crr.fits')
+    try:
+        crr[1].data['BADINPDQ'] *= 0
+    except:
+        pass
+    #
+    try:
+        crr[1].data['BADINPDQ'] += bad_value
+    except:
+        pass
+
+    crr.writeto('test_crr.fits', clobber=True)
+    
+def flag_bad_reads(image='ib3701s4q_raw.fits', flag_reads = None, ds9=None, vmi=0, vma=2, bad_value=1024, satellite_reads=[]):
+    """
+    Flag individual reads of an RAW image and re-run calwf3
+    """
+    import mywfc3.bg
+    import pyfits
+    
+    raw = pyfits.open(image, mode='update')
+    time, ramp, reads = mywfc3.bg.get_bg_ramp(raw)
+    raw = pyfits.open(image, mode='update')
+    dt = np.diff(time)
+    NSAMP = raw[0].header['NSAMP']*1
+    ### Display
+    if flag_reads is None:
+        if ds9 is None:
+            ds9 = threedhst.dq.myDS9()
+        
+        ds9.set('width 867')
+        ds9.set('height 756')
+        #
+        ds9.set('tile yes')
+        ds9.set('frame delete all')
+        for i in range(NSAMP-1):
+            ds9.frame(i+1)
+            ds9.v(reads[i,:,:]/dt[i], vmin=vmi, vmax=vma)
+        #
+        ds9.set('zoom to fit')
+        ds9.set('match frames image')
+        ds9.set('lock colorbar')
+        ds9.set('lock scale')
+        #
+        read_frames = raw_input('Frames to ignore: ')
+        if (read_frames == ' '):
+            if len(satellite_reads) == 0:
+                return False
+            else:
+                flag_reads = []
+        else:
+            flag_reads = np.cast[int](read_frames.split(','))
+            fp = open(image.replace('_raw.fits', '_raw.flag_reads'), 'w')
+            fp.write(' '.join(np.cast[str](flag_reads))+'\n')
+            fp.close()
+        
+    for read in range(NSAMP):
+        raw['DQ', NSAMP-read].header['PIXVALUE'] = 0
+    
+    # dr = np.diff(flag_reads)
+    # i=0
+    # if flag_reads[0] <=2 :
+    #     raw['DQ', NSAMP-flag_reads[0]].header['PIXVALUE'] = bad_value
+    #     for i in range(len(dr)):
+    #         if dr[i] > 1:
+    #             break
+    #         else:
+    #             raw['DQ', NSAMP-flag_reads[i+1]].header['PIXVALUE'] = bad_value
+    
+    for read in flag_reads:
+        raw['DQ', NSAMP-read].header['PIXVALUE'] = bad_value
+    
+    for read in satellite_reads:
+        raw['DQ', NSAMP-read].header['PIXVALUE'] = 0
+        raw['SCI', NSAMP-read].data *= 10
+        
+    raw[0].header['BADINPDQ'] = bad_value # 0    
+    raw[0].header['CRREJTAB'] = 'test_crr.fits' #'iref$u6a1748ri_crr.fits'
+    raw.flush()
+    
+    from wfc3tools import calwf3
+    for ext in ['_flt', '_ima']:
+        if os.path.exists(image.replace('_raw', ext)):
+            os.remove(image.replace('_raw', ext))
+    
+    calwf3.calwf3(image, verbose=True)
+    
+    print '\n*** Take out %d from FLT/DQ array ***' %(bad_value)
+    flt = pyfits.open(image.replace('_raw', '_flt'), mode='update')
+    flt['DQ'].data -= bad_value
+    flt.flush()
+    
+def flag_all():
+    """
+    Flag high-background READS in the G141 images
+    """
+    ds9 = threedhst.dq.myDS9()
+    unicorn.prepare.flag_bad_reads('ib3701s4q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3701skq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3702u8q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3702uoq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3703uzq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3703vfq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3703vmq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3704wrq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3704x8q_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3705y1q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3705ylq_raw.fits', ds9=ds9)
+    
+    unicorn.prepare.flag_bad_reads('ib3706b2q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3706biq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3706bpq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3707caq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3707cqq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3707cuq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3708i5q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3708ipq_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3708i9q_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3709j3q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3709joq_raw.fits', ds9=ds9)
+    
+    unicorn.prepare.flag_bad_reads('ib3710n6q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3710nmq_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3711bkq_raw.fits', ds9=ds9)
+    
+    unicorn.prepare.flag_bad_reads('ib3747a5q_raw.fits', ds9=ds9)
+
+    unicorn.prepare.flag_bad_reads('ib3749o5q_raw.fits', ds9=ds9)
+    unicorn.prepare.flag_bad_reads('ib3749oqq_raw.fits', ds9=ds9)
+    
+    ##### GOODS-N F140W
+    unicorn.prepare.flag_bad_reads('ib3707c8q_raw.fits', ds9=ds9)
+    
+    
+    #### Testing
+    os.chdir('/Users/brammer/3DHST/Spectra/Work/GOODS-N/FixMultiAccum/TEST')
+    
+    image = 'ib3703vmq_raw.fits'
+    bad = 1024
+    
+    raw = pyfits.open('../%s' %(image))
+    raw.writeto(image, clobber=True)
+    
+    unicorn.prepare.make_mask_crr_file(bad_value=bad)
+    unicorn.prepare.flag_bad_reads(image, ds9=ds9, bad_value=bad)
+    
+def test_masked():
+    """
+    Something like wf3ir with masked arrays
+    """
+    import numpy as np
+    import numpy.ma as ma
+    
+    os.chdir('/Users/brammer/3DHST/Spectra/Work/GOODS-N/FixMultiAccum/TEST')
+    image = 'ib3749o5q_raw.fits'
+    
+    raw = pyfits.open('../%s' %(image))
+    raw.writeto(image, clobber=True)
+    
+    raw = pyfits.open(image, mode='update')
+    time, ramp, reads = mywfc3.bg.get_bg_ramp(raw)
+    dt = np.diff(time)
+    NSAMP = raw[0].header['NSAMP']
+    dt_2D = reads*0+1.
+    for i in range(NSAMP-1):
+        dt_2D[i,:,:] *= dt[i]
+        
+    cps = ma.MaskedArray(reads/dt_2D, mask=~np.isfinite(reads), copy=True)
+    counts = ma.MaskedArray(reads, mask=~np.isfinite(reads), copy=True)
+    GAIN = 2.4
+    cps_err = np.sqrt(12**2+np.maximum(reads, 0)*GAIN)/dt_2D
+    
+    avg = counts.sum(axis=0)/dt_2D.sum(axis=0)
+    
+    rma.mask = np.abs(rma/std) > 4
+    
+#
+def split_multiaccum(ima, scale_flat=True):
+    """
+    Pull out the MultiAccum reads of a RAW or IMA file into a single 3D 
+    matrix.
+    
+    Returns cube[NSAMP,1024,1014], time, NSAMP
+    """
+    import pyfits
+    
+    skip_ima = ('ima' in ima.filename()) & (ima[0].header['FLATCORR'] == 'COMPLETE')
+    if scale_flat & ~skip_ima:
+        FLAT_F140W = pyfits.open(os.path.join(os.getenv('iref'), 'uc721143i_pfl.fits'))[1].data
+    else:
+        FLAT_F140W = 1.
+            
+    NSAMP = ima[0].header['NSAMP']
+    sh = ima['SCI',1].shape
+    cube = np.zeros((NSAMP, sh[0], sh[1]))
+    time = np.zeros(NSAMP)
+    for i in range(NSAMP):
+        if ima[0].header['UNITCORR'] == 'COMPLETE':
+            cube[NSAMP-1-i, :, :] = ima['SCI',i+1].data*ima['TIME',i+1].header['PIXVALUE']/FLAT_F140W
+        else:
+            cube[NSAMP-1-i, :, :] = ima['SCI',i+1].data/FLAT_F140W
+        
+        time[NSAMP-1-i] = ima['TIME',i+1].header['PIXVALUE']
+    
+    return cube, time, NSAMP
+    
+def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True):
+    """
+    Run calwf3, if necessary, to generate ima & flt files.  Then put the last
+    read of the ima in the FLT SCI extension and let Multidrizzle flag 
+    the CRs.
+    
+    Optionally pop out reads affected by satellite trails or earthshine.  The 
+    parameter `pop_reads` is a `list` containing the reads to remove, where
+    a value of 1 corresponds to the first real read after the 2.9s flush.
+    
+    Requires IRAFX for wfc3tools
+    """
+    import wfc3tools
+    import pyfits
+    
+    ### Remove existing products or calwf3 will die
+    for ext in ['flt','ima']:
+        if os.path.exists(raw.replace('raw', ext)):
+            os.remove(raw.replace('raw', ext))
+    
+    ### Run calwf3
+    wfc3tools.calwf3.calwf3(raw)
+    
+    flt = pyfits.open(raw.replace('raw', 'flt'), mode='update')
+    ima = pyfits.open(raw.replace('raw', 'ima'))
+    
+    if len(pop_reads) > 0:
+        ### Pop out reads affected by satellite trails or earthshine
+        threedhst.showMessage('Pop reads %s from %s' %(pop_reads, ima.filename()))
+        cube, time, NSAMP = unicorn.prepare.split_multiaccum(ima,
+                                           scale_flat=False)
+        diff = np.diff(cube, axis=0)
+        dt = np.diff(time)
+        final_exptime = time[-1]
+        final_sci = cube[-1,:,:]*1
+        for read in pop_reads:
+            final_sci -= diff[read,:,:]
+            final_exptime -= dt[read]
+        #
+        final_var = ima[0].header['READNSEA']**2 + final_sci        
+        final_err = np.sqrt(final_var)/final_exptime
+        final_sci /= final_exptime
+
+        flt[0].header['EXPTIME'] = final_exptime
+
+    else:
+        final_sci = ima['SCI', 1].data
+        final_err = ima['ERR', 1].data
+    
+    flt['SCI'].data = final_sci[5:-5,5:-5]
+    flt['ERR'].data = final_err[5:-5,5:-5]
+    
+    ### Saturated pixels
+    flt['DQ'].data += ima['DQ',1].data[5:-5,5:-5] & 256
+    
+    #### Some earthshine flares DQ masked as 32: "unstable pixels"
+    mask = (flt['DQ'].data & 32) > 0
+    if mask.sum() > 1.e4:
+        threedhst.showMessage('Take out excessive DQ=32 flags (N=%e)' %(mask.sum()))
+        flt['DQ'].data[mask] -= 32
+        
+    ### Update the FLT header
+    if pyfits.__version__ > '3.2':
+        flt[0].header['IMA2FLT'] = (1, 'FLT extracted from IMA file')
+    else:
+        flt[0].header.update('IMA2FLT', 1, comment='FLT extracted from IMA file')
+        
+    flt.flush()
+    
+    ### Remove the IMA file
+    if remove_ima:
+        os.remove(raw.replace('raw', 'ima'))
+
+def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
+    """
+    Make a figure (*.ramp.png) showing the individual reads of an 
+    IMA or RAW file.
+    """
+    import pyfits
+    
+    img = pyfits.open(raw)
+    
+    if 'raw' in raw:
+        gain=2.5
+    else:
+        gain=1
+        
+    cube, time, NSAMP = unicorn.prepare.split_multiaccum(img)
+    diff = np.diff(cube, axis=0)
+    dt = np.diff(time)
+    fig = unicorn.plotting.plot_init(xs=10, aspect=0.8, wspace=0., hspace=0., left=0.05, NO_GUI=True)
+    for j in range(1,NSAMP-1):
+        ax = fig.add_subplot(4,4,j)
+        ax.imshow(diff[j,:,:]/dt[j]*gain, vmin=0, vmax=4)
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+    #
+    ax = fig.add_subplot(4,4,j+2)
+    ramp_cps = np.median(diff, axis=1)
+    avg_ramp = np.median(ramp_cps, axis=1)
+    ax.plot(time[2:], ramp_cps[1:,16:-16:4]/100*gain, alpha=0.1, color='black')
+    ax.plot(time[2:], avg_ramp[1:]/100*gain, alpha=0.8, color='red', linewidth=2)
+    unicorn.plotting.savefig(fig, raw.split('_')[0]+'_ramp.png')
+    
+def redo_pointing(pointing='GOODS-S-31', grism_exposures = [2,4]):
+    
+    os.chdir(os.getenv('THREEDHST')+'/3DHST_VariableBackgrounds/RAW')
+    
+    asn = threedhst.utils.ASNFile('../PREP_FLT/%s-G141_asn.fits' %(pointing)) 
+    for exp in grism_exposures:
+        unicorn.prepare.make_IMA_FLT(raw=asn.exposures[exp-1]+'_raw.fits')
+    
+    #
+    os.chdir('../PREP_FLT/')
+    
+    #threedhst.process_grism.fresh_flt_files(pointing+'-F140W_asn.fits', from_path='../RAW', preserve_dq=False)
+    
+    #threedhst.prep_flt_files.startMultidrizzle(pointing+'-F140W_asn.fits', use_shiftfile=True, skysub=True, final_scale=0.06, pixfrac=0.8, driz_cr=True, updatewcs=False, clean=True, median=True)
+    
+    threedhst.prep_flt_files.process_3dhst_pair(pointing+'-F140W_asn.fits', pointing+'-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = None, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
+    
+    if False:
+        unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25., make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
+
+        id=26009
+        model.twod_spectrum(id)
+        model.show_2d(savePNG=True)
+
+        gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id))
+        gris.fit_in_steps(zrfirst=[gris.z_peak-0.3,gris.z_peak+0.3])
+
+        os.system('open %s_%05d*zfit*png' %(pointing, id))
+    
+    
     
     

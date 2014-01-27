@@ -71,11 +71,23 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
     
     return fig
     
-def savefig(fig, filename='figure.png', no_tex=True, dpi=100):
+def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False):
     """
     Wrapper around the `savefig` method to handle the two different backends, set whether or not
     an X11/interactive connection is available.
+    
+    If `increment` is set and the output filename exists, add an integer to
+    the filename to avoid overwriting the current figure.
     """
+    
+    if increment:
+        if os.path.exists(filename):
+            spl = filename.split('.')
+            root, ext = '.'.join(spl[:-1]), spl[-1]
+            saved = glob.glob('%s.[0-9]*.%s' %(root, ext))
+            filename = '%s.%03d.%s' %(root, len(saved)+1, ext)
+            print 'Save %s' %(filename)
+            
     if USE_PLOT_GUI:
         fig.savefig(filename,dpi=dpi,transparent=False)
     else:

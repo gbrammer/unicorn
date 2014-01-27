@@ -1400,14 +1400,22 @@ def make_asn_files(force=False, make_region=False, uniquename=True):
                     product='%s-%s' %(target, filter)             
                 #       
                 use = (list.targname == target) & (list.filter == filter) & (visits == visit)
-                print product, use.sum()
+                exposure_list = []
+                for file in list.file[use]:
+                    f = file.split('.gz')[0]
+                    if f not in exposure_list:
+                        exposure_list.append(f)
+                
+                print product, len(exposure_list)
+                        
                 if (os.path.exists('%s_asn.fits' %(product))) & (not force):
                     continue
                 #
                 asn.exposures = []
                 asn.product=product
-                for fits in list.file[use]:
-                    asn.exposures.append(os.path.basename(fits).split('_flt')[0])
+                for fits in exposure_list:
+                    root = os.path.basename(fits).split('_flt')[0]
+                    asn.exposures.append(root)
                 #
                 asn.write(asn.product+'_asn.fits')
                 if make_region:

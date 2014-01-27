@@ -347,6 +347,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ## Flatten the 2D spectroscopic flux and variance arrays
         ## Variance
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
+        var += ((0.02*self.twod.im['SCI'].data)**2).flatten()
+
         var[var == 0] = 1.e6
         var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
         
@@ -354,8 +356,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         x = self.twod.im['WAVE'].data
         dx = 200
         #### G141
-        xlimit = [1.07e4, 1.68e4]
-        sens_weight = x*0.+0
+        xlimit = [1.1e4, 1.64e4]
+        if self.grism_element == 'G102':
+            xlimit = [0.8e4, 1.1e4]
+        
+        sens_weight = x*0.+0.
         sens_weight += np.minimum(np.exp(-(xlimit[0]-x)**2/2./dx**2), 1); sens_weight[x < xlimit[0]] = 1.
         sens_weight += np.minimum(np.exp(-(xlimit[1]-x)**2/2./dx**2), 1); sens_weight[x > xlimit[1]] = 1.
         var *= (np.ones((self.shape2D[0],1))*(1+sens_weight*2.)).flatten()
@@ -408,10 +413,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         zgrid = self.ln_zgrid(zrange=[0,10], dz=0.01)
         prior_pz = np.log(zgrid**gamma * np.exp(-(zgrid / z0)**gamma))
-        prior_pz[0] = prior_pz[1]-10
+        #prior_pz[0] = prior_pz[1]-10
+        ok = np.isfinite(prior_pz)
+        prior_pz[~ok] = np.min(prior_pz[ok])
         prior_pz -= np.log(np.trapz(np.exp(prior_pz), zgrid)) #prior_pz.max()
         
-        self.get_prior = interpolate.InterpolatedUnivariateSpline(zgrid, prior_pz)
+        self.get_prior = interpolate.InterpolatedUnivariateSpline(zgrid, prior_pz, k=1)
+        #self.get_prior = interpolate.LinearNDInterpolator(zgrid, prior_pz)
         
         #return prior_pz
             
@@ -678,7 +686,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #self.new_fit_zgrid(zrange=zrfirst, dz=dzfirst, ignore_spectrum=False, ignore_photometry=True, apply_prior=False, nmf_toler=1.e-5)
         #self.lnprob_first_spec = self.lnprob_spec*1.
         keep = self.phot_lnprob > -200
-        self.new_fit_zgrid(zrange=self.zgrid_first[keep], is_grid=True, ignore_spectrum=False, ignore_photometry=True, apply_prior=False, nmf_toler=1.e-5)
+        self.new_fit_zgrid(zrange=self.zgrid_first[keep], is_grid=True, ignore_spectrum=False, ignore_photometry=False, apply_prior=False, nmf_toler=1.e-5)
         self.lnprob_first_spec = self.phot_lnprob*0.-200
         self.lnprob_first_spec[keep] = self.lnprob_spec*1.
         
@@ -711,8 +719,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         zsub = sm_total > np.log(5.e-4)
         if zsub.sum() == 0:
-            zsub = zsecond < 0.1
+            zsub = zsecond < zrfirst[1] #0.1
         
+        #print zsecond[zsub]
         #### Fit spectrum again on finer grid
         print '\n Last run: photometry+spectrum, high z resolution (%.3f) [%.3f, %.3f]\n\n' %(z_max, zsecond[zsub].min(), zsecond[zsub].max())
         self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr > 0.5), apply_prior=False, refit_norm=False)

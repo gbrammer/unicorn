@@ -732,12 +732,13 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         twod = unicorn.reduce.Interlace2D(files[i])
         im = twod.im
         sh = im['SCI'].data.shape
+        #print sh, files
         if sh[1] < min_xpix:
             p = files.pop(i)
             continue
         #
-        #print sh
-        dy = np.minimum(sh[0]/2, dy)
+        dy = np.minimum(sh[0]/2-5, dy)
+        #print sh[0]/2,dy
         
     print 'DY: %d' %(dy)
     #dy = 20

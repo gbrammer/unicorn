@@ -364,7 +364,6 @@ def make_g141_bg():
     Make average background images with object masks
     """
     from pyraf import iraf
-    from iraf import iraf
 
     os.chdir("/3DHST/Spectra/Work/Background")
 
@@ -512,7 +511,6 @@ def make_imaging_flat():
     Make average background images with object masks
     """
     from pyraf import iraf
-    from iraf import iraf
     
     #files = glob.glob('ibhm*flt.seg.fits')
     #PATH = ('/3DHST/Spectra/Work/%s/RAW/' %(field))*len(files)
@@ -704,7 +702,6 @@ def combine_subset(filter='G141', idx=np.array([0]), root='set1', use_scaled=Tru
     """
     
     from pyraf import iraf
-    from iraf import iraf
     
     bg_flt, bg_field, bg_val = np.loadtxt('background.%s.dat' %(filter), dtype=np.str, unpack=True)
     weights = np.cast[float](bg_val)**2

@@ -99,8 +99,8 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if root.startswith('EGS1'):
         aegis=True
     
-    if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF'):
-        udf=True
+    #if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF'):
+    #    udf=True
         
     if root.startswith('MARSHALL'):
         uds=True

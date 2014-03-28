@@ -1498,9 +1498,9 @@ def interlace_goodss2():
     models = glob.glob('GOODS-S-2[0-9]_inter_model.fits')
     for file in models:
         pointing = file.split('_inter')[0]
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        ii = np.where(model.cat.mag < 24.)
-        for id in model.cat.id[ii]:
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35.)
+        #ii = np.where(model.cat.mag < 24.)
+        for id in model.cat.id:
             root='%s_%05d' %(pointing, id)
             if not os.path.exists(root+'.2D.fits'):
                 status = model.twod_spectrum(id)
@@ -1522,6 +1522,65 @@ def interlace_goodss2():
             #
             print id, '\n'
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
+
+def interlace_ers():
+    
+    """
+    Reduce the ERS grism pointing in GOODS-S.
+    """
+
+    import threedhst
+    import unicorn
+    import glob
+    import os
+    import numpy as np
+    from threedhst.prep_flt_files import process_3dhst_pair as pair
+
+    os.chdir(unicorn.GRISM_HOME+'ERS/INTERLACE_v4.0')
+
+    ALIGN_IMAGE = '/3DHST/Ancillary/GOODS-S/CANDELS/ASTRODRIZZLE/goods-s-f140w-astrodrizzle-v4.0_drz_sci.fits'
+    FORCE = True
+    
+    #### Main preparation loop
+    direct=glob.glob('WFC3-ERSII-G02-F*_asn.fits')
+    grism = glob.glob('WFC3-ERSII-G02-G*_asn.fits')
+    
+    loop_list = range(len(direct))
+    for i in loop_list:
+        pointing='WFC3-ERSII-G02-F140W'
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct[i], grism[i], adjust_targname=False, ALIGN_IMAGE = ALIGN_IMAGE, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+   
+    unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits', SEGM = '/3DHST/Photometry/Release/v4.0/GOODS-S/Detection/goodss_3dhst.v4.0.F160W_seg.fits.gz', Force=True)
+         
+    NGROW=225
+    pad=60
+    CATALOG='/3DHST/Photometry/Release/v4.0/GOODS-S/Detection/goodss_3dhst.v4.0.F160W_orig.cat'
+
+    extract_limit = 30.
+    skip_completed=False
+    REF_ROOT='GOODS-S_F160W'
+
+    direct = glob.glob('WFC3-ERSII-G0*-F*_asn.fits')
+    ##### Generate the interlaced images, including the "blotted" detection image
+    for i in range(len(direct)):
+        pointing = direct[i].split('_asn.fits')[0]
+        unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = pointing, 
+            NGROW=NGROW, verbose=True)
+        unicorn.reduce.interlace_combine_blot(root=pointing, view=True, pad=pad, 
+            REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, growx=1, growy=1,
+            auto_offsets=True)
+        unicorn.reduce.interlace_combine(pointing, pad=pad, NGROW=NGROW,growx=1, growy=1, auto_offsets=True)
+    for pointing in ['WFC3-ERSII-G01-G102','WFC3-ERSII-G02-G141']:
+        unicorn.reduce.interlace_combine(pointing, pad=60, NGROW=NGROW,growx=1, growy=1, auto_offsets=True)
+
+    ##### Generate the spectral model
+    ##### Extract all spectra 	
+    redo = True
+    for pointing,direct,grism in zip(['WFC3-ERSII-G01','WFC3-ERSII-G02'],['F098M','F140W'],['G102','G141']):
+        if (not os.path.exists(pointing+'_model.fits')) | redo:
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30., direct=direct, grism=grism)
+    
 
 def interlace_uds0():
     """
@@ -2228,6 +2287,222 @@ def interlace_sntile41():
             #os.system('open TILE41-132_%05d*zfit*png' %(id))
         except:
             pass
+
+def mast_header(filename='', field=None, band=None, instrument='wfc3', version='v4.0', im_type = None):
+
+    import pyfits
+    
+    if field is None:
+        field = filename.split('-')[0].lower()
+        if field.startswith('goods'):
+            field = field+filename.split('-')[1].lower()
+            if band is None:
+                band = filename.split('-')[2].lower()
+        else:
+            if band is None:
+                band = filename.split('-')[1].lower()
+    if im_type is None:
+        im_type = filename.split('_')[-1].lower().split('.')[0]
+    print 'FIELD: %s     BAND: %s    IM_TYPE: %s'%(field, band, im_type)
+    
+    go_ids = []
+    if ((field == 'aegis') and ((band == 'f125w') or (band == 'f160w'))):
+        go_ids = ['12063']
+    if ((field == 'aegis') and (band == 'f140w')):
+        go_ids = ['12177']
+    if ((field == 'cosmos') & ((band == 'f125w') | (band == 'f160w'))):
+        go_ids = ['12440','12461']
+    if ((field == 'cosmos') and (band == 'f140w')):
+        go_ids = ['12328']
+    if ((field == 'goodsn') and ((band == 'f125w') or (band == 'f160w'))):
+        go_ids = ['12443','12444','12445','12461']
+    if ((field == 'goodsn') and (band == 'f140w')):
+        go_ids = ['11600','12461']
+    if ((field == 'goodss') and ((band == 'f125w') or (band == 'f160w'))):
+        go_ids = ['11359','11563','12061','12062','12099']
+    if ((field == 'goodss') and (band == 'f140w')):
+        go_ids = ['11359','12177','12190']
+    if ((field == 'uds') and ((band == 'f125w') or (band == 'f160w'))):
+        go_ids = ['12064','12099']
+    if ((field == 'uds') and (band == 'f140')):
+        go_ids = ['12328']
+
+    print go_ids
+
+    ra_targ = 0.0
+    dec_targ = 0.0
+    if field == 'aegis':
+        ra_targ = '14:18:36.00'
+        dec_targ = '+52:39:0.00'
+    if field == 'cosmos':
+        ra_targ = '10:00:31.00'
+        dec_targ = '+02:24:0.00'
+    if field == 'goodsn':
+        ra_targ = '12:35:54.98'
+        dec_targ = '+62:11:51.30'
+    if field == 'goodss':
+        ra_targ =  '03:32:30.00'
+        dec_targ = '-27:47:19.00'
+    if field == 'uds':
+        ra_targ = '02:17:49.00'
+        dec_targ = '-05:12:02.00'
+            
+    outname = 'hlsp_3dhst_hst_'+instrument.lower()+'_'+field.lower()+'_'+band.lower()+'_'+version.lower()+'_'+im_type+'.fits'
+    rootname = 'hlsp_3dhst_hst_'+instrument.lower()+'_'+field.lower()+'_'+band.lower()+'_'+version.lower()
+    print 'WRITING OUT: %s' % (outname)
+    
+
+    file = pyfits.open(filename)
+    
+    old_header = file[0].header.copy()
+        
+    del file[0].header['HISTORY']
+    
+    start_key = file[0].header.keys().index('NEXTEND')
+    for key in file[0].header.keys()[start_key:-1]:
+        del file[0].header[key]
+
+    
+    file[0].header.update('CTYPE1', value = old_header['CTYPE1'], comment='the coordinate type for the first axis')
+    file[0].header.update('CTYPE2',  value = old_header['CTYPE2'], comment=' the coordinate type for the second axis')
+    file[0].header.update('CRPIX1',  value = old_header['CRPIX1'], comment=' x-coordinate of reference pixel')
+    file[0].header.update('CRPIX2',  value = old_header['CRPIX2'], comment=' y-coordinate of reference pixel')
+    file[0].header.update('CRVAL1',  value = old_header['CRVAL1'], comment=' first axis value at reference pixel')
+    file[0].header.update('CRVAL2',  value = old_header['CRVAL2'], comment=' second axis value at reference pixel')
+    file[0].header.update('ORIENTAT',  value = old_header['ORIENTAT'], comment=' position angle of image y axis (deg. e of n)')
+    file[0].header.update('CDELT1',  value = old_header['CDELT1'])
+    file[0].header.update('CDELT2',  value = old_header['CDELT2'])
+    file[0].header.update('CD1_1',  value = old_header['CD1_1'], comment=' partial of first axis coordinate w.r.t. x')
+    file[0].header.update('CD1_2',  value = old_header['CD1_2'], comment=' partial of first axis coordinate w.r.t. y')
+    file[0].header.update('CD2_1',  value = old_header['CD2_1'], comment=' partial of second axis coordinate w.r.t. x')
+    file[0].header.update('CD2_2',  value = old_header['CD2_2'], comment=' partial of second axis coordinate w.r.t. y')
+    #file[0].header.update('RADESYS',  value = old_header['RADESYS'])
+    file[0].header.update('NEXTEND',  value = old_header['NEXTEND'], comment=' Number of standard extensions')
+    file[0].header.update('FILENAME',  value = outname, comment=' name of file')
+    file[0].header.update('FILETYPE',  value = im_type, comment=' type of data found in data file')
+    file[0].header.update('TELESCOP',  value = old_header['TELESCOP'], comment=' telescope used to acquire data')
+    file[0].header.update('INSTRUME',  value = old_header['INSTRUME'], comment=' identifier for instrument used to acquire data')
+    file[0].header.update('EQUINOX',  value = old_header['EQUINOX'], comment=' equinox of celestial coord. system')
+
+
+    file[0].header.update('ROOTNAME',  value = rootname, comment=' rootname of the observation set')
+    file[0].header.update('IMAGETYP',  value = old_header['IMAGETYP'],comment=' type of exposure identifier')
+    file[0].header.update('PRIMESI' ,  value = old_header['PRIMESI'],comment=' instrument designated as prime')
+
+
+    file[0].header.update('PROPOSID', value = '12177,12328', comment=' PEP proposal identifier')
+    file[0].header.update('PR_INV_L', 'van Dokkum', comment=' last name of principal investigator')
+    file[0].header.update('PR_INV_F', 'Pieter', comment=' first name of principal investigator')
+    file[0].header.update('PR_INV_M', '', comment=' middle name initial of principal investigator')
+
+
+    file[0].header.update('OBSTYPE',  value = old_header['OBSTYPE'], comment=' observation type - imaging or spectroscopic')
+    file[0].header.update('OBSMODE',  value = old_header['OBSMODE'], comment=' operating mode')
+    file[0].header.update('SCLAMP',  value = old_header['SCLAMP'], comment=' lamp status, NONE or name of lamp which is on')
+    file[0].header.update('NRPTEXP',  value = old_header['NRPTEXP'], comment=' number of repeat exposures in set: default 1')
+    file[0].header.update('SUBARRAY',  value = old_header['SUBARRAY'], comment=' data from a subarray (T) or full frame (F)')
+    file[0].header.update('SUBTYPE',  value = old_header['SUBTYPE'], comment=' Size/type of IR subarray')
+    file[0].header.update('DETECTOR',  value = old_header['DETECTOR'], comment=' detector in use: UVIS or IR')
+    file[0].header.update('FILTER',  value = old_header['FILTER'], comment=' element selected from filter wheel')
+    file[0].header.update('APERTURE',  value = old_header['APERTURE'], comment=' aperture name')
+    file[0].header.update('PROPAPER',  value = old_header['PROPAPER'], comment=' proposed aperture name')
+    file[0].header.update('DIRIMAGE',  value = old_header['DIRIMAGE'], comment=' direct image for grism or prism exposure')
+
+
+    #file[0].header.update('DATE-OBS',  value = old_header['DATE-OBS'], comment='start of first observation')
+    file[0].header.update('EXPTIME',  value = old_header['EXPTIME'], comment=' composite image')
+    file[0].header.update('EXPSTART',  value = old_header['EXPSTART'], comment=' start of first observation')
+    file[0].header.update('EXPEND',  value = old_header['EXPEND'],comment= ' end time of last observation')
+
+
+    file[0].header.update('PHOTMODE',  value = old_header['PHOTMODE'], comment=' observation con')
+    file[0].header.update('PHOTFLAM',  value = old_header['PHOTFLAM'], comment=' inverse sensitivity, ergs/cm2/Ang/electron')
+    file[0].header.update('PHOTFNU',  value = old_header['PHOTFNU'], comment=' inverse sensitivity, Jy*sec/electron')
+    file[0].header.update('PHOTZPT',  value = old_header['PHOTZPT'], comment=' ST magnitude zero point')
+    file[0].header.update('PHOTPLAM',  value = old_header['PHOTPLAM'], comment=' Pivot wavelength (Angstroms)')
+    file[0].header.update('PHOTBW',  value = old_header['PHOTBW'], comment=' RMS bandwidth of filter plus detector')
+    file[0].header.update('BUNIT',  value = old_header['BUNIT'], comment=' flux unit')
+    file[0].header.update('RESOLUTI', value = 0.06, comment= 'Spatial resolution')
+    file[0].header.update('RESUNIT',  value = 'arcsec', comment= 'Spatial resolution units')
+
+    file[0].header.update('TARGNAME',  field, comment = 'field name')
+    file[0].header.update('RA_TARG',  ra_targ, comment = 'center of field RA [deg] (J2000)')
+    file[0].header.update('DEC_TARG',  dec_targ, comment= 'center field DEC [deg] (J2000)')
+    #file[0].header.update('PROPOSALID')
+    file[0].header.update('HLSPLEAD',  'Ivelina Momcheva')
+    file[0].header.update('PR_INV_L', 'van Dokkum')
+    file[0].header.update('PR_INV_F', 'Pieter')
+
+    file[0].header.update('HLSPNAME',  '3D-HST')
+    
+    file[0].header.add_blank('/ DATA DESCRIPTION KEYWORDS', after='EQUINOX', before='ROOTNAME')
+    file[0].header.add_blank('', after='EQUINOX')
+    file[0].header.add_blank('',before='ROOTNAME')
+    file[0].header.add_blank('/ PROPOSAL INFORMATION', after='PRIMESI', before='PROPOSID')
+    file[0].header.add_blank('', after='PRIMESI')
+    file[0].header.add_blank('', before='PROPOSID')
+    file[0].header.add_blank('/ INSTRUMENT CONFIGURATION INFORMATION', after='PR_INV_M', before='OBSTYPE')
+    file[0].header.add_blank('', after='PR_INV_M')
+    file[0].header.add_blank('', before='OBSTYPE')
+    file[0].header.add_blank('/ DATE AND TIME KEYWORDS', after='DIRIMAGE', before='EXPTIME')         
+    file[0].header.add_blank('', after='DIRIMAGE')
+    file[0].header.add_blank('', before='EXPTIME')
+    file[0].header.add_blank('/ DATA KEYWORDS', after='EXPEND', before='PHOTMODE')
+    file[0].header.add_blank('', after='EXPEND')
+    file[0].header.add_blank('', before='PHOTMODE')
+    file[0].header.add_blank('/IMAGE ORIGIN KEYWORDS', after='RESUNIT', before='TARGNAME')
+    file[0].header.add_blank('', after='RESUNIT')
+    file[0].header.add_blank('', before='TARGNAME')
+    
+    
+    file[0].header.update('HISTORY','')
+    file[0].header.add_history('------------------------------------------------------------')
+    file[0].header.add_history(' AstroDrizzle processing performed using:')
+    file[0].header.add_history('     AstroDrizzle Version 1.1.9.dev23803')
+    file[0].header.add_history('     Numpy Version 1.6.2')
+    file[0].header.add_history('     PyFITS Version 3.2.dev2070')
+    file[0].header.add_history('------------------------------------------------------------------')
+    file[0].header.add_history('')
+    file[0].header.add_history('3D-HST:')
+    file[0].header.add_history('A Spectroscopic Galaxy Evolution Survey with the Hubble Space Telescope')
+    file[0].header.add_history('==================================================================')
+    file[0].header.add_history('')
+    file[0].header.add_history('3D-HST (Brammer et al. 2012) is a 248-orbit Multi-Cycle Treasury')
+    file[0].header.add_history('program with the Hubble Space telescope designed to study the')
+    file[0].header.add_history('physical processes that shape galaxies in the distant Universe.')
+    file[0].header.add_history('')
+    file[0].header.add_history('Survey Principal Investigator: Pieter van Dokkum ')
+    file[0].header.add_history('')
+    file[0].header.add_history('Website: http://3dhst.research.yale.edu/')
+    file[0].header.add_history('')
+    file[0].header.add_history('Survey Data Papers')
+    file[0].header.add_history('')
+    file[0].header.add_history('Brammer, G. B. et al. 2012, ApJS 200, 13B')
+    file[0].header.add_history('')
+    file[0].header.add_history('Skelton, R. et al., 2014')
+    file[0].header.add_history('')
+    file[0].header.add_history('This HST image mosaic was produced by Ivelina G. Momcheva, using the ')
+    file[0].header.add_history('Tweakreg and Astrodrizzle software (Gonzaga et al., 2012). The mosaic' )
+    file[0].header.add_history('was made for the uses of the 3D-HST project and contains data from the' )
+    file[0].header.add_history('following HST GO programs:')
+    file[0].header.add_history('')
+    
+    for id in go_ids:
+        print '  GO-%s'%(id)
+        file[0].header.add_history('  GO-%s'%(id))
+        
+    file[0].header.add_history('')
+    file[0].header.add_history('The mosaic has a scale of 0.06 arcsec/pixel, with north')
+    file[0].header.add_history('toward the top in COSMOS, GOODS-N, GOODS-S and UDS. The mosaics ')
+    file[0].header.add_history('in the AEGIS field are rotated 49.7 degrees.')
+    file[0].header.add_history('  ')
+    file[0].header.add_history('We encourage the entire community to make full use of these mosaics.')
+    file[0].header.add_history('')
+    
+    outname = 'hlsp_3dhst_hst_'+instrument.lower()+'_'+field.lower()+'_'+band.lower()+'_'+version.lower()+'_'+im_type+'.fits'
+    print 'WRITING OUT: %s' % (outname)
+    file.writeto(outname, clobber=True)
+    file.close()
 
 def combined_images_script():
     

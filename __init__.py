@@ -12,6 +12,7 @@ $Date$
 """
 __version__ = "$Rev$"
 
+import os
 from socket import gethostname as hostname
 
 if hostname().startswith('uni') or hostname().startswith('hyp'):
@@ -22,7 +23,15 @@ else:
 if hostname().startswith('850dhcp8'):
     GRISM_HOME = '/3DHST/Spectra/Work/'
     #threedhst.sex.RUN_MODE='direct'
-    
+
+if hostname().lower().startswith('gabriel') | hostname().startswith('vpn-brammer'):
+    GRISM_HOME = '/Users/brammer/3DHST/Spectra/Work/'
+
+GRISM_HOME = os.getenv('THREEDHST')
+
+if GRISM_HOME[-1] != '/':
+    GRISM_HOME += '/'
+        
 import threedhst
 
 try:

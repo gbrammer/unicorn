@@ -186,8 +186,6 @@ def go():
 
     # unicorn.prepare.show_MultiAccum_reads('ibhm53o3q_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm53o3q_raw.fits', pop_reads=[1])
-
-
     
     #### Reprocess *all* of the FLTs with variable backgrounds that 
     #### weren't already refit above
@@ -241,7 +239,7 @@ def redo_prep():
             continue
         #
         threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = None, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
-    
+            
     files=glob.glob('*[0-9]-G141_drz.fits')
     skip = True
     
@@ -254,6 +252,69 @@ def redo_prep():
         unicorn.reduce.set_grism_config(use_new_config=True)
         unicorn.reduce.interlace_combine(file.split('_drz')[0], pad=60, NGROW=125, view=False)
     
+    #### Make models
+    import unicorn
+    import glob
+    files=glob.glob('*inter.cat')
+    for file in files:
+        pointing=file.split('_inter')[0]
+        unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25, REFINE_MAG_LIMIT=22.5, make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
     
+    ### Extract spec-z objects
+    import unicorn
+    import glob
+    import os
     
+    files=glob.glob('*inter.cat')
+    cat, zout, fout = unicorn.analysis.read_catalogs(files[0])
+    
+    #
+    for file in files:
+        pointing=file.split('_inter')[0]
+        unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25, REFINE_MAG_LIMIT=22.5, make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
+        ##
+        for id in model.objects:
+            zsp = zout.z_spec[zout.id == id][0]
+            print '%s_%05d: %.4f' %(pointing, id, zsp)
+            if os.path.exists('%s_%05d.2D.png' %(pointing, id)):
+                continue
+            #
+            if zsp > 0:
+                status = model.twod_spectrum(id, miny=-34, refine=False, CONTAMINATING_MAGLIMIT=25, USE_REFERENCE_THUMB=True)
+                if status:
+                    model.show_2d(savePNG=True)
+                # unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
+                # gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id), lowz_thresh=0.)
+                # gris.fit_in_steps(zrfirst=[np.clip(gris.z_peak-0.3, 0,3),gris.z_peak+0.3])
+                # os.system('open %s_%05d*zfit*png' %(pointing, id))
+                
+    #
+    import glob
+    import unicorn
+    SKIP=True
+    files=glob.glob('*2D.fits')
+    for file in files:
+        if os.path.exists(file.replace('2D.fits','zfit.2D.png')) & SKIP:
+            continue
+        #
+        unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
+        pointing=file.split('_')[0]
+        id=int(file.split('_')[1][:5])
+        gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id), lowz_thresh=0.)
+        if gris.status:
+            gris.fit_in_steps(zrfirst=[np.clip(gris.z_peak - 0.3*(1+gris.z_peak), 0,4),gris.z_peak + 0.3*(1+gris.z_peak)])
+        #os.system('open %s_%05d*zfit*png' %(pointing, id))
+        
+    
+    if False:
+        status = model.twod_spectrum(id, miny=-34, refine=False, CONTAMINATING_MAGLIMIT=25, USE_REFERENCE_THUMB=True)
+        if status:
+            model.show_2d(savePNG=True)
+        #
+        gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id), lowz_thresh=0.)
+        if gris.status:
+            gris.fit_in_steps(zrfirst=[np.clip(gris.z_peak - 0.3*(1+gris.z_peak), 0,4),gris.z_peak + 0.3*(1+gris.z_peak)])
+        
     

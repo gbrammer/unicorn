@@ -497,12 +497,17 @@ def read_catalogs(field='COSMOS', force=False, v20=False):
         return True
     
     PATH = '/3DHST/Spectra/Release/v2.1/'
+    PATH = '/Users/brammer/3DHST/Spectra/Release/v2.1/'
     root = field.lower().replace('-','')
     
     cat = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.cat' %(field, field, root))
     zout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.zout' %(field, field, root))
     fout = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s_3dhst.v2.1.fout' %(field, field, root))
-    rf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, root))
+    try:
+        rf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.eazy.cat' %(field, field, root))
+    except:
+        rf = None
+        
     #irf = catIO.Readfile(PATH+'%s/%s_RF/%s.v2.1.rf.interrest.rfout' %(field, field, root))
 
     zfit = catIO.Readfile(PATH+'%s/%s_CATALOGS/%s.zfit.linematched.dat' %(field, field, field))
@@ -557,6 +562,8 @@ def read_catalogs(field='COSMOS', force=False, v20=False):
     cat2.root = root
     cat2.rf = rf
     cat2.irf = irf
+    
+    cat2.matcher = catIO.CoordinateMatcher(cat)
     
 def read_catalogs_old(field='COSMOS', force=False, return_dir=True):
     """ 

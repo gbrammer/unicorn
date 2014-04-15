@@ -717,7 +717,7 @@ def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     #stack(id, dy=20, save=True, inverse=True)
     
 #
-def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270):
+def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270, files=None):
     """
     Stack all UDF spectra for a given object ID
     """
@@ -727,7 +727,9 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     if plt.cm.get_cmap().name != 'gray':
         plt.gray()
         
-    files=glob.glob('%s*%05d.2D.fits' %(search, id))
+    if files is None:
+        files=glob.glob('%s*%05d.2D.fits' %(search, id))
+    
     for i in range(len(files))[::-1]:
         twod = unicorn.reduce.Interlace2D(files[i])
         im = twod.im
@@ -883,7 +885,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     # plt.close()
     
     #
-    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root, search=search)
+    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root, search=search, files=files)
     if udf.status is False:
         return False
     
@@ -900,14 +902,18 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     ### Should be able to sum spectra for any object like this....
 
 class UDF():
-    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF', search='[GP][OR]'):
+    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF', search='[GP][OR]', files=None):
         """
         Read in the 2D FITS files
         """        
         self.verbose = verbose
         
         self.id = id
-        self.files=glob.glob('%s*%05d.2D.fits' %(search, id))
+        if files is None:
+            self.files=glob.glob('%s*%05d.2D.fits' %(search, id))
+        else:
+            self.files = files
+            
         self.NPIX = NPIX
         self.fcontam = fcontam
         self.ref_wave = ref_wave

@@ -47,7 +47,9 @@ def interp_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] xp, np.n
                 continue
             else:
                 i=0
+                
         while (xp[i] < xval) & (i < Np-1): i+=1;
+        
         if i == (Np-1):
             if x[j] != xp[i]:
                 f[j] = extrapolate
@@ -55,14 +57,19 @@ def interp_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] xp, np.n
                 f[j] = fp[i]
             j+=1
             continue   
+        
         #### x[i] is now greater than xval because the 
         #### expression (x[i]<xval) is false, assuming
         #### that xval < max(x).
         
-        x1 = xp[i];
-        x2 = xp[i+1];
-        y1 = fp[i];
-        y2 = fp[i+1];
+        # x1 = xp[i];
+        # x2 = xp[i+1];
+        # y1 = fp[i];
+        # y2 = fp[i+1];
+        x1 = xp[i-1];
+        x2 = xp[i];
+        y1 = fp[i-1];
+        y2 = fp[i];
         out = ((y2-y1)/(x2-x1))*(xval-x1)+y1;
         f[j] = out
         j+=1
@@ -288,3 +295,40 @@ def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] varian
     return coeffs
     
 #    
+@cython.boundscheck(False)
+def interpolate_tempfilt(np.ndarray[DTYPE_t, ndim=3] tempfilt, np.ndarray[DTYPE_t, ndim=1] zgrid, double zi, np.ndarray[DTYPE_t, ndim=2] output):
+    """
+    interpolate_tempfilt(tempfilt, zgrid, zi, output)
+    
+    Linear interpolate an Eazy "tempfilt" grid at z=zi.  
+    
+    `tempfilt` is [NFILT, NTEMP, NZ] integrated flux matrix
+    `zgrid` is [NZ] redshift grid
+    
+    Result is stored in the input variable `output`, which needs shape [NFILT, NTEMP]
+    """
+    cdef unsigned long NT, NF, NZ, itemp, ifilt, iz
+    cdef double dz, fint, fint2
+    
+    cdef extern from "math.h":
+        double fabs(double)
+    
+    NF, NT, NZ = np.shape(tempfilt)
+    
+    #### Output array
+    #cdef np.ndarray[DTYPE_t, ndim=2] tempfilt_interp = np.zeros((NF, NT), dtype=DTYPE)
+    
+    for iz in range(NZ-1):
+        dz = zgrid[iz+1]-zgrid[iz]
+        fint = 1 - (zi-zgrid[iz])/dz
+        if (fint > 0) & (fint <= 1):
+            fint2 = 1 - (zgrid[iz+1]-zi)/dz
+            # print iz, zgrid[iz], fint, fint2
+            for ifilt in range(NF):
+                for itemp in range(NT):
+                    output[ifilt, itemp] = tempfilt[ifilt, itemp, iz]*fint + tempfilt[ifilt, itemp, iz+1]*fint2
+            #
+            break
+                    
+    # return output
+    

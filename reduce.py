@@ -883,6 +883,14 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             # yg /= np.sum(yg)
             # spec_interp = nd.convolve1d(spec_interp, yg)
 
+            ####### Debugging
+            #print BEAM, spec_interp
+            #spec_interp = np.interp(lam, lam_spec, flux_spec) 
+            # plt.plot(lam, spec_interp, color='red')
+            # plt.plot(lam_spec, flux_spec, color='blue')
+            # print beam, dl, lam, spec_interp
+            # np.savetxt('/tmp/lam',lam)
+            
             spec_interp[~np.isfinite(spec_interp)] = 0
             spec_interp[lam < np.min(lam_spec)] = 0
             
@@ -1913,6 +1921,8 @@ class GrismModel():
         cast = np.int
         xord, yord, ford, word, sord, bord = np.array(xord[non_zero], dtype=cast), np.array(yord[non_zero], dtype=cast), np.array(orders[non_zero], dtype=np.float64), self.xi[2][non_zero], self.xi[3][non_zero], beams[non_zero]
         
+        #print non_zero.sum()
+        
         ys = orders.shape
         xord += self.xi[0]
         yord -= (ys[0]-1)/2
@@ -2434,6 +2444,8 @@ class GrismModel():
         self.wave = self.object_wave[xmin:xmax]
         self.dwave = self.wave[1]-self.wave[0]
         
+        #print '\nxxx: wave %f %f\nxxx\n' %(self.wave.min(), self.wave.max())
+        
         if verbose:
             print 'Writing spectrum extensions.'
             
@@ -2771,7 +2783,59 @@ class GrismModel():
                     fp.write(region+'\n')
             #
             fp.close()
+    
+    def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True):
+        """
+        Use the computed model as an aggressive mask for refining the 
+        background subtraction.  Also adjust the pixel errors in the second
+        extension based on the observed masked pixel distribution.
+        
+        """
+        resid = self.gris[1].data / self.gris[2].data
+        yc, xc = np.indices(resid.shape)
+        objects = nd.maximum_filter((self.model > threshold)*1, size=grow_mask) > 0
+        mm = ~objects & (self.gris[2].data > 0) & (resid < resid_threshold) & (self.gris[2].data < 10)
+        mm &= (xc > clip_left) 
+        flux_bg = np.median(self.gris[1].data[mm])
+        err_scale = np.std(resid[mm])
+        resid2 = (self.gris[1].data - flux_bg) / (self.gris[2].data*err_scale)
+        print 'BG: %.5f e/s, err_scale=%.3f' %(flux_bg, err_scale)
+        
+        xroot = os.path.basename(self.root)+'-'+self.grism_element
+        
+        fp = open(xroot+'_maskbg.dat','w')
+        fp.write('# root bg err_scale\n%s %9.5f %.5f\n' %(xroot, flux_bg, err_scale))
+        fp.close()
+        
+        if save_figure:
+            fig = unicorn.plotting.plot_init(xs=8, aspect=0.5, left=0.01, right=0.01, top=0.01, bottom=0.1, square=True, NO_GUI=True)
+            ax = fig.add_subplot(121)
+            diff = self.gris[1].data*1.
+            diff[~mm] = 0
+            ax.imshow(nd.gaussian_filter(diff[self.ngrow*self.growx: -self.ngrow*self.growx-1, self.ngrow*self.growy:-self.ngrow*self.growy-1], 2), vmin=-0.02, vmax=0.02, interpolation='Nearest', aspect='auto')
+            ax.set_xticklabels([]); ax.set_yticklabels([])
+            ax.set_xlabel(r'Background: %.5f e/s, $\sigma$ scale: %.3f' %(flux_bg, err_scale))
+            #
+            ax = fig.add_subplot(122)
+            ax.hist(resid2[mm], range=(-3,3), bins=60, alpha=0.5, label='Observed', histtype='stepfilled', color='black')
+            ax.hist(np.random.normal(size=mm.sum()), range=(-3,3), bins=60, alpha=0.8, color='red', histtype='step', linewidth=3)
+            ax.set_ylabel(xroot)
+            ax.set_yticklabels([])
+            unicorn.plotting.savefig(fig, xroot+'_maskbg.png')
             
+        if update:
+            mx = pyfits.open(self.gris.filename(), mode='update')
+            if 'FLUXBG' in mx[0].header.keys():
+                mx[0].header['FLUXBG'] += flux_bg
+                mx[0].header['ERRSCALE'] *= err_scale
+            else:
+                mx[0].header['FLUXBG'] = flux_bg
+                mx[0].header['ERRSCALE'] = err_scale
+                
+            mx[1].data -= flux_bg
+            mx[2].data *= err_scale
+            mx.flush()
+            print 'Updated %s' %(self.gris.filename())
                     
 def field_dependent(xi, yi, str_coeffs):
     """ 

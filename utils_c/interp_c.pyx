@@ -134,7 +134,15 @@ def interp_conserve_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1]
 
     ###### Rebin template grid to master wavelength grid, conserving template flux
     i=0
-    for k in range(NTEMPL):
+    k=0
+    while templmid[k] < tlam[0]:
+        outy[k] = left
+        k+=1
+        
+    for k in range(k, NTEMPL):
+        if templmid[k] > tlam[ntlam-1]:
+            break
+            
         numsum=0.;
 
         #### Go to where tlam is greater than the first midpoint

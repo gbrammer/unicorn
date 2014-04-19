@@ -73,7 +73,7 @@ for beam in ['A','B','C','D','E']:
 
 #### wavelength limits
 grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.98e4, 20., 0.75e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822}
 
@@ -219,8 +219,8 @@ def combine_all(FORCE=False):
             unicorn.reduce.interlace_combine(pointing+'-G141', view=False, pad=60, NGROW=125)
 
 def acs_interlace_combine(asn_file):
-    asn_file = 'jbhm19010_asn.fits'
-    asn_file = 'jbhm19020_asn.fits'
+    # asn_file = 'jbhm19010_asn.fits'
+    # asn_file = 'jbhm19020_asn.fits'
 
     asn = threedhst.utils.ASNFile(asn_file)
     
@@ -232,6 +232,9 @@ def acs_interlace_combine(asn_file):
     xoff[1] -= 2; yoff[1] += 2
     xoff[2] -= 2; yoff[2] += 1
     xoff[3] -= 1; yoff[3] -= 2
+    
+    xoff = np.append(xoff, xoff)
+    yoff = np.append(yoff, yoff)
     
     im = pyfits.open(asn.exposures[0]+'_flt.fits')
     full = np.zeros((2200, 4200))
@@ -270,8 +273,8 @@ def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     #     ypos.append(head['POSTARG2'])
     #
     ### WFC3 postargs
-    xpos = [0, 1.355, 0.881, -0.474]
-    ypos = [0.0, 0.424, 1.212, 0.788]
+    xpos = [0.0, 1.355, 0.881, -0.474]
+    ypos = [0.0, 0.424, 1.212,  0.788]
     
     a10 = 0.00
     a11 = 0.0494
@@ -890,7 +893,15 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             # plt.plot(lam_spec, flux_spec, color='blue')
             # print beam, dl, lam, spec_interp
             # np.savetxt('/tmp/lam',lam)
-            
+            # if beam == 'A':
+            #     np.savetxt('/tmp/lam',np.array([lam, spec_interp]).T)
+            #     np.savetxt('/tmp/lam_spec',np.array([lam_spec, flux_spec]).T)
+            #     print 'xxx', lam, spec_interp, lam_spec, flux_spec
+            #     
+            #     if 0:
+            #         lam, spec_interp = np.loadtxt('/tmp/lam', unpack=True)
+            #         lam_spec, flux_spec = np.loadtxt('/tmp/lam_spec', unpack=True)
+                    
             spec_interp[~np.isfinite(spec_interp)] = 0
             spec_interp[lam < np.min(lam_spec)] = 0
             
@@ -2191,7 +2202,16 @@ class GrismModel():
                 self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly, normalize=True)      
                 self.model += self.object
                 self.obj_in_model[id] = True
-                
+                if view:
+                    try:
+                        view.view(self.model)                    
+                    except:
+                        pass
+                    #
+                    # xx = raw_input('Continue?')
+                    # if xx != '':
+                    #     print this_breaks
+                    
         if save_pickle:
             self.save_model_spectra(BEAMS=BEAMS)
             

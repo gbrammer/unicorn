@@ -102,7 +102,7 @@ def set_grism_config(grism='G141', chip=1, use_new_config=False, force=False):
     #
     config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
     if use_new_config:
-        config_file = {'G102':'G102.test27s.conf', 'G141':'G141.test27s.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
     
     if grism == 'G800L':
         config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)

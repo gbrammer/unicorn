@@ -95,7 +95,7 @@ try:
 except:
     print 'No pywcs found.'
     
-def set_grism_config(grism='G141', chip=1, use_new_config=False, force=False):
+def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False):
     import unicorn.reduce as red
     if (red.conf_grism == grism) & (not force):
         return None

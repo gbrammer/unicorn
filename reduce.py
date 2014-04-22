@@ -2994,8 +2994,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     if unicorn.hostname().startswith('uni'):
         view = False
-        
-    pointing = root.split('-F1')[0]
+    
+    ### Strip off filter name    
+    pointing = '-F'.join(root.split('-F')[:-1])
     
     #unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = root, NGROW=NGROW, verbose=verbose)
     

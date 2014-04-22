@@ -1368,7 +1368,10 @@ def interlace_goodss0():
                 continue
             #
             print '\n'
-            gris.new_fit_free_emlines(ztry=None)
+            try: 
+                gris.new_fit_free_emlines(ztry=None)
+            except:
+                continue
 
     ### Get some quality flags on the reduced spectra
     root='GOODS-S'
@@ -1542,18 +1545,26 @@ def interlace_ers():
     FORCE = True
     
     #### Main preparation loop
+    direct=glob.glob('WFC3-ERSII-G01-F*_asn.fits')
+    grism = glob.glob('WFC3-ERSII-G01-G*_asn.fits')
+    loop_list = range(len(direct))
+    for i in loop_list:
+        pointing='WFC3-ERSII-G02-F140W'
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct[i], grism[i], adjust_targname=False, ALIGN_IMAGE = ALIGN_IMAGE, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift',sky_images=['G102_master_flatcorr.v2.fits'])
+            
     direct=glob.glob('WFC3-ERSII-G02-F*_asn.fits')
     grism = glob.glob('WFC3-ERSII-G02-G*_asn.fits')
-    
     loop_list = range(len(direct))
     for i in loop_list:
         pointing='WFC3-ERSII-G02-F140W'
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], adjust_targname=False, ALIGN_IMAGE = ALIGN_IMAGE, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+    
    
     unicorn.reduce.prepare_blot_reference(REF_ROOT='GOODS-S_F160W', filter='F160W', REFERENCE = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits', SEGM = '/3DHST/Photometry/Release/v4.0/GOODS-S/Detection/goodss_3dhst.v4.0.F160W_seg.fits.gz', Force=True)
          
-    NGROW=225
+    NGROW=300
     pad=60
     CATALOG='/3DHST/Photometry/Release/v4.0/GOODS-S/Detection/goodss_3dhst.v4.0.F160W_orig.cat'
 
@@ -1569,19 +1580,22 @@ def interlace_ers():
             NGROW=NGROW, verbose=True)
         unicorn.reduce.interlace_combine_blot(root=pointing, view=True, pad=pad, 
             REF_ROOT=REF_ROOT, CATALOG=CATALOG,  NGROW=NGROW, verbose=True, growx=1, growy=1,
-            auto_offsets=True)
-        unicorn.reduce.interlace_combine(pointing, pad=pad, NGROW=NGROW,growx=1, growy=1, auto_offsets=True)
+            auto_offsets=False)
+        unicorn.reduce.interlace_combine(pointing, pad=pad, NGROW=NGROW,growx=1, growy=1, auto_offsets=False)
     for pointing in ['WFC3-ERSII-G01-G102','WFC3-ERSII-G02-G141']:
-        unicorn.reduce.interlace_combine(pointing, pad=60, NGROW=NGROW,growx=1, growy=1, auto_offsets=True)
+        unicorn.reduce.interlace_combine(pointing, pad=pad, NGROW=NGROW,growx=1, growy=1, auto_offsets=False)
 
     ##### Generate the spectral model
     ##### Extract all spectra 	
     redo = True
     for pointing,direct,grism in zip(['WFC3-ERSII-G01','WFC3-ERSII-G02'],['F098M','F140W'],['G102','G141']):
         if (not os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30., direct=direct, grism=grism)
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30., direct=direct, grism=grism, 
+                grow_factor=1, growx=1, growy=1)
+            model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
+            
+            
     
-
 def interlace_uds0():
     """
     Reduce the UDS-0* pointings on Unicorn and extract spectra, using the full

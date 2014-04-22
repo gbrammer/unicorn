@@ -424,7 +424,11 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     #### Erb quasar sightlines
     if flt[0].header['PROPOSID'] == 12471:
         dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
-        
+    
+    if 'ERSII' in root:
+        dxs = np.array([   0, -147, -148,-1])*growx
+        dys = np.array([ 0,  0, 83, 83])*growy
+       
     if auto_offsets:
         xinter, yinter = red.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter + np.int(np.round(xsh[0]))*0
@@ -3048,12 +3052,27 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if flt[0].header['PROPOSID'] == 12471:
         dxs, dys = np.array([  0, -10])*growx, np.array([ 0, -7])
     
+    if 'ERSII' in root:
+        dxs = np.array([   0, -147, -148,-1])*growx
+        dys = np.array([ 0,  0, 83, 83])*growy
+        
     if auto_offsets:
         xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter + np.int(np.round(xsh[0]))*0
         dys = yinter + np.int(np.round(ysh[0]))*0
         print 'Auto offsets: ', dxs, dys
         
+        ## Check
+        if False:
+            xx, yy = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy, raw=True)
+            flts = []
+            for exp in asn.exposures:
+                flts.append(pyfits.open(exp+'_flt.fits')[1].data)
+            #
+            i=1
+            xx, yy = xx-xx[0], yy-yy[0]
+            ds9.view(flts[0]-nd.shift(flts[i], (-yy[i], -xx[i])))
+
     dxi = np.cast[np.int32](np.ceil(dxs/growx))
     dyi = np.cast[np.int32](np.ceil(dys/growy))
     
@@ -3111,7 +3130,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         
         inter_sci[yi*growy+dy,xi*growx+dx] += im[0].data
         #inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
-        inter_seg[yi*growy+dy,xi*growx+dx] += im_seg[0].data
+        inter_seg[yi*growy+dy,xi*growx+dx] = im_seg[0].data
         inter_N[yi*growy+dy,xi*growx+dx] += 1
         
         #
@@ -3157,7 +3176,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_seg[inter_seg < 0] = 0
     inter_seg[~np.isfinite(inter_seg)] = 0
         
-    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[np.int32](inter_seg/inter_N))
+    hdu = pyfits.PrimaryHDU(header=header, data=np.cast[np.int32](inter_seg))
     hdu.writeto(pointing+'_inter_seg.fits', clobber=True)
     
     if verbose:
@@ -3290,7 +3309,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     for i,line in enumerate(status[-NOBJ:]):
         spl = np.cast[float](line.split())
         fxi, fyi = (spl[0]+NGROW)*growx+pad/2-1, (spl[1]+NGROW)*growy+pad/2-1
-        if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*growx+pad/2.)) & (fyi > (pad/2.+NGROW*2)) & (fyi < (pad/2.+NGROW*growy+1014*growy)):
+        if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*growx+pad/2.)) & (fyi > (pad/2.+NGROW*growy)) & (fyi < (pad/2.+NGROW*growy+1014*growy)):
             flt_x.append(fxi)
             flt_y.append(fyi)
             #

@@ -95,7 +95,7 @@ try:
 except:
     print 'No pywcs found.'
     
-def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False):
+def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use_config_file=None):
     import unicorn.reduce as red
     if (red.conf_grism == grism) & (not force):
         return None
@@ -106,10 +106,13 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False):
     
     if grism == 'G800L':
         config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)
+    
+    if use_config_file is None:
+        use_config_file = config_file[grism]
         
-    red.conf = threedhst.process_grism.Conf(config_file[grism], path=os.getenv('THREEDHST')+'/CONF/').params
+    red.conf = threedhst.process_grism.Conf(use_config_file, path=os.getenv('THREEDHST')+'/CONF/').params
     red.conf_grism = grism
-    red.conf_file = config_file[grism]
+    red.conf_file = use_config_file
     red.sens_files = {}
     for beam in ['A','B','C','D','E','F','G']:
         if 'SENSITIVITY_'+beam in conf.keys():
@@ -117,7 +120,7 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False):
             red.sens_files[beam].SENSITIVITY[-3:] *= 0.
             red.sens_files[beam].SENSITIVITY[:3] *= 0.
         
-    print 'Set grism configuration files for %s: %s' %(red.conf_grism, config_file[grism])
+    print 'Set grism configuration files for %s: %s' %(red.conf_grism, use_config_file)
     
 def go_all(clean_all=True, clean_spectra=True, make_images=True, make_model=True, fix_wcs=True, extract_limit=None, skip_completed_spectra=True, MAG_LIMIT=26, out_path='./'):
     """
@@ -814,7 +817,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         if (grism == 'G141') & (beam == 'A'):
             dy_fudge = 0.5*growy/2
             #
-            dx_fudge = -1*growx/2*dldp_1
+            dx_fudge = -1.*growx/2*dldp_1
             lam += dx_fudge
                     
         ycenter += dy_fudge
@@ -1156,6 +1159,12 @@ class Interlace2D():
             chip = self.im[0].header['CCDCHIP']
         else:
             chip=1
+        
+        #### Make sure to use the same configuration file that was used
+        #### to generate the 2D fits file
+        if 'GRISCONF' in im[0].header.keys():
+            if unicorn.reduce.conf_file != im[0].header['GRISCONF']:
+                unicorn.reduce.set_grism_config(grism=self.grism_element, force=True, use_config_file=im[0].header['GRISCONF'])
             
         unicorn.reduce.set_grism_config(self.grism_element, chip=chip)
         
@@ -2226,6 +2235,7 @@ class GrismModel():
         If just BEAM ["B"] is specified, save the 0th order contamination image.
         """
         import pickle
+        import unicorn.reduce
         
         ####
         if BEAMS == ['B']:
@@ -2239,10 +2249,18 @@ class GrismModel():
         pickle.dump(self.flux_specs, fp)
         fp.close()
         
-        pyfits.writeto(self.root+'_inter_model.fits', data=self.model, header=self.gris[1].header, clobber=True)
+        header = self.gris[1].header.copy()
+        header['GRISCONF'] = (unicorn.reduce.conf_file, 'Grism configuration file')
         
-    def load_model_spectra(self):
+        pyfits.writeto(self.root+'_inter_model.fits', data=self.model, header=header, clobber=True)
+        
+    def load_model_spectra(self, use_same_config=True):
+        """
+        Load model.pkl and model.fits files if they exist
+        """
         import pickle
+        import unicorn.reduce
+        
         if ((not os.path.exists(self.root+'_inter_model.pkl')) | 
             (not os.path.exists(self.root+'_inter_model.fits'))):
             return False
@@ -2258,6 +2276,13 @@ class GrismModel():
             
             im = pyfits.open(self.root+'_inter_model.fits')
             self.model = np.cast[np.double](im[0].data)
+            
+            #### Make sure we're using the same configuration file used 
+            #### to generate the model
+            if 'GRISCONF' in im[0].header.keys():
+                if unicorn.reduce.conf_file != im[0].header['GRISCONF']:
+                    unicorn.reduce.set_grism_config(grism=self.grism_element, force=True, use_config_file=im[0].header['GRISCONF'])
+                
             im.close()
         else:
             print "ERROR: Object list in pickle doesn't match the current catalog."
@@ -2280,6 +2305,8 @@ class GrismModel():
         `USE_REFERENCE_THUMB`: Use the reference image rather than the 
         nominal F140W image for the 2D thumbnail.
         """
+        import unicorn.reduce
+        
         if id not in self.cat.id:
             print 'Object #%d not in catalog.' %(id)
             return False
@@ -2354,7 +2381,8 @@ class GrismModel():
         prim.header.update('CCDCHIP', self.chip)
         
         prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
-                
+        prim.header.update('GRISCONF', unicorn.reduce.conf_file, comment='Grism configuration file')
+        
         if '_ref_inter' in self.im.filename():
             ### Use reference image as thumbnail if it exists
             if (xc < ((self.pad + self.ngrow)/ 2)) | USE_REFERENCE_THUMB:
@@ -2808,29 +2836,60 @@ class GrismModel():
             #
             fp.close()
     
-    def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True):
+    def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True):
         """
         Use the computed model as an aggressive mask for refining the 
         background subtraction.  Also adjust the pixel errors in the second
         extension based on the observed masked pixel distribution.
         
         """
+        import re
+        
+        #### Normalized residuals
         resid = self.gris[1].data / self.gris[2].data
+        
+        #### Mask on objects in the model and also left part of the image
+        #### where model might not have objects
         yc, xc = np.indices(resid.shape)
         objects = nd.maximum_filter((self.model > threshold)*1, size=grow_mask) > 0
         mm = ~objects & (self.gris[2].data > 0) & (resid < resid_threshold) & (self.gris[2].data < 10)
-        mm &= (xc > clip_left) 
-        flux_bg = np.median(self.gris[1].data[mm])
-        err_scale = np.std(resid[mm])
-        resid2 = (self.gris[1].data - flux_bg) / (self.gris[2].data*err_scale)
-        print 'BG: %.5f e/s, err_scale=%.3f' %(flux_bg, err_scale)
+        mm &= (xc > clip_left*(self.growx/2.)) 
+        #flux_bg = np.median(self.gris[1].data[mm])
+        #err_scale = np.std(resid[mm])
+        #resid2 = (self.gris[1].data - flux_bg) / (self.gris[2].data*err_scale)
+        #print 'BG: %.5f e/s, err_scale=%.3f' %(flux_bg, err_scale)
+        
+        #### Compute background for each input exposure
+        flux_bgs = np.ones((self.growx, self.growy))
+        resid2 = self.gris[1].data*1
+        for i in range(self.growx):
+            for j in range(self.growy):
+                mm_ij = mm[j::self.growy,i::self.growx]
+                flux_bgs[i,j] = np.median(self.gris[1].data[j::self.growy,i::self.growx][mm_ij])
+                #### Store array with new background subtracted
+                resid2[j::self.growy,i::self.growx] -= flux_bgs[i,j]
+        
+        #### Scale factor to make the normalized residuals std=1
+        err_scale = np.std((resid2/self.gris[2].data)[mm])
+        
+        ### Formatted string for multiple image residuals
+        np.set_printoptions(precision=2)
+        flux_bgs_str = re.sub('[\[\],\n]', '', (flux_bgs.__str__())).replace('  ',' ')
+        np.set_printoptions(precision=8)
+        
+        print 'BG:%s e/s\nerr_scale=%.3f' %(flux_bgs_str, err_scale)
         
         xroot = os.path.basename(self.root)+'-'+self.grism_element
         
+        ### Save information to a file
         fp = open(xroot+'_maskbg.dat','w')
-        fp.write('# root bg err_scale\n%s %9.5f %.5f\n' %(xroot, flux_bg, err_scale))
+        np.set_printoptions(precision=3)
+        bg_head = ' '.join(['bg%d%d' %(i, j) for j in range(self.growx) for i in range(self.growy)])
+        fp.write('# root %s err_scale\n%s %s %.5f\n' %(bg_head, xroot, flux_bgs_str, err_scale))
+        np.set_printoptions(precision=8)
         fp.close()
         
+        ### Make plot
         if save_figure:
             fig = unicorn.plotting.plot_init(xs=8, aspect=0.5, left=0.01, right=0.01, top=0.01, bottom=0.1, square=True, NO_GUI=True)
             ax = fig.add_subplot(121)
@@ -2838,25 +2897,33 @@ class GrismModel():
             diff[~mm] = 0
             ax.imshow(nd.gaussian_filter(diff[self.ngrow*self.growx: -self.ngrow*self.growx-1, self.ngrow*self.growy:-self.ngrow*self.growy-1], 2), vmin=-0.02, vmax=0.02, interpolation='Nearest', aspect='auto')
             ax.set_xticklabels([]); ax.set_yticklabels([])
-            ax.set_xlabel(r'Background: %.5f e/s, $\sigma$ scale: %.3f' %(flux_bg, err_scale))
+            ax.set_xlabel('BG: %s e/s\n' %(flux_bgs_str)+r'$\sigma$ scale: %.3f' %(err_scale))
             #
             ax = fig.add_subplot(122)
-            ax.hist(resid2[mm], range=(-3,3), bins=60, alpha=0.5, label='Observed', histtype='stepfilled', color='black')
+            ax.hist((resid2/self.gris[2].data)[mm], range=(-3,3), bins=60, alpha=0.5, label='Observed', histtype='stepfilled', color='black')
             ax.hist(np.random.normal(size=mm.sum()), range=(-3,3), bins=60, alpha=0.8, color='red', histtype='step', linewidth=3)
             ax.set_ylabel(xroot)
             ax.set_yticklabels([])
             unicorn.plotting.savefig(fig, xroot+'_maskbg.png')
             
+        ### Update the interlaced grism image in place
         if update:
             mx = pyfits.open(self.gris.filename(), mode='update')
-            if 'FLUXBG' in mx[0].header.keys():
-                mx[0].header['FLUXBG'] += flux_bg
+            
+            for i in range(self.growx):
+                for j in range(self.growy):
+                    key = 'FLUXBG%d%d' %(i,j)
+                    if key in mx[0].header.keys():
+                        mx[0].header[key] += flux_bgs[i,j]
+                    else:
+                        mx[0].header[key] = flux_bgs[i,j]
+            
+            if 'ERRSCALE' in mx[0].header.keys():
                 mx[0].header['ERRSCALE'] *= err_scale
             else:
-                mx[0].header['FLUXBG'] = flux_bg
                 mx[0].header['ERRSCALE'] = err_scale
-                
-            mx[1].data -= flux_bg
+                            
+            mx[1].data = resid2*1
             mx[2].data *= err_scale
             mx.flush()
             print 'Updated %s' %(self.gris.filename())

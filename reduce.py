@@ -815,11 +815,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         dy_fudge = 0
 
         if (grism == 'G141') & (beam == 'A'):
-            dy_fudge = 0.5*growy/2
+            #dy_fudge = 0.5*growy/2
             #
-            dx_fudge = -1.*growx/2*dldp_1
-            lam += dx_fudge
-                    
+            # dx_fudge = -1.*growx/2*dldp_1
+            # lam += dx_fudge
+            pass
+            
         ycenter += dy_fudge
            
         ### Vertical offsets of the G800L beams
@@ -920,9 +921,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #    sens_interp *= 0.5
         
         #### Increase response in the zeroth order to match observations
-        # if (beam == 'B') & (grism == 'G141'):
-        #     sens_interp *= 1.5 #3.6 * 10
-        #
+        if (beam == 'B') & (grism == 'G141'):
+            sens_interp *= 1.4 
+        
         if (beam == 'B') & (grism == 'G102'):
             sens_interp *= 0.9 #3.6 * 10
         
@@ -1162,9 +1163,9 @@ class Interlace2D():
         
         #### Make sure to use the same configuration file that was used
         #### to generate the 2D fits file
-        if 'GRISCONF' in im[0].header.keys():
-            if unicorn.reduce.conf_file != im[0].header['GRISCONF']:
-                unicorn.reduce.set_grism_config(grism=self.grism_element, force=True, use_config_file=im[0].header['GRISCONF'])
+        if 'GRISCONF' in self.im[0].header.keys():
+            if unicorn.reduce.conf_file != self.im[0].header['GRISCONF']:
+                unicorn.reduce.set_grism_config(grism=self.grism_element, force=True, use_config_file=self.im[0].header['GRISCONF'])
             
         unicorn.reduce.set_grism_config(self.grism_element, chip=chip)
         

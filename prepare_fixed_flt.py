@@ -214,9 +214,9 @@ def process_raw_all(field = 'AEGIS'):
         if os.path.exists('%sq_flt.fits' %(os.path.split(file)[-1].split('j_')[0])): 
             im2flt_key = threedhst.utils.gethead('%sq_flt.fits' %(os.path.split(file)[-1].split('j_')[0]), keys=['IMA2FLT'])
             if im2flt_key == []: 
-                skip = False
-            else: 
                 skip = True
+            else: 
+                skip = False
         rawfile='%sq_raw.fits'%(os.path.split(file)[-1].split('j_')[0])
         print rawfile, np.ptp(bg.bg[1:]), skip
             

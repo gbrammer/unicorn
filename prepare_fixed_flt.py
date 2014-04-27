@@ -211,13 +211,13 @@ def process_raw_all(field = 'AEGIS'):
         bg = catIO.Readfile(file, save_fits=False, force_lowercase=True)
         var_bg = np.ptp(bg.bg[1:]) > 0.15
         skip = True
-        if os.path.exists('%s_flt.fits' %(os.path.split(file)[-1].split('j_')[0])): 
+        if os.path.exists('%sq_flt.fits' %(os.path.split(file)[-1].split('j_')[0])): 
             im2flt_key = threedhst.utils.gethead('%s_flt.fits' %(os.path.split(file)[-1].split('_')[0]), keys=['IMA2FLT'])
             if im2flt_key == []: 
                 skip = False
             else: 
                 skip = True
-        rawfile='%s_raw.fits'%(os.path.split(file)[-1].split('j_')[0]))
+        rawfile='%sq_raw.fits'%(os.path.split(file)[-1].split('j_')[0])
         print rawfile, np.ptp(bg.bg[1:]), skip
             
         if var_bg & skip:

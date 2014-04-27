@@ -106,6 +106,7 @@ def go():
 
     
     #### 3D-HST
+    ### GOODS-S
     # unicorn.prepare.show_MultiAccum_reads('ibhj10vmq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhj10vmq_raw.fits', pop_reads=[9])
 
@@ -118,6 +119,7 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ibhj37uvq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhj37uvq_raw.fits', pop_reads=[11])
     
+    ### AEGIS
     # unicorn.prepare.show_MultiAccum_reads('ibhj39uuq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhj39uuq_raw.fits', pop_reads=[9,10,11,12])
     
@@ -136,6 +138,7 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ibhj69hgq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhj69hgq_raw.fits', pop_reads=[10,11,12])
 
+    ### UDS
     # unicorn.prepare.show_MultiAccum_reads('ibhm05fjq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm05fjq_raw.fits', pop_reads=[7])
 
@@ -169,6 +172,7 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ibhm27qiq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm27qiq_raw.fits', pop_reads=[11])
 
+    ### COSMOS
     # unicorn.prepare.show_MultiAccum_reads('ibhm31rcq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm31rcq_raw.fits', pop_reads=[3])
 
@@ -187,6 +191,8 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ibhm53o3q_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm53o3q_raw.fits', pop_reads=[1])
     
+
+def process_raw_all(field = 'AEGIS'):
     #### Reprocess *all* of the FLTs with variable backgrounds that 
     #### weren't already refit above
     import glob
@@ -198,18 +204,23 @@ def go():
     import threedhst
     from threedhst import catIO
     
-    files = glob.glob('ib3719*G141_orbit.dat')
+       
+    files = glob.glob('/3DHST/Spectra/Work/BACKGROUND/%s/*G141_orbit.dat'%(field))
     redo_list = []
     for file in files:
-        ## Variable background?
         bg = catIO.Readfile(file, save_fits=False, force_lowercase=True)
         var_bg = np.ptp(bg.bg[1:]) > 0.15
-        ## already processed above rejecting reads?
-        skip = threedhst.utils.gethead('%sq_flt.fits' %(file.split('j_')[0]), keys=['IMA2FLT'])[0]
-        rawfile='%sq_raw.fits' %(file.split('j_')[0])
-        print rawfile, np.ptp(bg.bg[1:])
-        #
-        if var_bg & (skip == '___'):
+        skip = True
+        if os.path.exists('%s_flt.fits' %(os.path.split(file)[-1].split('j_')[0])): 
+            im2flt_key = threedhst.utils.gethead('%s_flt.fits' %(os.path.split(file)[-1].split('_')[0]), keys=['IMA2FLT'])
+            if im2flt_key == []: 
+                skip = False
+            else: 
+                skip = True
+        rawfile='%s_raw.fits'%(os.path.split(file)[-1].split('j_')[0]))
+        print rawfile, np.ptp(bg.bg[1:]), skip
+            
+        if var_bg & skip:
             redo_list.append(rawfile)
             if not os.path.exists(rawfile):
                 continue

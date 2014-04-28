@@ -2252,7 +2252,8 @@ class GrismModel():
         fp.close()
         
         header = self.gris[1].header.copy()
-        header['GRISCONF'] = (unicorn.reduce.conf_file, 'Grism configuration file')
+        #header['GRISCONF'] = (unicorn.reduce.conf_file, 'Grism configuration file')
+        header.update('GRISCONF', unicorn.reduce.conf_file, comment='Grism configuration file')
         
         pyfits.writeto(self.root+'_inter_model.fits', data=self.model, header=header, clobber=True)
         

@@ -210,19 +210,20 @@ def process_raw_all(field = 'AEGIS'):
     for file in files:
         bg = catIO.Readfile(file, save_fits=False, force_lowercase=True)
         var_bg = np.ptp(bg.bg[1:]) > 0.15
-        skip = True
+        no_skip = True
         if os.path.exists('%sq_flt.fits' %(os.path.split(file)[-1].split('j_')[0])): 
             im2flt_key = threedhst.utils.gethead('%sq_flt.fits' %(os.path.split(file)[-1].split('j_')[0]), keys=['IMA2FLT'])
-            if im2flt_key == []: 
-                skip = True
+            if im2flt_key[0] == '': 
+                no_skip = True
             else: 
-                skip = False
+                no_skip = False
         rawfile='%sq_raw.fits'%(os.path.split(file)[-1].split('j_')[0])
-        print rawfile, np.ptp(bg.bg[1:]), skip
-            
-        if var_bg & skip:
+        #print rawfile, np.ptp(bg.bg[1:]), var_bg, no_skip, var_bg & no_skip
+        #   
+        if var_bg & no_skip:
             redo_list.append(rawfile)
             if not os.path.exists(rawfile):
+                print '%s does not exist!'%(rawfile)
                 continue
             #
             unicorn.prepare.make_IMA_FLT(raw=rawfile, pop_reads=[])

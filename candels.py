@@ -1393,11 +1393,24 @@ def make_asn_files(force=False, make_region=False, uniquename=True):
     for visit in np.unique(visits):
         angle = list.pa_v3[visits == visit][0]
         for target in np.unique(list.targname[visits == visit]):
+            #### 3D-HST targname translations
+            translate = {'AEGIS-':'aegis-', 'COSMOS-':'cosmos-', 'GNGRISM':'goodsn-', 'GOODS-SOUTH-':'goodss-', 'UDS-':'uds-'}
+            target_use = target
+            for key in translate.keys():
+                target_use = target_use.replace(key, translate[key])
+            ## pad i < 10 with zero
+            for key in translate.keys():
+                if translate[key] in target_use:
+                    spl = target_use.split('-')
+                    if int(spl[-1]) < 10:
+                        spl[-1] = '%02d' %(int(spl[-1]))
+                        target_use = '-'.join(spl)
+            #
             for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
                 if uniquename:
-                    product='%s-%s-%03d-%s' %(target, visit.upper(), int(angle), filter)
+                    product='%s-%s-%03d-%s' %(target_use, visit.upper(), int(angle), filter)
                 else:
-                    product='%s-%s' %(target, filter)             
+                    product='%s-%s' %(target_use, filter)             
                 #       
                 use = (list.targname == target) & (list.filter == filter) & (visits == visit)
                 exposure_list = []

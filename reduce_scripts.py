@@ -1253,7 +1253,7 @@ def interlace_goodss0():
     import numpy as np
     import time
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.0')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1')
 
     #### This step is needed to strip all of the excess header keywords from the mosaic for use
     #### with `blot`.
@@ -1594,7 +1594,33 @@ def interlace_ers():
                 grow_factor=1, growx=1, growy=1)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=35.)
             
-            
+    for pointing,direct,grism in zip(['WFC3-ERSII-G01','WFC3-ERSII-G02'],['F098M','F140W'],['G102','G141']):
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=30., direct=direct, grism=grism, 
+            grow_factor=1, growx=1, growy=1)
+        ii = np.where((model.cat.mag < 24.))
+        for id in model.cat.id[ii]:
+            root='%s_%05d' %(pointing, id)
+            if not os.path.exists(root+'.2D.fits'):
+                status = model.twod_spectrum(id)
+                if not status:
+                    continue
+            #
+            if os.path.exists(root+'.zfit.png') & skip_completed:
+                continue  
+            #
+            try:
+                gris = unicorn.interlace_fit.GrismSpectrumFit(root=root)
+            except:
+                continue
+            #
+            if gris.status is False:
+                continue
+            #
+            if gris.dr > 1:
+                continue
+            #
+            print '\n'
+            gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
     
 def interlace_uds0():
     """
@@ -2637,6 +2663,9 @@ def combined_image(main_image='F160W.fits', fill_image='F140W.fits', main_zp=25.
     """
     
     import pyfits
+    
+    ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
+    
     
     im_main = pyfits.open(main_image, mmap=True)
     wht_main = pyfits.open(main_image.replace('sci.fits','wht.fits'), mmap=True)

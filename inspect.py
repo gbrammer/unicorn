@@ -413,6 +413,7 @@ class ImageClassifier():
     Additional keys:
 
       'c':  Open comment box, type <tab> to edit and <enter> when done.
+      'd':  Open 2D FITS extensions in DS9, if pysao available.
       'x':  skip through through all 'seen'
       '0':  go back to first
       '!':  go to next object with '!' in the comment

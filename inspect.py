@@ -1,6 +1,24 @@
 #!/usr/bin/env python
 """
 GUI tool for inspecting grism spectrum extractions
+
+$Date$
+
+### Copy the test directory from unicorn to your local machine
+cd /tmp/
+rsync -avz --progress unicorn.astro.yale.edu:~/GUI_Test /tmp/
+cd /tmp/
+
+(in Python):
+
+import glob
+#### gui_3dhst.py = unicorn.inspect.py
+import gui_3dhst
+
+image_list = glob.glob('*zfit.png')
+
+gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=None)
+
 """
 import sys
 import shutil

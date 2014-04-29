@@ -680,30 +680,19 @@ def GOODSS(FORCE=False):
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/PREP_FLT')
-    
-    #ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/GOODS_ACS/h_sz*drz_img.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
-    ALIGN_FILES=['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits','/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
-
-    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/CANDELS/UCSC/GOODS-S_F160W_wfc3ir_drz_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
-
-    ALIGN_FILES = ['/3DHST/Ancillary/GOODS-S/CANDELS/ucsc_mosaics/GOODS-S_F160W_wfc3ir_drz_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-2_F160W_v1_sci.fits', '/3DHST/Ancillary/GOODS-S/HUDF09/hlsp_hudf09_hst_wfc3ir_hudf09-1_F160W_v1_sci.fits']
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1')
+        
+    ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits'
     
     #### Main preparation loop
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
     
     loop_list = range(len(direct))
+    FORCE=True
     #loop_list = [3] #6,7,13,14]  ### Oct 21 2011
     for i in loop_list:
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
-        ALIGN = ALIGN_FILES[0]
-        if pointing.startswith('GOODS-S-28'):
-            ALIGN = ALIGN_FILES[1]
-        #
-        if pointing.startswith('GOODS-S-1-'):
-            ALIGN = ALIGN_FILES[2]
-        #
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
             pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
             

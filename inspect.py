@@ -3,6 +3,7 @@
 GUI tool for inspecting grism spectrum extractions
 
 $Date$
+$Rev$
 
 ### Copy the test directory from unicorn to your local machine
 cd /tmp/

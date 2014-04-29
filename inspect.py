@@ -46,7 +46,23 @@ class TextInput():
         
 class ImageClassifier():
     def __init__(self, images = ['UDS_54826_ijh.png', 'UDS_55031_ijh.png'], logfile='inspect_3dhst.info', RGB_PATH='./', FITS_PATH='./', load_log=True, ds9=None):
+        """
+        GUI tool for inspecting grism redshift fits
         
+         x = inspect.ImageClassifier(images=glob.glob('Specz/GOODS-S-25*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH='Specz/')
+
+         #### Try on unicorn
+         pointing='GOODS-S-25'
+         field = '-'.join(pointing.split('-')[:-1])
+         PNG_PATH = '/3DHST/Spectra/Release/v4.0/%s/%s-WFC3_v4.0_SPECTRA/%s/ZFIT/PNG/' %(field, field, pointing)
+         FITS_PATH = '/3DHST/Spectra/Release/v4.0/%s/%s-WFC3_v4.0_SPECTRA/%s/2D/FITS/' %(field, field, pointing)
+         RGB_PATH = '/Users/gbrammer/RGB_v4.0_field/'
+         import glob
+         from unicorn import inspect
+         x = inspect.ImageClassifier(images=glob.glob(PNG_PATH+'*_262*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
+         
+         
+         """
         if len(images) == 0:
             print 'No images specified'
             return False
@@ -104,14 +120,14 @@ class ImageClassifier():
         self.panel2 = tk.Label(self.frame , image=im2)
         
         ### RGB
-        spl = self.images[0].split('-')
+        spl = os.path.basename(self.images[0]).split('-')
         if len(spl) == 2:
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
         else:
             rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
         
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, os.path.basename(rgb_file).lower().split('.zfit')[0] + '_vJH_6.png')
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0] + '_vJH_6.png')
         if not os.path.exists(rgb_file):
             im_rgb = Image.new('RGB', (100,100), "white")
         else:
@@ -473,14 +489,14 @@ class ImageClassifier():
         self.panel2.image = im2
         
         ### RGB
-        spl = self.images[self.i].split('-')
+        spl = os.path.basename(self.images[0]).split('-')
         if len(spl) == 2:
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
         else:
             rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
         
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, os.path.basename(rgb_file).lower().split('.zfit')[0] + '_vJH_6.png')
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0] + '_vJH_6.png')
         if not os.path.exists(rgb_file):
             im_rgb = Image.new('RGB', (100,100), "white")
         else:

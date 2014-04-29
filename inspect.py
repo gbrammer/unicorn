@@ -5,21 +5,31 @@ GUI tool for inspecting grism spectrum extractions
 $Date$
 $Rev$
 
-### Copy the test directory from unicorn to your local machine
-cd /tmp/
-rsync -avz --progress unicorn.astro.yale.edu:~/GUI_Test /tmp/
-cd /tmp/
+Instructions for testing:
 
-(in Python):
+In the shell (BASH):
 
-import glob
-#### gui_3dhst.py = unicorn.inspect.py
-import gui_3dhst
+    ### Copy the test directory from unicorn to your local machine
+    cd /tmp/
+    rsync -avz --progress gbrammer@unicorn.astro.yale.edu:~gbrammer/GUI_Test /tmp/
+    cd /tmp/GUI_Test
 
-image_list = glob.glob('*zfit.png')
+In Python:
 
-gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=None)
+    import glob
+    #### gui_3dhst.py = unicorn.inspect.py
+    import gui_3dhst
 
+    image_list = glob.glob('*zfit.png')
+
+    gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=None)
+    
+    #### run with DS9 if you have pysao installed
+    import pysao
+    ds9 = pysao.ds9()
+    gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=ds9)
+    
+    
 """
 import sys
 import shutil
@@ -305,7 +315,7 @@ class ImageClassifier():
                 return False
             
             twod_file = self.images[self.i].replace('zfit.png', '2D.fits')
-            twod_file = os.path.join(FITS_PATH, os.path.basename(twod_file))
+            twod_file = os.path.join(self.FITS_PATH, os.path.basename(twod_file))
             
             im = pyfits.open(twod_file)
             
@@ -508,7 +518,7 @@ class ImageClassifier():
         self.panel2.image = im2
         
         ### RGB
-        spl = os.path.basename(self.images[0]).split('-')
+        spl = os.path.basename(self.images[self.i]).split('-')
         if len(spl) == 2:
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
         else:

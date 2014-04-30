@@ -2681,9 +2681,6 @@ def combined_image(field='AEGIS', IMAGE_DIR=''):
     im_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_sci.fits.gz'%(root.lower()),memmap=True)
     wht_f160w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F160W_orig_wht.fits.gz'%(root.lower()),memmap=True)
     wht_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_wht.fits.gz'%(root.lower()),memmap=True)
-    Compares the weight maps of the main image and the fill image and adds the 
-    fill image to the main image where the two do not overlap. The fill image is 
-    scaled to the same zeropoint
 
     # weight, scale to F140W zeropoint, coadd
     index = (wht_f160w[0].data > 0) | (wht_f125w[0].data > 0)

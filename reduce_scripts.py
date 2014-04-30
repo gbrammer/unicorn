@@ -2654,7 +2654,41 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8,
         else:
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
             
-            
+def combine_gbb():
+    
+    field = 'aegis'
+    
+    ZPs = unicorn.reduce.ZPs
+    
+    ### Do F160W in place to get the image dimensions
+    sum_sci = pyfits.open('%s_3dhst.v4.0.F160W_orig_sci.fits' %(field))
+    sum_wht = pyfits.open('%s_3dhst.v4.0.F160W_orig_wht.fits' %(field))
+    zp_factor = 10**(-0.4*(ZPs['F160W']-ZPs['F140W']))
+    
+    sum_wht[0].data *= 1/zp_factor**2
+    sum_sci[0].data = sum_sci[0].data*zp_factor*sum_wht[0].data
+    
+    for filter in ['F125W', 'F140W']:
+        print filter
+        sci = pyfits.open('%s_3dhst.v4.0.%s_orig_sci.fits' %(field, filter))
+        wht = pyfits.open('%s_3dhst.v4.0.%s_orig_wht.fits' %(field, filter))
+        zp_factor = 10**(-0.4*(ZPs[filter]-ZPs['F140W']))
+        sum_sci[0].data += sci[0].data*zp_factor*(wht[0].data/zp_factor**2)
+        sum_wht[0].data += wht[0].data/zp_factor**2
+        sci.close()
+        wht.close()
+        
+    del(sci)
+    del(wht)
+    
+    full_sci = sum_sci[0].data / sum_wht[0].data
+    mask = sum_wht[0].data == 0
+    full_sci[mask] = 0
+    
+    pyfits.writeto('%s_3dhst.v4.0.IR_orig_sci.fits' %(field), data=full_sci, header=sum_sci[0].header, clobber=True)
+    pyfits.writeto('%s_3dhst.v4.0.IR_orig_wht.fits' %(field), data=sum_wht[0].data, header=sum_sci[0].header, clobber=True)
+       
+
 def combined_image(field='AEGIS', IMAGE_DIR=''):
     """
     Combines the F125W, F140W and F160W images, weighting them by the inverse variance and 

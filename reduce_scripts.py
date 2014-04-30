@@ -2655,32 +2655,62 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8,
             gris.fit_in_steps(dzfirst=0.005, dzsecond=0.0002)
             
             
-def combined_image(main_image='F160W.fits', fill_image='F140W.fits', main_zp=25.9463, fill_zp=26.4524):
+def combined_image(field='AEGIS', IMAGE_DIR=''):
     """
-    Compares the weight maps of the main image and the fill image and adds the 
-    fill image to the main image where the two do not overlap. The fill image is 
-    scaled to the same zeropoint
+    Combines the F125W and F160W images, weighting them by the inverse variance and 
+    scaling them to the F140W zeropoint. In areas without F140W coverage, the image is 
+    filled with the F140W image.
     """
     
     import pyfits
+    import numpy as np
     
     ZPs = {'F125W':26.25, 'F140W':26.46, 'F160W':25.96}
     
+    if field == 'GOODS-N': 
+        root='goodsn'
+    elif field == 'GOODS-S': 
+        root='goodss'
+    else:
+        root = field.lower()
+        
+    if IMAGE_DIR == '':
+        IMAGE_DIR = '/3DHST/Photometry/Release/v4.0/%s/HST_Images/'%(field.upper())
+
+    im_f160w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F160W_orig_sci.fits.gz'%(root.lower()),memmap=True)
+    im_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_sci.fits.gz'%(root.lower()),memmap=True)
+    wht_f160w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F160W_orig_wht.fits.gz'%(root.lower()),memmap=True)
+    wht_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_wht.fits.gz'%(root.lower()),memmap=True)
+    Compares the weight maps of the main image and the fill image and adds the 
+    fill image to the main image where the two do not overlap. The fill image is 
+    scaled to the same zeropoint
+
+    # weight, scale to F140W zeropoint, coadd
+    index = (wht_f160w[0].data > 0) | (wht_f125w[0].data > 0)
+    NEW_WHT = wht_f160w[0].data+wht_f125w[0].data
+    NUM1 = im_f160w[0].data*wht_f160w[0].data*(10**((ZPs['F140W']-ZPs['F160W'])/2.5)) 
+    NUM2 = im_f125w[0].data*wht_f125w[0].data*(10**((ZPs['F140W']-ZPs['F125W'])/2.5))
     
-    im_main = pyfits.open(main_image, mmap=True)
-    wht_main = pyfits.open(main_image.replace('sci.fits','wht.fits'), mmap=True)
-    h_main = im_main[0].header
-    data_main = im_main[0].data
+    NEW_IM = np.empty(np.shape(im_f160w[0].data))
+    NEW_IM[index] = (NUM1[index]+NUM2[index])/NEW_WHT[index]
     
-    im_fill = pyfits.open(fill_image,   mmap = True)
-    wht_fill = pyfits.open(fill_image.replace('sci.fits','wht.fits'), mmap=True)
-    
-    data_main[(wht_main[0].data == 0) & (wht_fill[0].data>0)] = im_fill[0].data[(wht_main[0].data == 0) & (wht_fill[0].data>0)]*(10**((main_zp-fill_zp)/2.5))
-    data_main[im_main[0].data > 1e5] = 0
-    
-    hdu = pyfits.PrimaryHDU(header=h_main,data=data_main)
+    # F140W fill
+    im_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_sci.fits.gz'%(root.lower()),memmap=True)
+    wht_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_wht.fits.gz'%(root.lower()),memmap=True)
+
+    index_f140w = (im_f160w[0].data == 0) & (im_f125w[0].data == 0) & (wht_f140w[0].data > 0)
+    NEW_IM[index_f140w] = im_f140w[0].data[index_f140w]
+  
+    im_f160w.close()
+    im_f125w.close()
+    wht_f160w.close()
+    wht_f140w.close()
+    wht_f125w.close()
+    hdu = pyfits.PrimaryHDU(header=im_f140w[0].header,data=NEW_IM)
             
-    hdu.writeto(main_image.split('/')[-1].replace('sci.fits','join.fits'), clobber=True)
+    hdu.writeto('%s_3dhst.v4.0.JOIN.fits'%(root), clobber=True)   
+    im_f140w.close() 
+    
     
 def fix_thumbnails(pointing='AEGIS-1'):
     """

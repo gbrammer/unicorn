@@ -2657,9 +2657,8 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8,
             
 def combined_image(field='AEGIS', IMAGE_DIR=''):
     """
-    Combines the F125W and F160W images, weighting them by the inverse variance and 
-    scaling them to the F140W zeropoint. In areas without F140W coverage, the image is 
-    filled with the F140W image.
+    Combines the F125W, F140W and F160W images, weighting them by the inverse variance and 
+    scaling them to the F140W zeropoint.
     """
     
     import pyfits
@@ -2678,26 +2677,26 @@ def combined_image(field='AEGIS', IMAGE_DIR=''):
         IMAGE_DIR = '/3DHST/Photometry/Release/v4.0/%s/HST_Images/'%(field.upper())
 
     im_f160w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F160W_orig_sci.fits.gz'%(root.lower()),memmap=True)
+    im_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_sci.fits.gz'%(root.lower()),memmap=True)
     im_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_sci.fits.gz'%(root.lower()),memmap=True)
     wht_f160w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F160W_orig_wht.fits.gz'%(root.lower()),memmap=True)
+    wht_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_wht.fits.gz'%(root.lower()),memmap=True)
     wht_f125w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F125W_orig_wht.fits.gz'%(root.lower()),memmap=True)
 
     # weight, scale to F140W zeropoint, coadd
-    index = (wht_f160w[0].data > 0) | (wht_f125w[0].data > 0)
-    NEW_WHT = wht_f160w[0].data+wht_f125w[0].data
-    NUM1 = im_f160w[0].data*wht_f160w[0].data*(10**((ZPs['F140W']-ZPs['F160W'])/2.5)) 
-    NUM2 = im_f125w[0].data*wht_f125w[0].data*(10**((ZPs['F140W']-ZPs['F125W'])/2.5))
+    f125w_zp_factor = 10**((ZPs['F140W']-ZPs['F125W'])/2.5)
+    f160w_zp_factor = 10**((ZPs['F140W']-ZPs['F160W'])/2.5)
+    index = (wht_f160w[0].data > 0) | (wht_f125w[0].data > 0) | (wht_f140w[0].data > 0)
+    NEW_WHT = wht_f160w[0].data/np.power(f160w_zp_factor,2)+wht_f125w[0].data/np.power(f125w_zp_factor,2)+wht_f140w[0].data
+
+    # multiply by f125w_zp_factor to scale image and divide by f125w_zp_factor**2 to scale the weight map
+    NUM1 = im_f160w[0].data*wht_f160w[0].data/f160w_zp_factor
+    NUM2 = im_f125w[0].data*wht_f125w[0].data/f125w_zp_factor
+    NUM3 = im_f140w[0].data*wht_f140w[0].data
     
     NEW_IM = np.empty(np.shape(im_f160w[0].data))
-    NEW_IM[index] = (NUM1[index]+NUM2[index])/NEW_WHT[index]
-    
-    # F140W fill
-    im_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_sci.fits.gz'%(root.lower()),memmap=True)
-    wht_f140w = pyfits.open(IMAGE_DIR+'%s_3dhst.v4.0.F140W_orig_wht.fits.gz'%(root.lower()),memmap=True)
-
-    index_f140w = (im_f160w[0].data == 0) & (im_f125w[0].data == 0) & (wht_f140w[0].data > 0)
-    NEW_IM[index_f140w] = im_f140w[0].data[index_f140w]
-  
+    NEW_IM[index] = (NUM1[index]+NUM2[index]+NUM3[index])/NEW_WHT[index]
+      
     im_f160w.close()
     im_f125w.close()
     wht_f160w.close()

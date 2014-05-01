@@ -392,7 +392,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
     
     #### GOODS-N field from Weiner program 11600
-    if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
+    if root.startswith('GOODS-N') | root.startswith('GNGRISM') | root.startswith('goodsn'):
         dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
         dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
     
@@ -3112,7 +3112,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     dys = np.array([0,-7,-20,-13]) + np.int(np.round(ysh[0]))*0
     
     #### GOODS-N field from Weiner program 11600
-    if root.startswith('GOODS-N') | root.startswith('GNGRISM'):
+    if root.startswith('GOODS-N') | root.startswith('GNGRISM') | root.startswith('goodsn'):
         dxs = np.array([0,-9,-4,5]) + np.int(np.round(xsh[0]))*0
         dys = np.array([0,-3,-11,-8]) + np.int(np.round(ysh[0]))*0
     

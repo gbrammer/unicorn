@@ -2919,12 +2919,12 @@ class GrismModel():
                     if key in mx[0].header.keys():
                         mx[0].header[key] += flux_bgs[i,j]
                     else:
-                        mx[0].header[key] = flux_bgs[i,j]
+                        mx[0].header.update(key,flux_bgs[i,j])
             
             if 'ERRSCALE' in mx[0].header.keys():
                 mx[0].header['ERRSCALE'] *= err_scale
             else:
-                mx[0].header['ERRSCALE'] = err_scale
+                mx[0].header.update('ERRSCALE', err_scale)
             
             resid2[mx[2].data == 0] = 0
                             
@@ -3568,7 +3568,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
           if realign_blotted:
             fp = open(DRZ_ROOT+'_delta.dat','w')
             fp.write('# xoff  yoff  roff dx  dy  xrms  yrms\n')
-            
+            #
             xoff, yoff, roff = 0., 0., 0.
             #for i in range(3):
             for geom in ['rotate', 'shift', 'rotate', 'shift', 'shift', 'shift']:
@@ -3576,7 +3576,8 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 threedhst.process_grism.flprMulti()
                 if os.path.exists('align_blot.fits'):
                     os.remove('align_blot.fits')
-                
+                iraf.wblot()
+                #
                 iraf.wblot.setParam('data', REF_ROOT+'_ref.fits')
                 iraf.wblot.setParam('outdata', 'align_blot.fits')
                 iraf.wblot.setParam('outnx', 1014)
@@ -3609,7 +3610,7 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 iraf.wblot.setParam('out_un', 'cps')
                 iraf.wblot.setParam('fillval', 0.0)
                 iraf.wblot.setParam('mode', 'al')
-
+                #
                 iraf.wblot.setParam('mode', 'h')
                 iraf.wblot()
                 

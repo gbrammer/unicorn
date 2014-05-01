@@ -26,19 +26,23 @@ In Python:
     
     #### run with DS9 if you have pysao installed
     import pysao
+    
     ds9 = pysao.ds9()
+    
+    image_list = glob.glob('*zfit.png')
+    
     gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=ds9)
-    
-    
+     
 """
 import sys
 import shutil
 import os
+import glob
 
 import Tkinter as tk
 from PIL import ImageTk, Image
-import numpy as np
 
+import numpy as np
 import pyfits
 
 noNewLine = '\x1b[1A\x1b[1M'
@@ -72,9 +76,59 @@ class TextInput():
         self.master.destroy()
         self.master.quit()
     
+def go_pointing(pointing='GOODS-S-25', RELEASE='/Volumes/3DHST_Gabe/RELEASE_v4.0/Spectra/', RGB_PATH='/Users/brammer/3DHST/Spectra/Release/v4.0/RGB/All/'):
+    """
+    
+    Classify a 3D-HST pointing
         
+    """
+    import glob
+    from unicorn import inspect
+
+    field = '-'.join(pointing.split('-')[:-1])
+    PNG_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/ZFIT/PNG/' %(RELEASE, field, field, pointing)
+    FITS_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/2D/FITS/' %(RELEASE, field, field, pointing)
+
+    PNG_PATH = '%s/%s/WFC3/%s/ZFIT/PNG/' %(RELEASE, field, pointing)
+    FITS_PATH = '%s/%s/WFC3/%s/2D/FITS/' %(RELEASE, field, pointing)
+    
+    x = ImageClassifier(images=glob.glob(PNG_PATH+'*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
+    
+    return x
+    
+class myCheckbutton(object):
+    def __init__(self, gui, text="(t)ilt", param=[0], hotkey='xxx'):
+        self.gui = gui
+        self.param = param
+        self.hotkey = hotkey
+
+        self.var = tk.IntVar()
+         
+        self.thebutton = tk.Checkbutton(self.gui.frame, text=text, variable=self.var, command=self.set_var)
+        self.var.set(self.param[0])
+        
+    def set_var(self):
+        self.param[self.gui.i] = self.var.get()
+        #print self.gui.i
+      
+class mySlider(object):
+    def __init__(self, gui, text="(a)bs./break", param=[0], hotkey='xxx', to=3):
+        self.gui = gui
+        self.param = param
+        self.hotkey = hotkey
+        self.to = to        
+        
+        self.var = tk.IntVar()
+        
+        self.theslider = tk.Scale(self.gui.frame, to=to, resolution=1, orient=tk.HORIZONTAL, variable=self.var, label=text)
+        self.var.set(param[0])
+        
+    def set_var(self):
+        self.param[self.gui.i] = self.var.get()
+    
+    
 class ImageClassifier():
-    def __init__(self, images = ['UDS_54826_ijh.png', 'UDS_55031_ijh.png'], logfile='inspect_3dhst.info', RGB_PATH='./', FITS_PATH='./', load_log=True, ds9=None):
+    def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', FITS_PATH='./', load_log=True, ds9=None):
         """
         GUI tool for inspecting grism redshift fits
         
@@ -90,7 +144,6 @@ class ImageClassifier():
          from unicorn import inspect
          x = inspect.ImageClassifier(images=glob.glob(PNG_PATH+'*_262*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
          
-         
          """
         if len(images) == 0:
             print 'No images specified'
@@ -99,25 +152,11 @@ class ImageClassifier():
         if not os.path.exists(images[0]):
             print 'First image not found (%s), is path correct?' %(images[0])
             return False
-            
-        self.logfile = logfile
-        if os.path.exists(self.logfile):
-            shutil.copy(self.logfile, self.logfile+'.backup')
-            print 'Made copy of %s -> %s.backup' %(self.logfile, self.logfile)
-            
-        self.images = images
-        self.N = len(images)
-        self.line_flags = np.zeros(self.N, dtype=np.int)
-        self.unamb_flags = np.zeros(self.N, dtype=np.int)
-        self.misid_flags = np.zeros(self.N, dtype=np.int)
-        self.star_flags = np.zeros(self.N, dtype=np.int)
-        self.contam_flags = np.zeros(self.N, dtype=np.int)
-        self.zp_flags = np.zeros(self.N, dtype=np.int)
-        self.seen_flags = np.zeros(self.N, dtype=np.int)
-        self.comments = ['---' for i in range(self.N)]
+        
         self.RGB_PATH = RGB_PATH
         self.FITS_PATH = FITS_PATH
         
+        #### Check ds9
         self.ds9 = ds9
         if ds9 is True:
             try:
@@ -126,20 +165,49 @@ class ImageClassifier():
             except:
                 print 'Couldn\'t import pysao to run DS9'
                 self.ds9 = None
-            
+
+        ##### Add .fits to filename and make backup if necessary
+        self.logfile = logfile
+        if not self.logfile.lower().endswith('.fits'):
+            self.logfile += '.fits'
+        
+        if os.path.exists(self.logfile):
+            bk = glob.glob(self.logfile+'.backup*')
+            if len(bk) > 0:
+                bkup_file = self.logfile + '.backup.%03d' %(len(bk))
+            else:
+                bkup_file = self.logfile + '.backup'
+                
+            shutil.copy(self.logfile, bkup_file)
+            print 'Made copy of %s -> %s' %(self.logfile, bkup_file)
+        
+        ####### Initialize parameters
+        self.params = {}        
+        self.images = images
+
         if os.path.exists(self.logfile) & load_log:
-            self.read_log(self.logfile)
-            
+            self.read_fits()
+
+        self.N = len(self.images)
+
+        for key in ['line', 'extended', 'absorption', 'unamb', 'misid', 'contam', 'zp', 'tilt', 'investigate', 'star', 'seen']:
+            if key not in self.params.keys():
+                self.params[key] = np.zeros(self.N, dtype=np.int)
+        
+        if 'comment' not in self.params.keys():
+            self.params['comment'] = ['---' for i in range(self.N)]
+                                        
         self.i = 0
         
+        ####### Initialize GUI
         master = tk.Toplevel()
-        master.geometry('1050x590')               # This work fine
+        master.geometry('1050x630')               # This work fine
         self.master = master
          
-        #self.frame = self.master     
         self.frame = tk.Frame(master)
         self.frame.pack()
-                
+        
+        #### Image Panels
         imageFile = Image.open(self.images[0])
         im = ImageTk.PhotoImage(imageFile)        
         self.panel = tk.Label(self.frame , image=im)
@@ -148,7 +216,7 @@ class ImageClassifier():
         im2 = ImageTk.PhotoImage(imageFile2)        
         self.panel2 = tk.Label(self.frame , image=im2)
         
-        ### RGB
+        #### RGB Panel
         spl = os.path.basename(self.images[0]).split('-')
         if len(spl) == 2:
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
@@ -164,65 +232,64 @@ class ImageClassifier():
         
         im_rgb = ImageTk.PhotoImage(im_rgb)        
         self.panel_rgb = tk.Label(self.frame , image=im_rgb)
-            
+        
+        #### Keypress binding
         self.master.bind("<Key>", self.keypress_event)
         
-        
         ### For logging slider movements
+        #self.sliders = {}
+        
         self.sliders = {}
         
         ######
         ### Navigation buttons
         ###
         self.button_quit = tk.Button(self.frame, text = '(q)uit', command = self.finish)
-        self.button_log = tk.Button(self.frame, text = 'Log to (F)ile', command = self.write_log)
+        self.button_log = tk.Button(self.frame, text = 'Log to (F)ile', command = self.write_fits)
         
         self.button_prev = tk.Button(self.frame, text = '(p)rev', command = self.img_prev)
         self.button_next = tk.Button(self.frame, text = '(n)ext', command = self.img_next)
         
+        self.buttons = {}
+        
+        #### Emission lne?
+        self.sliders['line'] = mySlider(self, text='Emission (l)ine', param=self.params['line'], hotkey='l')
+        
+        #### Absorption
+        self.sliders['absorption'] = mySlider(self, text='(a)bs./break', param=self.params['absorption'], hotkey='a')
+
+        #### Extended line
+        self.sliders['extended'] = mySlider(self, text='(e)xtended', param=self.params['extended'], hotkey='e')
+        
+        #### Unambiguous redshift
+        self.buttons['unamb'] = myCheckbutton(self, text='(u)nambiguous', param=self.params['unamb'], hotkey='u')
+        
+        #### Flag contamination
+        self.sliders['contam'] = mySlider(self, text='(b)ad contam', param=self.params['contam'], hotkey='b')
+
+        #### Line misidentification
+        self.buttons['misid'] = myCheckbutton(self, text='Line (m)isID', param=self.params['misid'], hotkey='m')
+                
+        #### Tilt?
+        self.buttons['tilt'] = myCheckbutton(self, text='(t)ilt', param=self.params['tilt'], hotkey='t')
+                
+        #### Bad z_phot / z_spec or both
+        self.sliders['zp'] = mySlider(self, text='Bad (z)p/s/p+s', param=self.params['zp'], hotkey='z')
+
+        #### Flag for manual investigation
+        self.sliders['investigate'] = mySlider(self, text='(i)nvestigate', param=self.params['investigate'], hotkey='i', to=4)
+        
         ### Object seen already?
-        self.fvar = tk.IntVar()
-        self.check_seen = tk.Checkbutton(self.frame, text="Seen?", variable=self.fvar, command=None)
-        self.fvar.set(self.seen_flags[0])
+        self.buttons['seen'] = myCheckbutton(self, text='SEEN?', param=self.params['seen'], hotkey='xxx')
+        
+        #### Star?
+        self.buttons['star'] = myCheckbutton(self, text='(s)tar', param=self.params['star'], hotkey='s')
         
         ### Comment holder
         self.tvar = tk.StringVar()
         self.e_comment = tk.Label(self.frame, textvariable=self.tvar)
         self.e_comment.configure(relief=tk.RIDGE)
-        self.tvar.set(self.comments[0])
-        
-        #### Star?
-        self.svar = tk.IntVar()
-        self.check_star = tk.Checkbutton(self.frame, text="(S)tar?", variable=self.svar, command=self.set_star)
-        self.svar.set(self.star_flags[0])
-
-        #### Bad z_phot / z_spec or both
-        self.zp_var = tk.IntVar()
-        self.zp_slider = tk.Scale(self.frame, to=3, resolution=1, orient=tk.HORIZONTAL, variable=self.zp_var, label='Bad (z)p/s/p+s')
-        self.zp_var.set(self.zp_flags[0])
-        self.sliders[self.zp_slider] = (self.zp_var, self.zp_flags)
-
-        #### Line misidentification
-        self.misid_var = tk.IntVar()
-        self.check_misid = tk.Checkbutton(self.frame, text="Line (m)isID", variable=self.misid_var, command=self.set_misid)
-        self.misid_var.set(self.misid_flags[0])
-
-        #### Unambiguous redshift
-        self.bvar = tk.IntVar()
-        self.check_unamb = tk.Checkbutton(self.frame, text="(U)nambigous", variable=self.bvar, command=self.set_unamb)
-        self.bvar.set(self.unamb_flags[0])
-        
-        #### Flag contamination
-        self.contam_var = tk.IntVar()
-        self.contam_slider = tk.Scale(self.frame, to=3, resolution=1, orient=tk.HORIZONTAL, variable=self.contam_var, label='(B)ad Contam:')
-        self.contam_var.set(self.contam_flags[0])
-        self.sliders[self.contam_slider] = (self.contam_var, self.contam_flags)
-        
-        #### Emission lne?
-        self.line_var = tk.IntVar()
-        self.line_slider = tk.Scale(self.frame, to=3, resolution=1, orient=tk.HORIZONTAL, variable=self.line_var, label='Emission (L)ine:')
-        self.line_var.set(self.line_flags[0])
-        self.sliders[self.line_slider] = (self.line_var, self.line_flags)
+        self.tvar.set(self.params['comment'][0])        
         
         #####################        
         ##### Set up the grid for the GUI elements
@@ -232,17 +299,22 @@ class ImageClassifier():
         self.button_log.grid(row=2, column=4, columnspan=1)
         self.button_quit.grid(row=2, column=5, columnspan=1)
         
-        #self.check_disk.grid(row=3, column=0)
-        self.line_slider.grid(row=3, column=0) #, columnspan=1)
-        self.contam_slider.grid(row=3, column=1)
+        self.sliders['line'].theslider.grid(row=3, column=0)
+        self.sliders['absorption'].theslider.grid(row=4, column=0)
         
-        self.check_unamb.grid(row=3, column=2)
+        self.sliders['extended'].theslider.grid(row=3, column=1)
+        self.buttons['unamb'].thebutton.grid(row=4, column=1)
+
+        self.sliders['contam'].theslider.grid(row=3, column=2)
+        self.buttons['misid'].thebutton.grid(row=4, column=2)
+
+        self.buttons['tilt'].thebutton.grid(row=3, column=3)        
+        self.sliders['zp'].theslider.grid(row=4, column=3)
         
-        self.check_misid.grid(row=3, column=3)
-        self.zp_slider.grid(row=3, column=4)
+        self.sliders['investigate'].theslider.grid(row=3, column=4)
         
-        self.check_star.grid(row=3, column=5)
-        self.check_seen.grid(row=4, column=5)
+        self.buttons['star'].thebutton.grid(row=3, column=5)
+        self.buttons['seen'].thebutton.grid(row=4, column=5)
         
         self.e_comment.grid(row=5, column=0, columnspan=5)
         
@@ -265,49 +337,36 @@ class ImageClassifier():
     def keypress_event(self, event):
         key = event.char
         #print 'Keyboard: "%s"' %(key)
-        #self.line_flags[self.i] = (not self.line_flags[self.i])*1
+        #self.line_flags[self.i] = (not self.params['line'][self.i])*1
         
-        if key == 'l':
-            ### Has emission line
-            self.log_slider(self.line_flags, self.line_var, loop=4)
-            #self.dvar.set((self.line_flags[self.i] > 0)*1)
-            #self.line_slider['fg'] = 'red'
-            
-        elif key == 'u':
-            ### Unambiguous redshift
-            self.unamb_flags[self.i] = (not self.unamb_flags[self.i])*1
-            self.bvar.set(self.unamb_flags[self.i])
+        #### Buttons
+        for id in self.buttons.keys():
+            if key == self.buttons[id].hotkey:
+                button = self.buttons[id]
+                button.param[self.i] = (not button.param[self.i])*1
+                button.var.set(button.param[self.i])
+                #print button.param[self.i]
+                return True
         
-        elif key == 'm':
-            ### Line MisIdentification
-            self.misid_flags[self.i] = (not self.misid_flags[self.i])*1
-            self.misid_var.set(self.misid_flags[self.i])
-        
-        elif key == 'b':
-            ### Bad contamination
-            self.log_slider(self.contam_flags, self.contam_var, loop=4)
-            #self.contam_flags[self.i] = (not self.contam_flags[self.i])*1
-            #self.evar.set(self.contam_flags[self.i])
-        
-        
-        elif key == 'z':
-            ### Bad zphot/spec/both
-            self.log_slider(self.zp_flags, self.zp_var, loop=4)
-        
-        elif key == 's':
-            ### object is a star
-            self.star_flags[self.i] = (not self.star_flags[self.i])*1
-            self.svar.set(self.star_flags[self.i])
-        
-        elif key == 'c':
+        #### Sliders
+        for id in self.sliders.keys():
+            if key == self.sliders[id].hotkey:
+                slider = self.sliders[id]
+                slider.param[self.i] = ((slider.param[self.i]+1) % (slider.to+1))
+                slider.var.set(slider.param[self.i])
+                #print slider.param[self.i]
+                return True
+
+        #### Other keys
+        if key == 'c':
             #comment = raw_input('Comment: ')
-            ctext = TextInput(self.comments[self.i])
+            ctext = TextInput(self.params['comment'][self.i])
             self.tvar.set(ctext.text_value)
-            self.comments[self.i] = ctext.text_value
+            self.params['comment'][self.i] = ctext.text_value
             #print comment
 
         elif key == 'd':
-            ## Open DS9
+            #### Open DS9
             #import pysao
             #ds9 = pysao.ds9()
             if self.ds9 is None:
@@ -350,7 +409,7 @@ class ImageClassifier():
         
         elif key == 'f':
             ### Force write the output file
-            self.write_log()
+            self.write_fits()
         
         elif key == 'q':
             ### quit
@@ -359,11 +418,11 @@ class ImageClassifier():
         elif key == 'x':
             ### Go to next unseen
             self.set_seen()
-            self.comments[self.i] = self.tvar.get()
+            self.params['comment'][self.i] = self.tvar.get()
             
             while (self.i < self.N-1):
                 #print self.i
-                if self.seen_flags[self.i] == 1:
+                if self.params['seen'][self.i] == 1:
                     self.i += 1
                 else:
                     break
@@ -374,7 +433,7 @@ class ImageClassifier():
         elif key == '0':
             ### Go to beginning
             self.set_seen()
-            self.comments[self.i] = self.tvar.get()
+            self.params['comment'][self.i] = self.tvar.get()
             
             self.i = 0
             self.load_image()
@@ -382,7 +441,7 @@ class ImageClassifier():
         elif key == '!':
             ### Go until find '!' in a comment
             self.set_seen()
-            self.comments[self.i] = self.tvar.get()
+            self.params['comment'][self.i] = self.tvar.get()
 
             ### At end
             if self.i > self.N-2:
@@ -392,20 +451,20 @@ class ImageClassifier():
             
             while (self.i < self.N-1):
                 print self.i
-                if (self.seen_flags[self.i] == 1) & ('!' not in self.comments[self.i]):
+                if (self.params['seen'][self.i] == 1) & ('!' not in self.params['comment'][self.i]):
                     self.i += 1
                 else:
                     break
             
             self.load_image()
             
-            # while (self.seen_flags[self.i] == 1) & ('!' not in self.comments[self.i]):
+            # while (self.params['seen'][self.i] == 1) & ('!' not in self.params['comment'][self.i]):
             #     self.img_next()
         
         elif key == 'y':
             ### Go to next unambiguous
             self.img_next()
-            while (self.seen_flags[self.i] == 1) & (self.unamb_flags[self.i] == 0):
+            while (self.params['seen'][self.i] == 1) & (self.params['unamb'][self.i] == 0):
                 self.img_next()
         
         elif key == '?':
@@ -419,93 +478,78 @@ class ImageClassifier():
       '!':  go to next object with '!' in the comment
       'y':  go to next unambigous
       '?':  this message
+      
 """
+        else:
+            print 'Hotkey (%s) not bound.' %(key)
     
     # def set_line(self):
     #     #print 'Disk flag: %d' %(self.dvar.get())
-    #     self.line_flags[self.i] = self.dvar.get()
+    #     self.params['line'][self.i] = self.dvar.get()
     
-    def set_unamb(self):
-        #print 'Bar flag: %d' %(self.bvar.get())
-        self.unamb_flags[self.i] = self.bvar.get()
+    # def set_unamb(self):
+    #     #print 'Bar flag: %d' %(self.bvar.get())
+    #     self.params['unamb'][self.i] = self.bvar.get()
 
-    def set_misid(self):
-        self.misid_flags[self.i] = self.misid_var.get()
+    # def set_misid(self):
+    #     self.params['misid'][self.i] = self.misid_var.get()
     
-    def set_star(self):
-        #print 'Star flag: %d' %(self.svar.get())
-        self.star_flags[self.i] = self.svar.get()
+    # def set_star(self):
+    #     #print 'Star flag: %d' %(self.svar.get())
+    #     self.params['star'][self.i] = self.svar.get()
     
     # def set_contam(self):
     #     #print 'Star flag: %d' %(self.svar.get())
-    #     self.contam_flags[self.i] = self.evar.get()
+    #     self.params['contam'][self.i] = self.evar.get()
     
     def set_seen(self):
         #print 'Seen flag: %d' %(self.svar.get())
-        self.seen_flags[self.i] = 1
+        self.params['seen'][self.i] = 1
     
     def img_next(self):
         self.set_seen()
-        self.comments[self.i] = self.tvar.get()
+        self.params['comment'][self.i] = self.tvar.get()
         
         if self.i == self.N-1:
             print 'Already at last image'
             return False
-        
-        for key in self.sliders.keys():
-            slider_var, log_var = self.sliders[key]
-            log_var[self.i] = slider_var.get()
-
+                    
         self.i += 1
         self.load_image()
-        
-        for key in self.sliders.keys():
-            slider_var, log_var = self.sliders[key]
-            slider_var.set(log_var[self.i])
-        
+                    
         return True
     #
     def img_prev(self):
         self.set_seen()
-        self.comments[self.i] = self.tvar.get() #self.e_comment.get()
+        self.params['comment'][self.i] = self.tvar.get() #self.e_comment.get()
 
         if self.i == 0:
             print 'Already at first image'
             return False
-        
-        for key in self.sliders.keys():
-            slider_var, log_var = self.sliders[key]
-            log_var[self.i] = slider_var.get()
-        
+                    
         self.i -= 1
         self.load_image()
-        
-        for key in self.sliders.keys():
-            slider_var, log_var = self.sliders[key]
-            slider_var.set(log_var[self.i])
         
         return True
         
     def load_image(self):
         
         #print '%d  %s' %(self.i, self.images[self.i])
-        #print '%d %d %d' %(self.line_flags[self.i], self.unamb_flags[self.i], self.star_flags[self.i])
+        #print '%d %d %d' %(self.params['line'][self.i], self.params['unamb'][self.i], self.params['star'][self.i])
         
         print '%s: %d of %d' %(self.images[self.i], self.i+1, self.N)
         
-        #self.dvar.set(self.line_flags[self.i])
-        #self.dvar.set((self.line_flags[self.i] > 0)*1)
-        self.line_var.set(self.line_flags[self.i])
+        for key in self.buttons.keys():
+            button = self.buttons[key]
+            button.var.set(button.param[self.i])
         
-        self.bvar.set(self.unamb_flags[self.i])
-        self.misid_var.set(self.misid_flags[self.i])
-        self.svar.set(self.star_flags[self.i])
-        #self.evar.set(self.contam_flags[self.i])
-        self.fvar.set(self.seen_flags[self.i])
+        for key in self.sliders.keys():
+            slider = self.sliders[key]
+            slider.var.set(slider.param[self.i])
         
         #self.e_comment.delete(0, tk.END)
-        #self.e_comment.insert(0, self.comments[self.i])
-        self.tvar.set(self.comments[self.i])
+        #self.e_comment.insert(0, self.params['comment'][self.i])
+        self.tvar.set(self.params['comment'][self.i])
         
         imageFile = Image.open(self.images[self.i])
         im = ImageTk.PhotoImage(imageFile)
@@ -537,7 +581,7 @@ class ImageClassifier():
         self.panel_rgb.image = im_rgb
         
         #self.panel_rgb = tk.Label(self.frame , image=im_rgb)
-    #
+    
     def read_log(self, logfile):
         self.logfile = logfile
         
@@ -567,7 +611,92 @@ class ImageClassifier():
         self.zp_flags = np.cast[int](zflag)
         self.star_flags = np.cast[int](sflag)
         self.seen_flags = np.cast[int](fflag)
+    
+    def write_fits(self):
+        """
+        Write the FITS log
+        """
         
+        import time
+        import getpass
+        
+        formats = {}
+        formats['bool'] = 'L'
+        formats['int16'] = 'I'
+        formats['int32'] = 'J'
+        formats['int64'] = 'K'
+        formats['float32'] = 'E'
+        formats['float64'] = 'D'
+        
+        formats['>i8'] = 'K'
+        formats['>f8'] = 'D'
+        
+        #### Make the table columns, translating numpy data types to "TFORM"
+        coldefs = []
+        TFORM = 'A'+str(np.array(self.images).dtype).split('S')[1]
+        
+        coldefs.append(pyfits.Column(name='images', array=np.array(self.images), format=TFORM))
+        
+        for column in self.params.keys():
+            if column == 'comment':
+                coldata = np.array(self.params['comment'])
+            else:
+                coldata = self.params[column]
+            #
+            dtype = str(coldata.dtype)
+            #print column, dtype
+            if dtype in formats.keys():
+                TFORM=formats[dtype]
+            else:
+                if 'S' not in dtype:
+                    print 'Unrecognized data type in: %s' %(dtype)
+                    return False
+                #
+                TFORM = 'A'+dtype.split('S')[1]
+            #
+            #data = self.params[column]
+            if '>' in dtype:
+                cast_types = {'>i8':np.int64, '>f8':np.float64}
+                coldata = np.cast[cast_types[dtype]](coldata)
+            #
+            coldefs.append(pyfits.Column(name=column, array=coldata, format=TFORM))
+        
+        #### Done, now make the binary table
+        tbhdu = pyfits.new_table(coldefs)
+
+        #### Primary HDU
+        hdu = pyfits.PrimaryHDU()
+        thdulist = pyfits.HDUList([hdu,tbhdu])
+
+        #### Add modification time of "infile" to FITS header
+        infile_mod_time = time.strftime("%m/%d/%Y %I:%M:%S %p",
+                            time.localtime()) # os.path.getmtime(self.filename)))
+        
+        thdulist[0].header.update('MODTIME', infile_mod_time)
+        thdulist[0].header.update('USER', getpass.getuser())
+
+        thdulist.writeto(self.logfile, clobber=True)
+        
+    def read_fits(self):
+        """
+        Read already saved output
+        """
+        
+        im = pyfits.open(self.logfile)#
+        tab = im[1].data
+        print "Read log %s from %s (%s)" %(self.logfile, im[0].header['USER'], im[0].header['MODTIME'])
+        
+        for c in tab.columns:
+            if c.name == 'images':
+                self.images = tab[c.name]
+                continue
+            #
+            if c.name == 'comment':
+                self.params[c.name] = list(tab[c.name])
+                continue
+            #    
+            self.params[c.name] = tab[c.name]
+            
     def write_log(self):
         """
         Write the log file.
@@ -595,7 +724,8 @@ class ImageClassifier():
         
     def finish(self):
         #self.frame.quit()
-        self.write_log()
+        #self.write_log()
+        self.write_fits()
         self.master.destroy()
         self.master.quit()
         

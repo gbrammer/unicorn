@@ -2845,11 +2845,17 @@ def split_multiaccum(ima, scale_flat=True):
     if scale_flat & ~skip_ima:
         FLAT_F140W = pyfits.open(os.path.join(os.getenv('iref'), 'uc721143i_pfl.fits'))[1].data
     else:
-        FLAT_F140W = 1.
+        FLAT_F140W = 1
             
     NSAMP = ima[0].header['NSAMP']
     sh = ima['SCI',1].shape
+    
     cube = np.zeros((NSAMP, sh[0], sh[1]))
+    if 'ima' in ima.filename():
+        dq = np.zeros((NSAMP, sh[0], sh[1]), dtype=np.int)
+    else:
+        dq = 0
+        
     time = np.zeros(NSAMP)
     for i in range(NSAMP):
         if ima[0].header['UNITCORR'] == 'COMPLETE':
@@ -2857,11 +2863,43 @@ def split_multiaccum(ima, scale_flat=True):
         else:
             cube[NSAMP-1-i, :, :] = ima['SCI',i+1].data/FLAT_F140W
         
+        if 'ima' in ima.filename():
+            dq[NSAMP-1-i, :, :] = ima['DQ',i+1].data
+        
         time[NSAMP-1-i] = ima['TIME',i+1].header['PIXVALUE']
     
-    return cube, time, NSAMP
+    return cube, dq, time, NSAMP
     
-def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True):
+# def flag_RAW_crs(raw='icbw16e7q_raw.fits'):
+#     """
+#     Manually subtract variable average background from RAW reads so that
+#     pipeline can flag CRs
+#     """
+#     import shutil
+#     
+#     if not os.path.exists(raw.replace('raw','raw_BKUP')):
+#         shutil.copy(raw, raw.replace('raw','raw_BKUP'))
+#     
+#     img = pyfits.open(raw, mode='update')
+#     
+#     cube, dq, time, NSAMP = unicorn.prepare.split_multiaccum(img, scale_flat=False)
+#     diff = np.diff(cube, axis=0)
+#     ramp_cps = np.median(diff, axis=1)
+#     avg_ramp = np.median(ramp_cps, axis=1)
+#     
+#     cumsum = np.cumsum(avg_ramp)
+#     
+#     for i in range(NSAMP-1):
+#         img['sci', i+1].data -= cumsum[NSAMP-2-i]*10 #- 2.1*img['time',i+1].header['PIXVALUE']
+#         
+#     for i in range(NSAMP):
+#         img['sci',i+1].data = np.cast[np.int16](img['sci',i+1].data)
+#         
+#     img.flush(output_verify='fix')
+#     
+#     wfc3tools.calwf3.calwf3(raw)
+    
+def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_saturated=True):
     """
     Run calwf3, if necessary, to generate ima & flt files.  Then put the last
     read of the ima in the FLT SCI extension and let Multidrizzle flag 
@@ -2887,11 +2925,20 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True):
     flt = pyfits.open(raw.replace('raw', 'flt'), mode='update')
     ima = pyfits.open(raw.replace('raw', 'ima'))
     
+    cube, dq, time, NSAMP = unicorn.prepare.split_multiaccum(ima,
+                                       scale_flat=False)
+    
+    readnoise_2D = np.zeros((1024,1024))
+    readnoise_2D[512: ,0:512] += ima[0].header['READNSEA']
+    readnoise_2D[0:512,0:512] += ima[0].header['READNSEB']
+    readnoise_2D[0:512, 512:] += ima[0].header['READNSEC']
+    readnoise_2D[512: , 512:] += ima[0].header['READNSED']
+    readnoise_2D = readnoise_2D**2
+        
     if len(pop_reads) > 0:
         ### Pop out reads affected by satellite trails or earthshine
         threedhst.showMessage('Pop reads %s from %s' %(pop_reads, ima.filename()))
-        cube, time, NSAMP = unicorn.prepare.split_multiaccum(ima,
-                                           scale_flat=False)
+        
         diff = np.diff(cube, axis=0)
         dt = np.diff(time)
         final_exptime = time[-1]
@@ -2900,21 +2947,58 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True):
             final_sci -= diff[read,:,:]
             final_exptime -= dt[read]
         #
-        final_var = ima[0].header['READNSEA']**2 + final_sci        
+        #final_var = ima[0].header['READNSEA']**2 + final_sci        
+        final_var = readnoise_2D + final_sci        
         final_err = np.sqrt(final_var)/final_exptime
         final_sci /= final_exptime
-
+        
         flt[0].header['EXPTIME'] = final_exptime
+        
+    else:
+        final_sci = ima['SCI', 1].data*1
+        final_err = ima['ERR', 1].data*1
+    
+    final_dq = ima['DQ', 1].data*1
+    
+    #### For saturated pixels, look for last read that was unsaturated
+    #### Background will be different under saturated pixels but maybe won't
+    #### matter so much for such bright objects.
+    if fix_saturated:
+        print 'Fix Saturated pixels:'
+        #### Saturated pixels
+        zi, yi, xi = np.indices(dq.shape)
+        saturated = (dq & 256) > 0
+        # 1024x1024 index array of reads where pixels not saturated
+        zi_flag = zi*1
+        zi_flag[saturated] = 0
+        last_ok_read = np.max(zi_flag, axis=0)
+
+        zi_idx = zi < 0
+        for i in range(2, NSAMP-1):
+            zi_idx[i,:,:] = zi[i,:,:] == last_ok_read
+
+        time_array = time[zi]
+        time_array[0,:,:] = 1.e-3 # avoid divide-by-zero
+        # pixels that saturated before the last read
+        fix = (last_ok_read < (ima[0].header['NSAMP'] - 1)) & (last_ok_read > 1)
+        #err = np.sqrt(ima[0].header['READNSEA']**2 + cube)/time_array
+        err = np.sqrt(readnoise_2D + cube)/time_array
+
+        final_sci[fix] = np.sum((cube/time_array)*zi_idx, axis=0)[fix]
+        final_err[fix] = np.sum(err*zi_idx, axis=0)[fix]
+
+        fixed_sat = (zi_idx.sum(axis=0) > 0) & ((final_dq & 256) > 0)
+        final_dq[fixed_sat] -= 256
+        print '  Nsat = %d' %(fixed_sat.sum())
+        flt['DQ'].data |= final_dq[5:-5,5:-5] & 256
 
     else:
-        final_sci = ima['SCI', 1].data
-        final_err = ima['ERR', 1].data
-    
+        #### Saturated pixels
+        flt['DQ'].data |= ima['DQ',1].data[5:-5,5:-5] & 256
+        
     flt['SCI'].data = final_sci[5:-5,5:-5]
     flt['ERR'].data = final_err[5:-5,5:-5]
     
-    ### Saturated pixels
-    flt['DQ'].data += ima['DQ',1].data[5:-5,5:-5] & 256
     
     #### Some earthshine flares DQ masked as 32: "unstable pixels"
     mask = (flt['DQ'].data & 32) > 0
@@ -2925,8 +3009,10 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True):
     ### Update the FLT header
     if pyfits.__version__ > '3.2':
         flt[0].header['IMA2FLT'] = (1, 'FLT extracted from IMA file')
+        flt[0].header['IMASAT'] = (fix_saturated*1, 'Manually fixed saturation')
     else:
         flt[0].header.update('IMA2FLT', 1, comment='FLT extracted from IMA file')
+        flt[0].header.update('IMASAT', fix_saturated*1, comment='Manually fixed saturation')
         
     flt.flush()
     
@@ -2948,7 +3034,7 @@ def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
     else:
         gain=1
         
-    cube, time, NSAMP = unicorn.prepare.split_multiaccum(img)
+    cube, dq, time, NSAMP = unicorn.prepare.split_multiaccum(img)
     diff = np.diff(cube, axis=0)
     dt = np.diff(time)
     fig = unicorn.plotting.plot_init(xs=10, aspect=0.8, wspace=0., hspace=0., left=0.05, NO_GUI=True)
@@ -2986,12 +3072,14 @@ def redo_pointing(pointing='GOODS-S-31', grism_exposures = [2,4]):
         unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25., make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
 
-        id=26009
-        model.twod_spectrum(id)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=21., REFINE_MAG_LIMIT=21, make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
+        
+        id=27230
+        model.twod_spectrum(id, refine=False, CONTAMINATING_MAGLIMIT=18, USE_REFERENCE_THUMB=True)
         model.show_2d(savePNG=True)
 
-        gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id))
-        gris.fit_in_steps(zrfirst=[gris.z_peak-0.3,gris.z_peak+0.3])
+        gris = unicorn.interlace_fit.GrismSpectrumFit('%s_%05d' %(pointing, id), lowz_thresh=0.)
+        gris.fit_in_steps(zrfirst=[np.clip(gris.z_peak-0.3, 0,3),gris.z_peak+0.3])
 
         os.system('open %s_%05d*zfit*png' %(pointing, id))
     

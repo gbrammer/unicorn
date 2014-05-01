@@ -97,6 +97,9 @@ def go_pointing(pointing='GOODS-S-25', RELEASE='/Volumes/3DHST_Gabe/RELEASE_v4.0
     return x
     
 class myCheckbutton(object):
+    """
+    Container for CheckButton self + logging variables
+    """
     def __init__(self, gui, text="(t)ilt", param=[0], hotkey='xxx'):
         self.gui = gui
         self.param = param
@@ -112,6 +115,9 @@ class myCheckbutton(object):
         #print self.gui.i
       
 class mySlider(object):
+    """
+    Container for Scale slider self + logging variables
+    """
     def __init__(self, gui, text="(a)bs./break", param=[0], hotkey='xxx', to=3):
         self.gui = gui
         self.param = param
@@ -128,22 +134,15 @@ class mySlider(object):
     
     
 class ImageClassifier():
+    """
+    Main classifier tool for 3D-HST fits
+    """
     def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', FITS_PATH='./', load_log=True, ds9=None):
         """
         GUI tool for inspecting grism redshift fits
         
-         x = inspect.ImageClassifier(images=glob.glob('Specz/GOODS-S-25*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH='Specz/')
-
-         #### Try on unicorn
-         pointing='GOODS-S-25'
-         field = '-'.join(pointing.split('-')[:-1])
-         PNG_PATH = '/3DHST/Spectra/Release/v4.0/%s/%s-WFC3_v4.0_SPECTRA/%s/ZFIT/PNG/' %(field, field, pointing)
-         FITS_PATH = '/3DHST/Spectra/Release/v4.0/%s/%s-WFC3_v4.0_SPECTRA/%s/2D/FITS/' %(field, field, pointing)
-         RGB_PATH = '/Users/gbrammer/RGB_v4.0_field/'
-         import glob
-         from unicorn import inspect
-         x = inspect.ImageClassifier(images=glob.glob(PNG_PATH+'*_262*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
-         
+         x = unicorn.inspect.ImageClassifier(images=glob.glob('Specz/GOODS-S-25*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH='Specz/')
+                  
          """
         if len(images) == 0:
             print 'No images specified'
@@ -201,7 +200,15 @@ class ImageClassifier():
         
         ####### Initialize GUI
         master = tk.Toplevel()
-        master.geometry('1050x630')               # This work fine
+        simple_twod = False
+        if 'zfit.png' in self.images[0]:
+            master.geometry('1050x630')              
+        elif '2D.png' in self.images[0]:
+            master.geometry('850x750')     
+            simple_twod = True
+        else:
+            master.geometry('1050x630') 
+            
         self.master = master
          
         self.frame = tk.Frame(master)
@@ -211,26 +218,16 @@ class ImageClassifier():
         imageFile = Image.open(self.images[0])
         im = ImageTk.PhotoImage(imageFile)        
         self.panel = tk.Label(self.frame , image=im)
-
-        imageFile2 = Image.open(self.images[0].replace('zfit','zfit.2D')).resize((500,202))
-        im2 = ImageTk.PhotoImage(imageFile2)        
+        
+        # imageFile2 = Image.open(self.images[0].replace('zfit','zfit.2D')).resize((500,202))
+        # im2 = ImageTk.PhotoImage(imageFile2)        
+        im2 = ImageTk.PhotoImage(self.get_twod_file(self.images[0]))
         self.panel2 = tk.Label(self.frame , image=im2)
+        # self.panel2.configure(image = im2)
+        # self.panel2.image = im2
         
-        #### RGB Panel
-        spl = os.path.basename(self.images[0]).split('-')
-        if len(spl) == 2:
-            rgb_file = spl[0]+'_'+spl[1].split('_')[1]
-        else:
-            rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
-        
-        ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0] + '_vJH_6.png')
-        if not os.path.exists(rgb_file):
-            im_rgb = Image.new('RGB', (100,100), "white")
-        else:
-            im_rgb = Image.open(rgb_file).resize((150,150))
-        
-        im_rgb = ImageTk.PhotoImage(im_rgb)        
+        #### RGB Panel        
+        im_rgb = ImageTk.PhotoImage(self.get_rgb_file(self.images[0])) 
         self.panel_rgb = tk.Label(self.frame , image=im_rgb)
         
         #### Keypress binding
@@ -318,21 +315,51 @@ class ImageClassifier():
         
         self.e_comment.grid(row=5, column=0, columnspan=5)
         
-        self.panel.grid(row=0, column=0, columnspan=6)
+        if simple_twod:
+            self.panel.grid(row=0, column=1, rowspan=3, columnspan=3)
+        else:
+            self.panel.grid(row=0, column=0, columnspan=6)
+            
         self.panel2.grid(row=1, column=1, columnspan=3, rowspan=2)
         self.panel_rgb.grid(row=1, column=0, columnspan=1, rowspan=2)
         
         self.master.mainloop()
     
-    def log_slider(self, log_var, slider_var, loop=4):
+    def get_twod_file(self, image_file):
         """
-        Log results of moving a slider
+        Get the zfit.2D file if appropriate
         """
-        log_var[self.i] = (log_var[self.i] + 1) % loop
-        slider_var.set(log_var[self.i])
-    
-    def listen_slider(self, var):
-        print var
+        if ('2D.png' in image_file) | ('_stack.png' in image_file):
+            imageFile2 = Image.new('RGB', (1,1), "white")
+        else:
+            imageFile2 = Image.open(image_file.replace('zfit','zfit.2D')).resize((500,202))
+        
+        return imageFile2
+        
+        #im2 = ImageTk.PhotoImage(imageFile2.resize((500,202)))
+        #self.panel2.configure(image = im2)
+        #self.panel2.image = im2
+        
+    def get_rgb_file(self, image_file):
+        """
+        Translate the filename to an RGB thumbnail
+        """
+        spl = os.path.basename(image_file).split('-')
+        if len(spl) == 2:
+            rgb_file = spl[0]+'_'+spl[1].split('_')[1]
+        else:
+            rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
+        
+        ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + '_vJH_6.png')
+        print rgb_file
+        
+        if not os.path.exists(rgb_file):
+            im_rgb = Image.new('RGB', (100,100), "white")
+        else:
+            im_rgb = Image.open(rgb_file).resize((150,150))
+        
+        return im_rgb
         
     def keypress_event(self, event):
         key = event.char
@@ -373,7 +400,12 @@ class ImageClassifier():
                 print 'Need to pass a pysao.ds9 object at initialization'
                 return False
             
-            twod_file = self.images[self.i].replace('zfit.png', '2D.fits')
+            exts = ['zfit.png','_stack.png','2D.png']
+            twod_file = '%s' %(self.images[self.i])
+            for ext in exts:
+                twod_file = twod.file.replace(ext, '2D.fits')
+                
+            #twod_file = self.images[self.i].replace('zfit.png', '2D.fits')
             twod_file = os.path.join(self.FITS_PATH, os.path.basename(twod_file))
             
             im = pyfits.open(twod_file)
@@ -482,26 +514,7 @@ class ImageClassifier():
 """
         else:
             print 'Hotkey (%s) not bound.' %(key)
-    
-    # def set_line(self):
-    #     #print 'Disk flag: %d' %(self.dvar.get())
-    #     self.params['line'][self.i] = self.dvar.get()
-    
-    # def set_unamb(self):
-    #     #print 'Bar flag: %d' %(self.bvar.get())
-    #     self.params['unamb'][self.i] = self.bvar.get()
-
-    # def set_misid(self):
-    #     self.params['misid'][self.i] = self.misid_var.get()
-    
-    # def set_star(self):
-    #     #print 'Star flag: %d' %(self.svar.get())
-    #     self.params['star'][self.i] = self.svar.get()
-    
-    # def set_contam(self):
-    #     #print 'Star flag: %d' %(self.svar.get())
-    #     self.params['contam'][self.i] = self.evar.get()
-    
+        
     def set_seen(self):
         #print 'Seen flag: %d' %(self.svar.get())
         self.params['seen'][self.i] = 1
@@ -556,62 +569,18 @@ class ImageClassifier():
         self.panel.configure(image = im)
         self.panel.image = im
 
-        imageFile2 = Image.open(self.images[self.i].replace('zfit','zfit.2D'))
-        
-        im2 = ImageTk.PhotoImage(imageFile2.resize((500,202)))
+        #imageFile2 = Image.open(self.images[self.i].replace('zfit','zfit.2D'))
+        im2 = ImageTk.PhotoImage(self.get_twod_file(self.images[self.i]))
         self.panel2.configure(image = im2)
         self.panel2.image = im2
         
         ### RGB
-        spl = os.path.basename(self.images[self.i]).split('-')
-        if len(spl) == 2:
-            rgb_file = spl[0]+'_'+spl[1].split('_')[1]
-        else:
-            rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
-        
-        ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0] + '_vJH_6.png')
-        if not os.path.exists(rgb_file):
-            im_rgb = Image.new('RGB', (100,100), "white")
-        else:
-            im_rgb = Image.open(rgb_file).resize((150,150))
-        
-        im_rgb = ImageTk.PhotoImage(im_rgb)        
+        im_rgb = ImageTk.PhotoImage(self.get_rgb_file(self.images[self.i])) 
         self.panel_rgb.configure(image = im_rgb)
         self.panel_rgb.image = im_rgb
         
         #self.panel_rgb = tk.Label(self.frame , image=im_rgb)
-    
-    def read_log(self, logfile):
-        self.logfile = logfile
         
-        print 'Read logfile: %s' %(self.logfile)
-        lines = open(self.logfile).readlines()[1:]
-        self.N = len(lines)
-        
-        self.images, dflag, bflag, eflag, sflag, zflag, mflag, fflag, self.comments = [], [], [], [] ,[], [], [], [], []
-        for line in lines:
-            spl = line.split('"')
-            params = spl[0].split()
-            #print line, params
-            self.images.append(params[0])
-            fflag.append(params[1])
-            dflag.append(params[2])
-            bflag.append(params[3])
-            eflag.append(params[4])
-            zflag.append(params[5])
-            mflag.append(params[6])
-            sflag.append(params[7])
-            self.comments.append(spl[1])
-        #
-        self.line_flags = np.cast[int](dflag)
-        self.unamb_flags = np.cast[int](bflag)
-        self.contam_flags = np.cast[int](eflag)
-        self.misid_flags = np.cast[int](mflag)
-        self.zp_flags = np.cast[int](zflag)
-        self.star_flags = np.cast[int](sflag)
-        self.seen_flags = np.cast[int](fflag)
-    
     def write_fits(self):
         """
         Write the FITS log
@@ -697,31 +666,6 @@ class ImageClassifier():
             #    
             self.params[c.name] = tab[c.name]
             
-    def write_log(self):
-        """
-        Write the log file.
-        """
-        
-        ### Catch any updates to the sliders on the current object
-        for key in self.sliders.keys():
-            slider_var, log_var = self.sliders[key]
-            log_var[self.i] = slider_var.get()
-        
-        fp = open(self.logfile, 'w')
-        fp.write('#  file            checked  emline  unambiguous  bad_contam bad_zps line_misid star  comment\n')
-
-        for i in range(self.N):
-            try:
-                fp.write('%s   %d   %d   %d   %d   %d   %d   %d  "%s"\n' %(self.images[i], self.seen_flags[i], self.line_flags[i], self.unamb_flags[i], self.contam_flags[i], self.zp_flags[i], self.misid_flags[i], self.star_flags[i], self.comments[i]))
-            except:
-                print 'Write failed on line %d (%s)' %(i, self.images[i])
-                self.comments[i] = '-'
-                fp.write('%s   %d   %d   %d   %d   %d   %d   %d  "%s"\n' %(self.images[i], self.seen_flags[i], self.line_flags[i], self.unamb_flags[i], self.contam_flags[i], self.zp_flags[i], self.misid_flags[i], self.star_flags[i], self.comments[i]))
-                #failed = True
-        
-        fp.close()
-        print 'Wrote %s.' %(self.logfile)
-        
     def finish(self):
         #self.frame.quit()
         #self.write_log()

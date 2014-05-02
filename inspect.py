@@ -183,10 +183,10 @@ class ImageClassifier():
         ####### Initialize parameters
         self.params = {}        
         self.images = images
-
+        
         if os.path.exists(self.logfile) & load_log:
             self.read_fits()
-
+            
         self.N = len(self.images)
 
         for key in ['line', 'extended', 'absorption', 'unamb', 'misid', 'contam', 'zp', 'tilt', 'investigate', 'star', 'seen']:
@@ -655,16 +655,38 @@ class ImageClassifier():
         tab = im[1].data
         print "Read log %s from %s (%s)" %(self.logfile, im[0].header['USER'], im[0].header['MODTIME'])
         
-        for c in tab.columns:
-            if c.name == 'images':
-                self.images = tab[c.name]
+        colnames = tab.columns.names
+        
+        try:
+            #### If images in the input list aren't in the file that 
+            #### was read, add them to the table
+            from astropy.table import Table
+            tab = Table.read(self.logfile)
+            colnames = tab.columns
+            read_images = tab['images']
+            for image in self.images:
+                if image not in read_images:
+                    tab.add_row()
+                    tab['images'][-1] = image
+                    tab['comment'][-1] = '---'
+            
+        except:
+            #### No astropy?
+            print 'No astropy found.  Forcing image list from %s.' %(self.logfile)
+            pass
+            
+        self.images = tab['images']
+            
+        for c in colnames:
+            #print c
+            if c == 'images':
                 continue
-            #
-            if c.name == 'comment':
-                self.params[c.name] = list(tab[c.name])
+
+            if c == 'comment':
+                self.params[c] = list(tab[c])
                 continue
             #    
-            self.params[c.name] = tab[c.name]
+            self.params[c] = tab[c]
             
     def finish(self):
         #self.frame.quit()

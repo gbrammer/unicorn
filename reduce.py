@@ -2876,7 +2876,7 @@ class GrismModel():
         err_scale = np.std((resid2/self.gris[2].data)[mm])
         
         ### Formatted string for multiple image residuals
-        np.set_printoptions(precision=2)
+        np.set_printoptions(precision=4)
         flux_bgs_str = re.sub('[\[\],\n]', '', (flux_bgs.__str__())).replace('  ',' ')
         np.set_printoptions(precision=8)
         

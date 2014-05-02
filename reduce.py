@@ -3610,7 +3610,6 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
                 threedhst.process_grism.flprMulti()
                 if os.path.exists('align_blot.fits'):
                     os.remove('align_blot.fits')
-                iraf.wblot()
                 #
                 iraf.wblot.setParam('data', REF_ROOT+'_ref.fits')
                 iraf.wblot.setParam('outdata', 'align_blot.fits')

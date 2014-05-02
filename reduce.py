@@ -2932,7 +2932,41 @@ class GrismModel():
             mx[2].data *= err_scale
             mx.flush()
             print 'Updated %s' %(self.gris.filename())
-                    
+    
+    def run_lacosmic(self, update=True):
+        """
+        Run M. Tewes' Python version of LACosmic to flag bad remaining
+        bad pixels.
+        
+        http://obswww.unige.ch/~tewes/cosmics_dot_py/
+        
+        """
+        import scipy.ndimage as nd
+
+        import lacosmic
+        
+        EXPTIME = self.gris[0].header['EXPTIME']
+        SKY = self.gris[0].header['SKYSCALE']
+
+        ### Fill zeros in interlaced grism
+        orig = self.gris[1].data*1
+        img = self.gris[1].data*1
+        ma = nd.maximum_filter(img, size=3)
+        mask = (self.gris['ERR'].data == 0)
+        img[mask] = ma[mask]
+        
+        x = lacosmic.cosmicsimage(img*EXPTIME, gain=1, readnoise=20/self.growx/self.growy, pssl=SKY*EXPTIME, objlim=5.0, sigclip=5., sigfrac=1)
+        
+        x.run(verbose=True)
+        self.cr_mask = x.mask
+        
+        if update:
+            mx = pyfits.open(self.gris.filename(), mode='update')
+            mx[0].header.update('LACOSMIC', 1, 'Additional CRs flagged with LACosmic')
+            mx['SCI'].data[x.mask] = 0
+            mx['ERR'].data[x.mask] = 0
+            mx.flush()
+            
 def field_dependent(xi, yi, str_coeffs):
     """ 
     Calculate field-dependent parameter for aXe conventions.

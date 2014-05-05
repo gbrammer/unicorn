@@ -47,6 +47,25 @@ import pyfits
 
 noNewLine = '\x1b[1A\x1b[1M'
 
+def examples():
+    
+    import glob
+    import unicorn.inspect
+    import pysao
+    
+    os.chdir(os.getenv('THREEDHST') + '/3DHST_VariableBackgrounds/GS25')
+    
+    RGB_PATH = os.getenv('RELEASE') + 'v4.0/RGB/All/'
+    
+    ds9 = pysao.ds9()
+    
+    #### Objects with fits
+    x = unicorn.inspect.ImageClassifier(glob.glob('ZFIT/PNG/*zfit.png'), FITS_PATH='2D/FITS/', logfile='inspect_zfit', RGB_PATH=RGB_PATH, ds9=ds9)
+    
+    #### Raw 2D files, including objects not fit
+    x = unicorn.inspect.ImageClassifier(glob.glob('2D/PNG/*png'), FITS_PATH='2D/FITS/', logfile='inspect_raw2d', RGB_PATH=RGB_PATH, ds9=ds9)
+    
+    
 class TextInput():
     """
     Popup for entering a comment
@@ -403,7 +422,7 @@ class ImageClassifier():
             exts = ['zfit.png','_stack.png','2D.png']
             twod_file = '%s' %(self.images[self.i])
             for ext in exts:
-                twod_file = twod.file.replace(ext, '2D.fits')
+                twod_file = twod_file.replace(ext, '2D.fits')
                 
             #twod_file = self.images[self.i].replace('zfit.png', '2D.fits')
             twod_file = os.path.join(self.FITS_PATH, os.path.basename(twod_file))
@@ -493,12 +512,11 @@ class ImageClassifier():
             # while (self.params['seen'][self.i] == 1) & ('!' not in self.params['comment'][self.i]):
             #     self.img_next()
         
-        elif key == 'y':
-            ### Go to next unambiguous
-            self.img_next()
-            while (self.params['seen'][self.i] == 1) & (self.params['unamb'][self.i] == 0):
-                self.img_next()
-        
+        elif key in ['U','L','E','I','A','S','T','B']:
+            ### Go to next non-zero flag for different keys
+            key_param = {'U':self.params['unamb'], 'L':self.params['line'], 'E':self.params['extended'], 'I':self.params['investigate'], 'A':self.params['absorption'], 'S':self.params['star'], 'T':self.params['tilt'], 'B':self.params['contam']}
+            self.next_nonzero(key_param[key])
+            
         elif key == '?':
             print """
     Additional keys:
@@ -514,7 +532,29 @@ class ImageClassifier():
 """
         else:
             print 'Hotkey (%s) not bound.' %(key)
+    
+    def next_nonzero(self, param=None):
+        """
+        Go to next object where self.param is nonzero
+        """
+        self.set_seen()
+        self.params['comment'][self.i] = self.tvar.get()
+
+        ### At end
+        if self.i > self.N-2:
+            return False
         
+        self.i += 1
+        
+        while (self.i < self.N-1):
+            print self.i
+            if (self.params['seen'][self.i] == 1) & (param[self.i] == 0):
+                self.i += 1
+            else:
+                break
+        
+        self.load_image()
+            
     def set_seen(self):
         #print 'Seen flag: %d' %(self.svar.get())
         self.params['seen'][self.i] = 1

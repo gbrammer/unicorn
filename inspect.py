@@ -363,15 +363,16 @@ class ImageClassifier():
         """
         Translate the filename to an RGB thumbnail
         """
-        spl = os.path.basename(image_file).split('-')
+        spl = os.path.basename(image_file.replace('new_zfit', 'newzfit')).split('-')
         if len(spl) == 2:
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
         else:
             rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
         
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + '_vJH_6.png')
-        print rgb_file
+        #print rgb_file + 'yy'
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + '_vJH_6.png')
+        print rgb_file # + ' xx'
         
         if not os.path.exists(rgb_file):
             im_rgb = Image.new('RGB', (100,100), "white")

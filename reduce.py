@@ -1162,6 +1162,8 @@ class Interlace2D():
         else:
             chip=1
         
+        self.profile2D = None
+        
         #### Make sure to use the same configuration file that was used
         #### to generate the 2D fits file
         if 'GRISCONF' in self.im[0].header.keys():
@@ -1309,43 +1311,44 @@ class Interlace2D():
         ### Done!
         self.model = self.object[self.yc+self.ypad:self.yc-self.ypad,self.xmin:self.xmax]
     
-    def optimal_extract(self, input=None):
+    def optimal_extract(self, input=None, force_init=False):
         
-        obj_cleaned = input
-        variance = self.im['WHT'].data**2
-            
-        #### Get extraction window where profile is > 10% of maximum 
-        osh = self.im['MODEL'].data.shape
-        xarr = np.arange(osh[1])
-        # xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
-        # if self.grism_element == 'G102':
-        #     xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
-        # #
-        # if self.grism_element == 'G800L':
-        #     xint14 = int(np.interp(0.75e4, self.im['WAVE'].data, xarr))
-        # 
-        wlim = grism_wlimit[self.grism_element]
-        xint14 = int(np.interp(wlim[3], self.im['WAVE'].data, xarr))
+        if (self.profile2D is None) | (force_init):            
+            #### Get extraction window where profile is > 10% of maximum 
+            osh = self.im['MODEL'].data.shape
+            xarr = np.arange(osh[1])
+            # xint14 = int(np.interp(1.3e4, self.im['WAVE'].data, xarr))
+            # if self.grism_element == 'G102':
+            #     xint14 = int(np.interp(0.98e4, self.im['WAVE'].data, xarr))
+            # #
+            # if self.grism_element == 'G800L':
+            #     xint14 = int(np.interp(0.75e4, self.im['WAVE'].data, xarr))
+            # 
+            wlim = grism_wlimit[self.grism_element]
+            xint14 = int(np.interp(wlim[3], self.im['WAVE'].data, xarr))
+
+            yprof = np.arange(osh[0])
+            profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
+            profile = profile/profile.sum()
+
+            #profile2D = np.dot(profile.reshape((-1,1)), np.ones((1,osh[1])))
+            window = profile >= 0.1*profile.max()
+
+            #### Use object as the profile since it contains the y shift along the trace
+            prof_x = np.sum(self.im['MODEL'].data, axis=0)
+            self.profile2D = self.im['MODEL'].data/np.dot(np.ones((osh[0],1)), prof_x.reshape((1,-1)))
         
-        yprof = np.arange(osh[0])
-        profile = np.sum(self.im['MODEL'].data[:,xint14-10:xint14+10], axis=1)
-        profile = profile/profile.sum()
         
-        #profile2D = np.dot(profile.reshape((-1,1)), np.ones((1,osh[1])))
-        window = profile >= 0.1*profile.max()
-        
-        #### Use object as the profile since it contains the y shift along the trace
-        prof_x = np.sum(self.im['MODEL'].data, axis=0)
-        profile2D = self.im['MODEL'].data/np.dot(np.ones((osh[0],1)), prof_x.reshape((1,-1)))
-                
-        obj_cleaned[variance == 0] = 0
-        
+        obj_cleaned = input*1
+        #variance = self.im['WHT'].data**2
+                        
         #### Optimal extraction
-        opt_variance = variance.copy()
+        opt_variance = self.im['WHT'].data**2
+        obj_cleaned[opt_variance == 0] = 0
         opt_variance[opt_variance == 0] = 1.e6
         
-        num = np.sum(profile2D*obj_cleaned/opt_variance, axis=0)        
-        denom = np.sum(profile2D**2 / opt_variance, axis=0)
+        num = np.sum(self.profile2D*obj_cleaned/opt_variance, axis=0)        
+        denom = np.sum(self.profile2D**2 / opt_variance, axis=0)
         
         optimal_sum = num / denom
         return self.im['WAVE'].data, optimal_sum
@@ -4405,3 +4408,55 @@ def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     
     unicorn.catalogs.savefig(fig, root+'_inter_deep_residuals.png')
     
+##### Show parameter variation across the field
+def show_conf_params():
+    conf = unicorn.reduce.conf
+    beam='A'
+    bigX, bigY = np.indices((1014,1014))
+    
+    dydx_order = np.int(conf['DYDX_ORDER_'+beam])
+    dydx_0 = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['DYDX_'+beam+'_0']) 
+    dydx_1 = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['DYDX_'+beam+'_1'])
+    
+    plt.imshow(dydx_0 - dydx_0[507, 507], vmin=-1, vmax=1, origin='lower')
+    cb = plt.colorbar()
+    cb.set_label(r'$\Delta y$ (FLT pixels)')
+    plt.scatter([507,507+125], [507,507+125], marker='o', color='black')
+    plt.text(507+125, 507+125+20, r'%.2f pix' %(dydx_0[507+125, 507+125]-dydx_0[507,507]), ha='center', va='bottom')
+    plt.savefig('/tmp/dy_FLT.pdf')
+    plt.close()
+    
+    xoff_beam = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['XOFF_'+beam])
+    yoff_beam = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['YOFF_'+beam])
+    
+    disp_order = np.int(conf['DISP_ORDER_'+beam])
+    dldp_0 = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['DLDP_'+beam+'_0'])
+    dldp_1 = unicorn.reduce.field_dependent_multi(bigX, bigY, conf['DLDP_'+beam+'_1'])
+
+    plt.imshow(dldp_0 - dldp_0[507, 507], vmin=-50, vmax=50, origin='lower')
+    cb = plt.colorbar()
+    cb.set_label(r'$\Delta \lambda (\mathrm{\AA})$')
+    plt.scatter([507,507+125], [507,507+125], marker='o', color='black')
+    plt.text(507+125, 507+125+20, r'%.1f $\mathrm{\AA}$' %(dldp_0[507+125, 507+125]-dldp_0[507,507]), ha='center', va='bottom')
+    plt.savefig('/tmp/dlam0_FLT.pdf')
+    plt.close()
+    
+    plt.imshow(dldp_1 / dldp_1[507, 507], vmin=0.95, vmax=1.05, origin='lower')
+    cb = plt.colorbar()
+    cb.set_label(r'$\Delta$ dispersion (%)')
+    plt.scatter([507,507+125], [507,507+125], marker='o', color='black')
+    plt.text(507+125, 507+125+20, r'%.2f' %((dldp_1[507+125, 507+125]/dldp_1[507,507]-1)*100)+'%', ha='center', va='bottom')
+    plt.savefig('/tmp/dlam1_FLT.pdf')
+    plt.close()
+    
+def field_dependent_multi(xi, yi, str_coeffs):
+    """ 
+    Calculate field-dependent parameter for aXe conventions.
+    
+    a = a_0 + a_1 * xi + a_2 * yi + a_3 * xi**2 + a_4 * xi * yi + a_5 * yi**2
+    
+    """
+    coeffs = np.cast[float](str_coeffs.split())
+    xy = np.array([xi*0+1,xi,yi,xi**2,xi*yi,yi**2, xi**3, xi**2*yi, xi*yi**2, yi**3])
+    a = np.sum(coeffs*xy[0:len(coeffs),:].T, axis=-1)
+    return a

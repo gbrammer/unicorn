@@ -5,34 +5,33 @@ GUI tool for inspecting grism spectrum extractions
 $Date$
 $Rev$
 
-Instructions for testing:
+Instructions for working:
+- Put gui_3dhst.py in the directory where you plan to work. This is where the output
+files will be created. I recommend TEST_SPECTRA_v4.1/
 
-In the shell (BASH):
+- Open gui_3dhst.py in your favorite text editor.
 
-    ### Copy the test directory from unicorn to your local machine
-    cd /tmp/
-    rsync -avz --progress gbrammer@unicorn.astro.yale.edu:~gbrammer/GUI_Test /tmp/
-    cd /tmp/GUI_Test
+- Go to line XXX below and edit the paths for RELEASE and RGB_PATH to the correct
+location on your disk. Save.
 
+- Open a teminal window. 
+
+- If running Ureka, type "ur_setup"
+
+- Navigate to gui_3dhst.py directory.
+
+Open python (type python or ipython in your terminal).
 In Python:
 
-    import glob
-    #### gui_3dhst.py = unicorn.inspect.py
     import gui_3dhst
 
-    image_list = glob.glob('*zfit.png')
-
-    gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=None)
-    
-    #### run with DS9 if you have pysao installed
-    import pysao
-    
-    ds9 = pysao.ds9()
-    
-    image_list = glob.glob('*zfit.png')
-    
-    gui_3dhst.ImageClassifier(images=image_list, logfile='test_inspect.info', RGB_PATH='./', FITS_PATH='./', ds9=ds9)
-     
+	### The default behavior will pop out the ds9 window:
+	gui_3dhst.go_pointing(pointing = 'goodss-05')
+	
+	### To avoid opening the ds9 window:
+	gui_3dhst.go_pointing(pointing = 'goodss-05',show_ds9=False)
+	
+	     
 """
 import sys
 import shutil
@@ -50,7 +49,7 @@ noNewLine = '\x1b[1A\x1b[1M'
 def examples():
     
     import glob
-    import unicorn.inspect
+    #import unicorn.inspect
     import pysao
     
     os.chdir(os.getenv('THREEDHST') + '/3DHST_VariableBackgrounds/GS25')
@@ -95,24 +94,31 @@ class TextInput():
         self.master.destroy()
         self.master.quit()
     
-def go_pointing(pointing='GOODS-S-25', RELEASE='/Volumes/3DHST_Gabe/RELEASE_v4.0/Spectra/', RGB_PATH='/Users/brammer/3DHST/Spectra/Release/v4.0/RGB/All/'):
+def go_pointing(pointing='goodss-25', RELEASE='/Volumes/Voyager/TEST_SPECTRA_v4.1/GOODS-S/INTERLACE_v4.1/', RGB_PATH='/Volumes/Voyager/TEST_SPECTRA_v4.1/RGB_goodss/',show_ds9=True):
     """
     
     Classify a 3D-HST pointing
         
     """
     import glob
-    from unicorn import inspect
+    #from unicorn import inspect
 
     field = '-'.join(pointing.split('-')[:-1])
-    PNG_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/ZFIT/PNG/' %(RELEASE, field, field, pointing)
-    FITS_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/2D/FITS/' %(RELEASE, field, field, pointing)
+    
+    ### Example paths for v4.0 and earlier releases
+    #PNG_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/ZFIT/PNG/' %(RELEASE, field, field, pointing)
+    #FITS_PATH = '%s/%s/%s-WFC3_v4.0_SPECTRA/%s/2D/FITS/' %(RELEASE, field, field, pointing)
 
-    PNG_PATH = '%s/%s/WFC3/%s/ZFIT/PNG/' %(RELEASE, field, pointing)
-    FITS_PATH = '%s/%s/WFC3/%s/2D/FITS/' %(RELEASE, field, pointing)
+    #PNG_PATH = '%s/%s/WFC3/%s/ZFIT/PNG/' %(RELEASE, field, pointing)
+    #FITS_PATH = '%s/%s/WFC3/%s/2D/FITS/' %(RELEASE, field, pointing)
     
-    x = ImageClassifier(images=glob.glob(PNG_PATH+'*zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
-    
+    PNG_PATH = FITS_PATH = RELEASE
+    if show_ds9:
+    	import pysao
+    	ds9=pysao.ds9()
+    	x = ImageClassifier(images=glob.glob(PNG_PATH+pointing+'*new_zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing), ds9=ds9)
+    else:
+    	x = ImageClassifier(images=glob.glob(PNG_PATH+pointing+'*new_zfit.png'), RGB_PATH=RGB_PATH, FITS_PATH=FITS_PATH, logfile='%s_inspect.info' %(pointing))
     return x
     
 class myCheckbutton(object):
@@ -370,9 +376,8 @@ class ImageClassifier():
             rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
         
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        #print rgb_file + 'yy'
         rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + '_vJH_6.png')
-        print rgb_file # + ' xx'
+        print rgb_file
         
         if not os.path.exists(rgb_file):
             im_rgb = Image.new('RGB', (100,100), "white")
@@ -420,7 +425,7 @@ class ImageClassifier():
                 print 'Need to pass a pysao.ds9 object at initialization'
                 return False
             
-            exts = ['zfit.png','_stack.png','2D.png']
+            exts = ['new_zfit.png','_stack.png','2D.png']
             twod_file = '%s' %(self.images[self.i])
             for ext in exts:
                 twod_file = twod_file.replace(ext, '2D.fits')
@@ -440,12 +445,12 @@ class ImageClassifier():
             self.ds9.set('scale limits 0 1')
             
             self.ds9.frame(3)
-            self.ds9.view_fits(im['SCI'])
+            self.ds9.view(im['SCI'].data)
             self.ds9.set('scale limits -0.1 1')
             self.ds9.set('cmap value 8.06667 0.12255')
 
             self.ds9.frame(4)
-            self.ds9.view_fits(im['CONTAM'])
+            self.ds9.view(im['CONTAM'].data)
             self.ds9.set('scale limits -0.1 1')
             self.ds9.set('cmap value 8.06667 0.12255')
             

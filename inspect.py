@@ -214,7 +214,7 @@ class ImageClassifier():
             
         self.N = len(self.images)
 
-        for key in ['line', 'extended', 'absorption', 'unamb', 'misid', 'contam', 'zp', 'tilt', 'investigate', 'star', 'seen']:
+        for key in ['line', 'extended', 'absorption', 'unamb', 'misid', 'contam', 'zp', 'tilt', 'investigate', 'star', 'seen', 'bad2d', 'deblend', 'sed']:
             if key not in self.params.keys():
                 self.params[key] = np.zeros(self.N, dtype=np.int)
         
@@ -296,7 +296,10 @@ class ImageClassifier():
         self.buttons['tilt'] = myCheckbutton(self, text='(t)ilt', param=self.params['tilt'], hotkey='t')
                 
         #### Bad z_phot / z_spec or both
-        self.sliders['zp'] = mySlider(self, text='Bad (z)p/s/p+s', param=self.params['zp'], hotkey='z')
+        self.buttons['zp'] = myCheckbutton(self, text='Bad (z)spec', param=self.params['zp'], hotkey='z')
+
+        #### SED problems
+        self.sliders['sed'] = mySlider(self, text='Bad SED (k)', param=self.params['sed'], hotkey='k', to=2)
 
         #### Flag for manual investigation
         self.sliders['investigate'] = mySlider(self, text='(i)nvestigate', param=self.params['investigate'], hotkey='i', to=4)
@@ -306,6 +309,12 @@ class ImageClassifier():
         
         #### Star?
         self.buttons['star'] = myCheckbutton(self, text='(s)tar', param=self.params['star'], hotkey='s')
+
+        #### Spectrum problem
+        self.buttons['bad2d'] = myCheckbutton(self, text='Bad 1D/2D (x)', param=self.params['bad2d'], hotkey='x')
+
+        #### Deblend issue
+        self.buttons['deblend'] = myCheckbutton(self, text='(d)eblend', param=self.params['deblend'], hotkey='d')
         
         ### Comment holder
         self.tvar = tk.StringVar()
@@ -320,33 +329,39 @@ class ImageClassifier():
         
         self.button_log.grid(row=2, column=4, columnspan=1)
         self.button_quit.grid(row=2, column=5, columnspan=1)
-        
-        self.sliders['line'].theslider.grid(row=3, column=0)
-        self.sliders['absorption'].theslider.grid(row=4, column=0)
-        
-        self.sliders['extended'].theslider.grid(row=3, column=1)
-        self.buttons['unamb'].thebutton.grid(row=4, column=1)
 
-        self.sliders['contam'].theslider.grid(row=3, column=2)
-        self.buttons['misid'].thebutton.grid(row=4, column=2)
+        self.buttons['seen'].thebutton.grid(row=3, column=5)
+        self.buttons['star'].thebutton.grid(row=3, column=4)
+        
+        self.sliders['line'].theslider.grid(row=4, column=0)
+        self.sliders['absorption'].theslider.grid(row=5, column=0)
+        
+        self.sliders['extended'].theslider.grid(row=4, column=1)
+        self.buttons['unamb'].thebutton.grid(row=5, column=1)
 
-        self.buttons['tilt'].thebutton.grid(row=3, column=3)        
-        self.sliders['zp'].theslider.grid(row=4, column=3)
+        self.sliders['contam'].theslider.grid(row=4, column=2)
+        self.buttons['misid'].thebutton.grid(row=5, column=2)
+
+        self.buttons['tilt'].thebutton.grid(row=4, column=3)        
+        self.buttons['zp'].thebutton.grid(row=5, column=3)
+
+        self.sliders['sed'].theslider.grid(row=5, column=4)
         
-        self.sliders['investigate'].theslider.grid(row=3, column=4)
+        self.sliders['investigate'].theslider.grid(row=4, column=5)
+        self.buttons['bad2d'].thebutton.grid(row=4, column=4)
+
+        self.buttons['deblend'].thebutton.grid(row=5, column=5)
         
-        self.buttons['star'].thebutton.grid(row=3, column=5)
-        self.buttons['seen'].thebutton.grid(row=4, column=5)
         
-        self.e_comment.grid(row=5, column=0, columnspan=5)
+        self.e_comment.grid(row=6, column=0, columnspan=5)
         
         if simple_twod:
-            self.panel.grid(row=0, column=1, rowspan=3, columnspan=3)
+            self.panel.grid(row=0, column=1, rowspan=4, columnspan=3)
         else:
             self.panel.grid(row=0, column=0, columnspan=6)
             
-        self.panel2.grid(row=1, column=1, columnspan=3, rowspan=2)
-        self.panel_rgb.grid(row=1, column=0, columnspan=1, rowspan=2)
+        self.panel2.grid(row=1, column=1, columnspan=3, rowspan=3)
+        self.panel_rgb.grid(row=1, column=0, columnspan=1, rowspan=3)
         
         self.master.mainloop()
     
@@ -417,7 +432,7 @@ class ImageClassifier():
             self.params['comment'][self.i] = ctext.text_value
             #print comment
 
-        elif key == 'd':
+        elif key == '9':
             #### Open DS9
             #import pysao
             #ds9 = pysao.ds9()
@@ -472,7 +487,7 @@ class ImageClassifier():
             ### quit
             self.finish()
 
-        elif key == 'x':
+        elif key == 'N':
             ### Go to next unseen
             self.set_seen()
             self.params['comment'][self.i] = self.tvar.get()
@@ -528,8 +543,8 @@ class ImageClassifier():
     Additional keys:
 
       'c':  Open comment box, type <tab> to edit and <enter> when done.
-      'd':  Open 2D FITS extensions in DS9, if pysao available.
-      'x':  skip through through all 'seen'
+      '9':  Open 2D FITS extensions in DS9, if pysao available.
+      'N':  skip through through all 'seen'
       '0':  go back to first
       '!':  go to next object with '!' in the comment
       'y':  go to next unambigous
@@ -691,6 +706,8 @@ class ImageClassifier():
         thdulist[0].header.update('USER', getpass.getuser())
 
         thdulist.writeto(self.logfile, clobber=True)
+        
+        print 'Log to file %s' %(self.logfile)
         
     def read_fits(self):
         """

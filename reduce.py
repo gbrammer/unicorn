@@ -1495,7 +1495,6 @@ class Interlace2D():
         head.update('Y_PIX', self.y_pix, comment='Y pixel in interlaced image')
         head.update('MAG', self.im[0].header['MAG'], comment='MAG_AUTO from interlaced catalog')
         
-        
         tbHDU = pyfits.new_table(coldefs, header=head)
         tbHDU.writeto(self.root+'_%05d.1D.fits' %(self.id), clobber=True)
         
@@ -2755,8 +2754,7 @@ class GrismModel():
         #
         head.update('X_PIX', self.cat.x_pix[ii], comment='X pixel in interlaced image')
         head.update('Y_PIX', self.cat.y_pix[ii], comment='Y pixel in interlaced image')
-        head.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
-        
+        head.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')        
         
         tbHDU = pyfits.new_table(coldefs, header=head)
         tbHDU.writeto(self.baseroot+'_%05d.1D.fits' %(self.id), clobber=True)
@@ -2858,7 +2856,7 @@ class GrismModel():
         #### where model might not have objects
         yc, xc = np.indices(resid.shape)
         objects = nd.maximum_filter((self.model > threshold)*1, size=grow_mask) > 0
-        mm = ~objects & (self.gris[2].data > 0) & (resid < resid_threshold) & (self.gris[2].data < 10)
+        mm = ~objects & (self.gris[2].data > 0) & (np.abs(resid) < resid_threshold) & (self.gris[2].data < 10)
         mm &= (xc > clip_left*(self.growx/2.)) 
         #flux_bg = np.median(self.gris[1].data[mm])
         #err_scale = np.std(resid[mm])

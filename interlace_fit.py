@@ -404,7 +404,7 @@ class GrismSpectrumFit():
             #print var.shape, use.shape, templates.shape, self.twod.model.shape
             amatrix = utils_c.prepare_nmf_amatrix(var[use], templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], templates[:,use], amatrix, toler=1.e-5)
-            flux_fit = np.dot(coeffs.reshape((1,-1)), templates) #.reshape(line_model.shape)
+            flux_fit = np.dot(coeffs.reshape((1,-1)), templates).flatten() #.reshape(line_model.shape)
 
             #### If `get_model_at_z`, return the model at that redshift
             if (get_model):
@@ -425,7 +425,7 @@ class GrismSpectrumFit():
 
             #### Log likelihood at redshift zgrid[i] (-0.5*chi2)
             #print flux.shape, flux_fit.shape, var.shape
-            spec_lnprob[i] = -0.5*np.sum((flux-flux_fit)**2/var)
+            spec_lnprob[i] = -0.5*np.sum(((flux-flux_fit)**2/var)[use])
             if spec_lnprob[i] > pmax:
                 pmax = spec_lnprob[i]
                 zbest = z_test*1.
@@ -433,7 +433,154 @@ class GrismSpectrumFit():
         #### Done!
         return zgrid, spec_lnprob
     
-    def fit_in_steps(self, dzfirst=0.003, zrfirst = (0.00,3.8), dzsecond=0.0002, save=True, make_plot=True, skip_second=False):
+    def fit_zgrid_oned(self, zrange = (0.01,6), dz = 0.02, get_model_at_z=None, verbose=True):
+        """
+        Take the best-fit template from the photo-z fit and just march through in redshift
+
+        The redshift grid is set with the input parameters zrange and dz.  
+
+        If `get_model_at_z` is set, just compute and return the best-fit 2D spectrum at the
+        specified redshift.
+
+        """
+        #### Initialize redshift grid, steps are dz*(1+z)
+        zgrid = np.exp(np.arange(np.log(1+zrange[0]), np.log(1+zrange[1]), dz))-1
+
+        if get_model_at_z is not None:
+            get_model = True
+            zgrid = np.array([get_model_at_z])
+        else:
+            get_model = False
+
+        NZ = len(zgrid)
+        spec_lnprob = zgrid*0
+
+        #### Observed flux and variance images of the 2D spectrum
+        var = self.twod.oned.data['error']**2
+        var[var == 0] = 1.e6
+        var += 0.1*self.twod.oned.data['contam']**2
+        
+        sens_int = np.interp(self.twod.im['WAVE'].data, unicorn.reduce.sens_files['A']['WAVELENGTH'], unicorn.reduce.sens_files['A']['SENSITIVITY'].max()*unicorn.reduce.sens_files['A']['ERROR']/unicorn.reduce.sens_files['A']['SENSITIVITY']**2)
+        
+        xx, flux = self.twod.optimal_extract(np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data))
+        
+        var += (flux*sens_int)**2
+        
+        use = np.isfinite(flux) & (var < 1.e6)
+
+        show = False
+
+        #### Templates to allow blue/red tilt to the spectrum with respect to the EAZY templates.
+        #### These are simple lines normalized at lam=1.4e4.  That it works appears a bit magical, but
+        #### it does seem to.  Only need to compute them once since they don't change with the 
+        #### redshift grid.
+        if self.grism_element == 'G141':
+            x0, dx = 1.4e4, 4000.
+        else:
+            x0, dx = 0.98e4, 2800.
+                    
+        tilt_red = ((self.templam_nolines-x0)/dx+1)*2
+        self.twod.compute_model(self.templam_nolines, tilt_red)
+        tilt_red_model = self.twod.model*1.
+        xx, tilt_red_model_1D = self.twod.optimal_extract(tilt_red_model)
+        
+        tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
+        self.twod.compute_model(self.templam_nolines, tilt_blue)
+        tilt_blue_model = self.twod.model*1.
+        xx, tilt_blue_model_1D = self.twod.optimal_extract(tilt_blue_model)
+        
+        #tilt_red_model = tilt_blue_model*1.
+        #### Loop through redshift grid
+        pmax = -1.e10
+        zbest = 0
+        for i in range(NZ):
+            if verbose:
+                print unicorn.noNewLine+'z: %.3f  %.3f' %(zgrid[i], zbest)
+            
+            z_test = zgrid[i]
+
+            #### Generate the 2D spectrum model for the continuum and emission line templates
+            if self.best_fit_nolines.sum() == 0.:
+                self.best_fit_nolines = self.best_fit_nolines*0.+1
+            
+            self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines)
+            continuum_model = self.twod.model*1.
+            xx, continuum_model_1D = self.twod.optimal_extract(continuum_model)
+                
+            self.twod.compute_model(self.linex*(1+z_test), self.liney)
+            line_model = self.twod.model*1.
+            xx, line_model_1D = self.twod.optimal_extract(line_model)
+            ixl = [1]
+            
+            #### Initialize if on the first grid point
+            if i == 0:
+                templates = np.ones((5,line_model.size))
+                templates[2,:] = tilt_blue_model.flatten()
+                templates[3,:] = tilt_red_model.flatten()
+
+                templates_1D = np.ones((5,line_model_1D.size))
+                templates_1D[2,:] = tilt_blue_model_1D
+                templates_1D[3,:] = tilt_red_model_1D
+
+
+            #### Put in the spectral templates
+            templates[0,:] = continuum_model.flatten()
+            templates_1D[0,:] = continuum_model_1D
+            ### Don't use slope
+            # templates[2,:] = continuum_model.flatten()
+            # templates[3,:] = continuum_model.flatten()
+            templates[1,:] = line_model.flatten()
+            templates_1D[1,:] = line_model_1D
+            
+            #### Second line template
+            self.twod.compute_model(self.linex2*(1+z_test), self.liney2)
+            templates[4,:] = (self.twod.model*1.).flatten()
+            xx, templates_1D[4,:] = self.twod.optimal_extract(self.twod.model)
+            ixl = [1,4]
+            
+            ##### Probably no flux in the direct image
+            if templates.max() == 0:
+                self.status = False
+                return False
+                
+            #### Compute the non-negative normalizations of the template components
+            #print var.shape, use.shape, templates.shape, self.twod.model.shape
+            amatrix = utils_c.prepare_nmf_amatrix(var[use], templates_1D[:,use])
+            coeffs = utils_c.run_nmf(flux[use], var[use], templates_1D[:,use], amatrix, toler=1.e-5)
+            flux_fit = np.dot(coeffs.reshape((1,-1)), templates) #.reshape(line_model.shape)
+            flux_fit_1D = np.dot(coeffs.reshape((1,-1)), templates_1D).flatten() #.reshape(line_model.shape)
+            
+            #### If `get_model_at_z`, return the model at that redshift
+            if (get_model):
+                ixc = np.array([0,2,3])
+                self.cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
+                self.slope_model = np.dot(coeffs[2:4].reshape((1,-1)), templates[2:4,:]).reshape(line_model.shape)
+                self.line_model = np.dot(coeffs[ixl].reshape((1,-1)), templates[ixl,:]).reshape(line_model.shape)
+                #self.line_model = (coeffs[1]*templates[1,:]).reshape(line_model.shape)
+                self.flux_model = flux_fit.reshape(line_model.shape)
+                self.oned_wave, self.model_1D = self.twod.optimal_extract(self.flux_model)
+                oned_wave_x, self.cont_1D = self.twod.optimal_extract(self.cont_model)
+                oned_wave_x, self.slope_1D = self.twod.optimal_extract(self.slope_model)
+                oned_wave_x, self.line_1D = self.twod.optimal_extract(self.line_model)
+                
+                return True
+                
+                #return flux_model, cont_model, line_model, oned_wave, model_1D, cont_1D, line_1D, slope_1D
+
+            #### Log likelihood at redshift zgrid[i] (-0.5*chi2)
+            #print flux.shape, flux_fit.shape, var.shape
+            #spec_lnprob[i] = -0.5*np.sum(((flux-flux_fit_1D)**2/var)[use])
+            spec_lnprob[i] = -0.5*np.sum(((flux-flux_fit_1D)**2 / (var))[use])
+            #print use.shape, ((flux-flux_fit_1D)**2 / (var+(flux_fit_1D*sens_int)**2)).shape
+            
+            if spec_lnprob[i] > pmax:
+                pmax = spec_lnprob[i]
+                zbest = z_test*1.
+                
+        #### Done!
+        return zgrid, spec_lnprob
+        
+    def fit_in_steps(self, dzfirst=0.003, zrfirst = (0.00,3.8), dzsecond=0.0002, save=True, make_plot=True, skip_second=False, oned=False):
         """
         Do two fit iterations, the first on a coarse redshift grid over the full z=(0.01,6)
         and the second refined grid around the peak found in the first iteration
@@ -444,13 +591,18 @@ class GrismSpectrumFit():
         """
         import scipy.ndimage as nd
         zout = self.zout
-
+        
+        if oned:
+            fit_function = self.fit_zgrid_oned
+        else:
+            fit_function = self.fit_zgrid
+            
         print '\n'
         
         #################
         #### First iteration, fit full range at low dz resolution
         #################
-        result = self.fit_zgrid(zrange=zrfirst, dz=dzfirst)
+        result = fit_function(zrange=zrfirst, dz=dzfirst)
         if result is False:
             self.status = False
             return False
@@ -505,7 +657,7 @@ class GrismSpectrumFit():
             
             print '\nStep 1: z_max = %.3f (%.3f,%.3f)\n' %(z_max, zrange[0],
                                                            zrange[1])
-            zgrid1, spec_lnprob1 = self.fit_zgrid(zrange=zrange, dz=dzsecond)
+            zgrid1, spec_lnprob1 = fit_function(zrange=zrange, dz=dzsecond)
         else:
             zgrid1, spec_lnprob1 = zgrid0, spec_lnprob0
             
@@ -991,7 +1143,7 @@ class GrismSpectrumFit():
         ### dusty old template
         if NTEMP == 8:
             lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/Ezgal/c09_del_8.6_z_0.019_chab_age09.40_av2.0.dat', unpack=True)
-            noline_temps[:,7] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][6]
+            noline_temps[:,7] = np.interp(nlx, lx, ly)/self.eazy_coeffs['tnorm'][7]
             
         #### Add an additional template here, need to make NTEMP=8 above
         # lx, ly = np.loadtxt(xxx path to mattia's new template xxx, unpack=True)
@@ -2268,6 +2420,37 @@ def poolModel(twod, f):
     twod.compute_model()
     return twod.model.copy()
 
+def check_lineflux():
+    import pysynphot as S
+    import scipy.ndimage as nd
+    
+    os.chdir('%s/3DHST_VariableBackgrounds/Specz' %os.getenv('THREEDHST'))
+    
+    gris = unicorn.interlace_fit.GrismSpectrumFit('AEGIS-10_19259')
+    gris.new_fit_free_emlines()
+    
+    
+    clean = gris.twod.im['SCI'].data - gris.twod.im['CONTAM'].data - gris.twod.im['MODEL'].data
+
+    kernel = np.ones((4,4))
+    sm_sci = nd.convolve(clean, kernel)
+    sm_var = nd.convolve(gris.twod.im['WHT'].data**2, kernel)
+    
+    l0 = 6563.*(1+gris.z_max_spec)
+    line = S.GaussianSource(1.e-17, l0, 120./3.e5*l0)
+    line = S.GaussianSource(24.5e-17, l0, 80.)
+    contin = S.FlatSpectrum(22.68, fluxunits='ABMag')
+    grism = S.ObsBandpass('wfc3,ir,g141')
+    grism_obs = S.Observation(line+contin, grism)
+    
+    pix_scl = gris.twod.growx*gris.twod.growy*1.
+    peak = sm_sci == sm_sci.max()
+    line_flux = sm_sci[peak][0]/(grism_obs.countrate()/pix_scl)
+    line_err = np.sqrt(sm_var[peak][0])/(grism_obs.countrate()/pix_scl)
+    
+    ensquared = 0.554
+    gris.twod.compute_model(grism_obs.wave, grism_obs.flux*line_flux/ensquared/1.e-17/gris.twod.total_flux)
+    
 # class multiModel(Process):
 #     def __init__(self, spec_2d):
 #         Process.__init__(self)

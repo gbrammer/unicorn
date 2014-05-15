@@ -692,8 +692,12 @@ class ImageClassifier():
             coldefs.append(pyfits.Column(name=column, array=coldata, format=TFORM))
         
         #### Done, now make the binary table
-        tbhdu = pyfits.new_table(coldefs)
-
+        if pyfits.__version__ < '3.3':
+            tbhdu = pyfits.new_table(coldefs)
+        else:
+            tbhdu = pyfits.BinTableHDU()
+            tbhdu.from_columns(coldefs)
+            
         #### Primary HDU
         hdu = pyfits.PrimaryHDU()
         thdulist = pyfits.HDUList([hdu,tbhdu])
@@ -702,9 +706,13 @@ class ImageClassifier():
         infile_mod_time = time.strftime("%m/%d/%Y %I:%M:%S %p",
                             time.localtime()) # os.path.getmtime(self.filename)))
         
-        thdulist[0].header.update('MODTIME', infile_mod_time)
-        thdulist[0].header.update('USER', getpass.getuser())
-
+        if pyfits.__version__ < '3.3':
+            thdulist[0].header.update('MODTIME', infile_mod_time)
+            thdulist[0].header.update('USER', getpass.getuser())
+        else:
+            thdulist[0].header['MODTIME'] =  infile_mod_time
+            thdulist[0].header['USER'] = getpass.getuser()
+            
         thdulist.writeto(self.logfile, clobber=True)
         
         print 'Log to file %s' %(self.logfile)

@@ -71,7 +71,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
     
     return fig
     
-def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False):
+def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False, transparent=False):
     """
     Wrapper around the `savefig` method to handle the two different backends, set whether or not
     an X11/interactive connection is available.
@@ -89,10 +89,10 @@ def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False):
             print 'Save %s' %(filename)
             
     if USE_PLOT_GUI:
-        fig.savefig(filename,dpi=dpi,transparent=False)
+        fig.savefig(filename,dpi=dpi,transparent=transparent)
     else:
         canvas = FigureCanvasAgg(fig)
-        canvas.print_figure(filename, dpi=dpi, transparent=False)
+        canvas.print_figure(filename, dpi=dpi, transparent=transparent)
     #
     if no_tex:
         plt.rcParams['text.usetex'] = False

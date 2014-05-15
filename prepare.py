@@ -3044,7 +3044,7 @@ def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
         ax.set_xticklabels([])
         ax.set_yticklabels([])
     #
-    ax = fig.add_subplot(4,4,j+2)
+    ax = fig.add_subplot(4,4,16)
     ramp_cps = np.median(diff, axis=1)
     avg_ramp = np.median(ramp_cps, axis=1)
     ax.plot(time[2:], ramp_cps[1:,16:-16:4]/100*gain, alpha=0.1, color='black')

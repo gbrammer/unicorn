@@ -837,7 +837,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         ax.text(0.95, 0.95, files[i].split('_')[0], ha='right', va='top', transform=ax.transAxes, color='white', size=8)
         if i == 0: 
             ax.set_title('Contam')
-            ax.text(0,1.5,'UDF #%d' %(id), ha='left', va='bottom', transform=ax.transAxes, color='black', size=10)
+            ax.text(0,1.5,'%s #%d' %(root, id), ha='left', va='bottom', transform=ax.transAxes, color='black', size=10)
         #
         ax = fig.add_subplot(NF+2,3,counter); counter += 1
         a = ax.imshow((flux-contam)[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)

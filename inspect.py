@@ -695,8 +695,7 @@ class ImageClassifier():
         if pyfits.__version__ < '3.3':
             tbhdu = pyfits.new_table(coldefs)
         else:
-            tbhdu = pyfits.BinTableHDU()
-            tbhdu.from_columns(coldefs)
+            tbhdu = pyfits.BinTableHDU().from_columns(coldefs)
             
         #### Primary HDU
         hdu = pyfits.PrimaryHDU()

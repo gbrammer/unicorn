@@ -347,10 +347,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ## Flatten the 2D spectroscopic flux and variance arrays
         ## Variance
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
-        var += ((0.02*self.twod.im['SCI'].data)**2).flatten()
+        #var += ((0.02*self.twod.im['SCI'].data)**2).flatten()
+        var += ((0.05*self.twod.im['SCI'].data)**2).flatten()
 
         var[var == 0] = 1.e6
-        var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
+        #var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
+        var += ((self.twod.im['CONTAM'].data)**2).flatten()
         
         #### Downweight edges of grism sensitivity
         x = self.twod.im['WAVE'].data
@@ -1209,9 +1211,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             full_variance = np.zeros(self.phot.NFILT)
             full_flux = np.zeros(self.phot.NFILT)   
         else:
-            ### Use photometric template error function
+            ### Use spectroscopic template error function
             self.te = self.te_spec
-
+            #self.te = self.te_phot
+            
             if ignore_photometry:
                 mask = self.fitting_mask['spec_only']
             else:
@@ -1225,9 +1228,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         ###### PHOTOMETRY
         ##
-        #### Template error function
+        #### Template error function and minimum photometric error
+        #MIN_ERR = 0.025
+        MIN_ERR = 0.05
+        
         te_func = self.te.interpolate(self.phot.lc, z)*te_scale
-        phot_var = self.phot_eflam**2+(self.phot_flam*np.maximum(te_func, 0.025))**2
+        phot_var = self.phot_eflam**2+(self.phot_flam*np.maximum(te_func, MIN_ERR))**2
+        
         full_variance[:self.phot.NFILT] += phot_var
         full_flux[:self.phot.NFILT] += self.phot_flam
         #### Interpolated template photometry

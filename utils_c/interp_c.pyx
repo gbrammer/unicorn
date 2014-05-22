@@ -10,6 +10,9 @@ ctypedef np.uint_t UINT_t
 import cython
     
 @cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
 def interp_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] xp, np.ndarray[DTYPE_t, ndim=1] fp, double extrapolate=0., short int assume_sorted=1):
     """
     interp_c(x, xp, fp, extrapolate=0., assume_sorted=0)
@@ -187,6 +190,10 @@ def midpoint(x):
     mp = mp[np.argsort(mp)]
     return mp
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
 def midpoint_c(np.ndarray[DTYPE_t, ndim=1] x, long N):
     cdef long i
     cdef DTYPE_t xi,xi1
@@ -203,6 +210,9 @@ def midpoint_c(np.ndarray[DTYPE_t, ndim=1] x, long N):
     return midpoint
     
 @cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
 def prepare_nmf_amatrix(np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t, ndim=2] templates):
     """
     prepare_nmf_amatrix(variance, templates)
@@ -237,7 +247,10 @@ def prepare_nmf_amatrix(np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t
     return amatrix
     
 @cython.boundscheck(False)
-def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t, ndim=2] templates, np.ndarray[DTYPE_t, ndim=2] amatrix, double toler=1.e-4, long MAXITER=100000, init_coeffs=1, verbose=False):
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
+def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] variance, np.ndarray[DTYPE_t, ndim=2] templates, np.ndarray[DTYPE_t, ndim=2] amatrix, double toler=1.e-4, long MAXITER=100000, init_coeffs=1, int verbose=0):
     """
     run_nmf(flux, variance, templates, amatrix, toler=1.e-4, MAXITER=100000, verbose=False)
     
@@ -254,7 +267,7 @@ def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] varian
     
     --- Cythonified from eazy/getphotz.c (G. Brammer et al. 2008) ---
     """
-    cdef unsigned long i,j,k,itcount,NTEMP
+    cdef unsigned long i,j,k,itcount, NTEMP, NFILT
     cdef double tolnum,toldenom,tol
     cdef double vold,av
     cdef np.ndarray[DTYPE_t, ndim=1] bvector
@@ -304,6 +317,9 @@ def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] varian
     
 #    
 @cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
 def interpolate_tempfilt(np.ndarray[DTYPE_t, ndim=3] tempfilt, np.ndarray[DTYPE_t, ndim=1] zgrid, double zi, np.ndarray[DTYPE_t, ndim=2] output):
     """
     interpolate_tempfilt(tempfilt, zgrid, zi, output)

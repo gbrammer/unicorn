@@ -11,6 +11,9 @@ ctypedef np.int_t INT_t
 import cython
 
 ###### Exactly from Hyperz
+@cython.embedsignature(True)
+@cython.boundscheck(False)
+@cython.cdivision(True)
 def redden(np.ndarray[DTYPE_t, ndim=1] wl,np.ndarray[DTYPE_t, ndim=1] fl, DTYPE_t av, rv=4.05):
     """
     Apply a Calzetti et al. (2000) reddening curve to a spectrum (`wl`, `fl`)

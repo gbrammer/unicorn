@@ -371,8 +371,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         ## Flux
         self.spec_flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
-        self.spec_use = np.isfinite(self.spec_flux) & (self.twod.im['WHT'] != 0)
-                
+        self.spec_use = np.isfinite(self.spec_flux) & (self.twod.im['WHT'].data.flatten() != 0)
+        
+        ### Use only pixels with flux in the model
+        self.twod.compute_model()
+        xmax = np.max(self.twod.model, axis=0)
+        self.spec_use &= (self.twod.model/xmax > 0.1).flatten()
+        
         #### PHOTOMETRY
         ## best-fit EAZY SED
         lambdaz, temp_sed, lci, obs_sed, fobs, efobs = self.eazy_fit
@@ -1212,8 +1217,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             full_flux = np.zeros(self.phot.NFILT)   
         else:
             ### Use spectroscopic template error function
-            self.te = self.te_spec
-            #self.te = self.te_phot
+            #self.te = self.te_spec
+            self.te = self.te_phot
             
             if ignore_photometry:
                 mask = self.fitting_mask['spec_only']

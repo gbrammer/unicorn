@@ -63,7 +63,8 @@ except:
         print "No WCSUtil, unicorn.reduce won't work."
 
 ###### Globals for compute_model
-conf_file = 'WFC3.IR.G141.V2.5.conf'
+# conf_file = 'WFC3.IR.G141.V2.5.conf'
+conf_file = 'G141.test27s.gbb.conf'
 conf = threedhst.process_grism.Conf(conf_file, path=os.getenv('THREEDHST')+'/CONF/').params
 conf_grism = 'G141'
 sens_files = {}
@@ -646,7 +647,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrow=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrow=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False, conf=None, sens_files=None):
     """
     Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
@@ -658,6 +659,13 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     import unicorn.reduce as red
     import threedhst.dq
     import scipy.ndimage as nd
+    
+    if conf is None:
+        conf = red.conf
+    
+    if sens_files is None:
+        sens_files = red.sens_files
+    
     #ds9 = threedhst.dq.myDS9()
     
     ## A star in COSMOS-15-F140W
@@ -1171,6 +1179,8 @@ class Interlace2D():
                 unicorn.reduce.set_grism_config(grism=self.grism_element, force=True, use_config_file=self.im[0].header['GRISCONF'])
             
         unicorn.reduce.set_grism_config(self.grism_element, chip=chip)
+        self.conf = unicorn.reduce.conf
+        self.sens_files = unicorn.reduce.sens_files
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
             
@@ -1203,7 +1213,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element, conf=self.conf, sens_files=self.sens_files)
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -1225,6 +1235,10 @@ class Interlace2D():
         self.obj_flux[ypad:-ypad,0:sh[0]] = self.flux
         self.obj_seg = np.zeros((sh[0]+2*ypad, NX), dtype=np.uint)
         self.obj_seg[ypad:-ypad,0:sh[0]] = self.seg
+        
+        #### Don't consider pixels with little signal
+        # self.obj_seg[self.obj_flux/self.obj_flux.max() < 0.01] = 0
+        # self.total_flux = np.sum(self.obj_flux[self.obj_seg > 0])
         
         status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord, yord, ford, self.object)
         
@@ -1295,7 +1309,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma, conf=self.conf, sens_files=self.sens_files)
         
         #print orders.shape
         
@@ -1865,7 +1879,7 @@ class GrismModel():
         # if self.grism_element == 'G800L':
         #     self.lam_spec = np.arange(0.2e4, 1.2e4, 20.)
         wlim = grism_wlimit[self.grism_element]
-        self.lam_spec = np.arange(wlim[0]*0.9, wlim[1]*1.1, wlim[2])
+        self.lam_spec = np.arange(wlim[0]*0.85, wlim[1]*1.15, wlim[2])
         
         self.obj_in_model = {}
         self.flux_specs = {}
@@ -2047,7 +2061,10 @@ class GrismModel():
         # ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
         
         #ratio_extract = utils_c.get_model_ratio(self.object, self.model, self.gris[1].data)
-        ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
+        clip = self.object*1
+        clip[clip/clip.max(axis=0) < 0.1] = 0
+        ratio_extract = utils_c.get_model_ratio_optimal(clip, self.model, self.gris[1].data, self.gris[2].data)
+        #ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
         
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
@@ -3410,6 +3427,9 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     print unicorn.noNewLine+'Convert from reference coords to the distorted flt frame with iraf.wblot - Done.'
     
+    delta = catIO.Readfile('%s_delta.dat' %(pointing))
+    delta_x, delta_y = delta.xoff[-1], delta.yoff[-1]
+    
     flt_x, flt_y, popID = [], [], []
     fpr = open("%s_inter.reg" %(pointing),'w')
     fpr.write("global color=green dashlist=8 3 width=1 font=\"helvetica 8 normal roman\" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\nimage\n")
@@ -3417,6 +3437,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         spl = np.cast[float](line.split())
         fxi, fyi = (spl[0]+NGROW)*growx+pad/2-1, (spl[1]+NGROW)*growy+pad/2-1
         if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*growx+pad/2.)) & (fyi > (pad/2.+NGROW*growy)) & (fyi < (pad/2.+NGROW*growy+1014*growy)):
+            fxi += delta_x
+            fyi += delta_y
             flt_x.append(fxi)
             flt_y.append(fyi)
             #

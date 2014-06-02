@@ -20,7 +20,7 @@ cdef extern from "math.h":
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.embedsignature(True)
-def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.ndarray[UINT_t, ndim=2] segm, np.ndarray[INT_t, ndim=1] xord, np.ndarray[INT_t, ndim=1] yord, np.ndarray[DTYPE_t, ndim=1] ford, np.ndarray[DTYPE_t, ndim=2] object):
+def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.ndarray[UINT_t, ndim=2] segm, np.ndarray[INT_t, ndim=1] xord, np.ndarray[INT_t, ndim=1] yord, np.ndarray[DTYPE_t, ndim=1] ford, np.ndarray[DTYPE_t, ndim=2] object, xpix=None, ypix=None):
     """
     disperse_grism_object(flux, id, segm, xord, yord, ford, object)
     
@@ -29,18 +29,28 @@ def disperse_grism_object(np.ndarray[DTYPE_t, ndim=2] flux, unsigned int id, np.
     The result is updated in place to the `object` image.
     
     """
-    cdef unsigned int NX, NY, x, y, Nord, iord
+    cdef unsigned int NX, NY, x, y, Nord, iord, x0, x1, y0, y1
     cdef int xxi, yyi
     #cdef np.ndarray[DTYPE_t, ndim=2] object
     cdef double flux_i
-    
+            
     NY, NX = np.shape(segm)
     Nord = np.shape(xord)[0]
     
+    if xpix is not None:
+        x0, x1 = xpix
+    else:
+        x0, x1 = 0, NX
+        
+    if ypix is not None:
+        y0, y1 = ypix
+    else:
+        y0, y1 = 0, NY
+    
     #object = np.zeros((NY,NX), dtype=DTYPE)
     
-    for x in range(NX):
-        for y in range(NY):
+    for x in range(x0, x1):
+        for y in range(y0, y1):
             if segm[y,x] == id:
                 flux_i = flux[y,x]
                 for iord in range(Nord):

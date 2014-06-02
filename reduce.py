@@ -1183,7 +1183,9 @@ class Interlace2D():
         self.sens_files = unicorn.reduce.sens_files
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
-            
+        
+        self.sh = self.im['SCI'].data.shape
+        
         self.x_pix = self.im[0].header['X_PIX']
         self.y_pix = self.im[0].header['Y_PIX']
         self.pad = self.im[0].header['PAD']
@@ -1235,12 +1237,13 @@ class Interlace2D():
         self.obj_flux[ypad:-ypad,0:sh[0]] = self.flux
         self.obj_seg = np.zeros((sh[0]+2*ypad, NX), dtype=np.uint)
         self.obj_seg[ypad:-ypad,0:sh[0]] = self.seg
+        self.ypad = ypad
         
         #### Don't consider pixels with little signal
         # self.obj_seg[self.obj_flux/self.obj_flux.max() < 0.01] = 0
         # self.total_flux = np.sum(self.obj_flux[self.obj_seg > 0])
         
-        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord, yord, ford, self.object)
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord, yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
         
         xxi = np.int(np.round(sh[0]/2.))+xord
         use = (xxi >= 0) & (xxi < (NX))
@@ -1284,7 +1287,6 @@ class Interlace2D():
         # yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])        
         #self.yc = np.int(np.round(yoff_int.mean()))
         self.yc = -self.im['SCI'].header['YTOFF']
-        self.ypad = ypad
         
         self.xord = xord
         self.yord = yord
@@ -1320,7 +1322,7 @@ class Interlace2D():
             
         ### Integrated over the thumbnail
         self.object *= 0.
-        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, self.xord, self.yord, ford, self.object)
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, self.xord, self.yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
         
         ### Done!
         self.model = self.object[self.yc+self.ypad:self.yc-self.ypad,self.xmin:self.xmax]
@@ -1996,7 +1998,22 @@ class GrismModel():
         #### Test cversion
         #print self.flux.dtype, self.segm[0].data.dtype, xord.dtype, yord.dtype, ford.dtype
         
-        status = utils_c.disperse_grism_object(self.flux, id, self.segm[0].data, xord, yord, ford, self.object)
+        # yy, xx = np.indices(self.flux.shape)
+        # ok = self.segm[0].data == id
+        # xlim, ylim = [xx[ok].min(), xx[ok].max()], [yy[ok].min(), yy[ok].max()]
+
+        ##### Only loop through segmentation pixels within 3.5*FLUX_RADIUS of
+        ##### the central object pixel
+        xlim, ylim = None, None
+        # if ('FLUX_RADIUS' in self.cat.column_names):
+        #     xci, yci = int(np.round(xc)), int(np.round(yc))
+        #     ri = int(np.round(self.cat['FLUX_RADIUS'][ii]))
+        #     NR = 3.5
+        #     pix_radius = np.maximum(ri*NR, 10)
+        #     xlim = np.clip([xci-pix_radius, xci+pix_radius], 0, self.sh[1])
+        #     ylim = np.clip([yci-pix_radius, yci+pix_radius], 0, self.sh[0])
+                
+        status = utils_c.disperse_grism_object(self.flux, id, self.segm[0].data, xord, yord, ford, self.object, xpix=xlim, ypix=ylim)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -2061,10 +2078,11 @@ class GrismModel():
         # ratio_extract[np.sum(ratio*whts, axis=0) == 0] = 0.
         
         #ratio_extract = utils_c.get_model_ratio(self.object, self.model, self.gris[1].data)
-        clip = self.object*1
-        clip[clip/clip.max(axis=0) < 0.1] = 0
-        ratio_extract = utils_c.get_model_ratio_optimal(clip, self.model, self.gris[1].data, self.gris[2].data)
-        #ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
+        ### Try using only pixels above some fraction of the peak
+        # clip = self.object*1
+        # clip[clip/clip.max(axis=0) < 0.1] = 0
+        # ratio_extract = utils_c.get_model_ratio_optimal(clip, self.model, self.gris[1].data, self.gris[2].data)
+        ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
         
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
@@ -3118,6 +3136,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     from pyraf import iraf
 
     import threedhst.prep_flt_files
+    from threedhst import catIO
+    
     import unicorn
     
     if unicorn.hostname().startswith('uni'):
@@ -3427,7 +3447,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     print unicorn.noNewLine+'Convert from reference coords to the distorted flt frame with iraf.wblot - Done.'
     
-    delta = catIO.Readfile('%s_delta.dat' %(pointing))
+    delta = catIO.Readfile('%s_delta.dat' %(root))
     delta_x, delta_y = delta.xoff[-1], delta.yoff[-1]
     
     flt_x, flt_y, popID = [], [], []

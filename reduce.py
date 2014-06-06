@@ -265,11 +265,16 @@ def acs_interlace_combine(asn_file):
         ds9.frame(i+1)
         ds9.view(full/np.maximum(narr, 1))
         
-def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
+def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', chip=1):
     """
     Get interlacing pixel offsets from postargs
     """
-    # asn = threedhst.utils.ASNFile(asn_file)
+    if asn_file is None:
+        Nexp = 4
+    else:
+        asn = threedhst.utils.ASNFile(asn_file)
+        Nexp = len(asn.exposures)
+    
     # xpos, ypos = [], []
     # for exp in asn.exposures:
     #     head = pyfits.getheader(os.path.join(path_to_flt, exp+'_flt.fits'))
@@ -277,25 +282,40 @@ def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./'):
     #     ypos.append(head['POSTARG2'])
     #
     ### WFC3 postargs
-    xpos = [0.0, 1.355, 0.881, -0.474]
-    ypos = [0.0, 0.424, 1.212,  0.788]
-    
-    a10 = 0.00
-    a11 = 0.0494
-    b10 = 0.0494
-    b11 = 0.0040
-
-    acsang = 92.16 - -45.123
-    xpos_acs, ypos_acs = threedhst.utils.xyrot(np.array(xpos), np.array(ypos), acsang)
-    xoff = xpos_acs / a11
-    yoff = (ypos_acs-xoff*b11)/b10
-
-    # xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
-    # yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
+    # xpos = [0.0, 1.355, 0.881, -0.474]
+    # ypos = [0.0, 0.424, 1.212,  0.788]
     # 
-    xinter = -np.cast[np.int32](np.round(xoff*growx))
-    yinter = -np.cast[np.int32](np.round(yoff*growy))
+    # a10 = 0.00
+    # a11 = 0.0494
+    # b10 = 0.0494
+    # b11 = 0.0040
+    # 
+    # acsang = 92.16 - -45.123
+    # xpos_acs, ypos_acs = threedhst.utils.xyrot(np.array(xpos), np.array(ypos), acsang)
+    # xoff = xpos_acs / a11
+    # yoff = (ypos_acs-xoff*b11)/b10
+    # 
+    # # xinter = -np.cast[int](np.round(xoff*10)/10.*growx)
+    # # yinter = -np.cast[int](np.round(yoff*10)/10.*growy)
+    # # 
+    # xinter = -np.cast[np.int32](np.round(xoff*growx))
+    # yinter = -np.cast[np.int32](np.round(yoff*growy))
     
+    if (Nexp % 4) == 0:
+        if chip == 1:
+            xinter = np.array([ 0,  12,  -6, -18])*growx
+            yinter = np.array([ 0, 25, 31,  6])*growy
+        else:
+            xinter = np.array([  0,  12,  -5, -18])*growx
+            yinter = np.array([0, 24, 29, 5])*growy
+    else:
+        if chip == 1:
+            xinter = np.array([ 0,  12,  -6, -18, -3, -7])*growx
+            yinter = np.array([ 0, 25, 31,  6, 12, 2])*growy
+        else:
+            xinter = np.array([  0,  12,  -5, -18, -2, -7])*growx
+            yinter = np.array([0, 24, 29, 5, 12, 2])*growy
+        
     return xinter, yinter
     
 def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=False, first_zero=False, raw=False):
@@ -2291,7 +2311,11 @@ class GrismModel():
         header = self.gris[1].header.copy()
         #header['GRISCONF'] = (unicorn.reduce.conf_file, 'Grism configuration file')
         header.update('GRISCONF', unicorn.reduce.conf_file, comment='Grism configuration file')
-        
+        if 'VERSION' in unicorn.reduce.conf.keys():
+            header.update('GRISCREV', unicorn.reduce.conf['VERSION'], comment='Grism conf. file revision')
+        else:
+            header.update('GRISCREV', "---", comment='Grism conf. file revision')
+            
         pyfits.writeto(self.root+'_inter_model.fits', data=self.model, header=header, clobber=True)
         
     def load_model_spectra(self, use_same_config=True):
@@ -2422,6 +2446,10 @@ class GrismModel():
         
         prim.header.update('REFTHUMB', False, comment='Thumbnail comes from reference image')
         prim.header.update('GRISCONF', unicorn.reduce.conf_file, comment='Grism configuration file')
+        if 'VERSION' in unicorn.reduce.conf.keys():
+            prim.header.update('GRISCREV', unicorn.reduce.conf['VERSION'], comment='Grism conf. file revision')
+        else:
+            prim.header.update('GRISCREV', "---", comment='Grism conf. file revision')
         
         if '_ref_inter' in self.im.filename():
             ### Use reference image as thumbnail if it exists

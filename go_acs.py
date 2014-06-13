@@ -103,14 +103,14 @@ def test(root='jbhm51'):
     os.system('cp *shifts.txt *tweak.fits *asn.fits ../DATA')
     
     os.chdir(unicorn.GRISM_HOME+'ACS_PARALLEL/COSMOS')
-    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=24)
+    unicorn.go_3dhst.set_parameters(direct='F814W', LIMITING_MAGNITUDE=25.5)
 
     threedhst.process_grism.set_ACS_G800L()
     
     #threedhst.options['SKY_BACKGROUND'] = None
     
-    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../PREP_FLT/'+root.upper()+'010_drz.fits'
-    #threedhst.options['PREFAB_GRISM_IMAGE'] = '../PREP_FLT/'+root.upper()+'020_drz.fits'
+    threedhst.options['PREFAB_DIRECT_IMAGE'] = '../aXe/'+root.upper()+'010_drz.fits'
+    #threedhst.options['PREFAB_GRISM_IMAGE'] = '../aXe/'+root.upper()+'020_drz.fits'
     
     ## UDS lens: threedhst.options['FORCE_CATALOG'] = 'lens_drz.cat'
     
@@ -187,54 +187,64 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
         flt = pyfits.open(exp+'.fits', mode='update')
         ### Loop through ACS chips
         for j in [0,1]:
-            run.blot_back(ii=i*skip+j, copy_new=(i == 0) & (j == 0), ACS_CHIP = j+1)
-            
-            threedhst.prep_flt_files.make_segmap(run.flt[i*skip+j], IS_GRISM=True)
-            seg = pyfits.open(exp+'.seg.fits')
-        
+            # run.blot_back(ii=i*skip+j, copy_new=(i == 0) & (j == 0), ACS_CHIP = j+1)
+            # 
+            # threedhst.prep_flt_files.make_segmap(run.flt[i*skip+j], IS_GRISM=True)
+            # seg = pyfits.open(exp+'.seg.fits')
+            #         
+            # ext = extensions[j]
+            # 
+            # print unicorn.noNewLine+' 1) Mask'
+            # data = flt[ext].data/skies[j][0].data
+            # data[seg[0].data > 0] = np.nan
+            # 
+            # ### Collapse along rows
+            # print unicorn.noNewLine+' 2) Profile'
+            # shp = data.shape
+            # avg = np.zeros(shp[0])
+            # for k in range(shp[0]):
+            #     cut = data[k,:]
+            #     avg[k] = threedhst.utils.biweight(cut[np.isfinite(cut)], mean=True)
+            #         
+            # sig = 5
+            # xkern = np.arange(8*sig)-4*sig
+            # ykern = np.exp(-1*xkern**2/sig**2/2.)
+            # ykern /= np.trapz(ykern, xkern)
+            # 
+            # #### Need to make a larger array for smoothing at the edges
+            # print unicorn.noNewLine+' 3) Correct'
+            # avg_grow = np.ones(shp[0]+8*sig)
+            # avg_grow[0:4*sig] *= avg[0]
+            # avg_grow[4*sig:-4*sig] = avg
+            # avg_grow[-4*sig:] *= avg[-1]
+            # smooth = np.convolve(avg_grow, ykern, mode='same')[4*sig:-4*sig]
+            # model = np.dot(smooth.reshape((shp[0],1)), np.ones((1,shp[1])))
+            # 
+            # arr = data[seg[0].data == 0]
+            # stats = threedhst.utils.biweight(arr, both=True)
+            # 
+            # flt[ext].data /= skies[j][0].data * model/stats[0]
+            # #flt[ext].data -= model
+            # 
+            # data /= skies[j][0].data * model/stats[0]
+            # arr = data[seg[0].data == 0]
+            # stats2 = threedhst.utils.biweight(arr, both=True)
             ext = extensions[j]
             
-            print unicorn.noNewLine+' 1) Mask'
-            data = flt[ext].data/skies[j][0].data
-            data[seg[0].data > 0] = np.nan
+            exptime = flt[0].header['EXPTIME']
+            mask = flt['dq',j+1].data == 0
+            ratio = flt['sci',j+1].data/exptime/skies[j][0].data
+            med = np.median(ratio[mask])
+
+            mask2 = mask & ((flt['sci',j+1].data-med*exptime)/flt['err',j+1].data < 3)
+            med2 = np.median(ratio[mask2])
+
+            flt['sci', j+1].data -= med2*exptime*skies[j][0].data     
+            flt['sci', j+1].header.update('MDRIZSKY', med2*exptime)
+            print '%s chip%d: %.3f' %(exp, j+1, med2)
             
-            ### Collapse along rows
-            print unicorn.noNewLine+' 2) Profile'
-            shp = data.shape
-            avg = np.zeros(shp[0])
-            for k in range(shp[0]):
-                cut = data[k,:]
-                avg[k] = threedhst.utils.biweight(cut[np.isfinite(cut)], mean=True)
         
-            sig = 5
-            xkern = np.arange(8*sig)-4*sig
-            ykern = np.exp(-1*xkern**2/sig**2/2.)
-            ykern /= np.trapz(ykern, xkern)
-            
-            #### Need to make a larger array for smoothing at the edges
-            print unicorn.noNewLine+' 3) Correct'
-            avg_grow = np.ones(shp[0]+8*sig)
-            avg_grow[0:4*sig] *= avg[0]
-            avg_grow[4*sig:-4*sig] = avg
-            avg_grow[-4*sig:] *= avg[-1]
-            smooth = np.convolve(avg_grow, ykern, mode='same')[4*sig:-4*sig]
-            model = np.dot(smooth.reshape((shp[0],1)), np.ones((1,shp[1])))
-            
-            arr = data[seg[0].data == 0]
-            stats = threedhst.utils.biweight(arr, both=True)
-            
-            flt[ext].data /= skies[j][0].data * model/stats[0]
-            #flt[ext].data -= model
-            
-            data /= skies[j][0].data * model/stats[0]
-            arr = data[seg[0].data == 0]
-            stats2 = threedhst.utils.biweight(arr, both=True)
-            flt[ext].data -= stats2[0]
-            
-            flt[ext].header.update('MDRIZSKY', stats2[0])
-        
-        
-        print unicorn.noNewLine+' 4) Update FLT'
+        #print unicorn.noNewLine+' 4) Update FLT'
         
         flt.flush()
             
@@ -383,7 +393,8 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
                        align_geometry='shift',
                        PATH_TO_RAW='../RAW',
                        get_shift=True,
-                       TWEAKSHIFTS_ONLY=False): 
+                       TWEAKSHIFTS_ONLY=False,
+                       FLC=True): 
 
     """
     Does the basic processing for ACS F814W and G800L pointings: background subtraction, allignment and drizzlign.
@@ -398,13 +409,19 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
     for exp in asn.exposures:
         print exp
         os.system('rm %s_flt.fits' %(exp))
-        os.system('cp ../FIXED/%s_flt.fits . ' %(exp))
+        if FLC:
+            os.system('cp ../RAW/%s_flc.fits %s_flt.fits' %(exp, exp))
+        else:
+            os.system('cp ../FIXED/%s_flt.fits . ' %(exp))
     #
     asn = threedhst.utils.ASNFile(asn_grism_file)
     for exp in asn.exposures:
         print exp
         os.system('rm %s_flt.fits' %(exp))
-        os.system('cp ../FIXED/%s_flt.fits . ' %(exp))
+        if FLC:
+            os.system('cp ../RAW/%s_flc.fits %s_flt.fits' %(exp, exp))
+        else:
+            os.system('cp ../FIXED/%s_flt.fits . ' %(exp))
 
     #DIRECT REDUCTION
     ROOT_DIRECT = asn_direct_file.split('_asn.fits')[0]
@@ -414,10 +431,10 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
     #this makes new asn.fits files but with ACS the names start with ANY
     #must add an optional tag to replace ANY with the field name
     if (asn_direct_file is not None) & adjust_targname:
-        asn_direct_file = make_targname_asn(asn_direct_file,field=field)
+        asn_direct_file = make_targname_asn(asn_direct_file,field=field, ext='flc')
     
     if (asn_grism_file is not None) & adjust_targname:
-        asn_grism_file = make_targname_asn(asn_grism_file,field=field)
+        asn_grism_file = make_targname_asn(asn_grism_file,field=field, ext='flc')
 
     #run = threedhst.prep_flt_files.MultidrizzleRun((asn_direct_file.split('_asn.fits')[0]).upper())
     threedhst.shifts.run_tweakshifts(asn_direct_file, verbose=True)
@@ -461,7 +478,7 @@ def process_acs_pair(asn_direct_file='ib3706050_asn.fits',
     unicorn.go_acs.testing_g800l_background(asn_grism_file)
 
     threedhst.prep_flt_files.startMultidrizzle(asn_grism_file, use_shiftfile=True,
-        skysub=True,
+skysub=True,
         final_scale=SCALE, pixfrac=PIXFRAC, driz_cr=True,
         updatewcs=True, clean=False, median=True)
     

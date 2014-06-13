@@ -12,7 +12,7 @@ import matplotlib.pyplot
 import threedhst.dq
 import numpy as np
 
-def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undistorted=False, pad = 120, NGROW=0, ddx=0, ddy=0, growx=1, growy=1, auto_offsets=False, chip=1, filter='F814W', outroot='UDS-19'):
+def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undistorted=False, pad = 120, NGROW=0, ddx=0, ddy=0, growx=1, growy=1, auto_offsets=False, chip=1, filter='F814W', outroot='UDS-19', center=None):
     """
     Combine four dithered ACS exposures in an interlaced image, but use the same native ACS pixel grid
     since the dither offsets don't evenly sample the ACS pixel.  This also simplifies the image distortions
@@ -76,10 +76,32 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
     yi+=pad/(2*growy)+NGROW
     
     #### Interlaced offsets
-    dxs, dys = unicorn.reduce.acs_interlace_offsets(None, growx=growx, growy=growy, path_to_flt='./')
+    dxs, dys = unicorn.reduce.acs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy, path_to_flt='./', chip=chip)
+        
+    dxs, dys = np.append(dxs, dxs), np.append(dys, dys)
+    
+    if center is not None:
+        from drizzlepac import skytopix
+        import astropy.coordinates as co
+        import astropy.units as u
+        
+        ext = [None, 4, 1][chip]
+        xpix, ypix = np.zeros(len(asn.exposures)), np.zeros(len(asn.exposures))
+        for i, exp in enumerate(asn.exposures):
+            rd = co.FK5(ra=center[0], dec=center[1], unit=(u.deg, u.deg))
+            rdst = str(rd.to_string()).replace('s','')
+            for r in 'hdm':
+                rdst = rdst.replace(r, ':')
+            #
+            xpix[i], ypix[i] = skytopix.rd2xy('%s_flt.fits[sci,%d]' %(exp, chip_ext[chip]), rdst.split()[0], rdst.split()[1], verbose=False)
+        #
+        dxs = -np.cast[int](np.round(xpix-xpix[0]))
+        dys = -np.cast[int](np.round(ypix-ypix[0]))
     
     dxs += ddx
     dys += ddy
+    
+    print 'Offsets:', dxs, dys, '\n'
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.
@@ -110,12 +132,18 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
             h1 = im['SCI',chip_ext[chip]].header
             #header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad)
             header = h1.copy()
-            header.update('EXTNAME','SCI')
-            #header.update('PAD',pad)
-            header.update('REFIMAGE', '', comment='Source detection image')
             header_wht = header.copy()
-            header_wht.update('EXTNAME','ERR')
-        
+            if pyfits.__version__ < '3.3':
+                header.update('EXTNAME','SCI')
+            #header.update('PAD',pad)
+                header.update('REFIMAGE', '', comment='Source detection image')
+                header_wht.update('EXTNAME','ERR')
+            else:
+                    header['EXTNAME'] = 'SCI'
+                #header.update('PAD',pad)
+                    header['REFIMAGE'] = ('', 'Source detection image')
+                    header_wht['EXTNAME'] = 'ERR'
+               
         dx = np.int(np.round((xsh[i]-xsh[0])*growx))
         dy = np.int(np.round((ysh[i]-ysh[0])*growy))
         #
@@ -124,7 +152,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
         #
         #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
         #        
-        use = ((im['DQ',chip_ext[chip]].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
+        use = ((im['DQ',chip_ext[chip]].data & (4+32+16+128+1024+2048+4096)) == 0) & (~hot_pix)
         
         #### preparation step doesn't subtract background
         im['SCI',chip_ext[chip]].data -= np.median(im['SCI',chip_ext[chip]].data[use])

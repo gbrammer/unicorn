@@ -75,6 +75,7 @@ for beam in ['A','B','C','D','E']:
 #### wavelength limits
 grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
 grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.98e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 1.1e4, 20., 0.75e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667}
 
@@ -2518,6 +2519,8 @@ class GrismModel():
             if not self.obj_in_model[id]:
                 self.model += self.object
                 self.obj_in_model[id] = True
+        #
+        self.compute_object_model(id, BEAMS=['A'], lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[1])

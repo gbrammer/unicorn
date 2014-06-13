@@ -1386,9 +1386,25 @@ def make_asn_files(force=False, make_region=False, uniquename=True):
     list.pa_v3 = np.cast[int](np.round(list.pa_v3))
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
     
+    #### Replace ANY targets with JRhRmRs-DdDmDs
+    
+    target_list = []
+    for i in range(list.N):
+        if list.targname[i] == 'ANY':
+            rst = threedhst.utils.decimal2HMS(list.ra_targ[i], hours=True)
+            dst = threedhst.utils.decimal2HMS(list.dec_targ[i], hours=False)
+            new_targname = 'J%s%s' %(rst.replace(':','').split('.')[0], dst.replace(':','').split('.')[0])
+            #list.targname[i] = new_targname
+            #print new_targname
+            target_list.append(new_targname)
+        else:
+            target_list.append(list.targname[i])
+    #
+    list.targname = np.array(target_list)
+    
     dates = np.array([''.join(date.split('-')[1:]) for date in list.date_obs])
     targets = np.unique(list.targname)
-    
+            
     visits = np.array([file[4:6] for file in list.file])
     for visit in np.unique(visits):
         angle = list.pa_v3[visits == visit][0]

@@ -162,7 +162,7 @@ class ImageClassifier():
     """
     Main classifier tool for 3D-HST fits
     """
-    def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', FITS_PATH='./', load_log=True, ds9=None):
+    def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', RGB_EXTENSION='_vJH_6.png', FITS_PATH='./', load_log=True, ds9=None):
         """
         GUI tool for inspecting grism redshift fits
         
@@ -179,6 +179,7 @@ class ImageClassifier():
         
         self.RGB_PATH = RGB_PATH
         self.FITS_PATH = FITS_PATH
+        self.RGB_EXTENSION = RGB_EXTENSION
         
         #### Check ds9
         self.ds9 = ds9
@@ -384,21 +385,25 @@ class ImageClassifier():
         """
         Translate the filename to an RGB thumbnail
         """
+        rgb_file = image_file
         spl = os.path.basename(image_file.replace('new_zfit', 'newzfit')).split('-')
-        if len(spl) == 2:
+        if (len(spl) == 2) & ('goods' in spl[0]):
             rgb_file = spl[0]+'_'+spl[1].split('_')[1]
-        else:
+        elif len(spl) > 2:
             rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
-        
+                
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + '_vJH_6.png')
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
         print rgb_file
         
         if not os.path.exists(rgb_file):
             im_rgb = Image.new('RGB', (100,100), "white")
         else:
-            im_rgb = Image.open(rgb_file).resize((150,150))
-        
+            if 'thumb' in rgb_file:
+                im_rgb = Image.open(rgb_file).resize((300,150))
+            else:
+                im_rgb = Image.open(rgb_file).resize((150,150))
+                
         return im_rgb
         
     def keypress_event(self, event):

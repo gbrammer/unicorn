@@ -1538,6 +1538,36 @@ class Interlace2D():
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
             print '1D spectrum (%.3f)' %(dt)
+    
+    def thumb_image(self):
+        ok = self.im['DSEG'].data == self.id
+        max = self.im['DSCI'].data[ok].max()
+        sh = ok.shape
+        sh2 = self.im['SCI'].data.shape
+        
+        xarr, yarr = np.arange(sh[1]), np.arange(sh[0])
+        xsec = (np.arange(sh[1]) - sh[1]/2. + ((sh[1]+1) % 2)*0.5)*0.128254/self.im[0].header['GROWX']
+        ysec = (np.arange(sh[0]) - self.im['YTRACE'].data[sh2[1]/2.]+1)*0.128254/self.im[0].header['GROWY']
+        
+        NY, NX = int(np.max(np.abs(ysec)/0.5)), int(np.max(np.abs(xsec)/0.5))
+        yint, xint = np.interp(np.arange(-NY*0.5,NY*0.5+0.1,0.5), ysec, yarr), np.interp(np.arange(-NX*0.5,NX*0.5+0.1,0.5), xsec, xarr)
+        
+        fig = unicorn.plotting.plot_init(aspect=1./2, left=0.01, right=0.01, bottom=0.01, top=0.01, xs=3, square=True, NO_GUI=True)
+
+        ax = fig.add_axes((0.01, 0.01, 0.485, 0.98))
+        ax.imshow(0-self.im['DSCI'].data, interpolation='Nearest', aspect='auto', vmin=-1.1*max, vmax=0.1*max)
+        ax.set_xticklabels([]); ax.set_yticklabels([])
+        ax.set_xticks(xint); ax.set_yticks(yint)
+
+        ax = fig.add_axes((0.495, 0.01, 0.485, 0.98))
+        ax.imshow(0-ok*1., interpolation='Nearest', aspect='auto', vmin=-1, vmax=0)
+        ax.set_xticklabels([]); ax.set_yticklabels([])
+        ax.set_xticks(xint); ax.set_yticks(yint)
+        ax.text(0.5,0.5, self.id, ha='center', va='center', color='black', transform=ax.transAxes, size=8)
+        ax.text(0.5,0.5, self.id, ha='center', va='center', color='white', alpha=0.9, transform=ax.transAxes, size=8)
+        
+        unicorn.plotting.savefig(fig, self.file.replace('2D.fits', 'thumb.png'))
+        
         
     def timer(self):
         """
@@ -2999,7 +3029,9 @@ class GrismModel():
             mx[2].data *= err_scale
             mx.flush()
             print 'Updated %s' %(self.gris.filename())
-    
+            
+            self.gris = mx
+            
     def run_lacosmic(self, update=True):
         """
         Run M. Tewes' Python version of LACosmic to flag bad remaining

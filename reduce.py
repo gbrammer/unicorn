@@ -2387,7 +2387,7 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=328, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3):
+    def twod_spectrum(self, id=328, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -2447,6 +2447,7 @@ class GrismModel():
             print 'Generating direct image extensions'
             
         self.direct_thumb = self.direct[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
+        self.direct_inter = self.direct_thumb*1.
         if len(self.direct) > 2:
             self.direct_wht = self.direct[2].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
         else:
@@ -2496,6 +2497,8 @@ class GrismModel():
         #### Direct thumbnails
         header.update('EXTNAME','DSCI')
         extensions.append(pyfits.ImageHDU(self.direct_thumb, header))
+        header.update('EXTNAME','DINTER')
+        extensions.append(pyfits.ImageHDU(self.direct_inter, header))
         header.update('EXTNAME','DWHT')
         extensions.append(pyfits.ImageHDU(self.direct_wht, header))
         header.update('EXTNAME','DSEG')
@@ -2649,11 +2652,15 @@ class GrismModel():
         extensions.append(pyfits.ImageHDU(self.ytrace, header))
         
         hdu = pyfits.HDUList(extensions)
-        hdu.writeto(self.baseroot+'_%05d.2D.fits' %(id), clobber=True)
+        if BIG_THUMB:
+            hdu.writeto(self.baseroot+'_%05d.big_2D.fits' %(id), clobber=True)
+        else:
+            hdu.writeto(self.baseroot+'_%05d.2D.fits' %(id), clobber=True)
         
         self.twod = hdu
         
-        self.oned_spectrum(verbose=verbose)
+        if extract_1d:
+            self.oned_spectrum(verbose=verbose)
         
         return True
         
@@ -2882,7 +2889,7 @@ class GrismModel():
         # plt.hist(dy, range=(-5,5), bins=100)
         # chi2 = np.sum((yarr-yfit)**2/earr**2)/(len(yarr)-1-3)
         
-    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False, miny=26, USE_FLUX_RADIUS_SCALE=3, USE_REFERENCE_THUMB=True):
+    def extract_spectra_and_diagnostics(self, list=None, skip=True, MAG_LIMIT=19, verbose=False, miny=26, USE_FLUX_RADIUS_SCALE=3, USE_REFERENCE_THUMB=True, largey=None):
         """
         Extract 1D and 2D spectra of objects with id in `list`.
         """
@@ -2902,11 +2909,16 @@ class GrismModel():
             if verbose:
                 print '2D FITS'
             status = self.twod_spectrum(id=id, verbose=verbose, miny=miny, refine=True, USE_FLUX_RADIUS_SCALE=USE_FLUX_RADIUS_SCALE, USE_REFERENCE_THUMB=USE_REFERENCE_THUMB)
-            
+                        
             if status is False:
                 if verbose:
                     print unicorn.noNewLine+'Object #%-4d (%4d/%4d) - No 2D' %(id,i+1,N)
                 continue
+            
+            if largey is not None:
+                if verbose:
+                    print 'Making large image cutouts.'
+                self.twod_spectrum(id=id, verbose=verbose, miny=largey, refine=True, USE_FLUX_RADIUS_SCALE=USE_FLUX_RADIUS_SCALE, USE_REFERENCE_THUMB=USE_REFERENCE_THUMB, BIG_THUMB=True, extract_1d=False)
                     
             if verbose:
                 print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS'

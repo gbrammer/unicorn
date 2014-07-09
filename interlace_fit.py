@@ -1052,13 +1052,13 @@ class GrismSpectrumFit():
         continuum-subtracted versions.
         """
         
-        sh = self.twod.im[4].data.shape
+        sh = self.twod.im['SCI'].data.shape
         top = 0.055
         bottom = 0.07
         left = 0.06
         aspect = 3.*sh[0]/sh[1]/(1-(top+bottom-left))
         
-        wave = self.twod.im[8].data
+        wave = self.twod.im['WAVE'].data
         if self.grism_element == 'G141':
             xint = [1.1,1.2,1.3,1.4,1.5,1.6]
             ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
@@ -1076,13 +1076,13 @@ class GrismSpectrumFit():
         fig.subplots_adjust(hspace=0.001)
         
         if vmax==None:
-            #values = self.twod.im[4].data.flatten()
+            #values = self.twod.im['SCI'].data.flatten()
             #vmax = values[np.argsort(values)][-10]
             vmax = self.flux_model.max()
             
         #### Raw spectrum
         ax = fig.add_subplot(311)
-        ax.imshow(0-self.twod.im[4].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
+        ax.imshow(0-self.twod.im['SCI'].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_xticks(ax_int)
@@ -1092,7 +1092,7 @@ class GrismSpectrumFit():
         
         #### Contam-subtracted spectrum
         ax = fig.add_subplot(312)
-        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
+        ax.imshow(0-self.twod.im['SCI'].data+self.twod.im['CONTAM'].data, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_xticks(ax_int)
@@ -1100,7 +1100,7 @@ class GrismSpectrumFit():
 
         #### Continuum-subtracted spectrum
         ax = fig.add_subplot(313)
-        ax.imshow(0-self.twod.im[4].data+self.twod.im[7].data+self.cont_model, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
+        ax.imshow(0-self.twod.im['SCI'].data+self.twod.im['CONTAM'].data+self.cont_model, vmin=-vmax, vmax=0.05*vmax, interpolation='nearest', aspect='auto', cmap=plt.cm.gray)
         ax.set_yticklabels([])
         ax.set_xticklabels(xint)
         ax.set_xticks(ax_int)

@@ -1281,4 +1281,29 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             return chi2
                     
 
+    def new_save_results(self, verbose=True):
+        """
+        Print the results of the fit to a file, like 
+        goodss-34_00622.zfit.dat.
+
+        """
+        
+        conf = self.get_redshift_confidence()
+        
+        fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.dat','w')
+        fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l96 l68 u68 u95\n')
+        
+        if self.skip_photometric:
+            fp.write('#  Phot: None\n')
+            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, -1, -1, -1, -1, self.z_max_spec, self.z_peak_spec, conf[0], conf[1], conf[2], conf[3])
+        else:
+            fp.write('#  Phot: %s\n' %(self.cat.filename))
+            file_string = '%s %s  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], self.z_max_spec, self.z_peak_spec, conf[0], conf[1], conf[2], conf[3])
+            
+        fp.write(file_string)
+        fp.close()
+
+        if verbose:
+            print file_string
+
     

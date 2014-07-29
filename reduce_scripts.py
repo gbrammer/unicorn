@@ -2245,7 +2245,7 @@ def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
                     continue
                 print '\n'
                 try:
-                    gris.new_fit_constrained(zrfirst=[0.0,3.5])
+                    gris.new_fit_constrained(zrfirst=[0.0,3.5], faint_limit=23.)
                     gris.new_save_results()
                 except:
                     log.write('{} new_fit_constrained\n'.format(root))

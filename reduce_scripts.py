@@ -69,7 +69,7 @@ def interlace_aegis():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('aegis-2[1-8]-G141_inter.fits')
+    inter = glob.glob('aegis-20-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
@@ -2239,13 +2239,13 @@ def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
                         log.write('{}  twod_spectrum\n'.format(root))
                         continue
                 try:
-                    gris = test.SimultaneousFit(root)
+                    gris = test.SimultaneousFit(root,lowz_thresh=0.05)
                 except:
                     log.write('{}  SimultaneousFit\n'.format(root))
                     continue
                 print '\n'
                 try:
-                    gris.new_fit_constrained()
+                    gris.new_fit_constrained(zrfirst=[0.0,3.5])
                     gris.new_save_results()
                 except:
                     log.write('{} new_fit_constrained\n'.format(root))

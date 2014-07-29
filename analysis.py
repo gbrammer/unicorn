@@ -309,7 +309,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             CAT_FILE = CAT_PATH+'Catalog/uds_3dhst.v4.1.cat'
             ZOUT_FILE = CAT_PATH+'Eazy/uds_3dhst.v4.1.zout'
             FOUT_FILE = CAT_PATH +'Fast/uds_3dhst.v4.1.fout'
-            KTOT_COL = 'f_K'
+            KTOT_COL = 'f_k'
                 
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):

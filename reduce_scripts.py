@@ -222,10 +222,10 @@ def interlace_cosmos():
             model = unicorn.reduce.process_GrismModel(pointing)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=24., largey=80)
     
-     models = glob.glob('cosmos-*_inter_model.fits')
-     for file in models[::1]:
-         pointing = file.split('_inter')[0]
-         unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
+    models = glob.glob('cosmos-*_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
  
             
     #inter = glob.glob('COSMOS-*-G141_inter.fits')
@@ -367,10 +367,10 @@ def interlace_goodsn():
             print 'Writing %s_diff.fits'%(pointing)
             pyfits.writeto('%s_diff.fits'%(pointing), data=diff, header=file_model[0].header, clobber=True)
 
-     models = glob.glob('cosmos-*_inter_model.fits')
-     for file in models[::1]:
-         pointing = file.split('_inter')[0]
-         unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
+    models = glob.glob('goodsn-*_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
 
     #inter = glob.glob('GOODS-N-*-G141_inter.fits')
     #for i in range(len(inter)):
@@ -1439,10 +1439,10 @@ def interlace_uds():
             model = unicorn.reduce.process_GrismModel(pointing)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=24., largey=80)
             
-     models = glob.glob('uds-*_inter_model.fits')
-     for file in models[::1]:
-         pointing = file.split('_inter')[0]
-         unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
+    models = glob.glob('uds-*_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
 
 
     inter = glob.glob('UDS-*-G141_inter.fits')

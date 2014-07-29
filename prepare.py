@@ -328,32 +328,30 @@ def GOODSN(FORCE=False, GET_SHIFT=True):
     import glob
     import os
     
-    os.chdir(unicorn.GRISM_HOME+'GOODS-N/PREP_FLT')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/INTERLACE_v4.1')
     
-    #### Use ACS alignment images
-    #ALIGN = '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits'   
-    #ALIGN = '/research/HST/GRISM/3DHST/GOODS-N/Interlaced/Ros/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
-    ALIGN = '/3DHST/Photometry/Work/GOODS-N/fullF140/images/goodsn_f140w_sci.fits'
+    ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-N/HST_Images/goodsn_3dhst.v4.0.F160W_orig_sci.fits'
 
-
-    if unicorn.hostname().startswith('uni'):
-        ALIGN = '/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/goodsn_for_arjen/goodsn_f140w_sci_sub.fits'
-        os.chdir('/3DHST/Spectra/Work/GOODS-N/Interlace_GBB/')
-        direct=glob.glob('*050_asn.fits')
-        grism = glob.glob('*060_asn.fits')
+    # only select the original exposures, the repeats have ASN names ib374[0-9]*_asn.fits
+    direct=glob.glob('ib37[0-3]*050_asn.fits')
+    grism = glob.glob('ib37[0-3]*060_asn.fits')
     
+    #### The following is for the old GOODS-N*asn.fits 
     #### The ASN files are generated from elsewhere to account for the fact that many of 
     #### the visits with the worst sky background levels and earth-glow were redone in early
     #### 2011.  I can't find the code where I generated the ASN files, however....
     
     #### Process direct + grism pairs
-    direct=glob.glob('GOODS-N-*-F140W_asn.fits')
-    grism = glob.glob('GOODS-N-*-G141_asn.fits')
+    direct=glob.glob('goodsn-*-F140W_asn.fits')
+    grism = glob.glob('goodsn-*-G141_asn.fits')
     
+    ### The following direct images require masks:
+    ### 'ib3702uuq_flt.fits', 'ib3703uxq_flt.fits', 'ib3704wpq_flt.fits', 'ib3705xzq_flt.fits', 'ib3707c8q_flt.fits', 'ib3708ivq_flt.fits', 'ib3710n4q_flt.fits', 'ib3711c8q_flt.fits', 'ib3712m5q_flt.fits', 'ib3715siq_flt.fits', 'ib3715sxq_flt.fits', 'ib3716q3q_flt.fits', 'ib3716qiq_flt.fits', 'ib3717wyq_flt.fits', 'ib3720fbq_flt.fits', 'ib3721xtq_flt.fits', 'ib3721y8q_flt.fits', 'ib3723r0q_flt.fits', 'ib3727u2q_flt.fits', 'ib3728d9q_flt.fits', 'ib3728doq_flt.fits', 'ib3749obq_flt.fits'
+    FORCE=True
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
     
     #### Refine one set of shifts
     threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
@@ -548,20 +546,20 @@ def COSMOS(FORCE=False):
     import glob
     import os
         
-    os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
-    #ALIGN = '/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits'
-    #ALIGN = '/research/HST/CANDELS/COSMOS/PREP_FLT/HUDF09/*sci.fits'
-    #ALIGN = '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_*_sci.fits'
-    ALIGN = '/3DHST/Ancillary/COSMOS/CANDELS/UCSC/cosmos_sect*_wfc3ir_F160W_wfc3ir_drz_sci.fits'
-	#ALIGN = '../NMBS/COSMOS-1.v4.K_nosky.fits'
+    #os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.1')
+    ALIGN = '/3DHST/Photometry/Release/v4.0/COSMOS/HST_Images/cosmos_3dhst.v4.0.F160W_orig_sci.fits'
     
     #### Direct images only
-    direct=glob.glob('*30_asn.fits')
-    grism = glob.glob('*40_asn.fits')
+    direct=glob.glob('ibhm4[057]*30_asn.fits')
+    grism = glob.glob('ibhm4[057]*40_asn.fits')
+    
+    ### The following direct images have masks:
+    ### ibhm40brq_flt.fits, ibhm45xzq_flt.fits, ibhm45ziq_flt.fits, ibhm45zqq_flt.fits, ibhm47h8q_flt.fits, ibhm53onq_flt.fits
+    
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
     
     #### Fix shifts for COSMOS-18
     threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 
@@ -680,21 +678,22 @@ def GOODSS(FORCE=False):
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1.3')
         
     ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits'
     
     #### Main preparation loop
+    ### The following direct images have satellite tracks, make sure you have masks:
+    ### ibhj04gbq_flt.fits, ibhj07yzq_flt.fits, ibhj28i0q_flt.fits, ibhj29naq_flt.fits
     direct=glob.glob('*30_asn.fits')
     grism = glob.glob('*40_asn.fits')
     
     loop_list = range(len(direct))
     FORCE=True
-    #loop_list = [3] #6,7,13,14]  ### Oct 21 2011
     for i in loop_list:
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
             
     # test
     threedhst.gmap.makeImageMap(['GOODS-S-31-F140W_drz.fits','GOODS-S-31-F140W_align.fits[0]*4', 'GOODS-S-31-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
@@ -991,18 +990,30 @@ def AEGIS(FORCE=False):
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'AEGIS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/AEGIS/ACS/mos_i_scale1*drz.fits'
-    # ALIGN = '/3DHST/Ancillary/AEGIS/WIRDS/WIRDS_Ks_141927+524056_T0002.fits'
-    # ALIGN = '/Volumes/Crucial/3DHST/Ancillary/AEGIS/CANDELS/hlsp_candels_hst_wfc3_egsa01_f160w_v0.5_drz.fits'
+    #os.chdir(unicorn.GRISM_HOME+'AEGIS/INTERLACE_v4.1')
+    ALIGN = '/3DHST/Photometry/Release/v4.0/AEGIS/HST_Images/aegis_3dhst.v4.0.F160W_orig_sci.fits'
+
     #### Direct images only
-    direct=glob.glob('*30_asn.fits')
-    grism = glob.glob('*40_asn.fits')
+    direct=glob.glob('ibhj*30_asn.fits')
+    grism = glob.glob('ibhj*40_asn.fits')
+        
+    ### The following direct images have masks:
+    ### ibhj40hvq_flt.fits, ibhj49agq_flt.fits, ibhj49boq_flt.fits, ibhj50enq_flt.fits ibhj50euq_flt.fits ibhj50f1q_flt.fits ibhj52brq_flt.fits ibhj53jbq_flt.fits ibhj66ddq_flt.fits
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+        if 'aegis-20' in pointing:
+            continue
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
-
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
+            
+    d20 = threedhst.utils.ASNFile('ibhj58030_asn.fits')
+    d20.exposures = d20.exposures[0:3]
+    d20.write(out_file='aegis-20-F140W_asn.fits')
+    g20 = threedhst.utils.ASNFile('ibhj58040_asn.fits')
+    g20.exposures = g20.exposures[0:2]
+    g20.write(out_file='aegis-20-G141_asn.fits')
+    
+    pair('aegis-20-F140W_asn.fits', 'aegis-20-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
         
         
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*4', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
@@ -1138,21 +1149,21 @@ def UDS(FORCE=False):
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'UDS/PREP_FLT')
-    ALIGN = '/3DHST/Ancillary/UDS/CANDELS/public/hlsp_candels_hst_wfc3_uds-tot_f160w_v1.0_drz.fits'
-    ALIGN_EXT=0
-    #ALIGN = '/Users/gbrammer/CANDELS/UDS/PREP_FLT/UDS-F125W_drz.fits'
-    #ALIGN_EXT=1
-    #ALIGN = '/research/HST/CANDELS/UDS/UKIDSS/UDS_K.fits'
-    #ALIGN_EXTENSION=0
-    
+    os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v4.1/')
+    ALIGN = '/3DHST/Photometry/Release/v4.0/UDS/HST_Images/uds_3dhst.v4.0.F160W_orig_sci.fits'
+
     #### Direct images only
-    direct=glob.glob('*30_asn.fits')
-    grism = glob.glob('*40_asn.fits')
+    direct=glob.glob('ibhm2[56]*30_asn.fits')
+    grism = glob.glob('ibhm2[56]*40_asn.fits')
+    
+    ### The following direct images have masks:
+    ### ibhm12ubq_flt.fits, ibhm12udq_flt.fits, ibhm12uiq_flt.fits, ibhm12ukq_flt.fits, ibhm23glq_flt.fits, ibhm24fkq_flt.fits, ibhm26n5q_flt.fits, ibhm27qnq_flt.fits, ibhm28slq_flt.fits
+    ### ibhm26n0q_flt.fits, ibhm26n7q_flt.fits, ibhm26neq_flt.fits, ibhm26noq_flt.fits, ibhm25m8q_flt.fits, ibhm26n7q_flt.fits, ibhm25mmq_flt.fits, ibhm25mtq_flt.fits 
+    
     for i in range(len(direct)):
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, ALIGN_EXTENSION=ALIGN_EXT, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate,shift')
+            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift',sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
     
     #### Check
     threedhst.gmap.makeImageMap(['UDS-23-F140W_drz.fits', 'UDS-23-F140W_align.fits[0]','UDS-23-G141_drz.fits'], aper_list=[14,15,16],  polyregions=glob.glob('UDS-*-F140W_asn.pointing.reg'))

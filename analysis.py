@@ -19,8 +19,6 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
-import cosmocalc
-
 HAS_PHOTOMETRY = True
 PHOTOMETRY_ID = None
 BAD_SPECTRUM = False
@@ -64,7 +62,7 @@ def get_grism_path(root):
         PATH = unicorn.GRISM_HOME+'COOPER/'
     if root.startswith('COLFAX'):
         PATH = unicorn.GRISM_HOME+'SN-COLFAX/'
-    for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700','Q2206','Q0100', 'Q0207', 'Q1009', 'Q0142', 'Q0449']:
+    for fi in ['HS0105', 'HS1603', 'Q0100', 'Q0142', 'Q0207', 'Q0449', 'Q0821', 'Q1009', 'Q1217', 'Q1442', 'Q1549', 'Q1623', 'Q1700', 'Q2206', 'Q2343']:
         if fi in root:
             PATH =  unicorn.GRISM_HOME+'Erb/'
             
@@ -140,7 +138,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         uds=True
 
     erb = False
-    for fi in ['HS0105','HS1603','Q0821','Q1623','Q1700','Q2206','Q0100','Q0207', 'Q1009', 'Q0142', 'Q0449']:
+    for fi in ['HS0105', 'HS1603', 'Q0100', 'Q0142', 'Q0207', 'Q0449', 'Q0821', 'Q1009', 'Q1217', 'Q1442', 'Q1549', 'Q1623', 'Q1700', 'Q2206', 'Q2343']:
         if fi in root:
             erb = True
     
@@ -187,12 +185,22 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):
-            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
-            CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/cosmos_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/cosmos.dusty3.zout'
-            FOUT_FILE = CAT_PATH + 'Fast/cosmos_3dhst.v4.0.fout'
+            # CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
+            # CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/cosmos_3dhst.v4.0.cat'
+            # ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/cosmos.dusty3.zout'
+            # FOUT_FILE = CAT_PATH + 'Fast/cosmos_3dhst.v4.0.fout'
+            # KTOT_COL = 'f_F160W'
+            
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/cosmos_3dhst.v4.1.cats/'
+            CAT_FILE = CAT_PATH + 'Catalog/cosmos_3dhst.v4.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/cosmos_3dhst.v4.1.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/cosmos_3dhst.v4.1.fout'
             KTOT_COL = 'f_F160W'
-        
+            
+            ### Use dusty-template fit
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
+            ZOUT_FILE = CAT_PATH + '/OUTPUT/cosmos_3dhst.v4.1.dusty.zout'
+            
     if aegis:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
         
@@ -219,12 +227,22 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):
-            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
-            CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/aegis_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/aegis.dusty3.zout'
-            FOUT_FILE = CAT_PATH + 'Fast/aegis_3dhst.v4.0.fout'
+            # CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
+            # CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/aegis_3dhst.v4.0.cat'
+            # ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/aegis.dusty3.zout'
+            # FOUT_FILE = CAT_PATH + 'Fast/aegis_3dhst.v4.0.fout'
+            # KTOT_COL = 'f_F160W'
+            
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/aegis_3dhst.v4.1.cats/'
+            CAT_FILE = CAT_PATH + 'Catalog/aegis_3dhst.v4.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/aegis_3dhst.v4.1.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/aegis_3dhst.v4.1.fout'
             KTOT_COL = 'f_F160W'
-                
+            
+            ### Use dusty-template fit
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
+            ZOUT_FILE = CAT_PATH + '/OUTPUT/aegis_3dhst.v4.1.dusty.zout'
+            
     if aegis_wirds:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
         CAT_PATH = '/Users/gbrammer/research/drg/PHOTZ/EAZY/WIRDS/FAST/'
@@ -255,13 +273,22 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):
-            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
-            CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/goodsn_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/goodsn.dusty3.zout'
-            FOUT_FILE = CAT_PATH + 'Fast/goodsn_3dhst.v4.0.fout'
-            KTOT_COL = 'f_F160W'
+            # CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
+            # CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/goodsn_3dhst.v4.0.cat'
+            # ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/goodsn.dusty3.zout'
+            # FOUT_FILE = CAT_PATH + 'Fast/goodsn_3dhst.v4.0.fout'
+            # KTOT_COL = 'f_F160W'
         
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/goodsn_3dhst.v4.1.cats/'
+            CAT_FILE = CAT_PATH + 'Catalog/goodsn_3dhst.v4.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/goodsn_3dhst.v4.1.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/goodsn_3dhst.v4.1.fout'
+            KTOT_COL = 'f_F160W'
 
+            ### Use dusty-template fit
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
+            ZOUT_FILE = CAT_PATH + '/OUTPUT/goodsn_3dhst.v4.1.dusty.zout'
+            
     # #### Force UDF to use GOODS-S
     # if udf:
     #     cdfs = True
@@ -296,12 +323,22 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):
-            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
-            CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/goodss_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH + 'EazyRerun/OUTPUT/goodss.dusty3.zout'
-            FOUT_FILE = CAT_PATH + 'Fast/goodss_3dhst.v4.0.fout'
+            # CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'
+            # CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/goodss_3dhst.v4.0.cat'
+            # ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/goodss.dusty3.zout'
+            # FOUT_FILE = CAT_PATH + 'Fast/goodss_3dhst.v4.0.fout'
+            # KTOT_COL = 'f_F160W'
+
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/goodss_3dhst.v4.1.cats/'
+            CAT_FILE = CAT_PATH + 'Catalog/goodss_3dhst.v4.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/goodss_3dhst.v4.1.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/goodss_3dhst.v4.1.fout'
             KTOT_COL = 'f_F160W'
-        
+            
+            ### Use dusty-template fit
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
+            ZOUT_FILE = CAT_PATH + '/OUTPUT/goodss_3dhst.v4.1.dusty.zout'
+            
     if uds:
         #for the v4.1 reduction:
         if unicorn.hostname().startswith('uni') | unicorn.hostname().startswith('hyp'):
@@ -313,23 +350,28 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
                 
         #### Gabe's laptop
         if ('brammer' in unicorn.hostname().lower()) | ('gabriel' in unicorn.hostname().lower()):
-            # CAT_PATH = os.getenv('THREEDHST')+'/../../Spectra/Release/v4.0/'
-            # CAT_FILE = CAT_PATH + 'Catalog/uds_3dhst.v4.0.cat'
-            # ZOUT_FILE = CAT_PATH + 'Eazy/uds_3dhst.v4.0.zout'
-            # FOUT_FILE = CAT_PATH+'Fast/uds_3dhst.v4.0.fout'
+            # CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'            
+            # CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/uds_3dhst.v4.0.cat'
+            # ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/uds.dusty3.zout'
+            # FOUT_FILE = CAT_PATH + 'Fast/uds_3dhst.v4.0.fout'
             # KTOT_COL = 'f_F160W'
-
-            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.0/'            
-            CAT_FILE = CAT_PATH + 'Eazy/EazyRerun/uds_3dhst.v4.0.cat'
-            ZOUT_FILE = CAT_PATH + 'Eazy/EazyRerun/OUTPUT/uds.dusty3.zout'
-            FOUT_FILE = CAT_PATH + 'Fast/uds_3dhst.v4.0.fout'
+            
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/uds_3dhst.v4.1.cats/'
+            CAT_FILE = CAT_PATH + 'Catalog/uds_3dhst.v4.1.cat'
+            ZOUT_FILE = CAT_PATH + 'Eazy/uds_3dhst.v4.1.zout'
+            FOUT_FILE = CAT_PATH + 'Fast/uds_3dhst.v4.1.fout'
             KTOT_COL = 'f_F160W'
+
+            ### Use dusty-template fit
+            CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
+            ZOUT_FILE = CAT_PATH + '/OUTPUT/uds_3dhst.v4.1.dusty.zout'
             
     #### UltraVISTA in COSMOS
     if 'UltraV' in root:
         CAT_PATH = '/Users/brammer/3DHST/Ancillary/COSMOS/UltraVISTA/'
-        CAT_FILE = CAT_PATH + 'UVISTA_final_v4.1.cat'
+        CAT_FILE = CAT_PATH + 'UVISTA_final_v4.1_head.cat'
         ZOUT_FILE = CAT_PATH + 'UVISTA_final_v4.1.zout'
+        ZOUT_FILE = CAT_PATH + 'OUTPUT/uvista.full.dusty3.zout'
         FOUT_FILE = CAT_PATH+'UVISTA_final_BC03_v4.1.fout'
         KTOT_COL = 'Ks_tot'
                 
@@ -352,7 +394,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         KTOT_COL = 'f_h'
     
     #### Frontier fields
-    if root.startswith('A2744'):
+    if ('2744' in root.split('_')[0]) & root.upper().startswith('A'):
         GRISM_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
         CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
         CAT_FILE = CAT_PATH + 'a2744_Ks_v0.1.cat'
@@ -363,52 +405,77 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #### Supernova cluster pointing
     if ('MACSJ1720' in root) | ('PANCHA' in root):
         CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/Perlmutter/Eazy/'
-        CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1720_cat.txt.flux_AB25'
-        ZOUT_FILE = CAT_PATH+'OUTPUT/m1720.zout'
-        FOUT_FILE = CAT_PATH+'OUTPUT/m1720.fout'
+        #CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1720_cat.txt.flux_AB25'
+        #ZOUT_FILE = CAT_PATH+'OUTPUT/m1720.zout'
+        #FOUT_FILE = CAT_PATH+'OUTPUT/m1720.fout'
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_ir_macs1720_cat.txt.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/m1720ir.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/m1720ir.fout'
         KTOT_COL = 'f160w_flux'
 
     #### CLASH / GLASS / FF
-    if ('2744' in root) & (~root.startswith('A2744')):
+    if ('2744' in root.split('_')[0]) & root.upper().startswith('A'):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'abell2744.cat.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/a2744.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/a2744.fout'
         KTOT_COL = 'f160w_flux'
     
-    if ('0717' in root):
+    if ('0717' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs0717_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m0717.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m0717.fout'
         KTOT_COL = 'f160w_flux'
     
-    if ('0416' in root):
+    if ('0416' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs0416_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m0416.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m0416.fout'
         KTOT_COL = 'f160w_flux'
     
-    if ('1423' in root):
+    if ('1423' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp-clash_hst_acs-ir_macs1423_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m1423.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m1423.fout'
         KTOT_COL = 'f160w_flux'
     
-    if ('1347' in root):
+    if ('1347' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_rxj1347_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/r1347.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/r1347.fout'
         KTOT_COL = 'f160w_flux'
+    #
+    if ('2248' in root.split('_')[0]):
+        CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
+        #CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_rxj2248_cat.txt.flux_AB25'
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_ir_rxj2248_cat.txt.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/rxj2248.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/rxj2248.fout'
+        KTOT_COL = 'f160w_flux'
     
-    if ('1149' in root):
+    if ('1149' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1149_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m1149.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m1149.fout'
+        KTOT_COL = 'f160w_flux'
+    #
+    if ('2129' in root.split('_')[0]):
+        CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_ir_macs2129_cat.txt.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/m2129.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/m2129.fout'
+        KTOT_COL = 'f160w_flux'
+    #
+    if ('0647' in root.split('_')[0]):
+        CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_ir_macs0647_cat.txt.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/m0647.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/m0647.fout'
         KTOT_COL = 'f160w_flux'
     
     #### D. Newman's grism program
@@ -1683,6 +1750,8 @@ def get_rf_fluxes(root='GOODS-S-24-G141', id=27, dummy='rf_dummy', verbose=True,
     Compute the rest-frame colors using the z=0 interpolated fluxes in the dummy 
     catalog and the coefficients from the actual fit.
     """
+    import cosmocalc
+    
     os.chdir(unicorn.GRISM_HOME+'ANALYSIS/REDSHIFT_FITS')
     
     zp_rf = eazy.EazyParam('OUTPUT/%s.param' %(dummy))

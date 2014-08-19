@@ -834,12 +834,12 @@ class GrismSpectrumFit():
         #self.flux_model, self.cont_model, self.line_model, self.oned_wave, self.model_1D, self.cont_1D, self.line_1D, self.slope_1D = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
         status = self.fit_zgrid(get_model_at_z=z_max_spec, verbose=False)
     
-    def make_spectrum_fits(self):
+    def make_spectrum_fits(self, base='zfit'):
         """
         Make an output FITS file containing the continuum and line models, 1D and 2D
         """
         zout = self.zout
-        zgrid0, full_prob0, zgrid1, full_prob1 = self.zgrid0, self.full_prob0, self.zgrid1, self.full_prob1
+        #zgrid0, full_prob0, zgrid1, full_prob1 = self.zgrid0, self.full_prob0, self.zgrid1, self.full_prob1
         
         prim = pyfits.PrimaryHDU()
         prim.header = self.twod.im[0].header.copy()
@@ -857,7 +857,7 @@ class GrismSpectrumFit():
         hdus.append(pyfits.ImageHDU(data=self.cont_1D, name='CONT1D'))
         hdus.append(pyfits.ImageHDU(data=self.line_1D, name='LINE1D'))
         
-        pyfits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.fits', clobber=True)
+        pyfits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.%s.fits'%(base), clobber=True)
         
     def make_figure(self):
         """

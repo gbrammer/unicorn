@@ -400,7 +400,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
          
         self.initialize_prior()          
         #
-        self.coeffs = np.ones(self.phot.NTEMP)
+        #self.coeffs = np.ones(self.phot.NTEMP)
+        self.coeffs = None
         self.zgrid = None
         self.lnprob_spec = None
          
@@ -904,7 +905,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             
         if (self.coeffs is None) | force_refit:
             self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum, background=background)
-        
+         
         #
         igmz, igm_factor = self.phot.get_IGM(self.z_show, matrix=False)
         self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_show)**2*igm_factor
@@ -1306,4 +1307,26 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if verbose:
             print file_string
 
+    def make_2d_model(self, base='new_zfit', write_fits=True):
+        
+        if (self.coeffs is None):
+            self.fit_combined(self.z_max_spec, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=False, ignore_spectrum=False, background=0.)
+            print 'Refitting to get coefficients.'
+        
+        continuum_coeffs = self.coeffs*1
+        continuum_coeffs[-3:-1] = 0.
+        self.cont_model = np.dot(continuum_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        
+        line_coeffs = self.coeffs*1.
+        msk = np.array(line_coeffs, dtype=bool)
+        msk[-3:-1] = False
+        line_coeffs[msk] = 0.
+        self.line_model = np.dot(line_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        
+        oned_wave_x, self.cont_1D = self.twod.optimal_extract(self.cont_model)
+        oned_wave_x, self.line_1D = self.twod.optimal_extract(self.line_model)
     
+        if write_fits:
+            self.make_spectrum_fits(base=base)
+        
+        

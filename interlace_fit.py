@@ -856,6 +856,7 @@ class GrismSpectrumFit():
         hdus.append(pyfits.ImageHDU(data=self.line_model, header=twod_header, name='LINE2D'))
         hdus.append(pyfits.ImageHDU(data=self.cont_1D, name='CONT1D'))
         hdus.append(pyfits.ImageHDU(data=self.line_1D, name='LINE1D'))
+        hdus.append(pyfits.ImageHDU(data=self.coeffs, name='COEFFS'))
         
         pyfits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.%s.fits'%(base), clobber=True)
         

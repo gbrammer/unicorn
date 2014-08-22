@@ -1378,13 +1378,13 @@ def goodsn():
     
     pyfits.writeto('star.fits', data=im, clobber=True)
         
-def make_asn_files(force=False, make_region=False, uniquename=True):
+def make_asn_files(force=False, make_region=False, uniquename=True, translate = {'AEGIS-':'aegis-', 'COSMOS-':'cosmos-', 'GNGRISM':'goodsn-', 'GOODS-SOUTH-':'goodss-', 'UDS-':'uds-'}):
     """
     Read a files.info file and make ASN files for each visit/filter[/date].
     """
     list = catIO.Readfile('files.info')
     list.pa_v3 = np.cast[int](np.round(list.pa_v3))
-    asn = threedhst.utils.ASNFile(glob.glob('../RAW/i*asn.fits')[0])
+    asn = threedhst.utils.ASNFile(glob.glob('../RAW/*asn.fits')[0])
     
     #### Replace ANY targets with JRhRmRs-DdDmDs
     
@@ -1410,7 +1410,6 @@ def make_asn_files(force=False, make_region=False, uniquename=True):
         angle = list.pa_v3[visits == visit][0]
         for target in np.unique(list.targname[visits == visit]):
             #### 3D-HST targname translations
-            translate = {'AEGIS-':'aegis-', 'COSMOS-':'cosmos-', 'GNGRISM':'goodsn-', 'GOODS-SOUTH-':'goodss-', 'UDS-':'uds-'}
             target_use = target
             for key in translate.keys():
                 target_use = target_use.replace(key, translate[key])
@@ -2951,6 +2950,15 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     im = im.resize(shape)
     im.save(filename)
     
+def clipLog(im, lexp=1000, cmap=[-1.4914, 0.6273], scale=[10,-1]):
+    import numpy as np
+    
+    contrast, bias = cmap
+    clip = (np.clip(im, scl[0], scl[1])-scl[0])/(scl[1]-scl[0])
+    clip_log = np.clip((np.log10(lexp*clip+1)/np.log10(lexp)-bias)*contrast+0.5, 0, 1)
+    
+    return clip_log
+    
 def logRGB(imr, img, imb, lexp=0.8e4, cmap=[1.39165, 0.628952], zs=[-0.01, 2], scale=[1.4,1.,0.3], shape=None, filename=None):
     """
     Default colors for pixel-matched F140W / F814W / F435W
@@ -2995,4 +3003,120 @@ def logRGB(imr, img, imb, lexp=0.8e4, cmap=[1.39165, 0.628952], zs=[-0.01, 2], s
     im.save(filename)
     
     return im
+    
+def prepare_F105W():
+    """
+    FLT processing for F105W
+    """
+    import mywfc3.bg
+    import unicorn
+    
+    mywfc3.bg.go_check()
+    
+    trails = [('ibet3ygyq', [7]), ('ibetaompq', [8]), ('ibetasoqq', [6]), ('ibohbat3q', [12,14]), ('ibohbbkeq', [10,14]), ('ibohbbklq', [14]), ('ibohbcfgq', [14]), ('ibohbdh4q', [13]), ('ibohbeb5q', [13,14]), ('ibohbebcq', [14]), ('ibohbebrq', [14]), ('ibohbfb9q', [10]), ('ibohbfbkq', [12,14]), ('ibohbgggq', [7,13,14]), ('ibohcanoq', [10]), ('ibohcbt1q', [1,2,3,4,5,6]), ('ibohcbt8q', [1,2,3,4,5,6]), ('ibohcdvgq', [1,2,3,4,5,6]), ('ibohcdvnq', [1,2,3,4,5,6]), ('ibohcdvqq', [9]), ('ibohcebwq', [1,2,3,4,5,6]), ('ibohcecaq', [1,2,3,4,5,6]), ('ibohcfmuq', [1,2,3,4,5,6]), ('ibohcfmyq', [1,2,3,4,5,6,7]), ('ibohcfn1q', [1,2,3,4,5,6,7]), ('ibohcfn9q', [1,2,3,4,5,6,7]), ('ibohcfo0q', [1,2,3,4,5,6,7])]
+    
+    for trail in trails:
+        # if not os.path.exists(trail[0]+'_ramp.png'):
+        #     print trail[0]
+        #     unicorn.prepare.show_MultiAccum_reads('%s_raw.fits' %(trail[0]))
+        if os.path.exists('%s_flt.fits' %(trail[0])):
+            continue
+        #
+        unicorn.prepare.make_IMA_FLT(raw='%s_raw.fits' %(trail[0]), pop_reads=trail[1], remove_ima=True)
+    
+    files=glob.glob('iboh*orbit.dat')
+    for file in files:
+        bg = threedhst.catIO.Readfile(file, save_fits=False)
+        if (bg.bg/bg.zodi).max() > 1.2:
+            flt_file = file.split('j_F1')[0] + 'q_flt.fits'
+            if not os.path.exists(flt_file):
+                unicorn.prepare.make_IMA_FLT(raw='%s_raw.fits' %(flt_file.split('_flt')[0]), pop_reads=[], remove_ima=True)
+            
+def go_prep_F105W():
+    
+    import glob
+
+    import unicorn
+    import threedhst
+    import threedhst.prep_flt_astrodrizzle as prep
+    
+    unicorn.candels.make_asn_files(uniquename=False)
+    
+    files=glob.glob('GOODN*asn.fits')
+    files.extend(glob.glob('GOODSN*asn.fits'))
+    
+    radec = os.getenv('THREEDHST') + '/ASTRODRIZZLE_FLT/Catalog/goodsn_radec.dat'
+    
+    for file in files:
+        if os.path.exists(file.replace('asn','drz_sci')):
+            continue
+        #
+        threedhst.process_grism.fresh_flt_files(file)
+        #
+        prep.runTweakReg(asn_file=file, master_catalog=radec, final_scale=0.128)
+        #
+        prep.subtract_flt_background(root=file.split('_asn')[0])
+        #
+        drizzlepac.astrodrizzle.AstroDrizzle(file, clean=True, final_scale=0.128, final_pixfrac=0.8, final_wcs=True, final_rot=0, context=False, final_bits=576, preserve=False)
+    
+    #### second pass background subtract
+    for file in files:
+        #prep.subtract_flt_background(root=file.split('_asn')[0])
+        #
+        drizzlepac.astrodrizzle.AstroDrizzle(file, clean=True, final_scale=0.128, final_pixfrac=0.8, final_wcs=True, final_rot=0, context=False, final_bits=576, resetbits=4096, preserve=False, num_cores=4, driz_cr_snr='5.0 4.0', driz_cr_scale = '2.5 0.7')
+        os.system('rm %s_drz*' %(file.split('_asn')[0]))
+        
+    #
+    drizzlepac.astrodrizzle.AstroDrizzle('i[bc][oa]*flt.fits', output='goodsn_3dhst.v4.x.F105W', clean=True, context=False, preserve=False, skysub=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_pixfrac=0.8, final_wcs=True, final_bits=576, final_wht_type='IVM',  final_refimage='/Users/brammer/3DHST/Ancillary/Mosaics/goodsn_3dhst.v4.0.F160W_orig_sci.fits', resetbits=0, num_cores=4)
+
+    #### Problem with Astrodrizzle final_refimage
+    
+    ### First run, let Astrodrizzle define the output frame
+    drizzlepac.astrodrizzle.AstroDrizzle('ibohba*flt.fits', output='x1_3dhst.v4.x.F105W', clean=True, context=False, preserve=False, skysub=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_scale=0.06, final_pixfrac=0.8, final_wcs=True, final_bits=576, final_rot=0, final_wht_type='IVM', resetbits=0, num_cores=4)
+    
+    ### shift CRPIX1 + 100 pix
+    im = pyfits.open('x1_3dhst.v4.x.F105W_drz_sci.fits', mode='update')
+    r0, d0 = drizzlepac.pixtosky.xy2rd('x1_3dhst.v4.x.F105W_drz_sci.fits', im[0].header['CRPIX1']+100, im[0].header['CRPIX2'], precision=8, hms=False, verbose=False)
+    im[0].header['CRPIX1'] += 100
+    im[0].header['CRVAL1'] = r0[0]
+    im[0].header['CRVAL2'] = d0[0]
+    im.flush()
+    
+    ### re-run with original reference.  output should still be centered
+    ### but with offset tangent point.  Rather, the full image output is 
+    ### shifted (but WCS line up).
+    drizzlepac.astrodrizzle.AstroDrizzle('ibohba*flt.fits', output='x2_3dhst.v4.x.F105W', clean=True, context=False, preserve=False, skysub=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_scale=0.06, final_pixfrac=0.8, final_wcs=True, final_bits=576, final_rot=0, final_refimage='x1_3dhst.v4.x.F105W_drz_sci.fits', final_wht_type='IVM', resetbits=0, num_cores=4)
+    
+    #### Have to remove all final_ wcs keywords or will recompute CRPIX, etc.
+    drizzlepac.astrodrizzle.AstroDrizzle('ibohba*flt.fits', output='x2_3dhst.v4.x.F105W', clean=True, context=False, preserve=False, skysub=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_pixfrac=0.8, final_wcs=True, final_bits=576, final_refimage='x1_3dhst.v4.x.F105W_drz_sci.fits', final_wht_type='IVM', resetbits=0, num_cores=4)
+        
+    #### Force output WCS by hand to match b/c CRPIX don't match
+    r0, d0 = drizzlepac.pixtosky.xy2rd('/Users/brammer/3DHST/Ancillary/Mosaics/goodsn_3dhst.v4.0.F160W_orig_sci.fits', 10240.0, 10240.0, precision=8, hms=False, verbose=False)
+    #
+    drizzlepac.astrodrizzle.AstroDrizzle('i[bc][oa]*flt.fits', output='goodsn_full_3dhst.v4.x.F105W', clean=True, context=False, preserve=False, skysub=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_scale=0.06, final_pixfrac=0.8, final_wcs=True, final_rot=0, final_ra=r0[0], final_dec=d0[0], final_outnx=20480, final_outny=20480, final_bits=576, final_wht_type='IVM', resetbits=0, num_cores=4)
+    
+    ## check star weights
+    t = table.read('/Users/brammer/3DHST/Spectra/Work/ASTRODRIZZLE_FLT/Catalog/GOODS-N_IR.cat', format='ascii.sextractor')
+    c, z, f = unicorn.analysis.read_catalogs('GOODS-N')
+    sci = pyfits.open('goodsn_3dhst.v4.x.F105W_drz_sci.fits')
+    wht = pyfits.open('goodsn_3dhst.v4.x.F105W_drz_wht.fits')
+
+    star = (c.star_flag == 1) & (c.kmag < 23) & (c.kmag > 22)
+    
+    idx = np.arange(c.N)[star]
+    NTHUMB = 20
+    sci_thumb = np.zeros((NTHUMB*2,NTHUMB*2))
+    wht_thumb = sci_thumb*0.
+    
+    for i in idx:
+        print i
+        xc, yc = int(np.round(c.x[i])), int(np.round(c.y[i]))
+        scl = 10**(-0.4*(23-c.kmag[i]))
+        sci_thumb += sci[0].data[yc-NTHUMB:yc+NTHUMB, xc-NTHUMB:xc+NTHUMB]*scl
+        wht_thumb += wht[0].data[yc-NTHUMB:yc+NTHUMB, xc-NTHUMB:xc+NTHUMB]
+        
+    ### bg problem: vbf
+    ### shift problem: vcb
+    
+    ### combine all
     

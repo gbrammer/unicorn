@@ -20,7 +20,7 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
-import cosmocalc
+#import cosmocalc
 
 PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
 
@@ -44,6 +44,7 @@ def read_catalogs(force=False):
     """ 
     Read all of the catalogs and run the matching between them.
     """
+    import cosmocalc
     import unicorn.catalogs
     from unicorn.catalogs import match_string_arrays
     

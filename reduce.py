@@ -715,7 +715,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     """
     import threedhst.prep_flt_files
     import unicorn.reduce as red
-    import threedhst.dq
+    try:
+        import threedhst.dq
+    except:
+        ### Probably no pysao installed
+        pass
+        
     import scipy.ndimage as nd
     
     if conf is None:

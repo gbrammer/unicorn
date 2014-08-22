@@ -2148,7 +2148,7 @@ class GrismModel():
         self.compute_object_model(id=id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec = self.flux_specs[id], verbose=verbose, normalize=False)
         
         t0 = time.time()
-        if view.__class__ == threedhst.dq.myDS9:
+        if view:
             first_model = self.object*1
         
         if self.obj_in_model[id]:
@@ -2231,11 +2231,11 @@ class GrismModel():
             print 'Extract ratio, save values  (%.3f)' %(dt)
             
         self.compute_object_model(id=id, BEAMS=BEAMS, lam_spec = self.lam_spec, flux_spec = self.flux_specs[id], normalize=False, verbose=verbose)
-        if view.__class__ == threedhst.dq.myDS9:
+        if view:
             second_model = self.object.copy()
         
         #### View the results
-        if view.__class__ == threedhst.dq.myDS9:
+        if view:
             print 'Display results for #%d to DS9' %(id)
             diff_first = self.gris[1].data - self.model - first_model
             diff_second = self.gris[1].data - self.model - second_model
@@ -2259,7 +2259,7 @@ class GrismModel():
             plt.plot(self.lam_spec, self.flux_specs[id])
         
         ### Done, now update the total model
-        if view.__class__ == threedhst.dq.myDS9:
+        if view:
             self.model += second_model
             self.obj_in_model[id] = True
         else:

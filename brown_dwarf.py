@@ -18,8 +18,6 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
-import cosmocalc
-
 HAS_PHOTOMETRY = True
 PHOTOMETRY_ID = None
 BAD_SPECTRUM = False

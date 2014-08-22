@@ -20,8 +20,6 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
-import cosmocalc
-
 PATH_TO_CAT = unicorn.GRISM_HOME+'/ANALYSIS/FIRST_PAPER/GRISM_v1.6/'
 
 zout = None

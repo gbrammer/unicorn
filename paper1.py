@@ -26,7 +26,6 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 import threedhst
 import unicorn
-import cosmocalc
 
 sdss_iclass = None
 sdss_info = None
@@ -51,6 +50,7 @@ def read_sdss(read_full_lines=True):
     This is a big file so can take more time/memory.  
     """
     import unicorn.paper1
+    import cosmocalc
     
     sdss_path = unicorn.GRISM_HOME + 'ANALYSIS/SDSS/'
     

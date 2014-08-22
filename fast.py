@@ -19,7 +19,7 @@ import threedhst.eazyPy as eazy
 import threedhst.catIO as catIO
 import unicorn
 
-import cosmocalc
+#import cosmocalc
 
 def go_all():
     import glob

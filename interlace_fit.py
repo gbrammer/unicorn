@@ -220,7 +220,10 @@ class GrismSpectrumFit():
             if verbose:
                 print 'Read p(z) from %s.zfit.pz.fits' %(self.grism_id)
                 self.get_best_fit()
-    
+        
+        ### Needed for interlace_test
+        self.coeffs = 0.
+        
     def get_photometric_constraints(self, ra=0., dec=0., verbose=True, p_flat=0.):
         """ 
         Read the overlapping photometric catalog and retrieve the photometry and EAZY fit.

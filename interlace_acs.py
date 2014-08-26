@@ -43,7 +43,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
 
     #
     asn = threedhst.utils.ASNFile(root+'_asn.fits')
-    flt = pyfits.open(asn.exposures[0]+'_flt.fits')
+    flt = pyfits.open(asn.exposures[0]+'_flc.fits')
     
     ### xx update for ACS PAM
     im = pyfits.open(os.getenv('jref')+'wfc%d_pam.fits' %(chip))
@@ -81,6 +81,11 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
     dxs, dys = np.append(dxs, dxs), np.append(dys, dys)
     
     if center is not None:
+        if not isinstance(center, list):
+            center_coords = [flt['SCI',chip_ext[chip]].header['CRVAL1'], flt['SCI',chip_ext[chip]].header['CRVAL2']]
+        else:
+            center_coords = center
+            
         from drizzlepac import skytopix
         import astropy.coordinates as co
         import astropy.units as u
@@ -88,12 +93,12 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
         ext = [None, 4, 1][chip]
         xpix, ypix = np.zeros(len(asn.exposures)), np.zeros(len(asn.exposures))
         for i, exp in enumerate(asn.exposures):
-            rd = co.FK5(ra=center[0], dec=center[1], unit=(u.deg, u.deg))
+            rd = co.FK5(ra=center_coords[0], dec=center_coords[1], unit=(u.deg, u.deg))
             rdst = str(rd.to_string()).replace('s','')
             for r in 'hdm':
                 rdst = rdst.replace(r, ':')
             #
-            xpix[i], ypix[i] = skytopix.rd2xy('%s_flt.fits[sci,%d]' %(exp, chip_ext[chip]), rdst.split()[0], rdst.split()[1], verbose=False)
+            xpix[i], ypix[i] = skytopix.rd2xy('%s_flc.fits[sci,%d]' %(exp, chip_ext[chip]), rdst.split()[0], rdst.split()[1], verbose=False)
         #
         dxs = -np.cast[int](np.round(xpix-xpix[0]))
         dys = -np.cast[int](np.round(ypix-ypix[0]))
@@ -108,15 +113,15 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
     hot_pix = np.zeros((NY, NX),dtype='int')
     
     for flt in asn.exposures:
-        im = pyfits.open(flt+'_flt.fits')
+        im = pyfits.open(flt+'_flc.fits')
         hot_pix += (im['DQ',chip_ext[chip]].data & 4096) / 4096
         
-    hot_pix = hot_pix > 2
+    hot_pix = hot_pix > (len(asn.exposures)-2)
         
     for i,flt in enumerate(asn.exposures):
         print flt
         #flt = run.flt[i]
-        im = pyfits.open(flt+'_flt.fits')
+        im = pyfits.open(flt+'_flc.fits')
         #ds9.frame(i+1); ds9.view(im[1].data); ds9.scale(0,5)
         
         #### Use the pixel area map correction
@@ -187,9 +192,16 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
         h0.update('WHTERROR',False,comment='WHT extension is 0/1 flagged bad pix')
     
     ### Clip back to native size
-    inter_sci = inter_sci[pad/2:-pad/2, pad/2:-pad/2]
-    inter_err = inter_err[pad/2:-pad/2, pad/2:-pad/2]
-    N = N[pad/2:-pad/2, pad/2:-pad/2]
+    # inter_sci = inter_sci[pad/2:-pad/2, pad/2:-pad/2]
+    # inter_err = inter_err[pad/2:-pad/2, pad/2:-pad/2]
+    # N = N[pad/2:-pad/2, pad/2:-pad/2]
+    header['PAD'] = pad
+    header['GROWX'] = growx
+    header['GROWY'] = growy
+    header['NGROW'] = NGROW
+    header['CRPIX1'] += pad/2.
+    header['CRPIX2'] += pad/2.
+     
     #print pad, inter_sci.shape
     
     hdu = pyfits.PrimaryHDU(header=h0)

@@ -34,12 +34,16 @@ import glob
 import shutil
 import time
 
+try:
+    import astropy.io.fits as pyfits
+except:
+    import pyfits
+
 import numpy as np
+
 import matplotlib.pyplot as plt
 
 USE_PLOT_GUI = False
-
-import pyfits
 
 import time
 
@@ -70,12 +74,20 @@ conf_grism = 'G141'
 sens_files = {}
 for beam in ['A','B','C','D','E']:
     if 'SENSITIVITY_'+beam in conf.keys():
-        sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+        sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+        
+        sens_wave = np.arange(sens['WAVELENGTH'].min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens['WAVELENGTH'].max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
+        sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=0, right=0)
+        sens_err = np.interp(sens_wave, sens['WAVELENGTH'], sens['ERROR'], left=0, right=0)
+        
+        sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
+        sens_files[beam] = sens_data
+        
 
 #### wavelength limits
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.98e4, 20., 0.75e4]}
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 1.1e4, 20., 0.75e4]}
+#grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
+#grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.98e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.0e4, 20., 0.75e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667}
 
@@ -116,11 +128,24 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     red.conf_grism = grism
     red.conf_file = use_config_file
     red.sens_files = {}
-    for beam in ['A','B','C','D','E','F','G']:
+    #
+    for beam in ['A','B','C','D','E']:
         if 'SENSITIVITY_'+beam in conf.keys():
-            red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-            red.sens_files[beam].SENSITIVITY[-3:] *= 0.
-            red.sens_files[beam].SENSITIVITY[:3] *= 0.
+            sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+
+            sens_wave = np.arange(sens['WAVELENGTH'].min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens['WAVELENGTH'].max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
+            
+            sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=0, right=0)
+            sens_err = np.interp(sens_wave, sens['WAVELENGTH'], sens['ERROR'], left=0, right=0)
+
+            sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
+            red.sens_files[beam] = sens_data
+    
+    # for beam in ['A','B','C','D','E','F','G']:
+    #     if 'SENSITIVITY_'+beam in conf.keys():
+    #         red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
+    #         red.sens_files[beam].SENSITIVITY[-3:] *= 0.
+    #         red.sens_files[beam].SENSITIVITY[:3] *= 0.
         
     print 'Set grism configuration files for %s: %s' %(red.conf_grism, use_config_file)
     
@@ -889,7 +914,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         ### Offsets for G141 first order, 0.5 pix in y, 1.5 pix in lam (2x2)
         dy_fudge = 0
-
+        dy_fudge = yoff_beam
+        
         # if (grism == 'G141') & (beam == 'A'):
         #     #dy_fudge = 0.5*growy/2
         #     #
@@ -900,10 +926,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         ycenter += dy_fudge
            
         ### Vertical offsets of the G800L beams
-        if grism == 'G800L':
-            off = {'A':-1, 'B':0, 'C':-3, 'D':-3, 'E':-2, 'F':-1}
-            if beam in off.keys():
-                ycenter += off[beam]
+        # if grism == 'G800L':
+        #     off = {'A':-1, 'B':0, 'C':-3, 'D':-3, 'E':-2, 'F':-1}
+        #     if beam in off.keys():
+        #         ycenter += off[beam]
         
         #### Get offset to zeroth order only
         if zeroth_position:
@@ -940,7 +966,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         sens = sens_files[beam]
         #dl = np.diff(lam)[0]
         #if dl > 0:
-        sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        
+        #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
+        sens_interp = unicorn.utils_c.interp_conserve_c(lam, sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)
+        
         #else:
         #    sens_interp = np.interp(lam[::-1], sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)[::-1]
             
@@ -991,11 +1020,6 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             
             sens_interp *= spec_interp
         
-        ##### Needed these factors when I was having unit problems and not including
-        ##### the "sensitivity per A" but instead assuming "sensitivity per pixel"
-        #if beam == 'A':
-        #    sens_interp *= 0.5
-        
         #### Increase response in the zeroth order to match observations
         if (beam == 'B') & (grism == 'G141'):
             sens_interp *= 1.4 
@@ -1039,6 +1063,9 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
         model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope, BEAMS=BEAMS)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
         model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
+        
+        ### Make zeroth-order region file
+        model.make_zeroth_regions(MAG_LIMIT=23, scale_size=True, id_label=True)
         
     return model
     
@@ -1438,7 +1465,7 @@ class Interlace2D():
         optimal_sum = num / denom
         return self.im['WAVE'].data, optimal_sum
     
-    def trace_extract(self, input=None, dy=0):
+    def trace_extract(self, input=None, dy=0, width=0):
         """
         Extract pixel values along the trace
         """
@@ -1451,8 +1478,16 @@ class Interlace2D():
         trace_pix = np.cast[int](np.round(ytrace))
         #trace_spec = self.grism_sci[trace_pix,:]
         trace_spec = ytrace*0.
+        if width == 0:
+            trace_lo = trace_pix
+            trace_hi = trace_pix+1
+        else:
+            trace_lo = trace_pix-width
+            trace_hi = trace_pix+width
+            
         for i in range(len(ytrace)):
-            trace_spec[i] = obj_cleaned[trace_pix[i],i]
+            #trace_spec[i] = obj_cleaned[trace_pix[i],i]
+            trace_spec[i] = np.sum(obj_cleaned[trace_lo[i]:trace_hi[i],i])
         
         return self.im['WAVE'].data, trace_spec
         
@@ -2978,7 +3013,7 @@ class GrismModel():
                 print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
             spec = unicorn.reduce.Interlace1D(self.baseroot+'_%05d.1D.fits' %(id), PNG=True)
         
-    def make_zeroth_regions(self, MAG_LIMIT=22, id_label=False):
+    def make_zeroth_regions(self, MAG_LIMIT=22, id_label=False, scale_size=True):
             """ 
             Make a regions file for just the zeroth orders
             """
@@ -2988,9 +3023,13 @@ class GrismModel():
             for i in range(N):
                 if self.cat.mag[i] < MAG_LIMIT:
                     dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element)
-                    a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
-                    theta = self.cat['THETA_IMAGE'][i]
-                    region = "circle(%s, %s, %.2f)"  %(self.cat.x_pix[i]+dx, self.cat.y_pix[i]+dy, np.sqrt(a**2+b**2))
+                    if scale_size:
+                        a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
+                        r = np.sqrt(a**2+b**2)
+                    else:
+                        r = 3
+                    #theta = self.cat['THETA_IMAGE'][i]
+                    region = "circle(%s, %s, %.2f)"  %(self.cat.x_pix[i]+dx, self.cat.y_pix[i]+dy, r)
                     if id_label:
                         region += '# text={%d}' %(self.cat['NUMBER'][i])
                     #
@@ -3270,6 +3309,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     ### Strip off filter name    
     pointing = '-'.join(root.split('-')[:-1])
+    #pointing = root
     
     #unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = root, NGROW=NGROW, verbose=verbose)
     
@@ -3281,13 +3321,17 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         run = threedhst.prep_flt_files.MultidrizzleRun(root)
         #run.blot_back(ii=0, copy_new=True)
 
-        #im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
-        #PAM = im[1].data
-        #im.close()
 
         scl = np.float(run.scl)
         xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
-    
+
+    #### Pixel area map
+    im = pyfits.open(os.getenv('iref')+'ir_wfc3_map.fits')
+    PAM = im[1].data
+    im.close()
+    PAMy = np.median(PAM[:,50:-50], axis=1)
+    PAM_grow = np.dot(PAMy.reshape((-1,1)), np.ones((1,1014+2*NGROW)))
+
     yi,xi = np.indices((1014,1014+2*NGROW))
 
     #N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
@@ -3380,8 +3424,10 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         #im_wht = pyfits.open(flt.replace('_flt','_blot_wht')+'.fits')
         im_seg = pyfits.open(flt.replace('_flt','_seg')+'.fits')
         
-        #### Use the pixel area map correction
-        #im[1].data *= PAM
+        #### Use the pixel area map correction to preserve flux in FLT frame
+        #print im[0].data.shape, PAM_grow.shape
+        im[0].data *= PAM_grow
+        
         #### Divide by 4 to conserve surface brightness with smaller output pixels
         im[0].data /= (growx*growy)
         #im_wht[0].data /= 4
@@ -3660,7 +3706,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat'):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 
@@ -3669,8 +3715,6 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
     pointing='cosmos-19-F140W'; pad=60; NGROW=125; growx=2; growy=2; auto_offsets=False;  ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits'; ref_ext=0; seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits'; cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat'; ref_filter='F140W'
     
     """
-    #import pyfits
-    import numpy as np
     
     import astropy.io.fits as pyfits
     import astropy.units as u
@@ -3684,6 +3728,7 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
     import threedhst
         
     pointing_root = '-'.join(pointing.split('-')[:-1])
+    pointing_filt = pointing.split('-')[-1]
     #### Open files and get WCS
     asn = threedhst.utils.ASNFile('%s_asn.fits' %(pointing))
     
@@ -3694,100 +3739,172 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
     seg_ones = np.cast[np.float32](seg_data > 0)
     
     ref_wcs = stwcs.wcsutil.HSTWCS(ref, ext=ref_ext)
+    seg_wcs = stwcs.wcsutil.HSTWCS(seg, ext=0)
     
+    if ACS:
+        fl_ext = 'flc'
+        sci_ext = [4,1]
+    else:
+        fl_ext = 'flt'
+        sci_ext = [1]
+        
+    #### Only use single reference ACS exposure since growx=growy=1
+    ref_flt_exp = asn.exposures[ref_exp]
+    if ACS:
+        asn.exposures = [asn.exposures[ref_exp]]
+        
     #### Loop through FLTs, blotting reference and segmentation
     for exp in asn.exposures:
         threedhst.showMessage('Blot from reference:\n%s -> %s_blot.fits\n%s -> %s_seg.fits' %(ref_image, exp, seg_image, exp))
-        flt = pyfits.open('%s_flt.fits' %(exp))
-        flt_wcs = stwcs.wcsutil.HSTWCS(flt, ext=1)
+        flt = pyfits.open('%s_%s.fits' %(exp, fl_ext))
         #
-        flt_wcs.naxis1 = flt[1].header['NAXIS1']+NGROW*2
-        flt_wcs.wcs.crpix[0] += NGROW
-        flt_wcs.sip.crpix[0] += NGROW
-        ### Header
-        header = flt_wcs.wcs2header(sip2hdr=True)
-        header['ORIGFILE'] = (ref_image, 'Reference image path')
-        header['EXPTIME'] = ref[ref_ext].header['EXPTIME']
-        header['FILTER'] = ref_filter
-        header['NGROW'] = (NGROW, 'Number of pixels added to X-axis (centered)')
-        #
-        ### reference
-        print 'Blot image: %s_blot.fits' %(exp)
-        blotted_ref = astrodrizzle.ablot.do_blot(ref[ref_ext].data, ref_wcs, flt_wcs, 1, coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)
-        pyfits.writeto('%s_blot.fits' %(exp), data=blotted_ref, header=header, clobber=True)
-        ### segmentation, need "ones" image for pixel areas
-        print 'Segmentation image: %s_blot.fits' %(exp)
-        blotted_seg = astrodrizzle.ablot.do_blot(seg_data, ref_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
-        blotted_ones = astrodrizzle.ablot.do_blot(seg_ones, ref_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
-        blotted_ones[blotted_ones == 0] = 1
-        ratio = np.round(blotted_seg/blotted_ones)
-        grow = nd.maximum_filter(ratio, size=3, mode='constant', cval=0)
-        ratio[ratio == 0] = grow[ratio == 0]
-        header['ORIGFILE'] = (seg_image, 'Segmentation image path')
-        pyfits.writeto('%s_seg.fits' %(exp), data=np.cast[np.int32](ratio), header=header, clobber=True)
+        print 'Blot image+segmentation: %s_blot/seg.fits' %(exp)
+        if ACS:
+            hdu_blot = [pyfits.PrimaryHDU()]
+            hdu_seg = [pyfits.PrimaryHDU()]
+        else:
+            hdu_blot = []
+            hdu_seg = []
+            
+        for ext in sci_ext:
+            flt_wcs = stwcs.wcsutil.HSTWCS(flt, ext=ext)
+            #
+            flt_wcs.naxis1 = flt[ext].header['NAXIS1']+NGROW*2
+            flt_wcs.wcs.crpix[0] += NGROW
+            flt_wcs.sip.crpix[0] += NGROW
+            ### Header
+            header = flt_wcs.wcs2header(sip2hdr=True)
+            header['ORIGFILE'] = (ref_image, 'Reference image path')
+            header['EXPTIME'] = ref[ref_ext].header['EXPTIME']
+            header['FILTER'] = ref_filter
+            header['PAD'] = (pad, 'Padding pixels to x and y')
+            header['NGROW'] = (NGROW, 'Number of pixels added to X-axis (both sides)')
+            #
+            ### reference
+            blotted_ref = astrodrizzle.ablot.do_blot(ref[ref_ext].data, ref_wcs, flt_wcs, 1, coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)
+            hdu_blot.append(pyfits.ImageHDU(data=blotted_ref, header=header.copy()))
+            #pyfits.writeto('%s_blot.fits' %(exp), data=blotted_ref, header=header, clobber=True)
+            #
+            ### segmentation, need "ones" image for pixel areas
+            #print 'Segmentation image: %s_seg.fits' %(exp)
+            blotted_seg = astrodrizzle.ablot.do_blot(seg_data, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
+            blotted_ones = astrodrizzle.ablot.do_blot(seg_ones, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
+            blotted_ones[blotted_ones == 0] = 1
+            ratio = np.round(blotted_seg/blotted_ones)
+            grow = nd.maximum_filter(ratio, size=3, mode='constant', cval=0)
+            ratio[ratio == 0] = grow[ratio == 0]
+            header['ORIGFILE'] = (seg_image, 'Segmentation image path')
+            hdu_seg.append(pyfits.ImageHDU(data=np.cast[np.int32](ratio), header=header.copy()))
+            #pyfits.writeto('%s_seg.fits' %(exp), data=np.cast[np.int32](ratio), header=header, clobber=True)
         
-    #### Combine interlaced images
-    dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, REF_ROOT='COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=NGROW, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp)
+        if ACS:
+            hdulist_blot = pyfits.HDUList(hdu_blot)
+            hdulist_blot.writeto('%s_blot.fits' %(exp), clobber=True)
+            hdulist_seg = pyfits.HDUList(hdu_seg)
+            hdulist_seg.writeto('%s_seg.fits' %(exp), clobber=True)
+        else:
+            pyfits.writeto('%s_blot.fits' %(exp), data=hdu_blot[0].data, header=hdu_blot[0].header, clobber=True)
+            pyfits.writeto('%s_seg.fits' %(exp), data=hdu_seg[0].data, header=hdu_seg[0].header, clobber=True)
+
+    #### Combine interlaced images, ignore NGROW
+    if ACS:
+        roots = [pointing_root+'-chip1', pointing_root+'-chip2']
+        
+        empty_sci = np.zeros((2048+pad, 4096+pad), dtype=np.float64)
+        empty_seg = np.zeros((2048+pad, 4096+pad), dtype=np.int32)
+        
+        #### Make reference image/segimage for each of two ACS chips        
+        for chip in [1,2]:
+            hdu_blot = hdulist_blot[chip]
+            hdu_seg = hdulist_seg[chip]
+            
+            #### Pixel area map to preserve photometry in FLT frame
+            im = pyfits.open(os.getenv('jref')+'wfc%d_pam.fits' %(chip))
+            PAM = im[0].data
+            im.close()
+            hdu_blot.data *= PAM
+            
+            for i in [1,2]:
+                hdu_blot.header['CRPIX%d' %(i)] += pad/2
+                hdu_seg.header['CRPIX%d' %(i)] += pad/2
+                        
+            empty_sci[pad/2:-pad/2, pad/2:-pad/2] = hdu_blot.data
+            hdulist = pyfits.HDUList([pyfits.PrimaryHDU(header=hdu_blot.header), pyfits.ImageHDU(data=empty_sci, header=hdu_blot.header)])
+            hdulist.writeto('%s-chip%d_ref_inter.fits' %(pointing_root, chip), clobber=True)
+
+            empty_seg[pad/2:-pad/2, pad/2:-pad/2] = hdu_seg.data
+            pyfits.writeto('%s-chip%d_inter_seg.fits' %(pointing_root, chip), data=empty_seg, header=hdu_seg.header, clobber=True)
+        
+        ### xx break out
+        #return True
+        dxs, dys = np.zeros(100), np.zeros(100)
+        
+    else:
+        roots = [pointing_root]
+        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, REF_ROOT='COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=NGROW, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp)
+        
+    for i, pointing_root in enumerate(roots):
+        threedhst.showMessage('Make catalog: %s_inter.cat' %(pointing_root))
+        #### Create blotted catalog of objects within blotted segm. image
+        seg_inter = pyfits.open('%s_inter_seg.fits' %(pointing_root))
+        objects = np.unique(seg_inter[0].data)[1:]
     
-    #### Create blotted catalog of objects within blotted segm. image
-    seg_inter = pyfits.open('%s_inter_seg.fits' %(pointing_root))
-    objects = np.unique(seg_inter[0].data)[1:]
-    
-    cat = table.read(cat_file, format='ascii.sextractor')
-    NOBJ = len(cat)
-    keep = np.zeros(NOBJ) > 1
-    for i in range(NOBJ):
-        if cat['NUMBER'][i] in objects:
-            keep[i] = True
-    #
-    sub_cat = cat[keep]
-    np.savetxt('%s_radec.dat' %(pointing), np.array([sub_cat['X_WORLD'], sub_cat['Y_WORLD']]).T, fmt='%.7f')
+        cat = table.read(cat_file, format='ascii.sextractor')
+        NOBJ = len(cat)
+        keep = np.zeros(NOBJ) > 1
+        for j in range(NOBJ):
+            if cat['NUMBER'][j] in objects:
+                keep[j] = True
+        #
+        sub_cat = cat[keep]
+        np.savetxt('%s_radec.dat' %(pointing_root), np.array([sub_cat['X_WORLD'], sub_cat['Y_WORLD']]).T, fmt='%.7f')
      
-    threedhst.showMessage('%s: %d objects from blotted catalog:\n  %s.' %(pointing, keep.sum(), cat_file))
+        threedhst.showMessage('%s: %d objects from blotted catalog:\n  %s.' %(pointing_root, keep.sum(), cat_file))
     
-    ### here's the line to translate the x,y coords
-    x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy('%s_flt.fits[sci,1]' %(asn.exposures[ref_exp]), coordfile='%s_radec.dat' %(pointing), verbose=False)
-    x_flt = (x_flt0+dxs[ref_exp]+NGROW)*growx+pad/2#-1 
-    y_flt = (y_flt0+dys[ref_exp]+NGROW)*growy+pad/2#-1 
+        ### here's the line to translate the x,y coords
+        x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy('%s_%s.fits[%d]' %(ref_flt_exp, fl_ext, sci_ext[i]), coordfile='%s_radec.dat' %(pointing_root), verbose=False)
+        x_flt = (x_flt0+dxs[ref_exp]+NGROW)*growx+pad/2#-1 
+        y_flt = (y_flt0+dys[ref_exp]+NGROW)*growy+pad/2#-1 
     
-    if growx == 2:
-        x_flt -= 1
-    if growy == 2:
-        y_flt -= 1
+        if growx == 2:
+            x_flt -= 1
+        if growy == 2:
+            y_flt -= 1
         
-    #### Write catalog
-    x_flt_column = table.Column(data=x_flt, name='X_FLT', description='Interlaced pixel coordinate, x', unit=u.Unit('pix'))
-    y_flt_column = table.Column(data=y_flt, name='Y_FLT', description='Interlaced pixel coordinate, y', unit=u.Unit('pix'))
-    sub_cat.add_column(x_flt_column)
-    sub_cat.add_column(y_flt_column)
-    sub_cat.write('%s_inter.cat' %(pointing_root), format='ascii.commented_header')
+        #### Write catalog
+        x_flt_column = table.Column(data=x_flt, name='X_FLT', description='Interlaced pixel coordinate, x', unit=u.Unit('pix'))
+        y_flt_column = table.Column(data=y_flt, name='Y_FLT', description='Interlaced pixel coordinate, y', unit=u.Unit('pix'))
+        sub_cat.add_column(x_flt_column)
+        sub_cat.add_column(y_flt_column)
+        sub_cat.write('%s_inter.cat' %(pointing_root), format='ascii.commented_header')
     
-    cols = sub_cat.colnames
-    cat_header = []
-    for i in range(len(cols)):
-        c = sub_cat[cols[i]]
-        line = '# %3d %-24s %-59s' %(i+1, c.name, c.description)
-        # if c.unit is not None:
-        #     line += ' [%s]' %(c.unit.__str__())
-        # #
-        cat_header.append(line+'\n')
+        cols = sub_cat.colnames
+        cat_header = []
+        for j in range(len(cols)):
+            c = sub_cat[cols[j]]
+            line = '# %3d %-24s %-59s' %(j+1, c.name, c.description)
+            # if c.unit is not None:
+            #     line += ' [%s]' %(c.unit.__str__())
+            # #
+            cat_header.append(line+'\n')
     
-    lines = open('%s_inter.cat' %(pointing_root)).readlines()
-    fp = open('%s_inter.cat' %(pointing_root), 'w')
-    fp.writelines(cat_header)
-    fp.writelines(lines[1:])
-    fp.close()
+        lines = open('%s_inter.cat' %(pointing_root)).readlines()
+        fp = open('%s_inter.cat' %(pointing_root), 'w')
+        fp.writelines(cat_header)
+        fp.writelines(lines[1:])
+        fp.close()
     
-    #### Make region file
-    lines = ['global color=green dashlist=8 3 width=1 font="helvetica 8 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n', 'image\n']
-    lines.extend(['circle(%.2f, %.2f, 5.0) # text={%d}\n' %(x_flt[i], y_flt[i], sub_cat['NUMBER'][i]) for i in range(keep.sum())])
-    fp = open('%s_inter.reg' %(pointing_root),'w')
-    fp.writelines(lines)
-    fp.close()
+        #### Make region file
+        lines = ['global color=green dashlist=8 3 width=1 font="helvetica 8 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n', 'image\n']
+        lines.extend(['circle(%.2f, %.2f, 5.0) # text={%d}\n' %(x_flt[j], y_flt[j], sub_cat['NUMBER'][j]) for j in range(keep.sum())])
+        fp = open('%s_inter.reg' %(pointing_root),'w')
+        fp.writelines(lines)
+        fp.close()
     
-    #### Diagnostic plot
-    threedhst.showMessage('Make centering diagnostic plot: %s_XY_FLT.png' %(pointing_root))
-    unicorn.reduce.adjust_catalog_for_FLT(pointing=pointing_root, MAG_LIM=23.5)
+    if not ACS:
+        #### Diagnostic plot
+        threedhst.showMessage('Make centering diagnostic plot: %s_XY_FLT.png\n\nunicorn.reduce.adjust_catalog_for_FLT(pointing=\'%s\', MAG_LIM=23.5, ref=True)' %(pointing_root, pointing_root))
+        unicorn.reduce.adjust_catalog_for_FLT(pointing=pointing_root, MAG_LIM=23.5, ref=True)
             
 def adjust_catalog_for_FLT(pointing='aegis-15', MAG_LIM=25, THUMB_SIZE=16, ref=True, filter='F140W'):
     """
@@ -4646,7 +4763,7 @@ def all_deep():
 
 def check_kluge_shifts():
     files=glob.glob('AEG*G141_inter.fits')
-    import pyfits
+
     for file in files:
         pass
         #unicorn.reduce.model_kluge(file)
@@ -4668,8 +4785,7 @@ def model_kluge(inter_grism='GOODS-S-34-G141_inter.fits', xshift=1):
     Some indexing error somewhere results in redshifts that are too high by ~1 pixel.  Shift the 
     interlaced grism images "left" by this amount to take it out by hand....
     """
-    import numpy as np
-    import pyfits
+    
     import scipy.ndimage as nd
     import stsci.convolve
     import unicorn
@@ -4782,8 +4898,8 @@ def deep_model(root='COSMOS-19', MAG_LIMIT=28):
     
     ax = fig.add_subplot(212)
     ### See the flux level that corresponds to the over-subtraction
-    wave = unicorn.reduce.sens_files['A'].field('WAVELENGTH')
-    flam = np.abs(stats[0])*4/(unicorn.reduce.sens_files['A'].field('SENSITIVITY')*46.5)
+    wave = unicorn.reduce.sens_files['A']['WAVELENGTH']
+    flam = np.abs(stats[0])*4/(unicorn.reduce.sens_files['A']['SENSITIVITY']*46.5)
     fnu = flam*wave**2/3.e18
     mag = -2.5*np.log10(fnu)-48.6
     ax.plot(wave, mag)

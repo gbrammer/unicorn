@@ -19,7 +19,7 @@ import matplotlib.ticker as mticker
 
 import threedhst
 
-def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, wspace=0.2, hspace=0.02, fontsize=10, NO_GUI=False, use_tex=False):
+def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, top=0.02, wspace=0.2, hspace=0.02, fontsize=10, NO_GUI=False, use_tex=False, invert=False):
     """
     Wrapper for generating a plot window, contains input parameters for setting the 
     full window geometry and also handles toggling the GUI/interactive backend.
@@ -27,6 +27,8 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
     NO_GUI should be set to True if your session has no X11 connection.    
     """
     import unicorn
+    import matplotlib
+    rc = matplotlib.rcParams
     
     #### If logged in to an external machine ("uni"), don't use GUI plotter
     if unicorn.hostname().startswith('uni') | NO_GUI:
@@ -46,6 +48,43 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
         plt.rcParams['text.usetex'] = True
         plt.rcParams['font.family'] = 'serif'
         plt.rcParams['font.serif'] = 'Times'
+    
+    #### White on black colormap
+    if invert:
+
+        if isinstance(invert, str):
+            color = invert
+        else:
+            color = 'white'
+        
+        rc['lines.color'] = color
+        rc['patch.edgecolor'] = color
+        rc['text.color'] = color
+        rc['axes.facecolor'] = 'black'
+        rc['axes.edgecolor'] = color
+        rc['axes.labelcolor'] = color
+        rc['xtick.color'] = color
+        rc['ytick.color'] = color
+        rc['grid.color'] = color
+        rc['figure.facecolor'] = 'black'
+        rc['figure.edgecolor'] = 'black'
+        rc['savefig.facecolor'] = 'black'
+        rc['savefig.edgecolor'] = 'black'
+    else:
+
+        rc['lines.color'] = 'black'
+        rc['patch.edgecolor'] = 'black'
+        rc['text.color'] = 'black'
+        rc['axes.facecolor'] = 'white'
+        rc['axes.edgecolor'] = 'black'
+        rc['axes.labelcolor'] = 'black'
+        rc['xtick.color'] = 'black'
+        rc['ytick.color'] = 'black'
+        rc['grid.color'] = 'black'
+        rc['figure.facecolor'] = 'white'
+        rc['figure.edgecolor'] = 'white'
+        rc['savefig.facecolor'] = 'white'
+        rc['savefig.edgecolor'] = 'white'
         
     if square:
         #xs=5
@@ -59,7 +98,7 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
             fig = Figure(figsize=(xs,ys), dpi=100)
             
         fig.subplots_adjust(left=lrbt[0], bottom=lrbt[2], right=1-lrbt[1], top=1-lrbt[3], wspace=wspace, hspace=hspace)
-
+            
     else:
         if USE_PLOT_GUI:
             fig = plt.figure(figsize=(7,5), dpi=100)
@@ -69,6 +108,11 @@ def plot_init(square=True, xs=6, aspect=1, left=0.22, bottom=0.11, right=0.02, t
         fig.subplots_adjust(wspace=wspace, hspace=hspace,left=0.10,
                         bottom=0.10,right=0.99,top=0.97)        
     
+    if invert:
+        fig.invert = True
+    else:
+        fig.invert = False
+        
     return fig
     
 def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False, transparent=False):
@@ -80,6 +124,14 @@ def savefig(fig, filename='figure.png', no_tex=True, dpi=100, increment=False, t
     the filename to avoid overwriting the current figure.
     """
     
+    try:
+        if fig.invert:
+            fig.patch.set_visible(False)
+            for ax in fig.axes:
+                ax.patch.set_visible(False)
+    except:
+        pass
+        
     if increment:
         if os.path.exists(filename):
             spl = filename.split('.')

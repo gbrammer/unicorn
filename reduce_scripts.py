@@ -202,13 +202,13 @@ def interlace_cosmos():
         unicorn.reduce.interlace_combine(pointing+'-G141', pad=60, NGROW=NGROW)
 
     ##### Generate the spectral model and Extract all spectra
-    inter = glob.glob('cosmos-*-G141_inter.fits')
+    inter = glob.glob('cosmos-04-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
         pointing = inter[i].split('-G141_inter')[0]
         if (not os.path.exists(pointing+'_model.fits')) | redo:
-            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=26., REFINE_MAG_LIMIT = 23.,
+            model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=35., REFINE_MAG_LIMIT = 23.,
                 make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
             if not os.path.exists(os.path.basename(model.root) + '-G141_maskbg.dat'):
                  model.refine_mask_background(grow_mask=12, threshold=0.001, update=True)
@@ -226,6 +226,20 @@ def interlace_cosmos():
     for file in models[::1]:
         pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
+ 
+    models = glob.glob('cosmos-*_inter_model.fits')
+    for file in models[::1]:
+        pointing = file.split('_inter')[0]
+        objs = glob.glob('%s*.new_zfit.dat'%(pointing))
+        for obj in objs:
+            id = obj.split('.new_zfit')[0].split('_')[1]
+            print id
+            os.system('cp %s_%s.big_2D.fits %s-big_%s.2D.fits'%(pointing, id, pointing, id))
+            os.system('cp %s_%s.1D.fits %s-big_%s.1D.fits'%(pointing, id, pointing, id))
+            os.system('cp %s_%s.new_zfit.pz.fits %s-big_%s.new_zfit.pz.fits'%(pointing, id, pointing, id))
+            gris = unicorn.interlace_test.SimultaneousFit('%s-big_%s'%(pointing, id))
+            gris.make_2d_model(base='new_zfit', write_fits = True)
+            os.system('rm %s-big_%s.2D.fits %s-big_%s.1D.fits %s-big_%s.new_zfit.pz.fits'%(pointing, id, pointing, id,pointing, id))
  
             
     #inter = glob.glob('COSMOS-*-G141_inter.fits')

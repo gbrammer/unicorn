@@ -1382,7 +1382,11 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
     """
     Read a files.info file and make ASN files for each visit/filter[/date].
     """
-    list = catIO.Readfile('files.info')
+    list = catIO.Readfile('files.info', save_fits=False)
+    
+    if 'expstart' not in list.columns:
+        list.expstart = list.exptime*0.
+    
     list.pa_v3 = np.cast[int](np.round(list.pa_v3))
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/*asn.fits')[0])
     
@@ -1429,13 +1433,17 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
                 #       
                 use = (list.targname == target) & (list.filter == filter) & (visits == visit)
                 exposure_list = []
-                for file in list.file[use]:
+                exposure_start = []
+                for tstart, file in zip(list.expstart[use], list.file[use]):
                     f = file.split('.gz')[0]
                     if f not in exposure_list:
                         exposure_list.append(f)
-                
-                print product, len(exposure_list)
+                        exposure_start.append(tstart)
                         
+                print product, len(exposure_list)
+                so = np.argsort(exposure_start)
+                exposure_list = np.array(exposure_list)[so]
+                
                 if (os.path.exists('%s_asn.fits' %(product))) & (not force):
                     continue
                 #

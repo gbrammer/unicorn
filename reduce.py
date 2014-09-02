@@ -544,13 +544,14 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
             
         dxs = xinter #- xinter[ref_exp] #+ np.int(np.round(xsh[0]))*0
         dys = yinter #- yinter[ref_exp] #+ np.int(np.round(ysh[0]))*0
-        print 'Auto offsets: ', dxs, dys
-        
+                
     dxs += ddx
     dys += ddy
     
     dxs -= dxs[ref_exp]
     dys -= dys[ref_exp]
+    
+    print 'Interlace offsets: ', dxs, dys
     
     dxi = np.cast[np.int32](np.ceil(dxs/growx))
     dyi = np.cast[np.int32](np.ceil(dys/growy))
@@ -3175,6 +3176,8 @@ class GrismModel():
                 #
                 ok = ok & (subset > np.percentile(subset[ok], 16)) & (subset < np.percentile(subset[ok], 84))
                 column[i] = np.mean(subset[ok])
+            
+            resid2 -= column
             
         ### Make plot
         if save_figure:

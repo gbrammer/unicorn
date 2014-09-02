@@ -544,6 +544,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
             
         dxs = xinter #- xinter[ref_exp] #+ np.int(np.round(xsh[0]))*0
         dys = yinter #- yinter[ref_exp] #+ np.int(np.round(ysh[0]))*0
+        print 'Auto offsets: ', dxs, dys
         
     dxs += ddx
     dys += ddy
@@ -1073,10 +1074,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, direct='F140W', grism='G141', BEAMS=['A','B','C','D']):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism, old_filenames=old_filenames)
     
     model.model_list = model_list
     
@@ -1739,12 +1740,16 @@ class Interlace2D():
                 
         
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', output_path='./'):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', output_path='./', old_filenames=False):
         """
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
-        self.baseroot = os.path.join(output_path, os.path.basename(root)) + '-' + grism
+        if old_filenames:
+            self.baseroot = os.path.join(output_path, os.path.basename(root))
+        else:
+            self.baseroot = os.path.join(output_path, os.path.basename(root)) + '-%s' %(grism)
+            
         self.grow_factor = grow_factor
         self.growx = growx
         self.growy = growy
@@ -1838,7 +1843,7 @@ class GrismModel():
         Read FITS files, catalogs, and segmentation images for a pair of 
         interlaced exposures.
         """        
-        self.cat = threedhst.sex.mySexCat('%s-%s_inter.cat' %(self.root, self.grism_element))
+        self.cat = threedhst.sex.mySexCat('%s_inter.cat' %(self.baseroot))
         
         #self.trim_edge_objects(verbose=True)
         
@@ -1851,7 +1856,7 @@ class GrismModel():
             
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
         
-        self.segm = pyfits.open('%s-%s_inter_seg.fits' %(self.root, self.grism_element))
+        self.segm = pyfits.open('%s_inter_seg.fits' %(self.baseroot))
         self.segm[0].data[self.segm[0].data < 0] = 0
         self.segm[0].data[~np.isfinite(self.segm[0].data)] = 0
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
@@ -1881,8 +1886,8 @@ class GrismModel():
         ## XXX add test for user-defined .conv file
         se.copyConvFile()
         se.overwrite = True
-        se.options['CATALOG_NAME']    = '%s-%s_inter.cat' %(self.root, self.grism_element)
-        se.options['CHECKIMAGE_NAME'] = '%s-%s_inter_seg.fits' %(self.root, self.grism_element)
+        se.options['CATALOG_NAME']    = '%s_inter.cat' %(self.baseroot)
+        se.options['CHECKIMAGE_NAME'] = '%s_inter_seg.fits' %(self.baseroot)
         se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
         se.options['WEIGHT_IMAGE']    = '%s-%s_inter.fits[1]' %(self.root, self.direct_element)
@@ -1895,7 +1900,7 @@ class GrismModel():
         
         #### Run SExtractor
         status = se.sextractImage('%s-%s_inter.fits[0]' %(self.root, self.direct_element))
-        self.cat = threedhst.sex.mySexCat('%s-%s_inter.cat' %(self.root, self.grism_element))
+        self.cat = threedhst.sex.mySexCat('%s_inter.cat' %(self.baseroot))
         
         #### Trim faint sources
         mag = np.cast[float](self.cat.MAG_AUTO)
@@ -1910,7 +1915,7 @@ class GrismModel():
         
         #self.segm = pyfits.open(self.root+'_seg.fits')
         
-        threedhst.sex.sexcatRegions('%s-%s_inter.cat' %(self.root, self.grism_element), '%s-%s_inter.reg' %(self.root, self.grism_element), format=1)
+        threedhst.sex.sexcatRegions('%s_inter.cat' %(self.baseroot), '%s_inter.reg' %(self.baseroot), format=1)
         
         # try:
         #     self.make_total_flux()
@@ -1950,12 +1955,12 @@ class GrismModel():
         from iraf import dither
         import threedhst.catIO as catIO
         
-        if os.path.exists('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)):
-            wcs = catIO.Readfile('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element))
+        if os.path.exists('%s_inter.cat.wcsfix' %(self.baseroot)):
+            wcs = catIO.Readfile('%s_inter.cat.wcsfix' %(self.baseroot))
             test = wcs.id == self.cat.id
             if np.sum(test) == len(self.cat.id):
                 if verbose:
-                    print 'Get corrected coordinates from %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
+                    print 'Get corrected coordinates from %s_inter.cat.wcsfix' %(self.baseroot)
                 self.ra_wcs = wcs.ra
                 self.dec_wcs = wcs.dec
                 return True
@@ -1964,7 +1969,7 @@ class GrismModel():
             self.ra_wcs, self.dec_wcs = self.cat.ra*1., self.cat.dec*1.       
             
             #### Write the wcsfix file
-            fp = open('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element),'w')
+            fp = open('%s_inter.cat.wcsfix' %(self.baseroot),'w')
             fp.write('# id    mag   ra    dec\n')
             for i in range(self.cat.id.shape[0]):
                 fp.write('%5d  %.3f  %.6f  %.6f\n' %(self.cat.id[i], self.cat.mag[i], self.ra_wcs[i], self.dec_wcs[i]))
@@ -1972,7 +1977,7 @@ class GrismModel():
             fp.close()
 
             if verbose:
-                print 'Corrected coordinates: %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
+                print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.baseroot)
 
             return True
         
@@ -2025,7 +2030,7 @@ class GrismModel():
                 self.ra_wcs[i], self.dec_wcs[i] = np.double(iraf.xy2rd.ra), np.double(iraf.xy2rd.dec)
             
         #### Write the wcsfix file
-        fp = open('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element),'w')
+        fp = open('%s_inter.cat.wcsfix' %(self.baseroot),'w')
         fp.write('# id    mag   ra    dec\n')
         for i in range(self.cat.id.shape[0]):
             fp.write('%5d  %.3f  %.6f  %.6f\n' %(self.cat.id[i], self.cat.mag[i], self.ra_wcs[i], self.dec_wcs[i]))
@@ -2033,7 +2038,7 @@ class GrismModel():
         fp.close()
         
         if verbose:
-            print 'Corrected coordinates: %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
+            print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.baseroot)
             
         return True
         
@@ -2480,7 +2485,7 @@ class GrismModel():
             pyfits.writeto(self.root+'_inter_0th.fits', data=self.model, header=self.gris[1].header, clobber=True)
             return
             
-        fp = open(self.root+'_inter_model.pkl','wb')
+        fp = open(self.baseroot+'_inter_model.pkl','wb')
         pickle.dump(self.cat.id, fp)
         pickle.dump(self.obj_in_model, fp)
         pickle.dump(self.lam_spec, fp)
@@ -2495,7 +2500,7 @@ class GrismModel():
         else:
             header.update('GRISCREV', "---", comment='Grism conf. file revision')
             
-        pyfits.writeto(self.root+'_inter_model.fits', data=self.model, header=header, clobber=True)
+        pyfits.writeto(self.baseroot+'_inter_model.fits', data=self.model, header=header, clobber=True)
         
     def load_model_spectra(self, use_same_config=True):
         """
@@ -2504,20 +2509,20 @@ class GrismModel():
         import pickle
         import unicorn.reduce
         
-        if ((not os.path.exists(self.root+'_inter_model.pkl')) | 
-            (not os.path.exists(self.root+'_inter_model.fits'))):
+        if ((not os.path.exists(self.baseroot+'_inter_model.pkl')) | 
+            (not os.path.exists(self.baseroot+'_inter_model.fits'))):
             return False
             
-        fp = open(self.root+'_inter_model.pkl','rb')
+        fp = open(self.baseroot+'_inter_model.pkl','rb')
         ids = pickle.load(fp)
         test = ids == self.cat.id
         if np.sum(test) == len(self.cat.id):
-            print 'Load spectra from pickle'
+            print 'Load spectra from pickle %s_inter_model.pkl' %(self.baseroot)
             self.obj_in_model = pickle.load(fp)
             self.lam_spec = pickle.load(fp)
             self.flux_specs = pickle.load(fp)
             
-            im = pyfits.open(self.root+'_inter_model.fits')
+            im = pyfits.open(self.baseroot+'_inter_model.fits')
             self.model = np.cast[np.double](im[0].data)
             
             #### Make sure we're using the same configuration file used 
@@ -3100,7 +3105,7 @@ class GrismModel():
             #
             fp.close()
     
-    def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True):
+    def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True, column_average=False):
         """
         Use the computed model as an aggressive mask for refining the 
         background subtraction.  Also adjust the pixel errors in the second
@@ -3153,15 +3158,38 @@ class GrismModel():
         np.set_printoptions(precision=8)
         fp.close()
         
+        NX = mm.shape[1]
+        column = np.zeros(NX)
+        if column_average:
+            """
+            Refine subtracted column average background 
+            """
+            #msk = ~objects & (self.gris[2].data > 0) & (np.abs(resid) < resid_threshold) & (self.gris[2].data < 10)
+            print 'Refine: subtract column average'
+            cleaned = self.gris[1].data*mm
+            for i in range(NX):
+                subset = cleaned[:,np.maximum(i-20,0):i+20]
+                ok = (subset != 0)
+                if ok.sum() == 0:
+                    continue
+                #
+                ok = ok & (subset > np.percentile(subset[ok], 16)) & (subset < np.percentile(subset[ok], 84))
+                column[i] = np.mean(subset[ok])
+            
         ### Make plot
         if save_figure:
             fig = unicorn.plotting.plot_init(xs=8, aspect=0.5, left=0.01, right=0.01, top=0.01, bottom=0.1, square=True, NO_GUI=True)
             ax = fig.add_subplot(121)
-            diff = self.gris[1].data*1.
+            diff = self.gris[1].data*1.-column
             diff[~mm] = 0
-            ax.imshow(nd.gaussian_filter(diff[self.ngrow*self.growx: -self.ngrow*self.growx-1, self.ngrow*self.growy:-self.ngrow*self.growy-1], 2), vmin=-0.02, vmax=0.02, interpolation='Nearest', aspect='auto')
+            diff = diff[self.ngrow*self.growx: -self.ngrow*self.growx-1, self.ngrow*self.growy:-self.ngrow*self.growy-1]
+            ax.imshow(nd.gaussian_filter(diff, 2), vmin=-0.02, vmax=0.02, interpolation='Nearest', aspect='auto')
             ax.set_xticklabels([]); ax.set_yticklabels([])
             ax.set_xlabel('BG: %s e/s\n' %(flux_bgs_str)+r'$\sigma$ scale: %.3f' %(err_scale))
+            if column_average:
+                xx = self.ngrow*self.growx
+                ax.plot(column[xx:-xx-1]*80000 + diff.shape[0]/2., color='black')
+            ax.set_xlim(0,diff.shape[1]); ax.set_ylim(0,diff.shape[0])
             #
             ax = fig.add_subplot(122)
             ax.hist((resid2/self.gris[2].data)[mm], range=(-3,3), bins=60, alpha=0.5, label='Observed', histtype='stepfilled', color='black')
@@ -3169,7 +3197,7 @@ class GrismModel():
             ax.set_ylabel(xroot)
             ax.set_yticklabels([])
             unicorn.plotting.savefig(fig, xroot+'_maskbg.png')
-            
+                
         ### Update the interlaced grism image in place
         if update:
             mx = pyfits.open(self.gris.filename(), mode='update')
@@ -3898,10 +3926,10 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
                         
             empty_sci[pad/2:-pad/2, pad/2:-pad/2] = hdu_blot.data
             hdulist = pyfits.HDUList([pyfits.PrimaryHDU(header=hdu_blot.header), pyfits.ImageHDU(data=empty_sci, header=hdu_blot.header)])
-            hdulist.writeto('%s-chip%d_ref_inter.fits' %(pointing_root, chip), clobber=True)
+            hdulist.writeto('%s-chip%d-%s_ref_inter.fits' %(pointing_root, chip, grism), clobber=True)
 
             empty_seg[pad/2:-pad/2, pad/2:-pad/2] = hdu_seg.data
-            pyfits.writeto('%s-chip%d_inter_seg.fits' %(pointing_root, chip), data=empty_seg, header=hdu_seg.header, clobber=True)
+            pyfits.writeto('%s-chip%d-%s_inter_seg.fits' %(pointing_root, chip, grism), data=empty_seg, header=hdu_seg.header, clobber=True)
         
         ### xx break out
         #return True

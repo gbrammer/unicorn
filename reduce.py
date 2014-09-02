@@ -448,8 +448,8 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     
 def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0):
     
-    from pyraf import iraf
-    from iraf import dither
+    # from pyraf import iraf
+    # from iraf import dither
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
@@ -564,7 +564,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         im = pyfits.open(flt+'_flt.fits')
         hot_pix += (im[3].data & 4096) / 4096
         
-    hot_pix = hot_pix > 2
+    hot_pix = hot_pix > 2 # (len(asn.exposures)/2.)
         
     for i,flt in enumerate(asn.exposures):
         print flt
@@ -599,7 +599,8 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         #
         #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
         #        
-        use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
+        #use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
+        use = ((im[3].data & (4+16+2048+4096)) == 0) & (~hot_pix) & (im[2].data > 0)
         
         ### debug
         # errs = im[2].data[use]
@@ -648,6 +649,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     pyfits.writeto('inter_N.fits', data=N, header=image[1].header, clobber=True)
     
     if make_undistorted:
+        from pyraf import iraf
+        from iraf import dither
+        
         try:
             os.remove(root+'_inter_sci.fits')
             os.remove(root+'_inter_wht.fits')

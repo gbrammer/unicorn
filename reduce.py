@@ -85,11 +85,12 @@ for beam in ['A','B','C','D','E']:
         
 
 #### wavelength limits
-#grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.3e4], 'G102':[0.73e4, 1.18e4, 10., 0.98e4], 'G800L':[0.58e4, 0.92e4, 20., 0.75e4]}
-#grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.58e4, 0.98e4, 20., 0.75e4]}
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.0e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667}
+
+### STMag zeropoints
+ZPsST = {'F105W':27.6933, 'F125W':28.0203, 'F140W':28.4790, 'F160W':28.1875, 'F606W':26.664, 'F814W':26.786, 'F435W':25.155, 'F110W':28.4401, 'F098M':29.9456}
 
 PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872., 'F110W':1.1534e4, 'F098M':9864.1}
 
@@ -118,9 +119,11 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     if use_new_config:
         config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
     
+    BEAMS = ['A','B','C','D','E']
     if grism == 'G800L':
         config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)
-    
+        BEAMS = ['A','B','C','D','E','F','G']
+        
     if use_config_file is None:
         use_config_file = config_file[grism]
         
@@ -129,18 +132,42 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     red.conf_file = use_config_file
     red.sens_files = {}
     #
-    for beam in ['A','B','C','D','E']:
+    
+    for beam in BEAMS:
         if 'SENSITIVITY_'+beam in conf.keys():
             sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
-
+            
             sens_wave = np.arange(sens['WAVELENGTH'].min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens['WAVELENGTH'].max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
             
-            sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=0, right=0)
-            sens_err = np.interp(sens_wave, sens['WAVELENGTH'], sens['ERROR'], left=0, right=0)
+            #### ACS grism sensitivity cuts out where still no-zero at > 1µm
+            if grism == 'G800L':
+                w_extend = np.arange(sens['WAVELENGTH'].max()+1, 1.2e4)
+                if len(w_extend) > 0:
+                    width = 300
+                    sens_extend = np.exp(-(w_extend-w_extend[0])**2/2/width**2) * sens['SENSITIVITY'][-1]
+                    err_extend = w_extend*0.+sens['ERROR'][-1]
+                    #plt.plot(w_extend, sens_extend*1.e-17)
+                    sens_wave0 = np.append(sens['WAVELENGTH'], w_extend)
+                    sens_sens0 = np.append(sens['SENSITIVITY'], sens_extend)
+                    sens_err0 = np.append(sens['ERROR'], err_extend)
+                    #
+                    sens_wave = np.arange(sens_wave0.min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens_wave0.max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
+                    
+            else:
+                sens_wave0 = sens['WAVELENGTH']
+                sens_sens0 = sens['SENSITIVITY']
+                sens_err0 = sens['ERROR']
 
+            sens_sens = np.interp(sens_wave, sens_wave0, sens_sens0, left=0, right=0)
+            sens_err = np.interp(sens_wave, sens_wave0, sens_err0, left=0, right=0)
+                        
             sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
             red.sens_files[beam] = sens_data
-    
+            
+            #
+            #print beam, np.diff(sens['WAVELENGTH'])[0], sens['WAVELENGTH'].min(), sens['WAVELENGTH'].max()
+            #plt.plot(sens_data['WAVELENGTH'], sens_data['SENSITIVITY']*1.e-17, label=beam)
+            
     # for beam in ['A','B','C','D','E','F','G']:
     #     if 'SENSITIVITY_'+beam in conf.keys():
     #         red.sens_files[beam] = pyfits.open(os.getenv('THREEDHST')+'/CONF/'+conf['SENSITIVITY_'+beam])[1].data
@@ -784,6 +811,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
       
     #xmi, xma = -580, 730
     #xmi, xma = 1000,-1000
+    # limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
+    #          'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
+    #          'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
     limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
              'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
              'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
@@ -968,8 +998,12 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #if dl > 0:
         
         #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
-        sens_interp = unicorn.utils_c.interp_conserve_c(lam, sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)
-        
+        delta_wave = lam[1]-lam[0]
+        if delta_wave > 0:
+            sens_interp = unicorn.utils_c.interp_conserve_c(lam, sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)
+        else:
+            sens_interp = unicorn.utils_c.interp_conserve_c(lam[::-1], sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)[::-1]
+            
         #else:
         #    sens_interp = np.interp(lam[::-1], sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)[::-1]
             
@@ -987,8 +1021,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
 
         if (lam_spec is not None) & (flux_spec is not None):
             #spec_interp = threedhst.utils.interp_conserve(lam, lam_spec, flux_spec, left=0., right=0.)            
-            dl = lam[1]-lam[0]
-            if dl > 0:
+            if delta_wave > 0:
                 spec_interp = utils_c.interp_conserve_c(lam, lam_spec, flux_spec, left=0., right=0.)
             else:
                 spec_interp = utils_c.interp_conserve_c(lam[::-1], lam_spec, flux_spec, left=0., right=0.)[::-1]
@@ -1423,7 +1456,7 @@ class Interlace2D():
         ### Done!
         self.model = self.object[self.yc+self.ypad:self.yc-self.ypad,self.xmin:self.xmax]
     
-    def optimal_extract(self, input=None, force_init=False):
+    def optimal_extract(self, input=None, force_init=False, fcontam=0):
         
         if (self.profile2D is None) | (force_init):            
             #### Get extraction window where profile is > 10% of maximum 
@@ -1455,29 +1488,40 @@ class Interlace2D():
         #variance = self.im['WHT'].data**2
                         
         #### Optimal extraction
-        opt_variance = self.im['WHT'].data**2
-        obj_cleaned[opt_variance == 0] = 0
-        opt_variance[opt_variance == 0] = 1.e6
+        opt_variance = self.im['WHT'].data**2 + (fcontam*self.im['CONTAM'].data)**2
+        obj_cleaned[self.im['WHT'].data == 0] = 0
+        opt_variance[self.im['WHT'].data == 0] = 1.e6
         
         num = np.sum(self.profile2D*obj_cleaned/opt_variance, axis=0)        
         denom = np.sum(self.profile2D**2 / opt_variance, axis=0)
-        
+
         optimal_sum = num / denom
         return self.im['WAVE'].data, optimal_sum
     
-    def trace_extract(self, input=None, dy=0, width=0):
+    def trace_extract(self, input=None, dy=0, width=0, get_apcorr=False):
         """
         Extract pixel values along the trace
+        
+        With `get_apcorr`, also return an aperture correction computed from
+        the ratio of the total model flux to the model flux along the trace
+        as specified.
+        
         """
         if input is None:
             obj_cleaned = self.im['SCI'].data*1
         else:
             obj_cleaned = input
-        
+                
         ytrace = np.cast[np.float64](self.im['YTRACE'].data)+dy
         trace_pix = np.cast[int](np.round(ytrace))
         #trace_spec = self.grism_sci[trace_pix,:]
         trace_spec = ytrace*0.
+        
+        #### Extract model in same way
+        obj_model = self.im['MODEL'].data*1.
+        obj_model[obj_cleaned == 0] = 0.
+        trace_model = trace_spec*0.
+        
         if width == 0:
             trace_lo = trace_pix
             trace_hi = trace_pix+1
@@ -1488,9 +1532,21 @@ class Interlace2D():
         for i in range(len(ytrace)):
             #trace_spec[i] = obj_cleaned[trace_pix[i],i]
             trace_spec[i] = np.sum(obj_cleaned[trace_lo[i]:trace_hi[i],i])
+                    
+        if get_apcorr:
+            #### Extract model in same way to get aperture correction
+            obj_model = self.im['MODEL'].data*1.
+            obj_model[obj_cleaned == 0] = 0.
+            trace_model = trace_spec*0.
+            for i in range(len(ytrace)):
+                trace_model[i] = np.sum(obj_model[trace_lo[i]:trace_hi[i],i])
         
-        return self.im['WAVE'].data, trace_spec
+            apcorr = obj_model.sum(axis=0) / trace_model
+            return self.im['WAVE'].data, trace_spec, apcorr
         
+        else:
+            return self.im['WAVE'].data, trace_spec
+            
     def oned_spectrum(self, verbose=True):
         """
         1D extraction after generating the 2D spectra.
@@ -1688,7 +1744,7 @@ class GrismModel():
         Initialize: set padding, growth factor, read input files.
         """
         self.root=root
-        self.baseroot = os.path.join(output_path, os.path.basename(root))
+        self.baseroot = os.path.join(output_path, os.path.basename(root)) + '-' + grism
         self.grow_factor = grow_factor
         self.growx = growx
         self.growy = growy
@@ -1707,9 +1763,9 @@ class GrismModel():
         self.REF_INTER = False
         
         #### If a "reference" interlaced image exists, use that
-        if os.path.exists(self.root+'_ref_inter.fits'):
+        if os.path.exists(self.root+'-%s_ref_inter.fits' %(grism)):
             self.REF_INTER = True
-            self.im = pyfits.open(self.root+'_ref_inter.fits')
+            self.im = pyfits.open(self.root+'-%s_ref_inter.fits' %(grism))
             #self.pad += 4*self.im[1].header['NGROW']
             self.filter = self.im[0].header['FILTER']
         else:
@@ -1751,7 +1807,7 @@ class GrismModel():
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         
-        if not os.path.exists(self.root+'_inter_seg.fits'):
+        if not os.path.exists(self.root+'-%s_inter_seg.fits' %(grism)):
             threedhst.showMessage('Running SExtractor...')
             self.find_objects(MAG_LIMIT=MAG_LIMIT)
                 
@@ -1782,7 +1838,7 @@ class GrismModel():
         Read FITS files, catalogs, and segmentation images for a pair of 
         interlaced exposures.
         """        
-        self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
+        self.cat = threedhst.sex.mySexCat('%s-%s_inter.cat' %(self.root, self.grism_element))
         
         #self.trim_edge_objects(verbose=True)
         
@@ -1795,7 +1851,7 @@ class GrismModel():
             
         self.cat.mag = np.cast[float](self.cat.MAG_AUTO)
         
-        self.segm = pyfits.open(self.root+'_inter_seg.fits')
+        self.segm = pyfits.open('%s-%s_inter_seg.fits' %(self.root, self.grism_element))
         self.segm[0].data[self.segm[0].data < 0] = 0
         self.segm[0].data[~np.isfinite(self.segm[0].data)] = 0
         self.segm[0].data = np.array(self.segm[0].data, dtype=np.uint)
@@ -1825,8 +1881,8 @@ class GrismModel():
         ## XXX add test for user-defined .conv file
         se.copyConvFile()
         se.overwrite = True
-        se.options['CATALOG_NAME']    = self.root+'_inter.cat'
-        se.options['CHECKIMAGE_NAME'] = self.root+'_inter_seg.fits'
+        se.options['CATALOG_NAME']    = '%s-%s_inter.cat' %(self.root, self.grism_element)
+        se.options['CHECKIMAGE_NAME'] = '%s-%s_inter_seg.fits' %(self.root, self.grism_element)
         se.options['CHECKIMAGE_TYPE'] = 'SEGMENTATION'
         se.options['WEIGHT_TYPE']     = 'MAP_WEIGHT'
         se.options['WEIGHT_IMAGE']    = '%s-%s_inter.fits[1]' %(self.root, self.direct_element)
@@ -1839,7 +1895,7 @@ class GrismModel():
         
         #### Run SExtractor
         status = se.sextractImage('%s-%s_inter.fits[0]' %(self.root, self.direct_element))
-        self.cat = threedhst.sex.mySexCat(self.root+'_inter.cat')
+        self.cat = threedhst.sex.mySexCat('%s-%s_inter.cat' %(self.root, self.grism_element))
         
         #### Trim faint sources
         mag = np.cast[float](self.cat.MAG_AUTO)
@@ -1854,7 +1910,7 @@ class GrismModel():
         
         #self.segm = pyfits.open(self.root+'_seg.fits')
         
-        threedhst.sex.sexcatRegions(self.root+'_inter.cat', self.root+'_inter.reg', format=1)
+        threedhst.sex.sexcatRegions('%s-%s_inter.cat' %(self.root, self.grism_element), '%s-%s_inter.reg' %(self.root, self.grism_element), format=1)
         
         # try:
         #     self.make_total_flux()
@@ -1894,12 +1950,12 @@ class GrismModel():
         from iraf import dither
         import threedhst.catIO as catIO
         
-        if os.path.exists('%s_inter.cat.wcsfix' %(self.root)):
-            wcs = catIO.Readfile('%s_inter.cat.wcsfix' %(self.root))
+        if os.path.exists('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)):
+            wcs = catIO.Readfile('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element))
             test = wcs.id == self.cat.id
             if np.sum(test) == len(self.cat.id):
                 if verbose:
-                    print 'Get corrected coordinates from %s_inter.cat.wcsfix' %(self.root)
+                    print 'Get corrected coordinates from %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
                 self.ra_wcs = wcs.ra
                 self.dec_wcs = wcs.dec
                 return True
@@ -1908,7 +1964,7 @@ class GrismModel():
             self.ra_wcs, self.dec_wcs = self.cat.ra*1., self.cat.dec*1.       
             
             #### Write the wcsfix file
-            fp = open('%s_inter.cat.wcsfix' %(self.root),'w')
+            fp = open('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element),'w')
             fp.write('# id    mag   ra    dec\n')
             for i in range(self.cat.id.shape[0]):
                 fp.write('%5d  %.3f  %.6f  %.6f\n' %(self.cat.id[i], self.cat.mag[i], self.ra_wcs[i], self.dec_wcs[i]))
@@ -1916,7 +1972,7 @@ class GrismModel():
             fp.close()
 
             if verbose:
-                print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.root)
+                print 'Corrected coordinates: %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
 
             return True
         
@@ -1969,7 +2025,7 @@ class GrismModel():
                 self.ra_wcs[i], self.dec_wcs[i] = np.double(iraf.xy2rd.ra), np.double(iraf.xy2rd.dec)
             
         #### Write the wcsfix file
-        fp = open('%s_inter.cat.wcsfix' %(self.root),'w')
+        fp = open('%s-%s_inter.cat.wcsfix' %(self.root, self.grism_element),'w')
         fp.write('# id    mag   ra    dec\n')
         for i in range(self.cat.id.shape[0]):
             fp.write('%5d  %.3f  %.6f  %.6f\n' %(self.cat.id[i], self.cat.mag[i], self.ra_wcs[i], self.dec_wcs[i]))
@@ -1977,7 +2033,7 @@ class GrismModel():
         fp.close()
         
         if verbose:
-            print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.root)
+            print 'Corrected coordinates: %s-%s_inter.cat.wcsfix' %(self.root, self.grism_element)
             
         return True
         
@@ -2158,7 +2214,8 @@ class GrismModel():
         use = (xxi >= 0) & (xxi < self.sh[1])
         ### First order only
         #use = use & (xord > 10*self.grow_factor) & (xord < 213*self.grow_factor) 
-        use_order = use &  (bord == 1)
+        use_order = use & (bord == 1)
+        #use_order = use & (bord & 1)
         cut = np.zeros(self.sh[1])
         cut[xxi[use_order]] = word[use_order] 
         self.object_wave = cut.copy() #np.dot(np.ones((self.sh[0],1)), cut.reshape(1,self.sh[1]))
@@ -2197,6 +2254,10 @@ class GrismModel():
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
             print 'Refine, first_model  (%.3f)' %(dt)
+        
+        #### Need to recompute with only the 
+        if self.grism_element == 'G800L':
+            self.compute_object_model(id=id, BEAMS=['A'], lam_spec=self.lam_spec, flux_spec = self.flux_specs[id], verbose=verbose, normalize=False)
             
         # whts = self.object**4
         # finite_mask = np.isfinite(self.model) & (self.gris[2].data != 0)
@@ -2228,9 +2289,11 @@ class GrismModel():
         
         if self.grism_element == 'G141':
             keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
-        else:
+        elif self.grism_element == 'G102':
             keep = (wave > 0.78e4) & (wave < 1.14e4) & (ratio_extract != 0)
-        
+        else:
+            keep = (wave > 0.55e4) & (wave < 1.14e4) & (ratio_extract != 0)
+           
         #print len(wave), len(wave[wave > 0]), wave.max(), wave[2064], len(ratio_extract)
         
         if keep.sum() < 10:
@@ -3290,7 +3353,7 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141'):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -3483,7 +3546,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     if 'EXTEND' not in hdu.header.keys():
         hdu.header.update('EXTEND', True, after='NAXIS')
     
-    image.writeto(pointing+'_ref_inter.fits', clobber=True, output_verify="fix")
+    image.writeto(pointing+'-%s_ref_inter.fits' %(grism), clobber=True, output_verify="fix")
     
     #### Write interlaced segmentation image
     ## First clean up regions between adjacent objects that get weird segmentation values
@@ -3505,7 +3568,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_seg[~np.isfinite(inter_seg)] = 0
         
     hdu = pyfits.PrimaryHDU(header=header, data=np.cast[np.int32](inter_seg))
-    hdu.writeto(pointing+'_inter_seg.fits', clobber=True)
+    hdu.writeto(pointing+'-%s_inter_seg.fits' %(grism), clobber=True)
     
     #### For use with astrodrizzle images
     if stop_early:
@@ -3516,8 +3579,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         
     #### xxx not necessary now when using "nearest" with blot!!!
     #### Clean up overlap region of segmentation 
-    unicorn.reduce.fill_inter_zero(pointing+'_inter_seg.fits')
-    im = pyfits.open(pointing+'_inter_seg.fits') #, mode='update')
+    unicorn.reduce.fill_inter_zero(pointing+'-%s_inter_seg.fits' %(grism))
+    im = pyfits.open(pointing+'-%s_inter_seg.fits' %(grism)) #, mode='update')
     inter_seg = im[0].data
     
     #s = np.ones((3,3))
@@ -3640,7 +3703,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     delta_x, delta_y = 0, 0
     
     flt_x, flt_y, popID = [], [], []
-    fpr = open("%s_inter.reg" %(pointing),'w')
+    fpr = open("%s-%s_inter.reg" %(pointing, grism),'w')
     fpr.write("global color=green dashlist=8 3 width=1 font=\"helvetica 8 normal roman\" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\nimage\n")
     for i,line in enumerate(status[-NOBJ:]):
         #print line
@@ -3662,12 +3725,12 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     fpr.close()
     
     if verbose:
-        print 'Make the catalog file: %s' %(pointing+'_inter.cat')
+        print 'Make the catalog file: %s' %(pointing+'-%s_inter.cat' %(grism))
         
     ### Put the x,y coordinates in the FLT frame into the SExtractor catalog
     status = old_cat.addColumn(np.array(flt_x), name='X_FLT', comment='X pixel in FLT frame', verbose=True)
     status = old_cat.addColumn(np.array(flt_y), name='Y_FLT', comment='Y pixel in FLT frame', verbose=True)
-    old_cat.write(outfile=pointing+'_inter.cat')
+    old_cat.write(outfile=pointing+'-%s_inter.cat' %(grism))
         
 def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', Force=False, sci_extension=0):
     """
@@ -3706,7 +3769,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 
@@ -3742,6 +3805,7 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
     seg_wcs = stwcs.wcsutil.HSTWCS(seg, ext=0)
     
     if ACS:
+        grism = 'G800L'
         fl_ext = 'flc'
         sci_ext = [4,1]
     else:
@@ -3789,6 +3853,10 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
             #print 'Segmentation image: %s_seg.fits' %(exp)
             blotted_seg = astrodrizzle.ablot.do_blot(seg_data, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
             blotted_ones = astrodrizzle.ablot.do_blot(seg_ones, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
+            #### debug
+            #pyfits.writeto('chip%d_seg.fits' %(ext), data=blotted_seg, clobber=True)
+            #pyfits.writeto('chip%d_ones.fits' %(ext), data=blotted_ones, clobber=True)
+            #
             blotted_ones[blotted_ones == 0] = 1
             ratio = np.round(blotted_seg/blotted_ones)
             grow = nd.maximum_filter(ratio, size=3, mode='constant', cval=0)
@@ -3841,12 +3909,12 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
         
     else:
         roots = [pointing_root]
-        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, REF_ROOT='COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=NGROW, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp)
+        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, REF_ROOT='COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=NGROW, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism)
         
     for i, pointing_root in enumerate(roots):
-        threedhst.showMessage('Make catalog: %s_inter.cat' %(pointing_root))
+        threedhst.showMessage('Make catalog: %s-%s_inter.cat' %(pointing_root, grism))
         #### Create blotted catalog of objects within blotted segm. image
-        seg_inter = pyfits.open('%s_inter_seg.fits' %(pointing_root))
+        seg_inter = pyfits.open('%s-%s_inter_seg.fits' %(pointing_root, grism))
         objects = np.unique(seg_inter[0].data)[1:]
     
         cat = table.read(cat_file, format='ascii.sextractor')
@@ -3857,12 +3925,12 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
                 keep[j] = True
         #
         sub_cat = cat[keep]
-        np.savetxt('%s_radec.dat' %(pointing_root), np.array([sub_cat['X_WORLD'], sub_cat['Y_WORLD']]).T, fmt='%.7f')
+        np.savetxt('%s-%s_radec.dat' %(pointing_root, grism), np.array([sub_cat['X_WORLD'], sub_cat['Y_WORLD']]).T, fmt='%.7f')
      
         threedhst.showMessage('%s: %d objects from blotted catalog:\n  %s.' %(pointing_root, keep.sum(), cat_file))
     
         ### here's the line to translate the x,y coords
-        x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy('%s_%s.fits[%d]' %(ref_flt_exp, fl_ext, sci_ext[i]), coordfile='%s_radec.dat' %(pointing_root), verbose=False)
+        x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy('%s_%s.fits[%d]' %(ref_flt_exp, fl_ext, sci_ext[i]), coordfile='%s-%s_radec.dat' %(pointing_root, grism), verbose=False)
         x_flt = (x_flt0+dxs[ref_exp]+NGROW)*growx+pad/2#-1 
         y_flt = (y_flt0+dys[ref_exp]+NGROW)*growy+pad/2#-1 
     
@@ -3876,7 +3944,7 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
         y_flt_column = table.Column(data=y_flt, name='Y_FLT', description='Interlaced pixel coordinate, y', unit=u.Unit('pix'))
         sub_cat.add_column(x_flt_column)
         sub_cat.add_column(y_flt_column)
-        sub_cat.write('%s_inter.cat' %(pointing_root), format='ascii.commented_header')
+        sub_cat.write('%s-%s_inter.cat' %(pointing_root, grism), format='ascii.commented_header')
     
         cols = sub_cat.colnames
         cat_header = []
@@ -3888,8 +3956,8 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
             # #
             cat_header.append(line+'\n')
     
-        lines = open('%s_inter.cat' %(pointing_root)).readlines()
-        fp = open('%s_inter.cat' %(pointing_root), 'w')
+        lines = open('%s-%s_inter.cat' %(pointing_root, grism)).readlines()
+        fp = open('%s-%s_inter.cat' %(pointing_root, grism), 'w')
         fp.writelines(cat_header)
         fp.writelines(lines[1:])
         fp.close()
@@ -3897,23 +3965,23 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
         #### Make region file
         lines = ['global color=green dashlist=8 3 width=1 font="helvetica 8 normal roman" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1\n', 'image\n']
         lines.extend(['circle(%.2f, %.2f, 5.0) # text={%d}\n' %(x_flt[j], y_flt[j], sub_cat['NUMBER'][j]) for j in range(keep.sum())])
-        fp = open('%s_inter.reg' %(pointing_root),'w')
+        fp = open('%s-%s_inter.reg' %(pointing_root, grism),'w')
         fp.writelines(lines)
         fp.close()
     
     if not ACS:
         #### Diagnostic plot
         threedhst.showMessage('Make centering diagnostic plot: %s_XY_FLT.png\n\nunicorn.reduce.adjust_catalog_for_FLT(pointing=\'%s\', MAG_LIM=23.5, ref=True)' %(pointing_root, pointing_root))
-        unicorn.reduce.adjust_catalog_for_FLT(pointing=pointing_root, MAG_LIM=23.5, ref=True)
+        unicorn.reduce.adjust_catalog_for_FLT(pointing=pointing_root, MAG_LIM=23.5, ref=True, grism=grism)
             
-def adjust_catalog_for_FLT(pointing='aegis-15', MAG_LIM=25, THUMB_SIZE=16, ref=True, filter='F140W'):
+def adjust_catalog_for_FLT(pointing='aegis-15', MAG_LIM=25, THUMB_SIZE=16, ref=True, filter='F140W', grism='G141'):
     """
     Check for residuals in the blotted catalog
     """ 
     from astropy.table import Table as table
-    cat = table.read('%s_inter.cat' %(pointing), format='ascii.sextractor')
+    cat = table.read('%s-%s_inter.cat' %(pointing, grism), format='ascii.sextractor')
     if ref:
-        im_ref = pyfits.open('%s_ref_inter.fits' %(pointing))
+        im_ref = pyfits.open('%s-%s_ref_inter.fits' %(pointing, grism))
         ext='ref'
         qscl = 1./400
     else:
@@ -3921,7 +3989,7 @@ def adjust_catalog_for_FLT(pointing='aegis-15', MAG_LIM=25, THUMB_SIZE=16, ref=T
         ext=filter
         qscl = 1./400
         
-    im_seg = pyfits.open('%s_inter_seg.fits' %(pointing))
+    im_seg = pyfits.open('%s-%s_inter_seg.fits' %(pointing, grism))
     #im = pyfits.open('aegis-15-F140W_inter.fits')
     
     ok = (cat['MAG_AUTO'] < MAG_LIM) & (cat['X_FLT'] > 2*THUMB_SIZE) & (cat['X_FLT'] < (im_ref[1].header['NAXIS1']-2*THUMB_SIZE)) & (cat['Y_FLT'] > 2*THUMB_SIZE) & (cat['Y_FLT'] < (im_ref[1].header['NAXIS1']-2*THUMB_SIZE))

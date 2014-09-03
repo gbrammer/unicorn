@@ -3139,7 +3139,10 @@ class GrismModel():
         for i in range(self.growx):
             for j in range(self.growy):
                 mm_ij = mm[j::self.growy,i::self.growx]
-                flux_bgs[i,j] = np.median(self.gris[1].data[j::self.growy,i::self.growx][mm_ij])
+                if mm_ij.sum() < 1000:
+                    flux_bgs[i,j] = 0.
+                else:
+                    flux_bgs[i,j] = np.median(self.gris[1].data[j::self.growy,i::self.growx][mm_ij])
                 #### Store array with new background subtracted
                 resid2[j::self.growy,i::self.growx] -= flux_bgs[i,j]
         
@@ -3477,7 +3480,6 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         #xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         dxs = xinter #+ np.int(np.round(xsh[0]))*0
         dys = yinter #+ np.int(np.round(ysh[0]))*0
-        print 'Auto offsets: ', dxs, dys
         
         ## Check
         if False:
@@ -3498,6 +3500,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
 
     dxs -= dxs[ref_exp]
     dys -= dys[ref_exp]
+
+    print 'Interlace offsets: ', dxs, dys
     
     #### Find hot pixels, which are flagged as cosmic 
     #### rays at the same location in each of the flt files.  Ignore others.

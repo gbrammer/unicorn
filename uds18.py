@@ -91,7 +91,7 @@ def mcmc_fit():
     
     import unicorn.uds18 as uds18
     
-    z_lens = 1.625
+    z_lens = 1.641
     z_arc = 2.263
     
     twod_model = unicorn.reduce.Interlace2D('model_31684.2D.fits')
@@ -136,14 +136,14 @@ def mcmc_fit():
     data['getModel'] = True
     
     ### init = [lens_a0, lens_beta, z_lens, contam_a0, contam_beta, point_a0, point_beta, bcg_a0, bcg_beta, bcg_yshift, z_arc, arc_lo, arc_hi]
-    init = np.array([0, 0, 1.634, 0, 0, 0, 0, 0, 0, 0, 2.263, 0.223, 0.223])
-    init = np.array([-0.1, -0.03, 1.634, 0.01, 0, 1, 0, 0.25, 0.2, 0.6, 2.261, 0.223, 0.7])
+    #init = np.array([0, 0, 1.634, 0, 0, 0, 0, 0, 0, 0, 2.263, 0.223, 0.223])
+    init = np.array([-0.1, -0.03, 1.6406, 0.01, 0, 1, 0, 0.25, 0.2, 0.6, 2.261, 0.223, 0.7])
     
     ## test
     model_init = uds18._objective_full_fit(init, data)
     
     NWALKERS, NSTEP = 100, 300
-    step_sigma = np.array([0.2, 0.1, 0.05, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.5, 0.02, 0.3, 0.3])
+    step_sigma = np.array([0.2, 0.1, 0.005, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.5, 0.02, 0.3, 0.3])
     ndim = len(init)
     
     p0 = [init + np.random.normal(size=ndim)*step_sigma for i in range(NWALKERS)]
@@ -202,6 +202,8 @@ def mcmc_fit():
     ds9.view(data['spec2d']-model_clean)
     ds9.frame(4)
     ds9.view(model_line)
+    ds9.frame(5)
+    ds9.view(data['spec2d']-model_clean-model_line)
     
     
 def _objective_full_fit(params, data):
@@ -280,20 +282,20 @@ def _objective_full_fit(params, data):
     lnprob = -0.5*(chi2) #+0.5*data['N']
     
     ### apply priors
-    prior_z_arc = scipy.stats.norm.logpdf(z_arc, loc=2.261, scale=0.02)
-    prior_z_lens = scipy.stats.norm.logpdf(z_lens, loc=1.634, scale=0.1)
+    prior_z_arc = scipy.stats.norm.pdf(z_arc, loc=2.261, scale=0.02)
+    prior_z_lens = scipy.stats.norm.pdf(z_lens, loc=1.6406, scale=0.1)
 
-    prior_lens_a0 = scipy.stats.norm.logpdf(lens_a0, loc=0, scale=2)
-    prior_lens_beta = scipy.stats.norm.logpdf(lens_beta, loc=0, scale=2)
+    prior_lens_a0 = scipy.stats.norm.pdf(lens_a0, loc=0, scale=2)
+    prior_lens_beta = scipy.stats.norm.pdf(lens_beta, loc=0, scale=2)
 
-    prior_contam_a0 = scipy.stats.norm.logpdf(contam_a0, loc=0, scale=2)
-    prior_contam_beta = scipy.stats.norm.logpdf(contam_beta, loc=0, scale=2)
+    prior_contam_a0 = scipy.stats.norm.pdf(contam_a0, loc=0, scale=2)
+    prior_contam_beta = scipy.stats.norm.pdf(contam_beta, loc=0, scale=2)
 
-    prior_bcg_a0 = scipy.stats.norm.logpdf(bcg_a0, loc=0, scale=2)
-    prior_bcg_beta = scipy.stats.norm.logpdf(bcg_beta, loc=0, scale=2)
-    prior_bcg_yshift = scipy.stats.norm.logpdf(bcg_yshift, loc=0.4, scale=1)
+    prior_bcg_a0 = scipy.stats.norm.pdf(bcg_a0, loc=0, scale=2)
+    prior_bcg_beta = scipy.stats.norm.pdf(bcg_beta, loc=0, scale=2)
+    prior_bcg_yshift = scipy.stats.norm.pdf(bcg_yshift, loc=0.4, scale=1)
 
-    prior_arc_lo = scipy.stats.norm.logpdf(np.log(arc_lo/arc_hi), loc=-0.3, scale=0.5)
+    prior_arc_lo = scipy.stats.norm.pdf(np.log(arc_lo/arc_hi), loc=-0.3, scale=0.5)
         
     lnprob += prior_z_arc + prior_z_lens + prior_lens_a0 + prior_lens_beta + prior_contam_a0 + prior_contam_beta + prior_bcg_a0 + prior_bcg_beta + prior_bcg_yshift + prior_arc_lo
     

@@ -673,49 +673,32 @@ def COSMOS_mosaic():
     
 def GOODSS(FORCE=False):
     import unicorn
-    from threedhst.prep_flt_files import process_3dhst_pair as pair
-    import threedhst.prep_flt_files
+    from threedhst.prep_flt_astrodrizzle import prep_direct_grism_pair as pair
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1.3')
+    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1.4')
         
     ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits'
+    CATALOG = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR_radec.cat'
     
     #### Main preparation loop
     ### The following direct images have satellite tracks, make sure you have masks:
     ### ibhj04gbq_flt.fits, ibhj07yzq_flt.fits, ibhj28i0q_flt.fits, ibhj29naq_flt.fits
-    direct=glob.glob('*30_asn.fits')
-    grism = glob.glob('*40_asn.fits')
+    
+    unicorn.candels.make_asn_files(uniquename=False)
+    
+    direct=glob.glob('goodss-*-F140W_asn.fits')
+    grism = glob.glob('goodss-*-G141_asn.fits')
+    
     
     loop_list = range(len(direct))
     FORCE=True
     for i in loop_list:
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
+            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=None, skip_direct=False, ACS=False)
             
-    # test
-    threedhst.gmap.makeImageMap(['GOODS-S-31-F140W_drz.fits','GOODS-S-31-F140W_align.fits[0]*4', 'GOODS-S-31-G141_drz.fits'], aper_list=[15,16], polyregions=glob.glob('GOODS-S-*-F140W_asn.pointing.reg'))
-    
-    visits=[30]
-    for visit in visits:
-        threedhst.dq.checkDQ(asn_direct_file='GOODS-S-%02d-F140W_asn.fits' %(visit), asn_grism_file='GOODS-S-%02d-G141_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
-        os.system('rm GOODS-S-%02d*asn.fits' %(visit))
-        
-    #### Make direct image for each pointing that also include 
-    #### neighboring pointings
-    files = glob.glob('GOODS-S-*-F140W_asn.fits')
-    for file in files:
-        pointing = file.split('_asn.fits')[0]
-        threedhst.prep_flt_files.startMultidrizzle(file, 
-                use_shiftfile=True, skysub=False,
-                final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                updatewcs=False, median=False, clean=True)
-        #
-        threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='GOODS-S-*-F140W',
-                                    pointing=pointing,
-                                    run_multidrizzle=True, grow=200)
 
 def GOODSS_mosaic():
     import threedhst.prep_flt_files

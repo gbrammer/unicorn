@@ -36,6 +36,8 @@ import time
 
 try:
     import astropy.io.fits as pyfits
+    if not hasattr(pyfits, '__version__'):
+        pyfits.__version__ = 'astropy'
 except:
     import pyfits
 
@@ -106,9 +108,12 @@ BWs = {'F105W': 2700.6102248267212,
  'F160W': 2682.9565027757253}
 
 try:
-    import pywcs
+    import astropy.wcs as pywcs
 except:
-    print 'No pywcs found.'
+    try:
+        import pywcs
+    except:
+        print 'No pywcs/stwcs found.'
     
 def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use_config_file=None):
     import unicorn.reduce as red
@@ -1344,6 +1349,7 @@ class Interlace2D():
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
         
         self.init_model()
+        #self.model_quality(width=5)
         
     def init_model(self, lam_spec=None, flux_spec=None):
         """
@@ -1504,7 +1510,7 @@ class Interlace2D():
         optimal_sum = num / denom
         return self.im['WAVE'].data, optimal_sum
     
-    def trace_extract(self, input=None, dy=0, width=0, get_apcorr=False):
+    def trace_extract(self, input=None, dy=0, width=0, get_apcorr=False, get_mask=False):
         """
         Extract pixel values along the trace
         
@@ -1534,19 +1540,27 @@ class Interlace2D():
         else:
             trace_lo = trace_pix-width
             trace_hi = trace_pix+width
-            
+        
+        trace2D = obj_cleaned*0
         for i in range(len(ytrace)):
+            trace2D[trace_lo[i]:trace_hi[i],i] = 1
             #trace_spec[i] = obj_cleaned[trace_pix[i],i]
-            trace_spec[i] = np.sum(obj_cleaned[trace_lo[i]:trace_hi[i],i])
+            #trace_spec[i] = np.sum(obj_cleaned[trace_lo[i]:trace_hi[i],i])
+        
+        if get_mask:
+            return trace2D
+            
+        trace_spec = np.sum(obj_cleaned*trace2D, axis=0)
+        
                     
         if get_apcorr:
             #### Extract model in same way to get aperture correction
             obj_model = self.im['MODEL'].data*1.
             obj_model[obj_cleaned == 0] = 0.
-            trace_model = trace_spec*0.
-            for i in range(len(ytrace)):
-                trace_model[i] = np.sum(obj_model[trace_lo[i]:trace_hi[i],i])
-        
+            # trace_model = trace_spec*0.
+            # for i in range(len(ytrace)):
+            #     trace_model[i] = np.sum(obj_model[trace_lo[i]:trace_hi[i],i])
+            trace_model = np.sum(obj_model*trace2D, axis=0)
             apcorr = obj_model.sum(axis=0) / trace_model
             return self.im['WAVE'].data, trace_spec, apcorr
         
@@ -1684,6 +1698,26 @@ class Interlace2D():
             t1 = time.time(); dt = t1-t0; t0=t1
             print '1D spectrum (%.3f)' %(dt)
     
+    def model_quality(self, dy=0, width=5):
+        """
+        Check distribution of flux - model - contam pixels to identify 
+        bad contamination
+        """
+        yi, xi = np.indices(self.im['DSCI'].data.shape)
+        xpix = xi[self.im['DSEG'].data == self.id]
+        #width = (xpix.max()-xpix.min())/3
+        
+        ivar = 1./self.im['WHT'].data**2
+        ivar[self.im['WHT'].data == 0] = 0
+        
+        trace_mask = (self.trace_extract(input=self.im['SCI'].data, dy=dy, width=width, get_apcorr=False, get_mask=True) > 0) & (self.im['SCI'].data != 0) & (self.im['WHT'].data != 0)
+        if trace_mask.sum() < 10:
+            self.resid_stats = np.ones(5)*99
+        else:
+            cleaned = self.im['SCI'].data - self.im['MODEL'].data - self.im['CONTAM'].data
+            resid_sigma = cleaned / self.im['WHT'].data
+            self.resid_stats = np.percentile(resid_sigma[trace_mask], [2.5,16,50,84,97.5])
+          
     def thumb_image(self):
         ok = self.im['DSEG'].data == self.id
         max = self.im['DSCI'].data[ok].max()
@@ -1773,9 +1807,9 @@ class GrismModel():
         self.REF_INTER = False
         
         #### If a "reference" interlaced image exists, use that
-        if os.path.exists(self.root+'-%s_ref_inter.fits' %(grism)):
+        if os.path.exists(self.baseroot+'_ref_inter.fits'):
             self.REF_INTER = True
-            self.im = pyfits.open(self.root+'-%s_ref_inter.fits' %(grism))
+            self.im = pyfits.open(self.baseroot+'_ref_inter.fits')
             #self.pad += 4*self.im[1].header['NGROW']
             self.filter = self.im[0].header['FILTER']
         else:
@@ -1817,7 +1851,7 @@ class GrismModel():
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
         
-        if not os.path.exists(self.root+'-%s_inter_seg.fits' %(grism)):
+        if not os.path.exists(self.baseroot+'_inter_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
             self.find_objects(MAG_LIMIT=MAG_LIMIT)
                 
@@ -2574,6 +2608,15 @@ class GrismModel():
         
         seg = np.cast[int](self.segm[0].data)
         
+        #### Check that center within the image
+        if (xc < 0) | (xc > self.sh[1]):
+            threedhst.showMessage('Object %d at (%d, %d) is off the image (%d,%d)' %(id, xc, yc, self.sh[1], self.sh[0]), warn=True)
+            return False
+        
+        if seg[yc,xc] != id:
+            threedhst.showMessage('Segmentation image at (%d, %d) not equal to object %d.' %(xc, yc, id), warn=True)
+            return False
+        
         # seg_mask = seg == id
         # ypix, xpix = self.yf, self.xf
         # 
@@ -2600,6 +2643,12 @@ class GrismModel():
             NT = np.min([NT, maxy])
         
         #print '!!! NT: %d' %(NT)
+        
+        #### Check that desired thumbnail actually within the image
+        #print 'XXX', xc, NT, self.sh
+        if ((xc-NT/2) < (0)) | ((xc+NT/2) > (self.sh[1])):
+            threedhst.showMessage('Object %d (%d,%d) outside of image area (%d, %d) for desired thumbnail size (%d).' %(id, xc, yc, self.sh[1], self.sh[0], NT), warn=True)
+            return False
         
         if verbose:
             print 'Generating direct image extensions'
@@ -3139,6 +3188,7 @@ class GrismModel():
         for i in range(self.growx):
             for j in range(self.growy):
                 mm_ij = mm[j::self.growy,i::self.growx]
+                #### Not enough pixels for this interlace position
                 if mm_ij.sum() < 1000:
                     flux_bgs[i,j] = 0.
                 else:
@@ -3391,7 +3441,7 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141'):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -3607,7 +3657,14 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     inter_seg[~np.isfinite(inter_seg)] = 0
         
     hdu = pyfits.PrimaryHDU(header=header, data=np.cast[np.int32](inter_seg))
-    hdu.writeto(pointing+'-%s_inter_seg.fits' %(grism), clobber=True)
+    if old_filenames:
+        seg_file = pointing + '_inter_seg.fits'
+        cat_file = pointing + '_inter.cat'
+    else:
+        seg_file = pointing+'-%s_inter_seg.fits' %(grism)
+        cat_file = pointing+'-%s_inter.cat' %(grism)
+        
+    hdu.writeto(seg_file, clobber=True)
     
     #### For use with astrodrizzle images
     if stop_early:
@@ -3618,8 +3675,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         
     #### xxx not necessary now when using "nearest" with blot!!!
     #### Clean up overlap region of segmentation 
-    unicorn.reduce.fill_inter_zero(pointing+'-%s_inter_seg.fits' %(grism))
-    im = pyfits.open(pointing+'-%s_inter_seg.fits' %(grism)) #, mode='update')
+    unicorn.reduce.fill_inter_zero(seg_file)
+    im = pyfits.open(seg_file) #, mode='update')
     inter_seg = im[0].data
     
     #s = np.ones((3,3))
@@ -3702,6 +3759,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     this_drz_head = pyfits.getheader(root+'_drz.fits', 1)
     # wcs_this = wcsutil.WCSObject('dummy', header=this_drz_head)
+    print root, pywcs.__file__
     wcs_this = pywcs.WCS(header=this_drz_head)
     
     fp = open("/tmp/%s.drz_xy" %(root),'w')
@@ -3712,7 +3770,11 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     NOBJ = len(old_cat.id)
     for i in range(NOBJ):
         #xw, yw = wcs_this.rd2xy((old_cat.ra[i], old_cat.dec[i]))
-        xw, yw = wcs_this.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
+        try:
+            xw, yw = wcs_this.wcs_world2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
+        except:
+            xw, yw = wcs_this.wcs_sky2pix([[old_cat.ra[i], old_cat.dec[i]]],1)[0]
+            
         fp.write('%.2f %.2f\n' %(np.clip(xw, -1000, 4999), np.clip(yw, -1000, 4999)))
         fpr.write('circle(%.2f,%.2f,1")\n' %(np.clip(xw, -1000, 4999), np.clip(yw, -1000, 4999)))
         fpr2.write('circle(%.6f,%.6f,1") # color=magenta\n' %(old_cat.ra[i], old_cat.dec[i]))
@@ -3764,12 +3826,12 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     fpr.close()
     
     if verbose:
-        print 'Make the catalog file: %s' %(pointing+'-%s_inter.cat' %(grism))
+        print 'Make the catalog file: %s' %(cat_file)
         
     ### Put the x,y coordinates in the FLT frame into the SExtractor catalog
     status = old_cat.addColumn(np.array(flt_x), name='X_FLT', comment='X pixel in FLT frame', verbose=True)
     status = old_cat.addColumn(np.array(flt_y), name='Y_FLT', comment='Y pixel in FLT frame', verbose=True)
-    old_cat.write(outfile=pointing+'-%s_inter.cat' %(grism))
+    old_cat.write(outfile=cat_file)
         
 def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 'UCSC/cosmos_sect11_wfc3ir_F160W_wfc3ir_drz_sci.fits', SEGM = 'UCSC/checkimages/COSMOS_F160W_v1.seg.fits', Force=False, sci_extension=0):
     """
@@ -4133,8 +4195,11 @@ def blot_from_reference(REF_ROOT = 'COSMOS_F160W', DRZ_ROOT = 'COSMOS-19-F140W',
         # ra0, dec0 = ref_wcs.xy2rd((im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.))
         
         ref_wcs = pywcs.WCS(header=im_ref[0].header)
-        ra0, dec0 = ref_wcs.wcs_pix2sky([[im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.]],1)[0]
-                
+        try:
+            ra0, dec0 = ref_wcs.wcs_pix2world([[im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.]],1)[0]
+        except:
+            ra0, dec0 = ref_wcs.wcs_pix2sky([[im_ref[0].header['NAXIS1']/2., im_ref[0].header['NAXIS2']/2.]],1)[0]
+            
         threedhst.prep_flt_files.startMultidrizzle(DRZ_ROOT+'_asn.fits', use_shiftfile=True, skysub=False, final_scale=ref_pixscale, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False, ra=ra0, dec=dec0, final_outnx=im_ref[0].header['NAXIS1'], final_outny=im_ref[0].header['NAXIS2'], final_rot=-np.arctan(im_ref[0].header['CD1_2']/im_ref[0].header['CD1_1'])/2/np.pi*360, generate_run=True)
         
     if verbose:

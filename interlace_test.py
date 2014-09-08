@@ -1289,17 +1289,17 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
 
         """
         
-        conf = self.get_redshift_confidence()
+        self.get_redshift_stats()
         
         fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.dat','w')
         fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l96 l68 u68 u95\n')
         
         if self.skip_photometric:
             fp.write('#  Phot: None\n')
-            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, -1, -1, -1, -1, self.z_max_spec, self.z_peak_spec, conf[0], conf[1], conf[2], conf[3])
+            file_string = '%s %d  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, -1, -1, -1, -1, self.z_max_spec, self.z_peak_spec, self.c95[0], self.c68[0], self.c68[1], self.c95[1])
         else:
             fp.write('#  Phot: %s\n' %(self.cat.filename))
-            file_string = '%s %s  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], self.z_max_spec, self.z_peak_spec, conf[0], conf[1], conf[2], conf[3])
+            file_string = '%s %s  %.3f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f  %.5f\n' %(self.grism_id, self.cat.id[self.ix], self.dr, self.zout.z_spec[self.ix], self.zout.z_peak[self.ix], self.z_max_spec, self.z_peak_spec, self.c95[0], self.c68[0], self.c68[1], self.c95[1])
             
         fp.write(file_string)
         fp.close()

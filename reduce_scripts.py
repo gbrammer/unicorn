@@ -1106,9 +1106,10 @@ def interlace_goodss():
             
     ##### Extract and fit only spec-z objects
     import unicorn.reduce_scripts
-    models = glob.glob('goodss-[3]*_inter_model.fits')
+    models = glob.glob('goodss-[0]*_inter_model.fits')
     for file in models[::1]:
-        pointing = file.split('-G141_inter')[0]
+        pointing = file.split('_inter')[0]
+        unicorn.reduce_scripts.extract_v4p1(pointing=pointing)
         unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing,model_limit=26.0, 
             new_fit = True, skip_completed = True)
         unicorn.reduce_scripts.extract_spectra_mag_limit(pointing=pointing, mag_limit = 24.0, model_limit=26.0, 
@@ -1265,16 +1266,17 @@ def interlace_goodss():
                     continue
 
     ### Extract spectra for all objects brighter than 21.
+    mag_limit = 22.0
     models = glob.glob('goodss*_inter_model.fits')
     for file in models[::1]:
-        id_mag = cat.id[np.where((25.0 - 2.5*np.log10(cat.f_f160w)) < 21.0)].astype(int)
-        print 'There are {0} objects brighter than F160W of 21.0 in this field.'.format(len(id_mag))
+        id_mag = cat.id[np.where((25.0 - 2.5*np.log10(cat.f_f160w)) < mag_limit)].astype(int)
+        print 'There are {0} objects brighter than F160W of {1} in this field.'.format(len(id_mag),mag_limit)
         pointing = file.split('_inter')[0]
         model_limit=25.8
-        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5)
-        print "There are {0} objects brighter than F160W of 21.0 in {1}.".format(len([id for id in id_mag if id in model.cat.id]),pointing)
+        model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=24.5,old_filenames=True)
+        print "There are {0} objects brighter than F160W of {1} in {2}.".format(len([id for id in id_mag if id in model.cat.id]),mag_limit,pointing)
         for id in [id for id in id_mag if id in model.cat.id]:
-            if not os.path.exists('%s_%05d.zfit.fits'%(pointing, id)):
+            if not os.path.exists('%s_%05d.new_zfit.pz.fits'%(pointing, id)):
                 root='%s_%05d' %(pointing, id)
                 if not os.path.exists(root+'.2D.fits'):
                     status = model.twod_spectrum(id)
@@ -1287,6 +1289,7 @@ def interlace_goodss():
                 print '\n'
                 try: 
                     gris.new_fit_constrained()
+                    gris.new_save_results()
                 except:
                     continue
             
@@ -2203,6 +2206,7 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8, skip_completed =
     print "There are {0} objects with spec_z in {1}.".format(len([id for id in id_spec_z if id in model.cat.id]),pointing)
     for id in [id for id in id_spec_z if id in model.cat.id]:
         root='%s_%05d' %(pointing+'-G141', id)
+        print root
         if not os.path.exists(root+'.2D.fits'):
             status = model.twod_spectrum(id)
             if not status:
@@ -2220,6 +2224,7 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8, skip_completed =
         print '\n'
         try:
             gris.new_fit_constrained()
+            gris.new_save_results()
         except:
             continue
                    
@@ -2229,9 +2234,12 @@ def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
     import unicorn.interlace_test as test
     
     import threedhst.catIO as catIO
+    import time
+    import numpy as np
+    
     cat, zout, fout = unicorn.analysis.read_catalogs(root=pointing)
     
-    models = glob.glob('{}_inter_model.fits'.format(pointing))
+    models = glob.glob('{}-G141_inter_model.fits'.format(pointing))
     for file in models[::1]:
         id_mag = cat.id[np.where((25.0 - 2.5*np.log10(cat.f_f140w) < MAG_EXTRACT) | ((cat.f_f140w == -99.0) & (25.0 - 2.5*np.log10(cat.f_f160w) < MAG_EXTRACT)))].astype(int)
         print 'There are {0} objects brighter than F140W of {1} in this field.'.format(len(id_mag), MAG_EXTRACT)
@@ -2240,7 +2248,7 @@ def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
         log = open('{}.skip.new_zfit.log'.format(pointing),'a')
         log.write(time.strftime('%X %x %Z')+'\n')
         
-        model = unicorn.reduce.process_GrismModel(pointing)
+        model = unicorn.reduce.process_GrismModel(pointing.split('-G141')[0])
         print "There are {0} objects brighter than F140W of {1} in {2}.".format(len([id for id in id_mag if id in model.cat.id]),MAG_EXTRACT, pointing)
         for id in [id for id in id_mag if id in model.cat.id]:
             if not os.path.exists('%s_%05d.zfit.fits'%(pointing, id)):

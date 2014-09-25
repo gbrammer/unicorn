@@ -841,10 +841,12 @@ class GrismSpectrumFit():
         """
         Make an output FITS file containing the continuum and line models, 1D and 2D
         """
+        import astropy.io.fits as fits
+        
         zout = self.zout
         #zgrid0, full_prob0, zgrid1, full_prob1 = self.zgrid0, self.full_prob0, self.zgrid1, self.full_prob1
         
-        prim = pyfits.PrimaryHDU()
+        prim = fits.PrimaryHDU()
         prim.header = self.twod.im[0].header.copy()
         hdus = [prim]
         
@@ -855,13 +857,13 @@ class GrismSpectrumFit():
         #self.cont_model
         #self.line_model
         
-        hdus.append(pyfits.ImageHDU(data=self.cont_model, header=twod_header, name='CONT2D'))
-        hdus.append(pyfits.ImageHDU(data=self.line_model, header=twod_header, name='LINE2D'))
-        hdus.append(pyfits.ImageHDU(data=self.cont_1D, name='CONT1D'))
-        hdus.append(pyfits.ImageHDU(data=self.line_1D, name='LINE1D'))
-        hdus.append(pyfits.ImageHDU(data=self.coeffs, name='COEFFS'))
+        hdus.append(fits.ImageHDU(data=self.cont_model, header=twod_header, name='CONT2D'))
+        hdus.append(fits.ImageHDU(data=self.line_model, header=twod_header, name='LINE2D'))
+        hdus.append(fits.ImageHDU(data=self.cont_1D, name='CONT1D'))
+        hdus.append(fits.ImageHDU(data=self.line_1D, name='LINE1D'))
+        hdus.append(fits.ImageHDU(data=self.coeffs, name='COEFFS'))
         
-        pyfits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.%s.fits'%(base), clobber=True)
+        fits.HDUList(hdus).writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.%s.fits'%(base), clobber=True)
         
     def make_figure(self):
         """

@@ -2860,7 +2860,7 @@ class GrismModel():
         
         hdu = pyfits.HDUList(extensions)
         if BIG_THUMB:
-            hdu.writeto(self.baseroot+'_%05d.big_2D.fits' %(id), clobber=True)
+            hdu.writeto(self.baseroot+'-big_%05d.2D.fits' %(id), clobber=True)
         else:
             hdu.writeto(self.baseroot+'_%05d.2D.fits' %(id), clobber=True)
         

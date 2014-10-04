@@ -1103,11 +1103,18 @@ def interlace_goodss():
                      resid_threshold=4, clip_left=640, save_figure=True, interlace=True)
             #model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)
             
+    inter = glob.glob('goodss-[0]*-G141_inter.fits')
+    for i in range(len(inter)):
+        pointing = inter[i].split('-G141_inter')[0]
+        model = unicorn.reduce.process_GrismModel(pointing)
+        model.extract_spectra_and_diagnostics(MAG_LIMIT=35., largey=80)
+                
+                
     ##### Extract and fit only spec-z objects
     import unicorn.reduce_scripts
     models = glob.glob('goodss-[3]*_inter_model.fits')
     for file in models[::1]:
-        pointing = file.split('-G141_inter')[0]
+        pointing = file.split('_inter')[0]
         unicorn.reduce_scripts.extract_v4p1(pointing=pointing)
         unicorn.reduce_scripts.extract_spectra_spec_z(pointing=pointing,model_limit=26.0, 
             new_fit = True, skip_completed = True)
@@ -1463,7 +1470,7 @@ def interlace_uds():
                  model.refine_mask_background(grow_mask=12, threshold=0.001, update=True,
                      resid_threshold=4, clip_left=640, save_figure=True, interlace=True)
 
-    inter = glob.glob('uds-*-G141_inter.fits')
+    inter = glob.glob('uds-[0]*-G141_inter.fits')
     redo = True
     for i in range(len(inter)):
         time.strftime('%X %x %Z')
@@ -1472,10 +1479,31 @@ def interlace_uds():
             model = unicorn.reduce.process_GrismModel(pointing)
             model.extract_spectra_and_diagnostics(MAG_LIMIT=24., largey=80)
             
-    models = glob.glob('uds-*_inter_model.fits')
+    models = glob.glob('uds-[2]*_inter_model.fits')
     for file in models[::1]:
-        pointing = file.split('_inter')[0]
+        pointing = file.split('-G141_inter')[0]
         unicorn.reduce_scripts.extract_v4p1(pointing=pointing, MAG_EXTRACT=24.)
+    
+    models = glob.glob('goodss-[0]*-G141_inter.fits')
+    for mm in models[::1]:
+        pointing = mm.split('_inter')[0]
+        files = glob.glob('{}*new_zfit.dat'.format(pointing))
+        log = open('{}.skip.new_zfit.log'.format(pointing),'a')
+        log.write(time.strftime('%X %x %Z')+'\n')
+        for file in files:
+            root = file.split('.new_zfit')[0]
+            gris = unicorn.interlace_test.SimultaneousFit(root,lowz_thresh=0.05)
+            try:
+                gris.oned_wave, gris.best_1D = gris.twod.optimal_extract(gris.best_2D)
+                gris.zgrid1 = gris.zgrid_second
+                gris.full_prob1 = gris.lnprob_second_total
+                gris.new_fit_free_emlines(ztry=None)
+            except:
+                log.write('{} new_fit_constrained\n'.format(root))
+                continue        
+            print '\n'
+            
+            
 
 
     inter = glob.glob('UDS-*-G141_inter.fits')
@@ -2229,7 +2257,7 @@ def extract_spectra_spec_z(pointing='UDS-10', model_limit=25.8, skip_completed =
             continue
                    
                    
-def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
+def extract_v4p1(pointing='uds-10-G141', MAG_EXTRACT=24.):
     
     import unicorn.interlace_test as test
     
@@ -2239,57 +2267,62 @@ def extract_v4p1(pointing='uds-10', MAG_EXTRACT=24.):
     
     cat, zout, fout = unicorn.analysis.read_catalogs(root=pointing)
     
-    models = glob.glob('{}-G141_inter_model.fits'.format(pointing))
-    for file in models[::1]:
-        id_mag = cat.id[np.where((25.0 - 2.5*np.log10(cat.f_f140w) < MAG_EXTRACT) | ((cat.f_f140w == -99.0) & (25.0 - 2.5*np.log10(cat.f_f160w) < MAG_EXTRACT)))].astype(int)
-        print 'There are {0} objects brighter than F140W of {1} in this field.'.format(len(id_mag), MAG_EXTRACT)
-        pointing = file.split('_inter')[0]
+    id_mag = cat.id[np.where((25.0 - 2.5*np.log10(cat.f_f140w) < MAG_EXTRACT) | ((cat.f_f140w == -99.0) & (25.0 - 2.5*np.log10(cat.f_f160w) < MAG_EXTRACT)))].astype(int)
+    print 'There are {0} objects brighter than F140W of {1} in this field.'.format(len(id_mag), MAG_EXTRACT)
         
-        log = open('{}.skip.new_zfit.log'.format(pointing),'a')
-        log.write(time.strftime('%X %x %Z')+'\n')
+    log = open('{}.skip.new_zfit.log'.format(pointing),'a')
+    log.write(time.strftime('%X %x %Z')+'\n')
         
-        model = unicorn.reduce.process_GrismModel(pointing.split('-G141')[0])
-        print "There are {0} objects brighter than F140W of {1} in {2}.".format(len([id for id in id_mag if id in model.cat.id]),MAG_EXTRACT, pointing)
-        for id in [id for id in id_mag if id in model.cat.id]:
-            if not os.path.exists('%s_%05d.zfit.fits'%(pointing, id)):
-                root='%s_%05d' %(pointing, id)
-                if not os.path.exists(root+'.2D.fits'):
-                    status = model.twod_spectrum(id, verbose=True, miny=26, USE_FLUX_RADIUS_SCALE=3, USE_REFERENCE_THUMB=True)
-                    if status:
-                        model.twod_spectrum(id, verbose=True, miny=80, USE_FLUX_RADIUS_SCALE=3,
-                            USE_REFERENCE_THUMB=True, 
-                            BIG_THUMB=True, extract_1d=False)
-                        model.show_2d(savePNG=True, verbose=True)
-                        unicorn.reduce.Interlace1D(pointing+'_%05d.1D.fits' %(id), PNG=True)
-                    else:
-                        log.write('{}  twod_spectrum\n'.format(root))
-                        continue
-                try:
-                    gris = test.SimultaneousFit(root,lowz_thresh=0.05)
-                except:
-                    log.write('{}  SimultaneousFit\n'.format(root))
+    model = unicorn.reduce.process_GrismModel(pointing.split('-G141')[0])
+    print "There are {0} objects brighter than F140W of {1} in {2}.".format(len([id for id in id_mag if id in model.cat.id]),MAG_EXTRACT, pointing)
+    for id in [id for id in id_mag if id in model.cat.id]:
+        if not os.path.exists('%s_%05d.new_zfit.fits'%(pointing, id)):
+            root='%s_%05d' %(pointing, id)
+            #
+            if not os.path.exists(root+'.2D.fits') or not os.path.exists('%s-big_%s.2D.fits'%(pointing, id)):
+                print root+'.2D.fits'
+                status = model.twod_spectrum(id, verbose=False, miny=26, USE_FLUX_RADIUS_SCALE=3, USE_REFERENCE_THUMB=True)
+
+                if status:
+                    print 'Printing big thumb for {}'.format(id)
+                    model.twod_spectrum(id, verbose=False, miny=80, USE_FLUX_RADIUS_SCALE=3,
+                        USE_REFERENCE_THUMB=True, 
+                        BIG_THUMB=True, extract_1d=False)
+                    model.show_2d(savePNG=True, verbose=True)
+                    unicorn.reduce.Interlace1D(pointing+'_%05d.1D.fits' %(id), PNG=True)
+                else:
+                    log.write('{}  twod_spectrum\n'.format(root))
                     continue
-                print '\n'
-                try:
-                    gris.new_fit_constrained(zrfirst=[0.0,3.5], faint_limit=23.)
-                    gris.new_save_results()
-                    gris.make_2d_model()
-                    os.system('mv %s.big_2D.fits %s-big_%s.2D.fits'%(root, pointing, id))
-                    os.system('cp %s.1D.fits %s-big_%s.1D.fits'%(root, pointing, id))
-                    os.system('cp %s.new_zfit.pz.fits %s-big_%s.new_zfit.pz.fits'%(root, pointing, id))
-                    gris_big = test.SimultaneousFit('%s-big_%s'%(pointing, id))
-                    gris_big.make_2d_model(base='new_zfit', write_fits = True)
-                    os.system('rm %s-big_%s.1D.fits %s-big_%s.new_zfit.pz.fits'%(pointing, id,pointing, id))
-                except:
-                    log.write('{} new_fit_constrained\n'.format(root))
-                    continue        
-                print '\n'
-                try:
-                    gris.new_fit_free_emlines(ztry=None)
-                except:
-                    log.write('{} new_fit_free_emlines\n'.format(root))
-                    continue        
-        log.close()    
+            #
+            try:
+                gris = test.SimultaneousFit(root,lowz_thresh=0.05)
+            except:
+                log.write('{}  SimultaneousFit\n'.format(root))
+                continue
+            print '\n'
+            try:
+                gris.new_fit_constrained(zrfirst=[0.0,3.5], faint_limit=23.)
+                gris.new_save_results()
+                gris.make_2d_model()
+            except:
+                log.write('{} new_fit_constrained\n'.format(root))
+                continue        
+            print '\n'
+            #
+            if os.path.exists('%s-big_%s.2D.fits'%(pointing, id)):
+                os.system('cp %s.1D.fits %s-big_%s.1D.fits'%(root, pointing, id))
+                os.system('cp %s.new_zfit.pz.fits %s-big_%s.new_zfit.pz.fits'%(root, pointing, id))
+                gris_big = test.SimultaneousFit('%s-big_%s'%(pointing, id))
+                gris_big.make_2d_model(base='new_zfit', write_fits = True)
+                os.system('rm %s-big_%s.1D.fits %s-big_%s.new_zfit.pz.fits'%(pointing, id,pointing, id))
+            #
+            try:
+                gris.new_fit_free_emlines(ztry=None)
+            except:
+                log.write('{} new_fit_free_emlines\n'.format(root))
+                continue   
+                             
+    log.close()    
 
 def combined_image(root='aegis', IMAGE_DIR='./'):
     """

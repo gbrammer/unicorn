@@ -102,10 +102,10 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         aegis=True
     
     #### G. Barro
-    if 'GDN' in root:
+    if 'gdn' in root.lower():
         goodsn=True
         
-    if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF'):
+    if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF') | root.startswith('HUDF'):
         udf=True
     
     #### Supernova pointings    
@@ -393,14 +393,21 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         # FOUT_FILE = CAT_PATH + 'erb2.fout'
         KTOT_COL = 'f_h'
     
-    #### Frontier fields
-    if ('2744' in root.split('_')[0]) & root.upper().startswith('A'):
-        GRISM_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
-        CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
-        CAT_FILE = CAT_PATH + 'a2744_Ks_v0.1.cat'
-        ZOUT_FILE = CAT_PATH + 'OUTPUT/a2744.zout'
-        FOUT_FILE = CAT_PATH + 'OUTPUT/a2744.fout'
-        KTOT_COL = 'f_ks_iso'
+    # #### Frontier fields
+    # if ('2744' in root.split('_')[0]) & root.upper().startswith('A'):
+    #     GRISM_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
+    #     CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/Catalog/'
+    #     CAT_FILE = CAT_PATH + 'a2744_Ks_v0.1.cat'
+    #     ZOUT_FILE = CAT_PATH + 'OUTPUT/a2744.zout'
+    #     FOUT_FILE = CAT_PATH + 'OUTPUT/a2744.fout'
+    #     KTOT_COL = 'f_ks_iso'
+    # 
+    #     CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/Mosaic/CombinedCatalog/EAZY/'
+    #     CAT_FILE = CAT_PATH + 'ff_Kscl.cat'
+    #     ZOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_withK.zout'
+    #     FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_withK.fout'
+    #     KTOT_COL = 'f_Ks'
+        
             
     #### Supernova cluster pointing
     if ('MACSJ1720' in root) | ('PANCHA' in root):
@@ -420,7 +427,15 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'OUTPUT/a2744.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/a2744.fout'
         KTOT_COL = 'f160w_flux'
-    
+        
+        CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/Mosaic/CombinedCatalog/EAZY/'
+        CAT_FILE = CAT_PATH + 'ff_Kscl.cat'
+        hff='with'
+        #hff='no'
+        ZOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.zout' %(hff)
+        FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.fout' %(hff)
+        KTOT_COL = 'f_Ks'
+        
     if ('0717' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs0717_cat.txt.flux_AB25'
@@ -434,7 +449,15 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'OUTPUT/m0416.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m0416.fout'
         KTOT_COL = 'f160w_flux'
-    
+        
+        CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/Mosaic/CombinedCatalog/EAZY/'
+        CAT_FILE = CAT_PATH + 'ff_Kscl.cat'
+        hff='with'
+        #hff='no'
+        ZOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.zout' %(hff)
+        FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.fout' %(hff)
+        KTOT_COL = 'f_Ks'
+        
     if ('1423' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp-clash_hst_acs-ir_macs1423_cat.txt.flux_AB25'
@@ -485,7 +508,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'OUTPUT/wirds.zout'
         FOUT_FILE = CAT_PATH+'WIRDS_D1_KSN7_sci.cat'
         KTOT_COL = 'f_ks'
-        
+    
+    if ecdfs | root.startswith('ECDFS'):
+        CAT_PATH = '/Users/brammer/3DHST/Ancillary/GOODS-S/Cardamone/'
+        CAT_FILE = CAT_PATH+'ECDFS_BVRdet_Subaru_v1_hasz.cat'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/cardamone_full.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/cardamone_full.fout'
+        KTOT_COL = 'f_K'
+
     if KTOT_COL is None:
         """
         All catalog flags are False

@@ -28,7 +28,13 @@ __version__ = " $Rev$"
 import threedhst
 import unicorn
 
+try:
+    import astropy.io.fits as pyfits
+except:
+    import pyfits
+
 import numpy as np
+
 import os
 import glob
 import shutil
@@ -1917,7 +1923,7 @@ def GOODS_ERS():
     import unicorn
     import threedhst.prep_flt_files
     from threedhst.prep_flt_files import process_3dhst_pair as pair
-    import pyfits
+
     # reload threedhst.grism_sky   #### Reset the flat-field for F140W/G141
     
     os.chdir(unicorn.GRISM_HOME+'ERS/PREP_FLT')
@@ -2378,7 +2384,7 @@ def make_flat(flt_files, output='master_flat.fits', GZ=''):
     
     """    
     import iraf
-    import pyfits
+
     import scipy.ndimage as nd
     from iraf import noao
     from iraf import imred
@@ -2561,7 +2567,14 @@ def redo_all_sky_subtraction():
             print asn_file
             unicorn.prepare.redo_sky_subtraction(asn_file=asn_file, PATH_TO_RAW='../RAW', sky_images=['sky.G141.set001.fits', 'sky.G141.set002.fits', 'sky.G141.set003.fits', 'sky.G141.set004.fits', 'sky.G141.set005.fits', 'sky.G141.set025.fits', 'sky.G141.set120.fits'])
             
-def redo_sky_subtraction(asn_file='GOODS-S-30-G141_asn.fits', PATH_TO_RAW='../RAW', sky_images=['sky.G141.set001.fits', 'sky.G141.set002.fits', 'sky.G141.set003.fits', 'sky.G141.set004.fits', 'sky.G141.set005.fits', 'sky.G141.set025.fits', 'sky.G141.set120.fits']):
+def redo_sky_subtraction(asn_file='GOODS-S-30-G141_asn.fits', PATH_TO_RAW='../RAW', sky_images=['sky.G141.set001.fits', 'sky.G141.set002.fits', 'sky.G141.set003.fits', 'sky.G141.set004.fits', 'sky.G141.set005.fits', 'sky.G141.set025.fits', 'sky.G141.set120.fits'], sky_components=False):
+    """
+    
+    sky_images = {'G141':['G141_zodi_0.00_excess_1.00.fits', 'G141_zodi_0.25_excess_0.75.fits', 'G141_zodi_0.50_excess_0.50.fits', 'G141_zodi_0.75_excess_0.25.fits', 'G141_zodi_1.00_excess_0.00.fits'], 
+                  'G102':['G102_zodi_0.00_excess_1.00.fits', 'G102_zodi_0.25_excess_0.75.fits', 'G102_zodi_0.50_excess_0.50.fits', 'G102_zodi_0.75_excess_0.25.fits', 'G102_zodi_1.00_excess_0.00.fits']}
+    
+    
+    """
     
     import threedhst
     import threedhst.grism_sky
@@ -2574,7 +2587,7 @@ def redo_sky_subtraction(asn_file='GOODS-S-30-G141_asn.fits', PATH_TO_RAW='../RA
     ## Run the sky background division             
     asn_grism = threedhst.utils.ASNFile(asn_file)
     for exp in asn_grism.exposures:
-        threedhst.grism_sky.remove_grism_sky(flt=exp+'_flt.fits', list=sky_images, path_to_sky='../CONF/', verbose=True, second_pass=True, overall=True)
+        threedhst.grism_sky.remove_grism_sky(flt=exp+'_flt.fits', list=sky_images, path_to_sky='../CONF/', verbose=True, second_pass=True, overall=True, sky_components=sky_components)
     
     ## Run Multidrizzle twice, the first time to flag CRs + hot pixels
     threedhst.prep_flt_files.startMultidrizzle(asn_file, use_shiftfile=True, skysub=False,
@@ -2640,7 +2653,6 @@ def make_mask_crr_file(bad_value=1024):
     """
     Need to edit CRR file in $iref to not make flagged reads UNSTABLE
     """
-    import pyfits
     crr = pyfits.open(os.getenv('iref')+'/u6a1748ri_crr.fits')
     try:
         crr[1].data['BADINPDQ'] *= 0
@@ -2659,7 +2671,6 @@ def flag_bad_reads(image='ib3701s4q_raw.fits', flag_reads = None, ds9=None, vmi=
     Flag individual reads of an RAW image and re-run calwf3
     """
     import mywfc3.bg
-    import pyfits
     
     raw = pyfits.open(image, mode='update')
     time, ramp, reads = mywfc3.bg.get_bg_ramp(raw)
@@ -2832,9 +2843,7 @@ def split_multiaccum(ima, scale_flat=True):
     matrix.
     
     Returns cube[NSAMP,1024,1014], time, NSAMP
-    """
-    import pyfits
-    
+    """    
     skip_ima = ('ima' in ima.filename()) & (ima[0].header['FLATCORR'] == 'COMPLETE')
     if scale_flat & ~skip_ima:
         FLAT_F140W = pyfits.open(os.path.join(os.getenv('iref'), 'uc721143i_pfl.fits'))[1].data
@@ -2906,8 +2915,7 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_sa
     Requires IRAFX for wfc3tools
     """
     import wfc3tools
-    import pyfits
-    
+        
     ### Remove existing products or calwf3 will die
     for ext in ['flt','ima']:
         if os.path.exists(raw.replace('raw', ext)):
@@ -2940,7 +2948,7 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_sa
         for read in pop_reads:
             final_sci -= diff[read,:,:]
             final_exptime -= dt[read]
-        #
+        
         #final_var = ima[0].header['READNSEA']**2 + final_sci        
         final_var = readnoise_2D + final_sci        
         final_err = np.sqrt(final_var)/final_exptime
@@ -2985,7 +2993,7 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_sa
         final_dq[fixed_sat] -= 256
         print '  Nsat = %d' %(fixed_sat.sum())
         flt['DQ'].data |= final_dq[5:-5,5:-5] & 256
-
+        
     else:
         #### Saturated pixels
         flt['DQ'].data |= ima['DQ',1].data[5:-5,5:-5] & 256
@@ -3001,12 +3009,15 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_sa
         flt['DQ'].data[mask] -= 32
         
     ### Update the FLT header
-    if pyfits.__version__ > '3.2':
-        flt[0].header['IMA2FLT'] = (1, 'FLT extracted from IMA file')
-        flt[0].header['IMASAT'] = (fix_saturated*1, 'Manually fixed saturation')
-    else:
-        flt[0].header.update('IMA2FLT', 1, comment='FLT extracted from IMA file')
-        flt[0].header.update('IMASAT', fix_saturated*1, comment='Manually fixed saturation')
+    flt[0].header['IMA2FLT'] = (1, 'FLT extracted from IMA file')
+    flt[0].header['IMASAT'] = (fix_saturated*1, 'Manually fixed saturation')
+
+    # if pyfits.__version__ > '3.2':
+    #     flt[0].header['IMA2FLT'] = (1, 'FLT extracted from IMA file')
+    #     flt[0].header['IMASAT'] = (fix_saturated*1, 'Manually fixed saturation')
+    # else:
+    #     flt[0].header.update('IMA2FLT', 1, comment='FLT extracted from IMA file')
+    #     flt[0].header.update('IMASAT', fix_saturated*1, comment='Manually fixed saturation')
         
     flt.flush()
     
@@ -3016,10 +3027,10 @@ def make_IMA_FLT(raw='ibhj31grq_raw.fits', pop_reads=[], remove_ima=True, fix_sa
 
 def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
     """
-    Make a figure (*.ramp.png) showing the individual reads of an 
+    Make a figure (.ramp.png) showing the individual reads of an 
     IMA or RAW file.
-    """
-    import pyfits
+    """    
+    import matplotlib.pyplot as plt
     
     img = pyfits.open(raw)
     
@@ -3028,22 +3039,29 @@ def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
     else:
         gain=1
         
-    cube, dq, time, NSAMP = unicorn.prepare.split_multiaccum(img)
+    cube, dq, time, NSAMP = split_multiaccum(img)
     diff = np.diff(cube, axis=0)
     dt = np.diff(time)
-    fig = unicorn.plotting.plot_init(xs=10, aspect=0.8, wspace=0., hspace=0., left=0.05, NO_GUI=True)
+    fig = plt.figure(figsize=[10,10])
+    
+    #(xs=10, aspect=0.8, wspace=0., hspace=0., left=0.05, NO_GUI=True)
     for j in range(1,NSAMP-1):
         ax = fig.add_subplot(4,4,j)
-        ax.imshow(diff[j,:,:]/dt[j]*gain, vmin=0, vmax=4)
+        ax.imshow(diff[j,:,:]/dt[j]*gain, vmin=0, vmax=4, origin='lower')
         ax.set_xticklabels([])
         ax.set_yticklabels([])
+        ax.text(20,5,'%d' %(j), ha='left', va='bottom')
     #
     ax = fig.add_subplot(4,4,16)
     ramp_cps = np.median(diff, axis=1)
     avg_ramp = np.median(ramp_cps, axis=1)
     ax.plot(time[2:], ramp_cps[1:,16:-16:4]/100*gain, alpha=0.1, color='black')
     ax.plot(time[2:], avg_ramp[1:]/100*gain, alpha=0.8, color='red', linewidth=2)
-    unicorn.plotting.savefig(fig, raw.split('_')[0]+'_ramp.png')
+    
+    fig.tight_layout(h_pad=0.0, w_pad=0.0, pad=0.0)
+    plt.savefig(raw.split('_')[0]+'_ramp.png')
+    
+    return fig
     
 def redo_pointing(pointing='GOODS-S-31', grism_exposures = [2,4]):
     

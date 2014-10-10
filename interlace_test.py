@@ -348,17 +348,38 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ## Variance
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         #var += ((0.02*self.twod.im['SCI'].data)**2).flatten()
-        var += ((0.05*self.twod.im['SCI'].data)**2).flatten()
+        #var += ((0.05*self.twod.im['SCI'].data)**2).flatten()
 
         var[var == 0] = 1.e6
         #var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
         var += ((self.twod.im['CONTAM'].data)**2).flatten()
+        
+        #### Include sensitivity curve uncertainty
+        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH'])*0 + 1.)
+        # sens_err_flat = self.twod.model*1
+        # 
+        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['ERROR']/unicorn.reduce.sens_files['A']['SENSITIVITY'])**2)
+        # sens_err_twod = np.sqrt(self.twod.model / sens_err_flat)*2
+        # sens_err_twod[sens_err_flat == 0] = 0
+        # 
+        # #### Flat model
+        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](1./unicorn.reduce.sens_files['A']['SENSITIVITY']/1.e-17/6.))
+        # var += ((self.twod.model*sens_err_twod)**2).flatten()
+        
+        ### inverse sensitivity, minimum error ~5%
+        MIN_ERR = 0.05
+        inv = 1./unicorn.reduce.sens_files['A']['SENSITIVITY']
+        inv *= 1./np.min(inv)
+        status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](inv)**2*MIN_ERR) #/self.twod.total_flux*0.05)
+        var += (self.twod.model**2).flatten()
+        
         
         #### Downweight edges of grism sensitivity
         x = self.twod.im['WAVE'].data
         dx = 200
         #### G141
         xlimit = [1.1e4, 1.64e4]
+        #xlimit = [1.2e4, 1.6e4]
         if self.grism_element == 'G102':
             xlimit = [0.8e4, 1.1e4]
         
@@ -812,9 +833,26 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ### 
         self.zgrid = self.zgrid_second*1
         self.lnprob_spec = self.lnprob_second_spec*1
+                
+        self.get_redshift_stats()         
         
-        self.get_redshift_stats()
+        ### for compatibility with interlace_fit.new_fit_free_emlines
+        self.zgrid1 = self.zgrid_second*1
+        self.full_prob1 = self.lnprob_second_total*1
         
+        self.fit_combined(self.z_max_spec, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=True, ignore_spectrum=False, background=False)
+
+        igmz, igm_factor = self.phot.get_IGM(self.z_max_spec, matrix=False)
+        self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_max_spec)**2*igm_factor
+        self.best_photom = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
+        self.best_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
+        
+        flux_2D = self.spec_flux.reshape(self.shape2D)
+        xflux_1D, yflux_1D = self.twod.optimal_extract(flux_2D)
+        
+        self.oned_wave, self.best_1D = self.twod.optimal_extract(self.best_2D)
+        self.model_1D = self.best_1D
+                
         print 'Read p(z) from %s: z_max = %.4f [%.3f, %.3f]' %(pzfits, self.z_max_spec, self.c68[0], self.c68[1])
         
         return True
@@ -1230,6 +1268,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.templates = np.zeros((self.phot.NTEMP, self.phot.NFILT+np.product(self.shape2D)))
             full_variance = np.zeros(self.phot.NFILT+np.product(self.shape2D))
             full_flux = np.zeros(self.phot.NFILT+np.product(self.shape2D))
+        
         #print np.sum(mask)
         
         ###### PHOTOMETRY
@@ -1292,7 +1331,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.get_redshift_stats()
         
         fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.dat','w')
-        fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l96 l68 u68 u95\n')
+        fp.write('#  spec_id   phot_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l95 l68 u68 u95\n')
         
         if self.skip_photometric:
             fp.write('#  Phot: None\n')

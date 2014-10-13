@@ -355,22 +355,22 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         var += ((self.twod.im['CONTAM'].data)**2).flatten()
         
         #### Include sensitivity curve uncertainty
-        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH'])*0 + 1.)
+        # status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH'])*0 + 1.)
         # sens_err_flat = self.twod.model*1
         # 
-        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['ERROR']/unicorn.reduce.sens_files['A']['SENSITIVITY'])**2)
+        # status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['ERROR']/unicorn.reduce.sens_files['A']['SENSITIVITY'])**2)
         # sens_err_twod = np.sqrt(self.twod.model / sens_err_flat)*2
         # sens_err_twod[sens_err_flat == 0] = 0
         # 
         # #### Flat model
-        # status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](1./unicorn.reduce.sens_files['A']['SENSITIVITY']/1.e-17/6.))
+        # status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](1./unicorn.reduce.sens_files['A']['SENSITIVITY']/1.e-17/6.))
         # var += ((self.twod.model*sens_err_twod)**2).flatten()
         
         ### inverse sensitivity, minimum error ~5%
         MIN_ERR = 0.05
         inv = 1./unicorn.reduce.sens_files['A']['SENSITIVITY']
         inv *= 1./np.min(inv)
-        status = self.twod.compute_model(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](inv)**2*MIN_ERR) #/self.twod.total_flux*0.05)
+        status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](inv)**2*MIN_ERR) #/self.twod.total_flux*0.05)
         var += (self.twod.model**2).flatten()
         
         
@@ -395,7 +395,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.spec_use = np.isfinite(self.spec_flux) & (self.twod.im['WHT'].data.flatten() != 0)
         
         ### Use only pixels with flux in the model
-        self.twod.compute_model()
+        self.compute_model_function()
         xmax = np.max(self.twod.model, axis=0)
         self.spec_use &= (self.twod.model/xmax > 0.1).flatten()
         
@@ -1298,7 +1298,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             scale = igm_factor*self.tilt_function(igmz)/(1+z)**2
             #### Get full 2D template models
             for i in range(self.phot.NTEMP):
-                self.twod.compute_model(igmz, self.phot.temp_seds[:,i]*scale/self.twod.total_flux)
+                self.compute_model_function(igmz, self.phot.temp_seds[:,i]*scale/self.twod.total_flux)
                 self.templates[i,self.phot.NFILT:] = self.twod.model.flatten()
             #
             full_variance[self.phot.NFILT:] += self.spec_var

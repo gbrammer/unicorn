@@ -87,7 +87,7 @@ for beam in ['A','B','C','D','E']:
         
 
 #### wavelength limits
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667}
 
@@ -120,9 +120,10 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     if (red.conf_grism == grism) & (not force):
         return None
     #
-    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
+    
     if use_new_config:
-        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf'}
+        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
     
     BEAMS = ['A','B','C','D','E']
     if grism == 'G800L':
@@ -255,8 +256,9 @@ def reduce_pointing(file='AEGIS-1-G141_asn.fits', clean_all=True, clean_spectra=
         
     if fix_wcs:
         #model.trim_edge_objects()
-        model.get_corrected_wcs()
-        model.make_wcs_region_file()
+        #model.get_corrected_wcs()
+        #model.make_wcs_region_file()
+        pass
         
     if extract_limit is not None:
         model.extract_spectra_and_diagnostics(MAG_LIMIT=extract_limit, skip=skip_completed_spectra)
@@ -827,7 +829,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     #          'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
     limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
              'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
-             'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
+             'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)},
+             'GRS': {'A':(-350,350)}}
     
     for BEAM in limit[grism].keys():
         if BEAM in BEAMS:
@@ -954,7 +957,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
             ycenter = dydx_0 + dydx_1*(xarr-xoff_beam) + dydx_2*(xarr-xoff_beam)**2
         
         ### Offsets for G141 first order, 0.5 pix in y, 1.5 pix in lam (2x2)
-        dy_fudge = 0
+        #dy_fudge = 0
         dy_fudge = yoff_beam
         
         # if (grism == 'G141') & (beam == 'A'):
@@ -1092,8 +1095,9 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
     model.model_list = model_list
     
     if not use_segm:
-        model.get_corrected_wcs(verbose=True)
-    
+        #model.get_corrected_wcs(verbose=True)
+        pass
+        
     test = model.load_model_spectra()
     if not test:
         if make_zeroth_model:
@@ -1747,6 +1751,59 @@ class Interlace2D():
         
         unicorn.plotting.savefig(fig, self.file.replace('2D.fits', 'thumb.png'))
         
+    def init_fast_model(self):
+        """
+        Init of thumbnail-based approach building a model up summing
+        the thumbnail
+        """        
+        thumb = self.im['DSCI'].data*1
+        thumb[self.im['DSEG'].data != self.id] = 0
+        thumb *= self.total_flux/np.sum(thumb)
+        
+        ### Set up
+        sh = self.sh
+        thumb_matrix = np.zeros((sh[1], sh[0], sh[1]))
+        NX = sh[0]/2
+        ytrace = self.im['YTRACE'].data-NX#-0.2
+        #ytrace = np.cast[int](np.round(ytrace))
+        
+        ### For resampling pixels
+        flux_scale = self.growx*self.growy
+        
+        for i in range(1, NX):
+            #print i
+            thumb_matrix[i,:,:NX+i] = nd.shift(thumb, (ytrace[i], 0))[:,NX-i:]*self.im['SENS'].data[i]*flux_scale
+
+        for i in range(NX,sh[1]-NX):
+            #print i
+            thumb_matrix[i,:,i-NX:i+NX] = nd.shift(thumb, (ytrace[i], 0))*self.im['SENS'].data[i]*flux_scale
+
+        #
+        # for i in range(0,sh[1],2): 
+        #     sh_thumb = nd.shift(thumb, (ytrace[i], 0),order=3)
+        #     ds9.view(sh_thumb*100)
+        #     print i, sh_thumb.max()/thumb.max(), sh_thumb.sum()/thumb.sum()
+            
+        for ix, i in enumerate(range(sh[1]-NX,sh[1])):
+            #print i
+            thumb_matrix[i,:,sh[1]-sh[0]+ix:] = nd.shift(thumb, (ytrace[i], 0))[:,:sh[0]-ix]*self.im['SENS'].data[i]*flux_scale
+        
+        self.thumb_matrix = thumb_matrix.reshape(sh[1],-1)
+        self.wave = np.cast[float](self.im['WAVE'].data)
+        
+    def fast_compute_model(self, lam_spec=None, flux_spec=None):
+        try:
+            flx = self.wave*0
+        except:
+            self.init_fast_model()
+        
+        if lam_spec is None:
+            flux_interp = self.wave*0.+1
+        else:
+            flux_interp = unicorn.utils_c.interp_conserve_c(self.wave, lam_spec, flux_spec)
+            
+        mflat = np.dot(flux_interp, self.thumb_matrix)
+        self.model = mflat.reshape(self.sh)
         
     def timer(self):
         """
@@ -2021,7 +2078,10 @@ class GrismModel():
             return True
         
         #### Else: use tran to get the pixel in the DRZ frame and then xy2rd to get coords        
-        wcs = wcsutil.WCSObject(self.root+'-%s_drz.fits[1]' %(self.direct_element))
+        try:
+            wcs = wcsutil.WCSObject(self.root+'-%s_drz.fits[1]' %(self.direct_element))
+        except:
+            wcs = wcsutil.WCSObject(self.root+'-%s_drz_sci.fits[0]' %(self.direct_element))
             
         NOBJ = len(self.cat.id)
         
@@ -2335,6 +2395,8 @@ class GrismModel():
             keep = (wave > 1.12e4) & (wave < 1.65e4) & (ratio_extract != 0)  # (xpix > (self.pad-22)) & (xpix < (self.sh[1]-self.pad-22))
         elif self.grism_element == 'G102':
             keep = (wave > 0.78e4) & (wave < 1.14e4) & (ratio_extract != 0)
+        elif self.grism_element == 'GRS':
+            keep = (wave > 1.35e4) & (wave < 1.95e4) & (ratio_extract != 0)
         else:
             keep = (wave > 0.55e4) & (wave < 1.14e4) & (ratio_extract != 0)
            
@@ -2609,7 +2671,7 @@ class GrismModel():
         seg = np.cast[int](self.segm[0].data)
         
         #### Check that center within the image
-        if (xc < 0) | (xc > self.sh[1]):
+        if (xc < 0) | (xc > (self.sh[1]-1)):
             threedhst.showMessage('Object %d at (%d, %d) is off the image (%d,%d)' %(id, xc, yc, self.sh[1], self.sh[0]), warn=True)
             return False
         
@@ -2637,7 +2699,11 @@ class GrismModel():
         #NT = np.min([self.pad/2, NT])
                                 
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
-                
+        
+        if (miny < 0) & (NT < np.abs(miny)):
+            print "not enough y pixels"
+            return False
+                 
         #### Maximum size
         if maxy is not None:
             NT = np.min([NT, maxy])

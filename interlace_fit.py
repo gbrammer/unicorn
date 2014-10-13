@@ -4,7 +4,10 @@ Fit templates to the interlaced grism spectra to measure redshifts, and....
 """
 import os
 
-import pyfits
+try:
+    import astropy.io.fits as pyfits
+except:
+    import pyfits
 
 ##### First option is STSCI_PYTHON v2.12 / Python2.7.  Second is older Python2.5.4
 try:
@@ -17,7 +20,6 @@ except:
         
 import numpy as np
 import scipy.stats as stats
-import pyfits
 from scipy import polyval
 
 import matplotlib.pyplot as plt
@@ -88,7 +90,7 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1.):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=True):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -123,8 +125,7 @@ class GrismSpectrumFit():
             self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
 
         else:
-            self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)
-        
+            self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)            
         #
         if 'GRISM' not in self.twod.im[0].header.keys():
             self.grism_element = 'G141'
@@ -156,6 +157,15 @@ class GrismSpectrumFit():
             print '%s: No valid pixels in 1D spectrum.' %(root)
             self.status = False
             return None
+        
+        ##### Fast fitting
+        if fast:
+            self.use_fast = True
+            self.twod.init_fast_model()
+            self.compute_model_function = self.twod.fast_compute_model
+        else:
+            self.use_fast = False
+            self.compute_model_function = self.twod.compute_model
             
         #### Convert to 10**-17 ergs / s / cm**2 / A
         #self.oned.data.sensitivity *= np.diff(self.oned.data.wave)[0]
@@ -353,11 +363,11 @@ class GrismSpectrumFit():
             x0, dx = 0.98e4, 2800.
                     
         tilt_red = ((self.templam_nolines-x0)/dx+1)*2
-        self.twod.compute_model(self.templam_nolines, tilt_red)
+        self.compute_model_function(self.templam_nolines, tilt_red)
         tilt_red_model = self.twod.model*1.
 
         tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
-        self.twod.compute_model(self.templam_nolines, tilt_blue)
+        self.compute_model_function(self.templam_nolines, tilt_blue)
         tilt_blue_model = self.twod.model*1.
         #tilt_red_model = tilt_blue_model*1.
         #### Loop through redshift grid
@@ -373,10 +383,10 @@ class GrismSpectrumFit():
             if self.best_fit_nolines.sum() == 0.:
                 self.best_fit_nolines = self.best_fit_nolines*0.+1
             
-            self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines)
+            self.compute_model_function(self.templam_nolines*(1+z_test), self.best_fit_nolines)
             continuum_model = self.twod.model*1.
                 
-            self.twod.compute_model(self.linex*(1+z_test), self.liney)
+            self.compute_model_function(self.linex*(1+z_test), self.liney)
             line_model = self.twod.model*1.
             ixl = [1]
             
@@ -394,7 +404,7 @@ class GrismSpectrumFit():
             templates[1,:] = line_model.flatten()
             
             #### Second line template
-            self.twod.compute_model(self.linex2*(1+z_test), self.liney2)
+            self.compute_model_function(self.linex2*(1+z_test), self.liney2)
             templates[4,:] = (self.twod.model*1.).flatten()
             ixl = [1,4]
             
@@ -483,12 +493,12 @@ class GrismSpectrumFit():
             x0, dx = 0.98e4, 2800.
                     
         tilt_red = ((self.templam_nolines-x0)/dx+1)*2
-        self.twod.compute_model(self.templam_nolines, tilt_red)
+        self.compute_model_function(self.templam_nolines, tilt_red)
         tilt_red_model = self.twod.model*1.
         xx, tilt_red_model_1D = self.twod.optimal_extract(tilt_red_model)
         
         tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
-        self.twod.compute_model(self.templam_nolines, tilt_blue)
+        self.compute_model_function(self.templam_nolines, tilt_blue)
         tilt_blue_model = self.twod.model*1.
         xx, tilt_blue_model_1D = self.twod.optimal_extract(tilt_blue_model)
         
@@ -506,11 +516,11 @@ class GrismSpectrumFit():
             if self.best_fit_nolines.sum() == 0.:
                 self.best_fit_nolines = self.best_fit_nolines*0.+1
             
-            self.twod.compute_model(self.templam_nolines*(1+z_test), self.best_fit_nolines)
+            self.compute_model_function(self.templam_nolines*(1+z_test), self.best_fit_nolines)
             continuum_model = self.twod.model*1.
             xx, continuum_model_1D = self.twod.optimal_extract(continuum_model)
                 
-            self.twod.compute_model(self.linex*(1+z_test), self.liney)
+            self.compute_model_function(self.linex*(1+z_test), self.liney)
             line_model = self.twod.model*1.
             xx, line_model_1D = self.twod.optimal_extract(line_model)
             ixl = [1]
@@ -536,7 +546,7 @@ class GrismSpectrumFit():
             templates_1D[1,:] = line_model_1D
             
             #### Second line template
-            self.twod.compute_model(self.linex2*(1+z_test), self.liney2)
+            self.compute_model_function(self.linex2*(1+z_test), self.liney2)
             templates[4,:] = (self.twod.model*1.).flatten()
             xx, templates_1D[4,:] = self.twod.optimal_extract(self.twod.model)
             ixl = [1,4]
@@ -927,8 +937,8 @@ class GrismSpectrumFit():
             ax_int = np.array(xint)#*1.e4
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.58, 0.92)
-            xint = [0.6, 0.7, 0.8, 0.9]
+            ax.set_xlim(0.49, 0.98)
+            xint = [0.5, 0.6, 0.7, 0.8, 0.9]
             ax_int = np.array(xint)#*1.e4
         
         ax.set_xticks(ax_int)
@@ -963,7 +973,7 @@ class GrismSpectrumFit():
             ax.set_xlim(0.74, 1.17)
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.58, 0.92)
+            ax.set_xlim(0.49, 0.98)
         
         ax.set_xticks(ax_int)
         
@@ -1229,7 +1239,7 @@ class GrismSpectrumFit():
         #### Initial guess for template normalizations
         twod_templates = np.zeros((1+len(use_lines), var.size))
         for i, temp in enumerate(templates):
-            self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
+            self.compute_model_function(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
             twod_templates[i,:] = self.twod.model.flatten()
         
         #
@@ -1699,7 +1709,7 @@ class GrismSpectrumFit():
             sens_int[line] = np.interp(lam, self.oned_wave, self.oned.data.sensitivity)
             #print lam
             #
-            self.twod.compute_model(xline*(1+ztry), yline)
+            self.compute_model_function(xline*(1+ztry), yline)
             self.twod.model = np.maximum(self.twod.model, 0.)
             #
             #### templates normalized to  total flux 1.e-17 erg / s / cm2 / A
@@ -1750,7 +1760,7 @@ class GrismSpectrumFit():
         #### fall out of the direct image but still have a 1st order spectrum in the grism image.
         ####
         #### Note can't apply blindly because emission lines will also satisfy such a cut.
-        self.twod.compute_model()
+        self.compute_model_function()
         wave_model, flux_model = self.twod.optimal_extract(self.twod.model+self.twod.im['CONTAM'].data)
         wave_obs, flux_obs = self.twod.optimal_extract(self.twod.im['SCI'].data)
         # FEXCESS = 2.5
@@ -2052,7 +2062,7 @@ def _objective_z_simple(params, observed, var, self, show):
     scale = np.exp(s0 + s1*np.log(self.linex*(1+ztry)/1.4e4))
     model_spec = self.continuum * scale + self.liney*np.exp(params[3])
     
-    self.twod.compute_model(lam_spec=self.linex*(1+ztry), flux_spec=model_spec/self.twod.total_flux)
+    self.compute_model_function(lam_spec=self.linex*(1+ztry), flux_spec=model_spec/self.twod.total_flux)
     
     if show == 1:
         return self.linex*(1+ztry), model_spec, self.twod.model

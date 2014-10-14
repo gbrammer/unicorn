@@ -90,7 +90,7 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=True):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.

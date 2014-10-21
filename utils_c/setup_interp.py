@@ -14,12 +14,14 @@ from Cython.Distutils import build_ext as build_pyx
 import os, sys
 import glob
 
+import numpy as np
+
 #### Generate HTML files for analysis
 files=glob.glob('*.pyx')
 for file in files:
     root='%s' %file.split('.pyx')[0]
     os.system('cython -a %s' %file)  ## to generate html diagnostic    
-    setup(name = root, ext_modules=[Extension(root, [file])], cmdclass = { 'build_ext': build_pyx })
+    setup(name = root, ext_modules=[Extension(root, [file], include_dirs=['%s/core/include' %(os.path.dirname(np.__file__))])], cmdclass = { 'build_ext': build_pyx })
     
 # os.system('cython -a reduce_c.pyx')
 # 

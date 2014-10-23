@@ -162,7 +162,7 @@ class ImageClassifier():
     """
     Main classifier tool for 3D-HST fits
     """
-    def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', RGB_EXTENSION='_vJH_6.png', FITS_PATH='./', load_log=True, ds9=None):
+    def __init__(self, images = ['UDS_54826.zfit.png', 'UDS_55031.zfit.png'], logfile='inspect_3dhst.info', RGB_PATH='./', RGB_EXTENSION='_vJH_6.png', FITS_PATH='./', load_log=True, ds9=None, rgb_lower=True):
         """
         GUI tool for inspecting grism redshift fits
         
@@ -180,6 +180,7 @@ class ImageClassifier():
         self.RGB_PATH = RGB_PATH
         self.FITS_PATH = FITS_PATH
         self.RGB_EXTENSION = RGB_EXTENSION
+        self.rgb_lower=rgb_lower
         
         #### Check ds9
         self.ds9 = ds9
@@ -210,6 +211,7 @@ class ImageClassifier():
         self.params = {}        
         self.images = images
         
+        self.marked_lines = None
         if os.path.exists(self.logfile) & load_log:
             self.read_fits()
             
@@ -218,6 +220,9 @@ class ImageClassifier():
         for key in ['line', 'extended', 'absorption', 'unamb', 'misid', 'contam', 'zp', 'tilt', 'investigate', 'star', 'seen', 'bad2d', 'deblend', 'sed']:
             if key not in self.params.keys():
                 self.params[key] = np.zeros(self.N, dtype=np.int)
+        
+        if self.marked_lines is None:
+            self.marked_lines = np.zeros((self.N, 5))
         
         if 'comment' not in self.params.keys():
             self.params['comment'] = ['---' for i in range(self.N)]
@@ -239,11 +244,11 @@ class ImageClassifier():
          
         self.frame = tk.Frame(master)
         self.frame.pack()
-        
+                
         #### Image Panels
         imageFile = Image.open(self.images[0])
         im = ImageTk.PhotoImage(imageFile)        
-        self.panel = tk.Label(self.frame , image=im)
+        self.panel = tk.Label(self.frame , image=im, cursor='target')
         
         # imageFile2 = Image.open(self.images[0].replace('zfit','zfit.2D')).resize((500,202))
         # im2 = ImageTk.PhotoImage(imageFile2)        
@@ -258,6 +263,9 @@ class ImageClassifier():
         
         #### Keypress binding
         self.master.bind("<Key>", self.keypress_event)
+        
+        #### Mouse binding - right click
+        self.master.bind("<Button-2>", self.right_click_event)
         
         ### For logging slider movements
         #self.sliders = {}
@@ -356,13 +364,26 @@ class ImageClassifier():
         
         self.e_comment.grid(row=6, column=0, columnspan=5)
         
+        self.canvas = tk.Canvas(self.frame, background="white", height=5)
+        self.line_tags = []
+        self.draw_lines()
+        
         if simple_twod:
+            #self.panel.place(x=0, y=0, relwidth=1, relheight=1)
             self.panel.grid(row=0, column=1, rowspan=4, columnspan=3)
+            #self.canvas.grid(row=0, column=1, rowspan=1, columnspan=3)
+            self.canvas.place(relx=0, rely=0, relwidth=1)
         else:
             self.panel.grid(row=0, column=0, columnspan=6)
+            #self.canvas.grid(row=0, column=0, columnspan=6)
+            self.canvas.place(relx=0, rely=0, relwidth=1)
+            self.panel.grid()
+            
+            #self.canvas.grid(row=0, column=0, columnspan=6)
             
         self.panel2.grid(row=1, column=1, columnspan=3, rowspan=3)
         self.panel_rgb.grid(row=1, column=0, columnspan=1, rowspan=3)
+        
         
         self.master.mainloop()
     
@@ -386,14 +407,22 @@ class ImageClassifier():
         Translate the filename to an RGB thumbnail
         """
         rgb_file = image_file
-        spl = os.path.basename(image_file.replace('new_zfit', 'newzfit')).split('-')
-        if (len(spl) == 2) & ('goods' in spl[0]):
-            rgb_file = spl[0]+'_'+spl[1].split('_')[1]
-        elif len(spl) > 2:
-            rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
-                
+        spl = os.path.basename(image_file.replace('new_zfit', 'newzfit'))
+
+        if 'SDSS' in image_file:
+            self.rgb_lower = False
+            rgb_file = image_file
+        else:    
+            if (len(spl) == 2) & ('goods' in spl[0]):
+                rgb_file = spl[0]+'_'+spl[1].split('_')[1]
+            elif len(spl) > 2:
+                rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
+        
+        if self.rgb_lower:
+            rgb_file = rgb_file.lower()
+                    
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.lower().split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
         print rgb_file
         
         if not os.path.exists(rgb_file):
@@ -405,7 +434,47 @@ class ImageClassifier():
                 im_rgb = Image.open(rgb_file).resize((150,150))
                 
         return im_rgb
+    
+    def right_click_event(self, event):
+        """
+        Mouse was clicked on a stack spectrum figure
+        """
+        #print "Clicked at %.1f %.1f" %(event.x, event.y)
+        #oval = self.canvas.create_oval(event.x-5, 10, event.x+5, 0, fill="red", outline="blue", width=1, tags="line tag")
+        #box = self.canvas.create_rectangle(event.x-5, -10, event.x+5, 10, fill="red", outline="white", width=1, tags="line tag")
         
+        #self.canvas.tag_raise(self.panel)
+        for j in range(5):
+            if np.abs(self.marked_lines[self.i, j] - event.x) < 8:
+                self.marked_lines[self.i, j] = 0.
+                self.draw_lines()
+                return None
+            
+        j = 0
+        while (self.marked_lines[self.i, j] > 0) & (j < 4):
+            j += 1
+
+        self.marked_lines[self.i, j] = event.x*1.
+
+        #print j, self.marked_lines[self.i,:]
+        self.draw_lines()
+        return None
+        
+    def draw_lines(self):
+        
+        self.canvas.delete("line tag")
+        for j in range(len(self.line_tags)):
+            p = self.line_tags.pop()
+            #print 'kill: ', p
+            self.canvas.delete(p)
+            
+        for j in range(5):
+            x = self.marked_lines[self.i, j]
+            if x > 0:
+                tag = self.canvas.create_rectangle(x-8, -10, x+8, 10, fill="red", outline="white", width=1, tags="line tag")
+                #print tag
+                self.line_tags.append(tag)
+                
     def keypress_event(self, event):
         key = event.char
         #print 'Keyboard: "%s"' %(key)
@@ -595,6 +664,7 @@ class ImageClassifier():
                     
         self.i += 1
         self.load_image()
+        self.draw_lines()
                     
         return True
     #
@@ -608,6 +678,7 @@ class ImageClassifier():
                     
         self.i -= 1
         self.load_image()
+        self.draw_lines()
         
         return True
         
@@ -701,10 +772,12 @@ class ImageClassifier():
             tbhdu = pyfits.new_table(coldefs)
         else:
             tbhdu = pyfits.BinTableHDU().from_columns(coldefs)
-            
+        
+        linehdu = pyfits.ImageHDU(data=self.marked_lines, name='LINELIST')
+        
         #### Primary HDU
         hdu = pyfits.PrimaryHDU()
-        thdulist = pyfits.HDUList([hdu,tbhdu])
+        thdulist = pyfits.HDUList([hdu, tbhdu, linehdu])
 
         #### Add modification time of "infile" to FITS header
         infile_mod_time = time.strftime("%m/%d/%Y %I:%M:%S %p",
@@ -726,7 +799,14 @@ class ImageClassifier():
         Read already saved output
         """
         
-        im = pyfits.open(self.logfile)#
+        im = pyfits.open(self.logfile)
+        if len(im) == 3:
+            try:
+                self.marked_lines = im['LINELIST'].data
+            except:
+                self.marked_lines = None
+        
+        #
         tab = im[1].data
         print "Read log %s from %s (%s)" %(self.logfile, im[0].header['USER'], im[0].header['MODTIME'])
         
@@ -739,12 +819,20 @@ class ImageClassifier():
             tab = Table.read(self.logfile)
             colnames = tab.columns
             read_images = tab['images']
+            if self.marked_lines is None:
+                self.marked_lines = np.zeros((len(tab), 5))
+                
+            Nadd = 0
             for image in self.images:
                 if image not in read_images:
+                    Nadd += 1
                     tab.add_row()
                     tab['images'][-1] = image
                     tab['comment'][-1] = '---'
             
+            if Nadd > 0:
+                self.marked_lines = np.append(self.marked_lines, np.zeros((Nadd, 5)), axis=0)
+                
         except:
             #### No astropy?
             print 'No astropy found.  Forcing image list from %s.' %(self.logfile)

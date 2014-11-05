@@ -63,15 +63,18 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True):
         
         #### Interlace images themselves
         NGROW = 125
-        unicorn.reduce.interlace_combine(root=root+'-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=NGROW, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0)
-        unicorn.reduce.interlace_combine(root=root+'-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=NGROW, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0)
+        grow, auto_off = 2, False
+        #grow, auto_off = 1, True
+        
+        unicorn.reduce.interlace_combine(root=root+'-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=NGROW, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
+        unicorn.reduce.interlace_combine(root=root+'-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=NGROW, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
         
         #### Interlaced reference
         adriz_blot = unicorn.reduce.adriz_blot_from_reference
-        adriz_blot(pointing=root+'-F140W', pad=60, NGROW=NGROW, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='../Catalog/goodss_3dhst.v4.0.IR_cutout.cat')
+        adriz_blot(pointing=root+'-F140W', pad=60, NGROW=NGROW, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0, ref_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='../Catalog/goodss_3dhst.v4.0.IR_cutout.cat')
         
         #### Make a model to 25 AB
-        model = unicorn.reduce.process_GrismModel(root=root, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, model_list=None, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
+        model = unicorn.reduce.process_GrismModel(root=root, grow_factor=grow, growx=grow, growy=grow, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, model_list=None, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
         
         #### Remove residual backgroudn with model mask
         model.refine_mask_background(threshold=0.002, grow_mask=14, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True)

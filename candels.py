@@ -1421,9 +1421,12 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
             for key in translate.keys():
                 if translate[key] in target_use:
                     spl = target_use.split('-')
-                    if int(spl[-1]) < 10:
-                        spl[-1] = '%02d' %(int(spl[-1]))
-                        target_use = '-'.join(spl)
+                    try:
+                        if int(spl[-1]) < 10:
+                            spl[-1] = '%02d' %(int(spl[-1]))
+                            target_use = '-'.join(spl)
+                    except:
+                        pass
             #
             for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
                 if uniquename:
@@ -2845,8 +2848,11 @@ def thumbnail_annotate(filename, label=None, cross=0.05, font='cmunss.otf', ital
     http://cm-unicode.sourceforge.net/download.html
     
     """
-    import Image
-    import ImageFont, ImageDraw, ImageOps
+    try:
+        from PIL import Image, ImageFont, ImageDraw, ImageOps
+    except:
+        import Image
+        import ImageFont, ImageDraw, ImageOps
     
     #### Computer modern, italic font.  Check the "Fontbook" application
     #### to find your available fonts and their paths.  Appears to work 
@@ -2906,7 +2912,10 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     Make a 3 color image scaled with the color clipping and 
     asinh scaling from Lupton et al. (2004)
     """   
-    import Image
+    try:
+        from PIL import Image
+    except:
+        import Image
     
     I = (imr+img+imb-3*m0)/3.
     fI = np.arcsinh(alpha*Q*I)/Q
@@ -2958,11 +2967,11 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     im = im.resize(shape)
     im.save(filename)
     
-def clipLog(im, lexp=1000, cmap=[-1.4914, 0.6273], scale=[10,-1]):
+def clipLog(im, lexp=1000, cmap=[-1.4914, 0.6273], scale=[-0.1,10]):
     import numpy as np
     
     contrast, bias = cmap
-    clip = (np.clip(im, scl[0], scl[1])-scl[0])/(scl[1]-scl[0])
+    clip = (np.clip(im, scale[0], scale[1])-scale[0])/(scale[1]-scale[0])
     clip_log = np.clip((np.log10(lexp*clip+1)/np.log10(lexp)-bias)*contrast+0.5, 0, 1)
     
     return clip_log
@@ -2971,8 +2980,11 @@ def logRGB(imr, img, imb, lexp=0.8e4, cmap=[1.39165, 0.628952], zs=[-0.01, 2], s
     """
     Default colors for pixel-matched F140W / F814W / F435W
     """
-    import Image
-    
+    try:
+        from PIL import Image
+    except:
+        import Image
+        
     # imgr = pyfits.open('../hlsp_clash_hst_wfc3ir_macs0717_f140w_v1_drz.fits')
     # imgg = pyfits.open('../hlsp_clash_hst_acs_macs0717_f814w_v1_drz.fits')
     # imgb = pyfits.open('../hlsp_clash_hst_acs_macs0717_f435w_v1_drz.fits')
@@ -3128,3 +3140,33 @@ def go_prep_F105W():
     
     ### combine all
     
+    #### Make image with holes filled with F125W/F160W
+    ZP = unicorn.reduce.ZPsST
+    im_sci = pyfits.open('goodsn_3dhst.v4.x.F105W_drz_sci.fits')
+    im_wht = pyfits.open('goodsn_3dhst.v4.x.F105W_drz_wht.fits')
+    scl = 10**(-0.4*(ZP['F105W'] - ZP['F105W']))
+    wht = im_wht[0].data/scl**2 * 5
+    sci = im_sci[0].data*scl*wht
+    
+    for filter in ['F160W', 'F125W']:
+        print 'Filter: %s' %(filter)
+        im_sci = pyfits.open('/Users/brammer/3DHST/Ancillary/Mosaics/goodsn_3dhst.v4.0.%s_orig_sci.fits' %(filter))
+        im_wht = pyfits.open('/Users/brammer/3DHST/Ancillary/Mosaics/goodsn_3dhst.v4.0.%s_orig_wht.fits' %(filter))
+        scl = 10**(-0.4*(ZP[filter] - ZP['F105W']))
+        #
+        wht_i = im_wht[0].data/scl**2
+        sci += im_sci[0].data*scl*wht_i
+        wht += wht_i
+    
+    h = im_sci[0].header.copy()
+    h['FILTER'] = 'F105W'
+    #h['EXPTIME'] = exptime
+    
+    mask = wht == 0
+    sci /= wht
+    sci[mask] = 0
+    wht[mask] = 0
+    
+    pyfits.writeto('goodsn_3dhst.v4.x.fill.F105W_drz_sci.fits', data=sci, header=h, clobber=True)
+    #pyfits.writeto('goodsn_3dhst.v4.x.fill.F105W_drz_wht.fits', data=wht, header=h, clobber=True)
+     

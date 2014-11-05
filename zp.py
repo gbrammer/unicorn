@@ -638,7 +638,7 @@ def get_v40_zeropoints():
     os.system('eazy -p zphot.param.uds -t zphot.translate.uds')
     unicorn.zp.loop_zeropoints(root='uds', tfile='zphot.translate.uds',  zfile='zphot.zeropoint.uds', fix_filter={205:1, 239:1}, toler=0.01, ignore_initial=['f_u','f_i'])
     
-def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter={}, ref_filter=None, init_filter={}, ignore_initial=[], ignore_all=[], toler=0.005, PATH='./OUTPUT/', fix_zspec=False, check_uvj=True, use_tweaked_templates=True):
+def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot.zeropoint.cosmos', fix_filter={}, ref_filter=None, init_filter={}, ignore_initial=[], ignore_all=[], toler=0.005, PATH='./OUTPUT/', fix_zspec=False, check_uvj=True, use_tweaked_templates=True, wclip=[1200, 3.e4]):
     
     import threedhst
     import threedhst.eazyPy as eazy
@@ -691,7 +691,7 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
     
     os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
     
-    fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, 0))
+    fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, 0), wclip=wclip)
     
     #### Extract UVJ
     if check_uvj:
@@ -735,7 +735,7 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
             param.write('zphot.param.iter')
         
         os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))
-        fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, i+1))
+        fnumbers, lc_i, delta_i = eazy.show_fit_residuals(root=root, fix_filter=fix_filter, ref_filter=ref_filter, adjust_zeropoints=zfile, savefig='%s_iter_%03d.png' %(root, i+1), wclip=wclip)
         fp.write('\n\nIter #%d\n======\n' %(i))
         unicorn.zp.log_offsets(fp, fnumbers, lc_i, delta_i, toler)
         
@@ -1047,4 +1047,67 @@ def _objective_template_error(params, residual_hist_0, deviates_0, in_err_0, lc_
     print lnprob, unicorn.zp.ITER
     
     return lnprob
-        
+
+def compare_filters():
+    """
+    Compare EAZY filters with P. Capak's COSMOS compilation
+    """
+    import pysynphot as S
+    import threedhst.eazyPy as eazy
+    
+    PATH='/usr/local/share/eazy-filters'
+    
+    ff = eazy.FilterFile(PATH+'/FILTER.RES.latest.mod')
+    
+    filters = {78:'Subaru/B_subaru.res', 79:'Subaru/V_subaru.res', 80:'Subaru/g_subaru.res', 81:'Subaru/r_subaru.res', 82:'Subaru/i_subaru.res', 83:'Subaru/z_subaru.res'}
+    
+    filters = {88:'CFHT/u_megaprime_sagem.res', 89:'CFHT/g_megaprime_sagem.res', 90:'CFHT/r_megaprime_sagem.res', 91:'CFHT/i_megaprime_sagem.res', 92:'CFHT/z_megaprime_sagem.res'}
+    
+    i = 78
+    for i in filters.keys():
+        w, t = np.loadtxt(os.path.join(PATH, filters[i]), unpack=True)
+        plt.plot(w,t,color='red', alpha=0.5, linewidth=2)
+        f = ff.filters[i-1]
+        plt.plot(f.wavelength, f.transmission, color='blue', alpha=0.5, linewidth=2)
+    
+    #### Build Subaru bandpasses
+    ccd = S.FileBandpass(PATH+'/Subaru/suprime_FDCCD.txt')
+    optics = S.FileBandpass(PATH+'/Subaru/subaru_optics.cat')
+    atm = S.FileBandpass(PATH+'/Subaru/atm_airmass1.2.cat')
+    
+    i, filter = 81, S.FileBandpass(PATH+'/Subaru/subaru_filt_rp.txt')
+    i, filter = 78, S.FileBandpass(PATH+'/Subaru/subaru_filter_B.txt')
+    i, filter = 79, S.FileBandpass(PATH+'/Subaru/subaru_filter_V.txt')
+    i, filter = 82, S.FileBandpass(PATH+'/Subaru/subaru_filter_ip.txt')
+    
+    i, filter = 82, S.FileBandpass(PATH+'/Subaru/subaru_filt_Ic.txt')
+    
+    total = ccd*optics*atm*filter
+    
+    f = ff.filters[i-1]
+    plt.plot(f.wavelength, f.transmission, color='blue', alpha=0.5, linewidth=2)
+    plt.plot(total.wave, total.throughput/total.throughput.max(), color='red', alpha=0.5)
+    
+    #
+    i, filter = 82, S.FileBandpass(PATH+'/Subaru/subaru_filt_Ic.txt')
+    total = ccd*optics*atm*filter
+    
+    through = total.throughput/total.throughput.max()
+    ok = np.arange(len(total.wave))[through > 0]
+    
+    np.savetxt(PATH+'/Subaru/suprime_Ic.dat', np.array([total.wave, through]).T[ok.min()-10:ok.max()+10], fmt='%.5e')
+
+    #
+    i, filter = 81, S.FileBandpass(PATH+'/Subaru/subaru_filt_Rc.txt')
+    total = ccd*optics*atm*filter
+    
+    through = total.throughput/total.throughput.max()
+    ok = np.arange(len(total.wave))[through > 0]
+    
+    np.savetxt(PATH+'/Subaru/suprime_Rc.dat', np.array([total.wave, through]).T[ok.min()-10:ok.max()+10], fmt='%.5e')
+    
+    
+    
+    
+     
+    

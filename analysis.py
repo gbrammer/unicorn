@@ -105,6 +105,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if 'gdn' in root.lower():
         goodsn=True
         
+        
     if root.startswith('GOODS-S-34') | root.startswith('GOODS-S-36') | root.startswith('GOODS-S-37') | root.startswith('GOODS-S-38') | root.startswith('UDF') | root.startswith('HUDF'):
         udf=True
     
@@ -120,6 +121,12 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     if root.startswith('COLFAX'):
         goodsn=True
     
+    if 'FIGS-GS' in root:
+        cdfs=True
+    
+    if 'FIGS-GN' in root:
+        goodsn=True
+        
     #### ERS
     if root.startswith('WFC3-ERS'):
         cdfs=True
@@ -509,6 +516,15 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'WIRDS_D1_KSN7_sci.cat'
         KTOT_COL = 'f_ks'
     
+    #### Muzzin SpARCS clusters
+    if 'SpARCS' in root:
+        cluster = '-'.join(root.split('-')[:-1])
+        CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/Muzzin/Catalogs/'
+        CAT_FILE = CAT_PATH+'%s_v2.0.cat' %(cluster)
+        ZOUT_FILE = CAT_PATH+'OUTPUT/%s_v2.0.zout' %(cluster)
+        FOUT_FILE = CAT_PATH+'OUTPUT/%s_v2.0.fout' %(cluster)
+        KTOT_COL = 'K'
+        
     if ecdfs | root.startswith('ECDFS'):
         CAT_PATH = '/Users/brammer/3DHST/Ancillary/GOODS-S/Cardamone/'
         CAT_FILE = CAT_PATH+'ECDFS_BVRdet_Subaru_v1_hasz.cat'

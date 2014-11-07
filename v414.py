@@ -237,7 +237,7 @@ def get_full_catalog():
     
     unicorn.v414.make_selection_webpage(full, selection, output='highEW_OIII_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism'])
     
-    """"
+    """
     from threedhst import catIO
     PATH = '/Library/WebServer/Documents/P/GRISM_v4.1.4'
     full = catIO.Table('%s/RELEASE/3dhst.v4.1.4.full.v1.fits' %(PATH))

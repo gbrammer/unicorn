@@ -222,9 +222,27 @@ def make_master_catalog():
     
     phot.write('3dhst.v4.1.4.full.v1.fits')
     
-    full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
+    #full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
     
-
+def get_full_catalog():
+    """
+    Helper function to read the master catalog
+    
+    Example workflow:
+    
+    import unicorn.v414
+    full = unicorn.v414.get_full_catalog()
+    
+    selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['OIII_EQW'] > 2000) & (full['OIII_EQW']/full['OIII_EQW_ERR'] > 3)
+    
+    unicorn.v414.make_selection_webpage(full, selection, output='highEW_OIII_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism'])
+    
+    """"
+    from threedhst import catIO
+    PATH = '/Library/WebServer/Documents/P/GRISM_v4.1.4'
+    full = catIO.Table('%s/RELEASE/3dhst.v4.1.4.full.v1.fits' %(PATH))
+    return full
+    
 def make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism']):
     """
     Make an HTML table with image links

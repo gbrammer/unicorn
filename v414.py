@@ -219,8 +219,28 @@ def make_master_catalog():
         print col
         phot.add_column(Column(data=line_dict[col], name=col))
         
+    #### Fraction of old + young dusty templates
+    import research.v4 as cat2
+    import research.dusty
+    research.dusty.dusty_fraction()
     
-    phot.write('3dhst.v4.1.4.full.v1.fits')
+    phot.add_column(Column(data=cat2.dusty_old, name='dusty_old'))
+    phot.add_column(Column(data=cat2.dusty_young, name='dusty_young'))
+    phot.add_column(Column(data=cat2.dusty_total, name='dusty_total'))
+    
+    phot.add_column(Column(data=cat2.eazyMass, name='eazy_mass'))
+    phot.add_column(Column(data=cat2.MLv, name='eazy_MLv'))
+    phot.add_column(Column(data=cat2.Lv, name='eazy_Lv'))
+    phot.add_column(Column(data=cat2.template_Halpha, name='eazy_Halpha'))
+    phot.add_column(Column(data=cat2.template_O2, name='eazy_OIII'))
+    
+    field_id = np.ones(len(phot), dtype=int)
+    for fi, field in enumerate(['AEGIS', 'COSMOS', 'GOODS-N', 'GOODS-S', 'UDS']):
+        field_id[phot['field'] == field] = fi+1
+    
+    phot.add_column(Column(data=field_id, name='field_id'), index=2)
+    
+    phot.write('3dhst.v4.1.4.full.v2.fits')
     
     #full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
     
@@ -230,12 +250,34 @@ def get_full_catalog():
     
     Example workflow:
     
+    ur_setup common ssbx
+    cd /Library/WebServer/Documents/P/GRISM_v4.1.4/Selections
+    ipython # start python
+    
     import unicorn.v414
     full = unicorn.v414.get_full_catalog()
     
     selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['OIII_EQW'] > 2000) & (full['OIII_EQW']/full['OIII_EQW_ERR'] > 3)
     
     unicorn.v414.make_selection_webpage(full, selection, output='highEW_OIII_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism'])
+
+    #### COSMOS z_spec
+    selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['field'] == 'COSMOS') & (full['z_spec'] > 0)
+    
+    unicorn.v414.make_selection_webpage(full, selection, output='cosmos_zspec_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'z_spec'])
+
+    #### z_spec outliers
+    import numpy as np
+    dz = (full['z_max_grism']-full['z_spec']) / (1+full['z_spec'])
+    from astropy.table import Column
+    full.add_column(Column(data=dz, name='dz', format='%.3f'))
+    full.add_column(Column(data=np.abs(dz), name='abs(dz)', format='%.3f'))
+    
+    selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['z_spec'] > 0) & (np.abs(dz) > 0.08)
+
+    #selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['z_spec'] > 0) & (np.abs(dz) > 0.05) & (np.abs(dz) < 0.1)
+    
+    unicorn.v414.make_selection_webpage(full, selection, output='zspec_outliers_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'z_spec', 'abs(dz)'])
     
     """
     from threedhst import catIO
@@ -280,22 +322,25 @@ def make_selection_webpage(full, selection, output='test.html', columns=['spec_i
     
     BASE = 'http://unicorn.astro.yale.edu/P/GRISM_v4.1.4/HTML/PNG'
     
-    zfit, zfit2, linefit = [], [], []
+    zfit, zfit2, linefit, thumb = [], [], [], []
     for id in sub['spec_id']:
         field = id.split('-')[0]
         pointing = id.split('-G141')[0]
+        objid = id.split('G141_')[1]
         pngdir = '%s/%s/%s/' %(BASE, field, pointing)
         zfit.append('<img src=%s/%s.new_zfit.png height=200>' %(pngdir, id))
         zfit2.append('<img src=%s/%s.new_zfit.2D.png height=200>' %(pngdir, id))
         linefit.append('<img src=%s/%s.linefit.png height=200>' %(pngdir, id))
+        thumb.append('<img src=%s/RGB/%s_%s_vJH_6.png height=180>' %(BASE, field, objid))
         
     sub.add_column(Column(data=np.array(zfit), name='zfitpng'))
     sub.add_column(Column(data=np.array(zfit2), name='zfit2png'))
     sub.add_column(Column(data=np.array(linefit), name='linefit'))
+    sub.add_column(Column(data=np.array(thumb), name='thumb'))
     
     
     show_cols = copy.copy(columns)
-    show_cols.extend(['zfitpng', 'zfit2png', 'linefit'])
+    show_cols.extend(['thumb', 'zfitpng', 'zfit2png', 'linefit'])
     show = sub[show_cols]
     
     show['ra'].format = '%.5f'

@@ -5,6 +5,9 @@ GUI tool for inspecting grism spectrum extractions
 $Date$
 $Rev$
 
+Nov 11: For team inspections:
+
+    
 Instructions for working:
 - Put gui_3dhst.py in the directory where you plan to work. This is where the output
 files will be created. I recommend TEST_SPECTRA_v4.1/
@@ -413,16 +416,17 @@ class ImageClassifier():
             self.rgb_lower = False
             rgb_file = image_file
         else:    
-            if (len(spl) == 2) & ('goods' in spl[0]):
-                rgb_file = spl[0]+'_'+spl[1].split('_')[1]
-            elif len(spl) > 2:
-                rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
-        
+            # if (len(spl) == 2) & ('goods' in spl[0]):
+            #     rgb_file = spl[0]+'_'+spl[1].split('_')[1]
+            # elif len(spl) > 2:
+            #     rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
+            rgb_file = '%s_%s' %(image_file.split('-')[0], image_file.split('-')[-1].split('_')[1].split('.new')[0])
+            
         if self.rgb_lower:
             rgb_file = rgb_file.lower()
                     
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
-        rgb_file = os.path.join(self.RGB_PATH, rgb_file.split('.newzfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
+        rgb_file = os.path.join(self.RGB_PATH, rgb_file.split('.new_zfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
         print rgb_file
         
         if not os.path.exists(rgb_file):

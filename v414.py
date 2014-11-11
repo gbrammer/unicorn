@@ -260,7 +260,7 @@ def get_full_catalog():
     selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['OIII_EQW'] > 2000) & (full['OIII_EQW']/full['OIII_EQW_ERR'] > 3)
     
     unicorn.v414.make_selection_webpage(full, selection, output='highEW_OIII_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism'])
-
+    
     #### COSMOS z_spec
     selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['field'] == 'COSMOS') & (full['z_spec'] > 0)
     
@@ -284,6 +284,21 @@ def get_full_catalog():
     PATH = '/Library/WebServer/Documents/P/GRISM_v4.1.4'
     full = catIO.Table('%s/RELEASE/3dhst.v4.1.4.full.v1.fits' %(PATH))
     return full
+    
+def select_list(full, list_file='/tmp/objects_list'):
+    """ 
+    Make a boolean selection that returns true for objects listed 
+    in an ASCII file
+    
+    selection = unicorn.v414.select_list(full, list_file='/tmp/objects_list')
+    
+    """
+    objects = list(np.loadtxt(list_file, dtype=str))
+    selection = full['id'] < 0
+    for object in objects:
+        selection |= (full['spec_id'] == object)
+    
+    return selection
     
 def make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism']):
     """
@@ -410,5 +425,71 @@ def make_selection_webpage(full, selection, output='test.html', columns=['spec_i
     fp = open(output,'w')
     fp.writelines(lines)
     fp.close()
+   
+def web_duplicates():
     
+    #### add 0000 column
+    for field in ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']:
+        dups_list = np.loadtxt('%s-WFC3_v4.1.4_SPECTRA/%s-catalogs/%s.duplicates_zfit.v4.1.4.dat' %(field.upper(), field, field), dtype=str)
+        sh = dups_list.shape
+        idx = np.arange(sh[0])
+        #
+        zfit = catIO.Table('%s-WFC3_v4.1.4_SPECTRA/%s-catalogs/%s.new_zfit.v4.1.4.dat' %(field.upper(), field, field))
+        #
+        ok = dups_list[:,2] != '00000'
+        for i in idx[ok]:
+            print dups_list[i,2]
+            objid = dups_list[i,2].split('-G141_')[1]
+            dups = dups_list[i,1:][dups_list[i,1:] != '00000']
+            fig = unicorn.plotting.plot_init(xs=5, square=True)
+            ax = fig.add_subplot(111)
+            
+            zmin, zmax = 4, 0
+            for j, dup in enumerate(dups):
+                ix = zfit['spec_id'] == dup
+                ran = np.array([zfit['l95'][ix][0], zfit['u95'][ix][0]])
+                ax.scatter(zfit['z_max_grism'][ix][0], 0.5+j, color='black', marker='o')
+                ax.fill_between(ran, [j,j],[j+1,j+1], color='black', alpha=0.5)
+                ax.text(0.02, j/7.+0.5/7., dup, ha='left', va='center', fontsize=7, transform=ax.transAxes)
+                zmin = np.minimum(zmin, ran[0])
+                zmax = np.maximum(zmax, ran[1])
+            #
+            ax.set_ylim([0,7]); ax.set_xlabel('z')
+            if zfit['z_spec'][ix][0] > 0:
+                ax.plot(zfit['z_spec'][ix][0]*np.ones(2), [0,7], color='red')
+                zmin = np.minimum(zmin, zfit['z_spec'][ix][0])
+                zmax = np.maximum(zmax, zfit['z_spec'][ix][0])
+            #
+            ax.set_xlim(zmin-0.1, zmax+0.1)
+            fig.tight_layout()
+            unicorn.plotting.savefig(fig, 'Duplicates/%s_%s.dup.png' %(field, objid))
+            plt.close()
+        
+        #
+        from astropy.table import Table, Column    
+        tab = Table()
+        for column in ['id', 'Ndup', 'zavg', 'zlo', 'zhi']:
+            tab.add_column(Column(name=column, dtype=float))
+        
+        tab.add_column(Column(name='dupPNG', dtype=str))
+        for i in range(7):
+            tab.add_column(Column(name='z%d' %(i+1), dtype=float))
+        
+        for i in range(7):
+            tab.add_column(Column(name='id%d' %(i+1), dtype=float))
+            tab.add_column(Column(name='2D_%d' %(i+1), dtype=str))
+            
+        
+            
+    for field, add in zip(['aegis', 'cosmos', 'goodsn', 'goodss', 'uds'], [3,3,4,0,3]):
+        
+    ix, id1, id2, id3, id4 = np.loadtxt('3dhst.duplicates_zfit.v4.1.4.dat', unpack=True, dtype=str)
+    
+    dups = catIO.Table('3dhst.duplicates_zfit.v4.1.4.dat')
+    
+    all_zfit = catIO.Table('3dhst.new_zfit_full.v4.1.4.dat')
+    
+    ok = dups['id']
+    
+     
     

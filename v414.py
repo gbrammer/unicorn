@@ -290,6 +290,7 @@ def select_list(full, list_file='/tmp/objects_list'):
     Make a boolean selection that returns true for objects listed 
     in an ASCII file
     
+    reload(unicorn.v414)
     selection = unicorn.v414.select_list(full, list_file='/tmp/objects_list')
     
     """
@@ -300,6 +301,17 @@ def select_list(full, list_file='/tmp/objects_list'):
     
     return selection
     
+def random_objects(N=200):
+    full = catIO.Table('../../3dhst.v4.1.4.full.v1.fits')
+    has_spec = full['z_max_grism'] > 0.01
+    objects = full['spec_id'][has_spec]
+    idx = np.argsort(np.random.normal(size=has_spec.sum()))
+    
+    for i in range(N):
+        obj = objects[idx][i]
+        os.system('ln -s /Volumes/WD5_ESOMAC/3DHST/Spectra/Release/v4.1.4/*4/*/ZFIT/PNG/%s*png .' %(obj))
+        
+        
 def make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism']):
     """
     Make an HTML table with image links
@@ -483,13 +495,43 @@ def web_duplicates():
             
     for field, add in zip(['aegis', 'cosmos', 'goodsn', 'goodss', 'uds'], [3,3,4,0,3]):
         
-    ix, id1, id2, id3, id4 = np.loadtxt('3dhst.duplicates_zfit.v4.1.4.dat', unpack=True, dtype=str)
+        ix, id1, id2, id3, id4 = np.loadtxt('3dhst.duplicates_zfit.v4.1.4.dat', unpack=True, dtype=str)
     
-    dups = catIO.Table('3dhst.duplicates_zfit.v4.1.4.dat')
+        dups = catIO.Table('3dhst.duplicates_zfit.v4.1.4.dat')
     
-    all_zfit = catIO.Table('3dhst.new_zfit_full.v4.1.4.dat')
+        all_zfit = catIO.Table('3dhst.new_zfit_full.v4.1.4.dat')
     
-    ok = dups['id']
+        ok = dups['id']
     
-     
+def random_assignments():
+    """
+    Assign spectra to each person that will do inspections
+    
+    dirs=`ls |grep p |grep _ |grep -v unix |grep -v tar`
+    for dir in $dirs; do
+        for ext in linefit tilt 1D; do
+            echo $dir $ext
+            rm ${dir}/*${ext}.png
+        done
+    done
+    
+    for dir in $dirs; do
+        echo $dir
+        rm ${dir}/*[0-9].2D.png
+    done
+    
+    """
+    files=glob.glob('p[0-9]*unix')
+    for file in files:
+        dir=file.split('.unix')[0]
+        list = open(file).readlines()
+        for line in list:
+            obj = line.split('/')[3].split('.')[0]
+            field = obj.split('-')[0]
+            id = obj.split('_')[1]
+            rgb = 'RGB/%s_%s_vJH_6.png' %(field, id)
+            print 'cp %s %s' %(rgb, dir)
+            os.system('cp %s %s' %(rgb, dir))
+            
+            
     

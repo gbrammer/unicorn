@@ -301,6 +301,108 @@ def select_list(full, list_file='/tmp/objects_list'):
     
     return selection
     
+def parse_inspection(file='Inspect/inspect_3dhst_ivo_8.1.info.fits', 
+    columns=['contam','comment'], output=''):
+    
+    import os
+    import copy
+    
+    import numpy as np
+    from astropy.table import Table, Column
+    
+    if not output:
+        output = os.path.split(file)[-1].replace('fits','html')
+                
+    inspect = catIO.Table(file)
+    sub = np.where((inspect['comment'] != '---') | (inspect['contam'] > 0))[0]
+    s_inspect = inspect[sub]
+    
+    BASE = 'http://unicorn.astro.yale.edu/P/GRISM_v4.1.4/HTML/PNG'
+    
+    zfit, zfit2, linefit, thumb = [], [], [], []
+    for filename in s_inspect['images']:
+        id = filename.split('.new_zfit.png')[0]
+        field = id.split('-')[0]
+        pointing = id.split('-G141')[0]
+        objid = id.split('G141_')[1]
+        pngdir = '%s/%s/%s/' %(BASE, field, pointing)
+        zfit.append('<img src=%s/%s.new_zfit.png height=200>' %(pngdir, id))
+        zfit2.append('<img src=%s/%s.new_zfit.2D.png height=200>' %(pngdir, id))
+        linefit.append('<img src=%s/%s.linefit.png height=200>' %(pngdir, id))
+        thumb.append('<img src=%s/RGB/%s_%s_vJH_6.png height=180>' %(BASE, field, objid))
+
+    s_inspect.add_column(Column(data=np.array(zfit), name='zfitpng'))
+    s_inspect.add_column(Column(data=np.array(zfit2), name='zfit2png'))
+    s_inspect.add_column(Column(data=np.array(linefit), name='linefit'))
+    s_inspect.add_column(Column(data=np.array(thumb), name='thumb'))
+    
+    show_cols = copy.copy(columns)
+    show_cols.extend(['thumb', 'zfitpng', 'zfit2png', 'linefit'])
+    show = s_inspect[show_cols]
+        
+    show.write(output, format='ascii.html')
+    os.system('perl -pi -e "s/\&lt;/</g" %s' %(output))
+    os.system('perl -pi -e "s/\&gt;/>/g" %s' %(output))
+    
+    ##### Modify HTML table
+    
+    sorter = """
+    <link rel="stylesheet" href="http://monoceros.astro.yale.edu/RELEASE_V3.0/Spectra/UDF/Web/scripts/table_style.css" type="text/css" id="" media="print, projection, screen" /> 
+
+    <script type="text/javascript" src="http://monoceros.astro.yale.edu/RELEASE_V3.0/Spectra/UDF/Web/scripts/jquery-1.4.2.min.js"></script>
+
+    <script type="text/javascript" src="http://monoceros.astro.yale.edu/RELEASE_V3.0/Spectra/UDF/Web/scripts/jquery.tablesorter.min.js"></script>
+
+    <script type="text/javascript" id="js">
+
+    // Add ability to sort the table
+    $(document).ready(function() {
+        $.tablesorter.defaults.sortList = [[2,2]]; 
+        $("table").tablesorter({
+                // pass the headers argument and assing a object
+                headers: {
+                        // assign the secound column (we start counting zero)
+                        %d: {
+                                sorter: false
+                        },
+                        %d: {
+                                sorter: false
+                        },
+                        %d: {
+                                sorter: false
+                        },
+                }
+        });        
+    });
+    </script>
+    
+    """ %(len(show_cols)-3, len(show_cols)-2, len(show_cols)-1)
+    
+    lines = open(output).readlines()
+    thead_start = True
+    for i, line in enumerate(lines):
+        if "<head>" in line:
+            lines.insert(i+1, sorter)
+        
+        if "<table>" in line:
+            lines[i] = " <table id=\"myTable\" cellspacing=\"1\" class=\"tablesorter\">\n"
+        
+        if ("<th>" in line) & thead_start:
+            lines[i-1] = " <thead>\n"
+            thead_start = False
+            j = i
+            while "<th>" in lines[j]:
+                j += 1
+            
+            lines[j] = " </thead>\n <tbody>\n"
+        
+        if "</table>" in lines[i]:
+            lines[i] = "    </tbody>\n  </thead>\n"
+        
+    fp = open(output,'w')
+    fp.writelines(lines)
+    fp.close()
+    
 def random_objects(N=200):
     full = catIO.Table('../../3dhst.v4.1.4.full.v1.fits')
     has_spec = full['z_max_grism'] > 0.01

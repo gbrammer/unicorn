@@ -309,6 +309,7 @@ def parse_inspection(file='Inspect/inspect_3dhst_ivo_8.1.info.fits',
     
     import numpy as np
     from astropy.table import Table, Column
+    from threedhst import catIO
     
     if not output:
         output = os.path.split(file)[-1].replace('fits','html')

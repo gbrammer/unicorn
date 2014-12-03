@@ -315,7 +315,7 @@ def parse_inspection(file='Inspect/inspect_3dhst_ivo_8.1.info.fits',
         output = os.path.split(file)[-1].replace('fits','html')
                 
     inspect = catIO.Table(file)
-    sub = np.where((inspect['comment'] != '---') | (inspect['contam'] > 0))[0]
+    sub = np.where((inspect['comment'] != '---') | (inspect['contam'] > 0) | (inspect['zp'] > 0))[0]
     s_inspect = inspect[sub]
     
     BASE = 'http://unicorn.astro.yale.edu/P/GRISM_v4.1.4/HTML/PNG'

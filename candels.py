@@ -1406,12 +1406,15 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
     #
     list.targname = np.array(target_list)
     
+    list.progIDs = [file[1:4] for file in list.file]
+    progIDs = np.unique(list.progIDs)
+    
     dates = np.array([''.join(date.split('-')[1:]) for date in list.date_obs])
     targets = np.unique(list.targname)
             
     visits = np.array([file[4:6] for file in list.file])
     for visit in np.unique(visits):
-        angle = list.pa_v3[visits == visit][0]
+        #angle = list.pa_v3[visits == visit][0]
         for target in np.unique(list.targname[visits == visit]):
             #### 3D-HST targname translations
             target_use = target
@@ -1422,11 +1425,13 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
                 if translate[key] in target_use:
                     spl = target_use.split('-')
                     try:
-                        if int(spl[-1]) < 10:
+                        if (int(spl[-1]) < 10) & (len(spl[-1]) == 1):
                             spl[-1] = '%02d' %(int(spl[-1]))
                             target_use = '-'.join(spl)
                     except:
                         pass
+            #
+            angle = list.pa_v3[(visits == visit) & (list.targname == target)][0]
             #
             for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
                 if uniquename:

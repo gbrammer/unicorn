@@ -20,7 +20,7 @@ def misc():
         
     os.system('cp /Users/brammer/3DHST/Spectra/Work/ASTRODRIZZLE_FLT/Catalog/goodss_radec.dat .')
     
-def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True):
+def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_threshold=20):
     """
     Run end-to-end WFC3 test
     """
@@ -49,7 +49,7 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True):
         
         #### Run main preparation wrapper to align to reference and 
         #### subtract backgrounds
-        init.prep_direct_grism_pair(direct_asn=root+'-F140W_asn.fits', grism_asn=root+'-G141_asn.fits', radec='../Catalog/goodss_radec.dat', raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=None, skip_direct=False, ACS=False)
+        init.prep_direct_grism_pair(direct_asn=root+'-F140W_asn.fits', grism_asn=root+'-G141_asn.fits', radec='../Catalog/goodss_radec.dat', raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=None, skip_direct=False, ACS=False, align_threshold=align_threshold)
         
         #### test
         # if True:

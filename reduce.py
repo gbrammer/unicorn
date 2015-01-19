@@ -3386,28 +3386,35 @@ class GrismModel():
                 print unicorn.noNewLine+'2D FITS, 2D PNG, 1D FITS, 1D PNG'
             spec = unicorn.reduce.Interlace1D(self.baseroot+'_%05d.1D.fits' %(id), PNG=True)
         
-    def make_zeroth_regions(self, MAG_LIMIT=22, id_label=False, scale_size=True):
+    def make_zeroth_regions(self, MAG_LIMIT=22, id_label=False, scale_size=True, id_list=[]):
             """ 
-            Make a regions file for just the zeroth orders
+            Make a regions file for just the zeroth orders. If list is supplied, only make regions for objects 
+            in the list. Magnitude limit is applied 
             """
             fp = open(self.baseroot+'_inter_0th.reg','w')
             fp.write('image\n')
+
             N = len(self.cat.x_pix)
+
             for i in range(N):
                 if self.cat.mag[i] < MAG_LIMIT:
-                    dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element)
-                    if scale_size:
-                        a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
-                        r = np.sqrt(a**2+b**2)
+                    if (id_list) and (self.cat['NUMBER'][i] not in id_list):
+                        continue
                     else:
-                        r = 3
-                    #theta = self.cat['THETA_IMAGE'][i]
-                    region = "circle(%s, %s, %.2f)"  %(self.cat.x_pix[i]+dx, self.cat.y_pix[i]+dy, r)
-                    if id_label:
-                        region += '# text={%d}' %(self.cat['NUMBER'][i])
+                        dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], 
+                            zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad, 
+                            ngrow=self.ngrow, grism=self.grism_element)
+                        if scale_size:
+                            a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
+                            r = np.sqrt(a**2+b**2)
+                        else:
+                            r = 3
+                        #theta = self.cat['THETA_IMAGE'][i]
+                        region = "circle(%s, %s, %.2f)"  %(self.cat.x_pix[i]+dx, self.cat.y_pix[i]+dy, r)
+                        if id_label:
+                            region += '# text={%d}' %(self.cat['NUMBER'][i])
                     #
-                    fp.write(region+'\n')
-            #
+                        fp.write(region+'\n')
             fp.close()
     
     def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True, column_average=False):

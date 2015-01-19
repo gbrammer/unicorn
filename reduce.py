@@ -455,7 +455,7 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     #print xinter, yinter
     return xinter-xinter[0], yinter-yinter[0]
     
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROW=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=0, NGROWY=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3):
     
     # from pyraf import iraf
     # from iraf import dither
@@ -487,18 +487,16 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         xsh, ysh = np.zeros(len(asn.exposures)), np.zeros(len(asn.exposures))
         
     yi,xi = np.indices((1014,1014))
-    
-    #pad += NGROW*4
-    
-    N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int)
         
-    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
-    inter_weight = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
+    N = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX), dtype=np.int)
+        
+    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX))
+    inter_weight = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX))
     if use_error:
-        inter_err = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
+        inter_err = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX))
     
-    xi+=pad/(2*growx)+NGROW
-    yi+=pad/(2*growy)+NGROW
+    xi+=pad/(2*growx)+NGROWX
+    yi+=pad/(2*growy)+NGROWY
     
     #### From pieter
     dxs = np.array([0,-20,-13,7]) + np.int(np.round(xsh[0]))*0
@@ -591,15 +589,17 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         if i == 0:
             h0 = im[0].header
             h1 = im[1].header
-            header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROW=NGROW)
-            header.update('EXTNAME','SCI')
-            header.update('PAD',pad)
-            header.update('GROWX', growx)
-            header.update('GROWY', growy)
-            header.update('NGROW', NGROW)
-            header.update('REFIMAGE', '', comment='Source detection image')
+            header = red.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad,
+                NGROWX=NGROWX, NGROWY=NGROWY)
+            header['EXTNAME']='SCI'
+            header['PAD']=pad
+            header['GROWX']=growx
+            header['GROWY']=growy
+            header['NGROWX'] = NGROWX
+            header['NGROWY'] = NGROWY
+            header['REFIMAGE'] = ('','Source detection image')
             header_wht = header.copy()
-            header_wht.update('EXTNAME','ERR')
+            header_wht['EXTNAME']='ERR'
         
         dx = np.int(np.round((xsh[i]-xsh[0])*growx))
         dy = np.int(np.round((ysh[i]-ysh[0])*growy))
@@ -664,7 +664,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         
     image = pyfits.HDUList([hdu,sci,wht])
     if 'EXTEND' not in hdu.header.keys():
-        hdu.header.update('EXTEND', True, after='NAXIS')
+        hdu.header.set('EXTEND', True, after='NAXIS')
     
     image.writeto(root+'_inter.fits', clobber=True)
     
@@ -687,10 +687,10 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
 
         shift = threedhst.utils.xyrot(np.array([sf.xshift[0]]), np.array([sf.yshift[0]]), 180.-im[1].header['PA_APER'])
 
-        im[1].header.update('CRPIX1', im[1].header['CRPIX1']+2*shift[0][0])
-        im[1].header.update('CRPIX2', im[1].header['CRPIX2']+2*shift[1][0])
-        im[2].header.update('CRPIX1', im[2].header['CRPIX1']+2*shift[0][0])
-        im[2].header.update('CRPIX2', im[2].header['CRPIX2']+2*shift[1][0])
+        im[1].header['CRPIX1'] = im[1].header['CRPIX1']+2*shift[0][0]
+        im[1].header['CRPIX2'] = im[1].header['CRPIX2']+2*shift[1][0]
+        im[2].header['CRPIX1'] = im[2].header['CRPIX1']+2*shift[0][0]
+        im[2].header['CRPIX2'] = im[2].header['CRPIX2']+2*shift[1][0]
 
         im.flush()
 
@@ -746,18 +746,18 @@ def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat', output='scale_coeffs.dat',
     
     open(output,'w').writelines(lines)
     
-def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
+def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=0, NGROWY=0):
     """
     Take an FLT header but scale the WCS keywords to account for the images 
     expanded/contracted by a factor of 'factor'.
     """
     import numpy as np
     
-    header.update('NAXIS1',header['NAXIS1']*growx+NGROW*growx*factor+pad)
-    header.update('NAXIS2',header['NAXIS2']*growy+NGROW*growy*factor+pad)
+    header['NAXIS1'] = header['NAXIS1']*growx+NGROWX*growx*factor+pad
+    header['NAXIS2'] = header['NAXIS2']*growy+NGROWY*growy*factor+pad
 
-    header.update('CRPIX1',header['CRPIX1']*growx+NGROW*growx+pad/2)
-    header.update('CRPIX2',header['CRPIX2']*growy+NGROW*growy+pad/2)
+    header['CRPIX1'] = header['CRPIX1']*growx+NGROWX*growx+pad/2
+    header['CRPIX2'] = header['CRPIX2']*growy+NGROWY*growy+pad/2
     
     ### SIP WCS keywords for distortion
     if ('A_ORDER' in header.keys()) & ('SIP' in header['CTYPE1']):
@@ -774,14 +774,14 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROW=0):
     # for key in keys:
     #     header.update(key,header[key]/factor)
     
-    header.update('CD1_1', header['CD1_1']/growx)
-    header.update('CD2_1', header['CD2_1']/growx)
-    header.update('CD1_2', header['CD1_2']/growy)
-    header.update('CD2_2', header['CD2_2']/growy)
+    header['CD1_1'] = header['CD1_1']/growx
+    header['CD2_1'] = header['CD2_1']/growx
+    header['CD1_2'] = header['CD1_2']/growy
+    header['CD2_2'] = header['CD2_2']/growy
     
-    header.update('IDCTAB','')
+    header['IDCTAB'] = ''
     
-    header.update('EXPTIME',1)
+    header['EXPTIME'] = 1
     
     return header
     
@@ -3692,7 +3692,7 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=125, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=125, NGROWY=20, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -3711,9 +3711,6 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     ### Strip off filter name    
     pointing = '-'.join(root.split('-')[:-1])
-    #pointing = root
-    
-    #unicorn.reduce.blot_from_reference(REF_ROOT=REF_ROOT, DRZ_ROOT = root, NGROW=NGROW, verbose=verbose)
     
     if view:
         import threedhst.dq
@@ -3721,8 +3718,6 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     
     if not stop_early:
         run = threedhst.prep_flt_files.MultidrizzleRun(root)
-        #run.blot_back(ii=0, copy_new=True)
-
 
         scl = np.float(run.scl)
         xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
@@ -3732,25 +3727,20 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     PAM = im[1].data
     im.close()
     PAMy = np.median(PAM[:,50:-50], axis=1)
-    PAM_grow = np.dot(PAMy.reshape((-1,1)), np.ones((1,1014+2*NGROW)))
+    PAM_grow = np.dot(PAMy.reshape((-1,1)), np.ones((1,1014+2*NGROWX)))
+    PAM_grow = np.vstack([np.array([PAM_grow[0,:],]*NGROWY),PAM_grow, np.array([PAM_grow[-1,:],]*NGROWY)])
 
-    yi,xi = np.indices((1014,1014+2*NGROW))
+    yi,xi = np.indices((1014+2*NGROWY,1014+2*NGROWX))
 
-    #N = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW))
-    #inter_err = np.zeros((2028+pad+2*2*NGROW, 2028+pad+2*2*NGROW))
-    inter_seg = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int32)
-    inter_N = np.zeros((1014*growy+pad+growy*2*NGROW, 1014*growx+pad+growx*2*NGROW), dtype=np.int32)
+    inter_sci = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX))
+    inter_seg = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX), dtype=np.int32)
+    inter_N = np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX), dtype=np.int32)
     
     xi+=pad/(2*growx)
-    yi+=pad/(2*growy)+NGROW
+    yi+=pad/(2*growy)#+NGROW
     
     asn = threedhst.utils.ASNFile(root+'_asn.fits')
     flt = pyfits.open(asn.exposures[0]+'_flt.fits')
-    
-    #### These were needed for COSMOS-19
-    #xi -= 1
-    #yi += 1
     
     #### From pieter
     dxs = np.array([0,-20,-13,7]) #+ np.int(np.round(xsh[0]))*0
@@ -3842,11 +3832,11 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
             h0 = im_flt[0].header
             h1 = im_flt[1].header
             h0['FILTER'] = im[0].header['FILTER']
-            header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROW=NGROW)
+            header = unicorn.reduce.scale_header_wcs(h1.copy(), factor=2, growx=growx, growy=growy, pad=pad, NGROWX=NGROWX, NGROWY=NGROWY)
             
             #header_wht = header.copy()
             #header_wht.update('EXTNAME','ERR')
-            header.update('EXTNAME','SCI')
+            header['EXTNAME'] = 'SCI'
             header.update('REF_ROOT', REF_ROOT, comment='Source detection image')
             
         # dx = np.int(np.round((xsh[i]-xsh[0])*2))
@@ -3876,7 +3866,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #header.update('PAD', pad, comment='Additional padding around the edges') 
     
     header.update('PAD', pad, comment='Padding at edge of interlaced image')
-    header.update('NGROW', NGROW, comment='Additional extra pixels at the image edges')
+    header.update('NGROWX', NGROWX, comment='Additional extra pixels at the image edges')
+    header.update('NGROWY', NGROWY, comment='Additional extra pixels at the Y image edges')
     
     hdu = pyfits.PrimaryHDU(header=h0)
     sci = pyfits.ImageHDU(data=inter_sci/inter_N, header=header)
@@ -3917,7 +3908,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         
     hdu.writeto(seg_file, clobber=True)
     
-    #### For use with astrodrizzle images
+    #### For use with astrodrizzle images: stop here and return offsets
     if stop_early:
         return dxs, dys
         
@@ -4060,8 +4051,8 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     for i,line in enumerate(status[-NOBJ:]):
         #print line
         spl = np.cast[float](line.split())
-        fxi, fyi = (spl[0]+NGROW)*growx+pad/2-1, (spl[1]+NGROW)*growy+pad/2-1
-        if (fxi > pad/2) & (fxi < ((1014+2*NGROW)*growx+pad/2.)) & (fyi > (pad/2.+NGROW*growy)) & (fyi < (pad/2.+NGROW*growy+1014*growy)):
+        fxi, fyi = (spl[0]+NGROWX)*growx+pad/2-1, (spl[1]+NGROWY)*growy+pad/2-1
+        if (fxi > pad/2) & (fxi < ((1014+2*NGROWX)*growx+pad/2.)) & (fyi > (pad/2.+NGROWY*growy)) & (fyi < (pad/2.+NGROWY*growy+1014*growy)):
             fxi += delta_x
             fyi += delta_y
             flt_x.append(fxi)
@@ -4121,7 +4112,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=125, NGROWY=20, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 
@@ -4185,37 +4176,35 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
         for ext in sci_ext:
             flt_wcs = stwcs.wcsutil.HSTWCS(flt, ext=ext)
             #
-            flt_wcs.naxis1 = flt[ext].header['NAXIS1']+NGROW*2
-            flt_wcs.wcs.crpix[0] += NGROW
-            flt_wcs.sip.crpix[0] += NGROW
-            ### Header
+            flt_wcs.naxis1 = flt[ext].header['NAXIS1']+NGROWX*2
+            flt_wcs.naxis2 = flt[ext].header['NAXIS2']+NGROWY*2
+            flt_wcs.wcs.crpix[0] += NGROWX
+            flt_wcs.sip.crpix[0] += NGROWX
+            flt_wcs.wcs.crpix[1] += NGROWY
+            flt_wcs.sip.crpix[1] += NGROWY           
+            ### Put WCS info back in a header
             header = flt_wcs.wcs2header(sip2hdr=True)
             header['ORIGFILE'] = (ref_image, 'Reference image path')
             header['EXPTIME'] = ref[ref_ext].header['EXPTIME']
             header['FILTER'] = ref_filter
             header['PAD'] = (pad, 'Padding pixels to x and y')
-            header['NGROW'] = (NGROW, 'Number of pixels added to X-axis (both sides)')
+            header['NGROWX'] = (NGROWX, 'Number of pixels added to X-axis (both sides)')
+            header['NGROWY'] = (NGROWY, 'Number of pixels added to Y-axis (both sides)')
             #
             ### reference
             blotted_ref = astrodrizzle.ablot.do_blot(ref[ref_ext].data, ref_wcs, flt_wcs, 1, coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)
             hdu_blot.append(pyfits.ImageHDU(data=blotted_ref, header=header.copy()))
-            #pyfits.writeto('%s_blot.fits' %(exp), data=blotted_ref, header=header, clobber=True)
-            #
-            ### segmentation, need "ones" image for pixel areas
-            #print 'Segmentation image: %s_seg.fits' %(exp)
+
+            ### Blot segmentation, need "ones" image for pixel areas
             blotted_seg = astrodrizzle.ablot.do_blot(seg_data, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
             blotted_ones = astrodrizzle.ablot.do_blot(seg_ones, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
-            #### debug
-            #pyfits.writeto('chip%d_seg.fits' %(ext), data=blotted_seg, clobber=True)
-            #pyfits.writeto('chip%d_ones.fits' %(ext), data=blotted_ones, clobber=True)
-            #
+
             blotted_ones[blotted_ones == 0] = 1
             ratio = np.round(blotted_seg/blotted_ones)
             grow = nd.maximum_filter(ratio, size=3, mode='constant', cval=0)
             ratio[ratio == 0] = grow[ratio == 0]
             header['ORIGFILE'] = (seg_image, 'Segmentation image path')
             hdu_seg.append(pyfits.ImageHDU(data=np.cast[np.int32](ratio), header=header.copy()))
-            #pyfits.writeto('%s_seg.fits' %(exp), data=np.cast[np.int32](ratio), header=header, clobber=True)
         
         if ACS:
             hdulist_blot = pyfits.HDUList(hdu_blot)
@@ -4261,8 +4250,9 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
         
     else:
         roots = [pointing_root]
-        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, REF_ROOT='COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROW=NGROW, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism)
+        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=NGROWX, NGROWY=NGROWY, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism)
         
+    ### Make the pointing catalog
     for i, pointing_root in enumerate(roots):
         threedhst.showMessage('Make catalog: %s-%s_inter.cat' %(pointing_root, grism))
         #### Create blotted catalog of objects within blotted segm. image
@@ -4281,10 +4271,10 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROW=125, gro
      
         threedhst.showMessage('%s: %d objects from blotted catalog:\n  %s.' %(pointing_root, keep.sum(), cat_file))
     
-        ### here's the line to translate the x,y coords
+        ### here's the line to translate the x,y coords to the flt distorted frame
         x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy('%s_%s.fits[%d]' %(ref_flt_exp, fl_ext, sci_ext[i]), coordfile='%s-%s_radec.dat' %(pointing_root, grism), verbose=False)
-        x_flt = (x_flt0+dxs[ref_exp]+NGROW)*growx+pad/2#-1 
-        y_flt = (y_flt0+dys[ref_exp]+NGROW)*growy+pad/2#-1 
+        x_flt = (x_flt0+dxs[ref_exp]+NGROWX)*growx+pad/2#-1 
+        y_flt = (y_flt0+dys[ref_exp]+NGROWY)*growy+pad/2#-1 
     
         if growx == 2:
             x_flt -= 1
@@ -4357,18 +4347,16 @@ def adjust_catalog_for_FLT(pointing='aegis-15', MAG_LIM=25, THUMB_SIZE=16, ref=T
 
     for i in idx:
         xc, yc = int(np.round(cat['X_FLT'][i])), int(np.round(cat['Y_FLT'][i]))
-        #print xc, yc, cat['X_FLT'][i], cat['X_YLT'][i]
         ddx, ddy = cat['X_FLT'][i]-xc, cat['Y_FLT'][i]-yc
         #
         xi, yi = ((cat['X_FLT'][i])), ((cat['Y_FLT'][i]))
-        #fp.write('circle(%.3f, %.3f,2) # color=magenta\n' %(xi, yi))
-        thumb_ref = im_ref[1].data[yc-THUMB_SIZE:yc+THUMB_SIZE, xc-THUMB_SIZE:xc+THUMB_SIZE]
-        #thumb_ref = im[1].data[yc-N:yc+N, xc-N:xc+N]
-        thumb_seg = im_seg[0].data[yc-THUMB_SIZE:yc+THUMB_SIZE, xc-THUMB_SIZE:xc+THUMB_SIZE] == cat['NUMBER'][i]
-        thumb_ref /= np.sum(thumb_ref[thumb_seg])
-        thumb_ref[~thumb_seg] = 0
-        dx[i] = np.sum(thumb_ref*(ix-(THUMB_SIZE-1)))-ddx
-        dy[i] = np.sum(thumb_ref*(iy-(THUMB_SIZE-1)))-ddy
+        if ((yc-THUMB_SIZE >= 0) & (yc+THUMB_SIZE <= im_ref[1].data.shape[0]) & (xc-THUMB_SIZE >= 0) & (xc+THUMB_SIZE <= im_ref[1].data.shape[1])):
+            thumb_ref = im_ref[1].data[yc-THUMB_SIZE:yc+THUMB_SIZE, xc-THUMB_SIZE:xc+THUMB_SIZE]
+            thumb_seg = im_seg[0].data[yc-THUMB_SIZE:yc+THUMB_SIZE, xc-THUMB_SIZE:xc+THUMB_SIZE] == cat['NUMBER'][i]
+            thumb_ref /= np.sum(thumb_ref[thumb_seg])
+            thumb_ref[~thumb_seg] = 0
+            dx[i] = np.sum(thumb_ref*(ix-(THUMB_SIZE-1)))-ddx
+            dy[i] = np.sum(thumb_ref*(iy-(THUMB_SIZE-1)))-ddy
         
     #fp.close()
     

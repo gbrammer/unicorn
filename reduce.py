@@ -785,7 +785,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=0, NGROW
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrow=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False, conf=None, sens_files=None):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrowx=0, ngrowy=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False, conf=None, sens_files=None):
     """
     Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
@@ -822,8 +822,8 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     #### Coordinates in FLT frame
     ## xc_full[interlaced] = (x[FLT orig]+ngrow)*growx + pad/2
-    xc = np.int(np.round((xc_full - pad/2. - ngrow*growx)/growx))
-    yc = np.int(np.round((yc_full - pad/2. - ngrow*growy)/growy))
+    xc = np.int(np.round((xc_full - pad/2. - ngrowx*growx)/growx))
+    yc = np.int(np.round((yc_full - pad/2. - ngrowy*growy)/growy))
     
     if 'XOFF' in conf.keys():
         xoff = np.float(conf['XOFF'])
@@ -1305,7 +1305,7 @@ def get_all_emission_lines(field='GOODS-N', force=True, skip=True):
     os.chdir(PWD)
            
 class Interlace2D():
-    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2, ngrow=0):
+    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2, ngrowx=0, ngrowy=0):
         """
         
         Get 'NGROW' from the header if it exists, or use parameter.
@@ -1361,11 +1361,16 @@ class Interlace2D():
             self.growx = 2
             self.growy = 2
         
-        if 'NGROW' in self.im[0].header.keys():
-            self.ngrow = self.im[0].header['NGROW']
+        if 'NGROWX' in self.im[0].header.keys():
+            self.ngrowx = self.im[0].header['NGROWX']
         else:
-            self.ngrow = ngrow
+            self.ngrowx = ngrowx
             
+        if 'NGROWY' in self.im[0].header.keys():
+            self.ngrowy = self.im[0].header['NGROWY']
+        else:
+            self.ngrowy = ngrowy
+
         #
         #### XXX need to get the zeropoint for arbitrary filter
         self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
@@ -1382,7 +1387,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element, conf=self.conf, sens_files=self.sens_files)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, conf=self.conf, sens_files=self.sens_files)
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -1479,7 +1484,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma, conf=self.conf, sens_files=self.sens_files)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma, conf=self.conf, sens_files=self.sens_files)
         
         #print orders.shape
         
@@ -1960,11 +1965,16 @@ class GrismModel():
             self.growx = growx
             self.growy = growy
         
-        if 'NGROW' not in self.direct[1].header.keys():
-            self.ngrow = (self.direct[1].data.shape[1] - 1014*self.growx - self.pad) / (self.growx*2) 
+        if 'NGROWX' not in self.direct[1].header.keys():
+            self.ngrowx = (self.direct[1].data.shape[1] - 1014*self.growx - self.pad) / (self.growx*2) 
         else:
-            self.ngrow = self.direct[1].header['NGROW']
+            self.ngrowx = self.direct[1].header['NGROWX']
             
+        if 'NGROWY' not in self.direct[1].header.keys():
+            self.ngrowy = (self.direct[1].data.shape[1] - 1014*self.growx - self.pad) / (self.growx*2) 
+        else:
+            self.ngrowy = self.direct[1].header['NGROWY']
+
         self.ZP = ZPs[self.filter]
 
         self.PLAM = PLAMs[self.filter]
@@ -2177,8 +2187,8 @@ class GrismModel():
         fp = open('/tmp/%s.flt_xy' %(self.root),'w')
         for i in range(NOBJ):
             #1014*growy+pad+growy*2*NGROW
-            xi = (self.cat.x_pix[i]-self.pad/2. - self.ngrow*self.growx)/self.growx
-            yi = (self.cat.y_pix[i]-self.pad/2. - self.ngrow*self.growy)/self.growy
+            xi = (self.cat.x_pix[i]-self.pad/2. - self.ngrowx*self.growx)/self.growx
+            yi = (self.cat.y_pix[i]-self.pad/2. - self.ngrowy*self.growy)/self.growy
             fp.write('%.2f %.2f\n' %(xi,  yi))
         
         fp.close()
@@ -2298,8 +2308,8 @@ class GrismModel():
     
     def object_flux_thumb(self, id=0):
         ix = self.cat.id == id
-        padx = self.ngrow*self.growx + self.pad/2
-        pady = self.ngrow*self.growy + self.pad/2
+        padx = self.ngrowx*self.growx + self.pad/2
+        pady = self.ngrowy*self.growy + self.pad/2
         x_flt = (self.cat.x_pix[ix][0]-padx)/self.growx
         y_flt = (self.cat.y_pix[ix][0]-pady)/self.growy
         
@@ -2417,7 +2427,7 @@ class GrismModel():
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent            
         t0 = time.time()
-        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrow=self.ngrow, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy =self.ngrowy, grism=self.grism_element)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -2911,7 +2921,8 @@ class GrismModel():
         prim.header.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
         prim.header.update('FTOTAL', self.total_fluxes[id], comment='Total flux within segmentation image (1E-17)')
         prim.header.update('PAD', self.pad, comment='Padding at edge of interlaced image')
-        prim.header.update('NGROW', self.ngrow, comment='Additional extra pixels at the image edges')
+        prim.header.update('NGROWX', self.ngrowx, comment='Additional extra pixels at the image edges in X')
+        prim.header.update('NGROWY', self.ngrowy, comment='Additional extra pixels at the image edges in Y')
         prim.header.update('GROW', self.grow_factor, comment='"grow_factor" from unicorn.reduce')
         prim.header.update('GROWX', self.growx, comment='"growx" from unicorn.reduce')
         prim.header.update('GROWY', self.growy, comment='"growy" from unicorn.reduce')
@@ -2933,7 +2944,7 @@ class GrismModel():
         
         if '_ref_inter' in self.im.filename():
             ### Use reference image as thumbnail if it exists
-            if (xc < ((self.pad + self.ngrow*self.growx)/ 2)) | USE_REFERENCE_THUMB:
+            if (xc < ((self.pad + self.ngrowx*self.growx)/ 2)) | USE_REFERENCE_THUMB:
                 prim.header.update('REFTHUMB', True)
                 self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
                 prim.header.update('FILTER', self.im[0].header['FILTER'])
@@ -3403,7 +3414,7 @@ class GrismModel():
                     else:
                         dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], 
                             zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad, 
-                            ngrow=self.ngrow, grism=self.grism_element)
+                            ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element)
                         if scale_size:
                             a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
                             r = np.sqrt(a**2+b**2)
@@ -3500,12 +3511,12 @@ class GrismModel():
             ax = fig.add_subplot(121)
             diff = self.gris[1].data*1.-column
             diff[~mm] = 0
-            diff = diff[self.ngrow*self.growx: -self.ngrow*self.growx-1, self.ngrow*self.growy:-self.ngrow*self.growy-1]
+            diff = diff[self.ngrowx*self.growx: -self.ngrowx*self.growx-1, self.ngrowy*self.growy:-self.ngrowy*self.growy-1]
             ax.imshow(nd.gaussian_filter(diff, 2), vmin=-0.02, vmax=0.02, interpolation='Nearest', aspect='auto')
             ax.set_xticklabels([]); ax.set_yticklabels([])
             ax.set_xlabel('BG: %s e/s\n' %(flux_bgs_str)+r'$\sigma$ scale: %.3f' %(err_scale))
             if column_average:
-                xx = self.ngrow*self.growx
+                xx = self.ngrowx*self.growx
                 ax.plot(column[xx:-xx-1]*80000 + diff.shape[0]/2., color='black')
             ax.set_xlim(0,diff.shape[1]); ax.set_ylim(0,diff.shape[0])
             #

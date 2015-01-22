@@ -20,7 +20,7 @@ def misc():
         
     os.system('cp /Users/brammer/3DHST/Spectra/Work/ASTRODRIZZLE_FLT/Catalog/goodss_radec.dat .')
     
-def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_threshold=20):
+def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_threshold=6):
     """
     Run end-to-end WFC3 test
     """
@@ -62,8 +62,8 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_thresh
     if run_interlace:
         
         #### Interlace images themselves
-        NGROWX = 125
-        NGROWY = 20
+        NGROWX = 180
+        NGROWY = 30
         grow, auto_off = 2, False
         #grow, auto_off = 1, True
         
@@ -75,11 +75,11 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_thresh
         adriz_blot(pointing=root+'-F140W', pad=60, NGROWX=NGROWX, NGROWY=NGROWY, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0, ref_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='../Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='../Catalog/goodss_3dhst.v4.0.IR_cutout.cat')
         
         #### Make a model to 25 AB
-        model = unicorn.reduce.process_GrismModel(root=root, grow_factor=grow, growx=grow, growy=grow, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, model_list=None, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
+        model = unicorn.reduce.process_GrismModel(root=root, grow_factor=grow, growx=grow, growy=grow, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, model_list=None, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'], align_reference=True)
         
         #### Remove residual backgroudn with model mask
         model.refine_mask_background(threshold=0.002, grow_mask=14, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True)
-    
+        
     #run_redshifts = True
     
     if run_redshifts:

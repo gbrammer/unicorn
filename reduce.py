@@ -455,13 +455,14 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     #print xinter, yinter
     return xinter-xinter[0], yinter-yinter[0]
     
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=0, NGROWY=0, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=180, NGROWY=30, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3, min_neighbors=2):
     
     # from pyraf import iraf
     # from iraf import dither
     
     import threedhst.prep_flt_files
     import unicorn.reduce as red
+    import scipy.ndimage as nd
     
     if unicorn.hostname().startswith('uni'):
         view = False
@@ -661,10 +662,20 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         wht = pyfits.ImageHDU(data=np.cast[np.float32](inter_err), header=header_wht)
     else:
         wht = pyfits.ImageHDU(data=np.cast[np.int](N), header=header_wht)
-        
+            
+    #### Mask singleton pixels 
+    ok = (wht.data != 0)*1
+    neighbor = nd.convolve(ok, np.ones((3,3))) - 1 # self
+    mask = (wht.data != 0) & (neighbor < min_neighbors)
+    wht.data[mask] = 0
+    sci.data[mask] = 0
+    mask_fraction = mask.sum()*1./ok.sum()
+    threedhst.showMessage('Masked %d (%.3f) pixels with < %d valid neighbors.\n\nMost will be at image edge resulting from the dither extremes.' %(mask.sum(), mask_fraction, min_neighbors), warn=mask_fraction > 0.1)
+    
     image = pyfits.HDUList([hdu,sci,wht])
     if 'EXTEND' not in hdu.header.keys():
         hdu.header.set('EXTEND', True, after='NAXIS')
+    
     
     image.writeto(root+'_inter.fits', clobber=True)
     
@@ -746,7 +757,7 @@ def new_coeffs_dat(input='ibhm29wlq_flt_coeffs1.dat', output='scale_coeffs.dat',
     
     open(output,'w').writelines(lines)
     
-def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=0, NGROWY=0):
+def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=180, NGROWY=30):
     """
     Take an FLT header but scale the WCS keywords to account for the images 
     expanded/contracted by a factor of 'factor'.
@@ -785,7 +796,7 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=0, NGROW
     
     return header
     
-def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrowx=0, ngrowy=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False, conf=None, sens_files=None):
+def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_factor=2, growx=2, growy=2, pad = 60, ngrowx=0, ngrowy=0, BEAMS=['A','B','C','D'], dydx=True, grism='G141', smooth_binned_sigma=0.001, xmi=1000, xma=-1000, zeroth_position=False, conf=None, sens_files=None, finex=0, finey=0):
     """
     Main code for converting the grism dispersion calibration to a full 2D model spectrum
     
@@ -907,6 +918,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
                     
         xoff_beam = field_dependent(bigX, bigY, conf['XOFF_'+beam]) * growx
         yoff_beam = field_dependent(bigX, bigY, conf['YOFF_'+beam]) * growy
+        
+        xoff_beam += finex
+        yoff_beam += finey
         
         xmi_beam += int(np.round(xoff_beam))
         xma_beam += int(np.round(xoff_beam))
@@ -1102,28 +1116,32 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, normalize_model_list=True, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False, align_reference=True):
     import unicorn.reduce
     
     model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism, old_filenames=old_filenames)
     
+    if align_reference:
+        if 'FINEX' not in model.im[0].header.keys():
+            model.align_direct_reference(match_threshold=0.5, mag_limit=23., r_limit=8, apply=True)
+        
     model.model_list = model_list
     
     if not use_segm:
         #model.get_corrected_wcs(verbose=True)
         pass
         
-    test = model.load_model_spectra()
-    if not test:
+    status = model.load_model_spectra()
+    if not status:
         if make_zeroth_model:
             ### "zeroth" iteration to flag 0th order contamination, no color / norm iteration
-            model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'])   
+            model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'], normalize_model_list=normalize_model_list)   
             ### Reset the model
             model.init_object_spectra()
             model.model*=0
         
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope, BEAMS=BEAMS)   
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope, BEAMS=BEAMS, normalize_model_list=normalize_model_list)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
         model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
         
@@ -1329,6 +1347,12 @@ class Interlace2D():
         else:
             chip=1
         
+        if 'FINEX' in self.im[0].header.keys():
+            self.fine_offset = [self.im[0].header['FINEX'], self.im[0].header['FINEY']]
+        else:
+            self.fine_offset = [0,0]
+            
+            
         self.profile2D = None
         
         #### Make sure to use the same configuration file that was used
@@ -1387,7 +1411,7 @@ class Interlace2D():
         Initialize all of the junk needed to go from the pixels in the 
         direct thumbnail to the 2D model spectrum
         """
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, conf=self.conf, sens_files=self.sens_files)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, conf=self.conf, sens_files=self.sens_files, finex=self.fine_offset[0], finey=self.fine_offset[1])
         
         yord, xord = np.indices(orders.shape)
         beams = np.dot(np.ones((orders.shape[0],1), dtype=np.int), self.xi[5].reshape((1,-1)))
@@ -1455,6 +1479,13 @@ class Interlace2D():
         self.xmin, self.xmax = xmin, xmax
         #print 'XMINMAX: ', self.xmin, self.xmax
         
+        #print 'Interlace2D xminmax: %d %d' %(xmin, xmax)
+        
+        # if 'DXMIN' in self.im[0].header.keys():
+        #     print 'XXX DXMIN'
+        #     self.xmin = self.im[0].header['DXMIN']
+        #     self.xmax = self.im[0].header['DXMAX']
+
         # xoff_arr = np.arange(len(self.xi[4]), dtype=np.double)+self.xi[0]+sh[0]/2.
         # xoff_int = np.arange(xmin, xmax, dtype=np.double)
         # yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])        
@@ -1484,7 +1515,7 @@ class Interlace2D():
                 
         #print lam_spec, flux_spec
         
-        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma, conf=self.conf, sens_files=self.sens_files)
+        orders, self.xi = unicorn.reduce.grism_model(self.x_pix, self.y_pix, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=['A'], grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, smooth_binned_sigma=smooth_binned_sigma, conf=self.conf, sens_files=self.sens_files, finex=self.fine_offset[0], finey=self.fine_offset[1])
         
         #print orders.shape
         
@@ -1920,7 +1951,21 @@ class Interlace2D():
             out[xy_other[1]-ymin:xy_other[1]-ymin+n_other[1], xy_other[0]-xmin:xy_other[0]-xmin+n_other[0]] += data
             
         return out[xy_self[1]-ymin:xy_self[1]-ymin+n_self[1], xy_self[0]-xmin:xy_self[0]-xmin+n_self[0]]
+    
+    def get_sensitivity_error(self, scale=1./20):
+        """
+        Get a component to the counts/s uncertainty from the flux correction
+        """
+        sens = self.sens_files['A']
+        s_max = sens['SENSITIVITY'].max()
         
+        oflux = self.obj_flux*1.        
+        self.obj_flux = np.abs(oflux)#/np.abs(self.oflux).sum()
+        self.compute_model(sens['WAVELENGTH'], ((s_max/sens['SENSITIVITY'])**2-0)*scale)
+        self.obj_flux = oflux*1.
+        
+        self.sens_var = self.model**2
+    
 class GrismModel():
     def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', output_path='./', old_filenames=False):
         """
@@ -1957,7 +2002,11 @@ class GrismModel():
             self.filter = self.im[0].header['FILTER']
         else:
             self.im = self.direct
-        #
+        
+        self.fine_offset = [0, 0]
+        if 'FINEX' in self.im[0].header.keys():
+            self.fine_offset = [self.im[0].header['FINEX'], self.im[0].header['FINEY']]
+            
         try:
             self.growx = self.im[0].header['GROWX']
             self.growy = self.im[0].header['GROWY']
@@ -2427,7 +2476,8 @@ class GrismModel():
         #### Define the grism dispersion for the central pixel of an object.  
         #### Assume doesn't change across the object extent            
         t0 = time.time()
-        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy =self.ngrowy, grism=self.grism_element)
+        orders, self.xi = unicorn.reduce.grism_model(xc, yc, lam_spec=lam_spec, flux_spec=flux_spec, BEAMS=BEAMS, grow_factor=self.grow_factor, growx=self.growx, growy=self.growy, pad=self.pad, ngrowx=self.ngrowx, ngrowy =self.ngrowy, grism=self.grism_element, finex=self.fine_offset[0], finey=self.fine_offset[1]
+        )
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
@@ -2513,7 +2563,7 @@ class GrismModel():
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1
             print 'Output wavelength and sensitivity arrays. (%.3f)' %(dt)
-            
+    
     def refine_model(self, id, BEAMS=['A','B','C','D'], view=False, verbose=False, MAG_FOR_SIMPLE=22):
         """
         MAG_FOR_SIMPLE:  use linear fit if mag > MAG_FOR_SIMPLE
@@ -2684,7 +2734,7 @@ class GrismModel():
             self.model -= self.object
             self.obj_in_model[id] = False
             
-    def compute_full_model(self, BEAMS=['A','B','C','D'], view=None, MAG_LIMIT=23., save_pickle=True, refine=True, model_slope=0):
+    def compute_full_model(self, BEAMS=['A','B','C','D'], view=None, MAG_LIMIT=23., save_pickle=True, refine=True, model_slope=0, normalize_model_list=True):
         
         #self.model*=0.
         if refine:
@@ -2737,10 +2787,18 @@ class GrismModel():
                         print unicorn.noNewLine+'Object #%d, m=%.2f (%d/%d) [model_list]' %(id, mag[so][i], i+1, N)
                         lx, ly = self.model_list[id][0]*1., self.model_list[id][1]*1.
                         self.flux_specs[id] = utils_c.interp_conserve_c(self.lam_spec, lx, ly, left=0., right=0.)
-                        
-                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly, normalize=True)      
+                else:
+                    normalize_model_list=True
+                    
+                self.compute_object_model(id, BEAMS=BEAMS, lam_spec=lx, flux_spec=ly, normalize=normalize_model_list, verbose=False)      
                 self.model += self.object
                 self.obj_in_model[id] = True
+                
+                #### ly modified in previous step
+                if self.model_list is not None:
+                    if id in self.model_list.keys():
+                        self.flux_specs[id] = utils_c.interp_conserve_c(self.lam_spec, lx, ly, left=0., right=0.)  
+                                      
                 if view:
                     try:
                         view.view(self.model)                    
@@ -2948,6 +3006,9 @@ class GrismModel():
                 prim.header.update('REFTHUMB', True)
                 self.direct_thumb = self.im[1].data[yc-NT/2:yc+NT/2, xc-NT/2:xc+NT/2]
                 prim.header.update('FILTER', self.im[0].header['FILTER'])
+        
+        prim.header['FINEX'] = self.fine_offset[0]
+        prim.header['FINEY'] = self.fine_offset[1]
                 
         extensions = [prim]
 
@@ -2993,9 +3054,14 @@ class GrismModel():
                 #
                 if refine:
                     if (not self.obj_in_model[idi]) | force_refine_nearby:
+                        if verbose:
+                            print unicorn.noNewLine + 'Calculating contaminating object #%d - ' %(idi)
                         self.refine_model(idi, BEAMS=BEAMS, view=view)      
                 else:
                     if (not self.obj_in_model[idi]) | force_refine_nearby:
+                        if verbose:
+                            print unicorn.noNewLine + 'Calculating contaminating object #%d - ' %(idi)
+
                         self.compute_object_model(idi, BEAMS=BEAMS, lam_spec=None, flux_spec=None)      
                         self.model += self.object
                         self.obj_in_model[idi] = True
@@ -3047,6 +3113,21 @@ class GrismModel():
         xmin = xarr[wavelength_region].min()
         xmax = xarr[wavelength_region].max()
         
+        #print 'TWOD_SPECTRUM xminmax: %d %d' %(xmin, xmax)
+        
+        #### Try hard-coding the 1st order extraction region to keep constant
+        first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
+        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[60, 192]}
+        xx = first_order[self.grism_element]
+        xmin, xmax = first_order[self.grism_element]
+        xmin *= self.growx
+        xmax *= self.growx
+        # extensions[0].header['DXMIN'] = (xmin, 'Left edge of first order spectrum')
+        # extensions[0].header['DXMAX'] = (xmax, 'Right edge of first order spectrum')
+        xmin += xc
+        xmax += xc
+        #print 'FORCE: %d %d' %(xmin, xmax)
+        
         if ((self.sh[1]-xmin) < 20) | ((xmax-xmin) < 20):
             fp = open(self.baseroot+'_%05d.2D.xxx' %(id),'w')
             fp.write('%.2f %.2f  %d %d\n' %(xc, yc, xmin, xmax))
@@ -3073,16 +3154,23 @@ class GrismModel():
             
         ### WCS header
         header.update('CRPIX1',1)
-        header.update('CDELT1',self.dwave)
+        header.update('CD1_1',self.dwave)
+        header.update('CD1_2',0)
         header.update('CRVAL1',self.wave[0])
         header.update('CUNIT1','Angstrom')
         header.update('CTYPE1','WAVE')
         
-        header.update('CRPIX2',NT/2.+1)
-        header.update('CRVAL2',0)
-        header.update('CDELT2',0.128254/2)
+        # header.update('CRPIX2',NT/2.+1)
+        # header.update('CRVAL2',0)
+        # header.update('CDELT2',0.128254/self.growy)
+        header.update('CRPIX2', NT/2+1)
+        scl = 0.128254/self.growy
+        header.update('CRVAL2', ((NT/2+1)-self.ytrace[0])*scl)
+        header.update('CD2_1', -np.diff(self.ytrace)[0]*scl)
+        header.update('CD2_2', scl)
+        
         header.update('CUNIT2','arcsec')
-        header.update('CTYPE2','CRDIST')
+        header.update('CTYPE2','LINEAR')
         
         header.update('YTOFF', spec_y_offset, comment='Offset of middle of spectrum trace')
         
@@ -3414,7 +3502,7 @@ class GrismModel():
                     else:
                         dx, dy = unicorn.reduce.grism_model(xc_full=self.cat.x_pix[i], yc_full=self.cat.y_pix[i], 
                             zeroth_position=True, growx=self.growx, growy=self.growy, pad=self.pad, 
-                            ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element)
+                            ngrowx=self.ngrowx, ngrowy=self.ngrowy, grism=self.grism_element, finex=self.fine_offset[0], finey=self.fine_offset[1])
                         if scale_size:
                             a, b = self.cat['A_IMAGE'][i], self.cat['B_IMAGE'][i]
                             r = np.sqrt(a**2+b**2)
@@ -3586,7 +3674,89 @@ class GrismModel():
             mx['SCI'].data[x.mask] = 0
             mx['ERR'].data[x.mask] = 0
             mx.flush()
+    
+    def align_direct_reference(self, match_threshold=0.5, mag_limit=23., r_limit=8, apply=False):
+        """
+        Cross-correlation alignment of blotted direct and nominal direct image
+        """
+        from threedhst import catIO
+        
+        #### Run SExtractor on the direct image, with the WHT 
+        #### extension as a weight image
+        se = threedhst.sex.SExtractor()
+        
+        ## Set the output parameters required for aXe 
+        ## (stored in [threedhst source]/data/aXe.param) 
+        se.aXeParams()
+        
+        ## XXX add test for user-defined .conv file
+        se.copyConvFile()
+        se.overwrite = True
+        se.options['CATALOG_NAME']    = '%s_align0.cat' %(self.baseroot)
+        se.options['CHECKIMAGE_TYPE'] = 'NONE'
+        se.options['WEIGHT_TYPE']     = 'MAP_RMS'
+        se.options['WEIGHT_IMAGE']    = '%s[1]' %(self.direct.filename())
+        se.options['FILTER']    = 'Y'
+        
+        #### Detect thresholds (default = 1.5)
+        se.options['THRESH_TYPE'] = 'ABSOLUTE'
+        se.options['DETECT_THRESH']    = '0.2' 
+        se.options['ANALYSIS_THRESH']  = '0.2'
+        se.options['MAG_ZEROPOINT'] = '%.2f' %(self.ZP)
+        
+        #### Run SExtractor
+        status = se.sextractImage('%s[0]' %(self.direct.filename()))
+
+        se.options['CATALOG_NAME']    = '%s_align1.cat' %(self.baseroot)
+        status = se.sextractImage('%s[0]' %(self.im.filename()))
+        
+        c0 = catIO.Table('%s_align0.cat' %(self.baseroot))
+        c1 = catIO.Table('%s_align1.cat' %(self.baseroot))
+        
+        ok_obj = (c0['MAG_AUTO'] < mag_limit) & (c0['FLUX_RADIUS'] < r_limit)
+        
+        m = catIO.CoordinateMatcher(c0[ok_obj], 'X_IMAGE', 'Y_IMAGE', pixel_units=True)
+        dr, idx = m.match_list(c1['X_IMAGE'], c1['Y_IMAGE'])
+        ok = dr < match_threshold
+        dx = c0['X_IMAGE'][ok_obj][idx][ok] - c1['X_IMAGE'][ok]
+        dy = c0['Y_IMAGE'][ok_obj][idx][ok] - c1['Y_IMAGE'][ok]
+        
+        self.fine_offset = [np.median(dx), np.median(dy)]
+        
+        #### Make the alignment figure
+        plt.ioff()
+        fig = plt.figure(figsize=[5,5])
+        ax = fig.add_subplot(111)
+
+        ax.scatter(dx, dy, alpha=0.5)
+
+        ax.plot([dx.min(), dx.max()], [0,0], color='black', linestyle=':', alpha=0.5)
+        ax.plot([0,0], [dy.min(), dy.max()], color='black', linestyle=':', alpha=0.5)
+        ax.plot([dx.min(), dx.max()], np.median(dy)*np.ones(2), color='red', linestyle='-', alpha=0.5)
+        ax.plot(np.median(dx)*np.ones(2), [dy.min(), dy.max()], color='red', linestyle='-', alpha=0.5)
+
+        ax.set_xlabel(r'$\Delta x$ (interlaced pixels)')
+        ax.set_ylabel(r'$\Delta y$ (interlaced pixels)')
+
+        ax.set_title('%s: (%.3f, %.3f)' %(self.baseroot, self.fine_offset[0], self.fine_offset[1]))
+
+        fig.tight_layout()
+        
+        fig.savefig('%s_ref_align.png' %(self.baseroot))
+        
+        threedhst.showMessage('Align %s to %s:  \n\n   (dx, dy) = (%.3f, %.3f)  \n\n See %s_ref_align.png' %(self.im.filename(), self.direct.filename(), self.fine_offset[0], self.fine_offset[1], self.baseroot))
+        
+        #### Put alignment results in ref_inter FITS file
+        if apply:
+            im = pyfits.open(self.im.filename(), mode='update')
+            im[0].header['FINEX'] = (self.fine_offset[0], 'Fine alignment x offset')
+            im[0].header['FINEY'] = (self.fine_offset[1], 'Fine alignment y offset')
+            im.flush()
             
+            self.im = pyfits.open(self.im.filename())
+            
+        return self.fine_offset
+        
 def field_dependent(xi, yi, str_coeffs):
     """ 
     Calculate field-dependent parameter for aXe conventions.
@@ -3710,14 +3880,15 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=125, NGROWY=20, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=180, NGROWY=30, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
     
     xxxxx Still not modified for differing factors in x and y!
     """
-    from pyraf import iraf
+    if not stop_early:
+        from pyraf import iraf
 
     import threedhst.prep_flt_files
     from threedhst import catIO
@@ -3929,7 +4100,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
     #### For use with astrodrizzle images: stop here and return offsets
     if stop_early:
         return dxs, dys
-        
+         
     if verbose:
         print 'Clean up segmentation image...'
         
@@ -4130,7 +4301,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=125, NGROWY=20, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NGROWY=30, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 

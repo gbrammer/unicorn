@@ -1151,7 +1151,7 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
     return model
     
 class Interlace1D():
-    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True, flux_units=True):
+    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True, flux_units=True, grism='G141'):
         """
         Wrapper for Interlaced 1D spectra.
         
@@ -1247,7 +1247,10 @@ class Interlace1D():
         
         ax = fig.add_subplot(111)
         
-        wavelength_region = (self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)
+        if self.grism == 'G102':
+            wavelength_region = (self.data.wave > 0.78e4) & (self.data.wave < 1.15e4)
+        else:
+            wavelength_region = (self.data.wave > 1.15e4) & (self.data.wave < 1.65e4)
         if np.sum(wavelength_region) > 0:
             ymax = ((self.data.flux-self.data.contam)/self.data.sensitivity)[wavelength_region].max()
             if ymax <= 0:
@@ -1266,7 +1269,10 @@ class Interlace1D():
         ax.plot(self.data.wave, self.data.contam/self.data.sensitivity, color='red')
         
         ax.set_ylim(-0.1*ymax, 1.1*ymax)
-        ax.set_xlim(1.05e4, 1.72e4)
+        if self.grism == 'G102':
+            ax.set_xlim(0.74e4, 1.17e4)
+        else:
+            ax.set_xlim(1.05e4, 1.72e4)
         ax.set_xlabel(r'$\lambda$ / $\AA$')
         ax.set_ylabel(r'$f_\lambda / 10^{-17}$ cgs')
         
@@ -3515,6 +3521,48 @@ class GrismModel():
                     #
                         fp.write(region+'\n')
             fp.close()
+    
+    def mask_zeroth(self, MAG_LIMIT=22., min_radius=10., only_stars=True, addtocat=True, mask_grism=True):
+        """
+        Masks 0th order images of stars or of all objects brighter than MAG_LIMIT. 
+        If mask_grsim=False, will only create the regions file, but no apply the mask. 
+        Requires a catalog with STAR_FLAG to be available.
+        """
+       
+        import pyregion
+       
+        cat, zout, fout = unicorn.analysis.read_catalogs(root=self.root)
+        if (cat == None) and only_stars:
+            print "CATALOG NOT FOUND. CANNOT MASK STARS."
+            return
+       
+        star_flag = np.array([cat.star_flag[np.where(cat.id == id)[0][0]] for id in self.cat.id])
+        print " {} objects with STAR_FLAG = 1.\n{} objects with STAR_FLAG = 2.".format(np.sum(star_flag==1), np.sum(star_flag==2))
+       
+        if addtocat:
+            self.cat.addColumn(data=star_flag, name='STAR_FLAG')
+
+        star_list = list(self.cat.id[star_flag == 1])
+       
+        if only_stars:
+            self.make_zeroth_regions(MAG_LIMIT=MAG_LIMIT, id_label=False,
+                scale_size=False, id_list=star_list)
+        else:
+            self.make_zeroth_regions(MAG_LIMIT=MAG_LIMIT, id_label=False, scale_size=True)
+           
+        if mask_grism:
+            print "Masking 0th order."
+            mask_reg = pyregion.open(self.baseroot+'_inter_0th.reg').as_imagecoord(header=self.gris['SCI'].header)
+            print 'Masking {} regions.'.format(len(mask_reg))
+       
+            for reg in mask_reg:
+                if (reg.params[-1] < min_radius) | (reg.coord_list[-1] < min_radius):
+                    reg.params[-1] = pyregion.region_numbers.SimpleNumber(min_radius)
+                    reg.coord_list[-1] = min_radius
+       
+            mask = mask_reg.get_mask(hdu=self.gris['SCI'])
+            self.gris['SCI'].data[mask] = 0 
+    
     
     def refine_mask_background(self, threshold=0.002, grow_mask=8, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True, column_average=False):
         """

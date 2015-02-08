@@ -686,7 +686,7 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
     
     image.writeto(root+'_inter.fits', clobber=True)
     
-    pyfits.writeto('inter_N.fits', data=N, header=image[1].header, clobber=True)
+    #pyfits.writeto('inter_N.fits', data=N, header=image[1].header, clobber=True)
     
     if make_undistorted:
         from pyraf import iraf

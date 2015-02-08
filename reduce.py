@@ -380,19 +380,25 @@ def acs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', chip=1):
         
     return xinter, yinter
     
-def wcs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=False, ref_exp=0, raw=False):
+def wcs_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=False, ref_exp=0, raw=False, reference_pixel=None):
     """
     Get interlace offsets from header WCS itself rather than POS-TARGS
     """
     import drizzlepac.skytopix
+    import drizzlepac.pixtosky
     import astropy.io.fits as pyfits
     
     asn = threedhst.utils.ASNFile(asn_file)
     
     im = pyfits.open('%s/%s_flt.fits' %(path_to_flt, asn.exposures[0]))
-    r0, d0 = im[1].header['CRVAL1'], im[1].header['CRVAL2']
-    x0, y0 = im[1].header['CRPIX1'], im[1].header['CRPIX2']
-    
+    if reference_pixel is None:
+        r0, d0 = im[1].header['CRVAL1'], im[1].header['CRVAL2']
+        x0, y0 = im[1].header['CRPIX1'], im[1].header['CRPIX2']
+    else:
+        x0, y0 = reference_pixel
+        rd = drizzlepac.pixtosky.xy2rd('%s/%s_flt.fits[sci,1]' %(path_to_flt, asn.exposures[0]), x=x0, y=y0, verbose=False, hms=False)
+        r0, d0 = rd[0][0], rd[1][0]
+        
     N = len(asn.exposures)
     xoff, yoff = np.zeros(N), np.zeros(N)
     for i in range(N):
@@ -455,7 +461,7 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     #print xinter, yinter
     return xinter-xinter[0], yinter-yinter[0]
     
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=180, NGROWY=30, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3, min_neighbors=2):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=180, NGROWY=30, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3, min_neighbors=2, reference_pixel=None):
     
     # from pyraf import iraf
     # from iraf import dither
@@ -545,8 +551,9 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         dys = np.array([ 0,  0, 83, 83])*growy
        
     if auto_offsets:
+        #xinter, yinter = red.wcs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy, reference_pixel = reference_pixel)
         try:
-            xinter, yinter = red.wcs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
+            xinter, yinter = red.wcs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy, reference_pixel = reference_pixel)
         except:
             xinter, yinter = red.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
             
@@ -1338,6 +1345,7 @@ class Interlace2D():
         self.id = int(file.split('.2D')[0].split('_')[-1])
         self.file = file
         self.im = pyfits.open(file)
+            
         self.thumb = np.cast[np.double](self.im['DSCI'].data)
         self.thumb_weight = np.cast[np.double](self.im['DWHT'].data)
         self.seg = np.cast[np.uint](self.im['DSEG'].data)
@@ -1372,7 +1380,7 @@ class Interlace2D():
         self.sens_files = unicorn.reduce.sens_files
         
         self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
-        
+                    
         self.sh = self.im['SCI'].data.shape
         
         if 'WMIN' in self.im[0].header.keys():
@@ -1400,7 +1408,11 @@ class Interlace2D():
             self.ngrowy = self.im[0].header['NGROWY']
         else:
             self.ngrowy = ngrowy
-
+        
+        ### Back-compatibility before NGROW split into X/Y
+        if 'NGROW' in self.im[0].header.keys():
+            self.ngrowx = self.ngrowy = self.im[0].header['NGROW']
+            
         #
         #### XXX need to get the zeropoint for arbitrary filter
         self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
@@ -3805,6 +3817,92 @@ class GrismModel():
             
         return self.fine_offset
         
+    def get_eazy_templates(self, dr_min=0.2, MAG_LIMIT=23):
+        """
+        Get EAZY templates for objects in the field.  
+        
+        Returns a "model_list" dictionary suitable for input into 
+        `processGrismModel`.
+        """
+        from threedhst import eazyPy as eazy
+        from threedhst import catIO
+        
+        cat, zout, fout = unicorn.analysis.read_catalogs(root=self.root)
+        #cat.kmag = 23.86-2.5*np.log10(cat.field(KTOT_COL))
+        CAT_PATH = os.path.dirname(cat.filename)
+        
+        root = os.path.basename(zout.filename).split('.zout')[0]
+        ZOUT_PATH = os.path.dirname(zout.filename)
+        
+        eazy_tempfilt, eazy_coeffs, eazy_temp_sed, pz = eazy.readEazyBinary(MAIN_OUTPUT_FILE = root,                                                 OUTPUT_DIRECTORY=ZOUT_PATH, CACHE_FILE = 'Same')
+        
+        m = catIO.CoordinateMatcher(cat)
+        dr, idx = m.match_list(self.cat.ra, self.cat.dec)
+        ok = (dr < dr_min) & (self.cat.mag < MAG_LIMIT)
+                            
+        #### Read the templates
+        nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed1_nolines.dat', unpack=True)
+        NTEMP = eazy_coeffs['coeffs'].shape[0]    
+        noline_temps = np.zeros((nlx.shape[0], NTEMP))
+        noline_temps[:,0] = nly/eazy_coeffs['tnorm'][0]
+        for i in range(2,7):
+            nlx, nly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.0_lines/eazy_v1.0_sed%d_nolines.dat' %(i), unpack=True)
+            noline_temps[:,i-1] = nly/eazy_coeffs['tnorm'][i-1]
+        
+        #### The last v1.1 template was a BC03 model without lines, so just use it directly    
+        i = 7
+        lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/EAZY_v1.1_lines/eazy_v1.1_sed%d.dat' %(i), unpack=True)
+        noline_temps[:,6] = np.interp(nlx, lx, ly)/eazy_coeffs['tnorm'][6]
+        
+        ### dusty old template
+        if NTEMP == 8:
+            lx, ly = np.loadtxt(unicorn.GRISM_HOME+'/templates/Ezgal/c09_del_8.6_z_0.019_chab_age09.40_av2.0.dat', unpack=True)
+            noline_temps[:,7] = np.interp(nlx, lx, ly)/eazy_coeffs['tnorm'][7]
+        
+        param = eazy.EazyParam(zout.filename.replace('zout','param'))
+        flam_factor = 10**(-0.4*(param['PRIOR_ABZP']+48.6))*3.e18/1.e-17
+        
+        ### Loop through objects
+        model_list = {}
+        for i in np.arange(len(idx))[ok]:
+            print unicorn.noNewLine + 'ID: %d, mag: %.1f' %(self.cat.id[i], self.cat.mag[i])
+            id = self.cat.id[i]
+            best_fit_nolines = np.dot(noline_temps, eazy_coeffs['coeffs'][:,idx[i]])
+            templam_nolines = nlx
+            
+            #### Convert to flux
+            zi = eazy_tempfilt['zgrid'][eazy_coeffs['izbest'][idx[i]]]
+
+            ###### Full template SED, observed frame
+            lambdaz = nlx*(1+zi)
+            temp_sed = np.dot(noline_temps, eazy_coeffs['coeffs'][:,idx[i]])
+            temp_sed /= (1+zi)**2
+            temp_sed *= (1/5500.)**2*flam_factor
+
+            ###### IGM absorption
+            lim1 = np.where(nlx < 912)
+            lim2 = np.where((nlx >= 912) & (nlx < 1026))
+            lim3 = np.where((nlx >= 1026) & (nlx < 1216))
+
+            if lim1[0].size > 0: temp_sed[lim1] *= 0.
+            if lim2[0].size > 0: temp_sed[lim2] *= 1.-eazy_temp_sed['db'][eazy_coeffs['izbest'][idx[i]]]
+            if lim3[0].size > 0: temp_sed[lim3] *= 1.-eazy_temp_sed['da'][eazy_coeffs['izbest'][idx[i]]]
+            
+            model_list[id] = (lambdaz, temp_sed)
+
+        return model_list
+        
+        if False:
+            # Test
+            model_list = model.get_eazy_templates(dr_min=0.5, MAG_LIMIT=25)
+            id = 335
+            obj = model.object*0.
+            N = len(model_list.keys())
+            for i, id in enumerate(model_list.keys()):
+                print '%d/%d %d' %(i, N, id)
+                model.compute_object_model(id, lam_spec=model_list[id][0], flux_spec=model_list[id][1], verbose=False, normalize=True)
+                obj += model.object
+                
 def field_dependent(xi, yi, str_coeffs):
     """ 
     Calculate field-dependent parameter for aXe conventions.
@@ -3928,7 +4026,7 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=180, NGROWY=30, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=180, NGROWY=30, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False, reference_pixel=None):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -4002,7 +4100,7 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         
     if auto_offsets:
         try:
-            xinter, yinter = unicorn.reduce.wcs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
+            xinter, yinter = unicorn.reduce.wcs_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy, reference_pixel = reference_pixel)
         except:
             xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
         #xinter, yinter = unicorn.reduce.get_interlace_offsets(root+'_asn.fits', growx=growx, growy=growy)
@@ -4349,7 +4447,7 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NGROWY=30, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141'):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NGROWY=30, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141', reference_pixel=None):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 
@@ -4487,7 +4585,7 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
         
     else:
         roots = [pointing_root]
-        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=NGROWX, NGROWY=NGROWY, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism)
+        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=NGROWX, NGROWY=NGROWY, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism, reference_pixel=reference_pixel)
         
     ### Make the pointing catalog
     for i, pointing_root in enumerate(roots):

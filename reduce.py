@@ -80,7 +80,7 @@ for beam in ['A','B','C','D','E']:
         sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
         
         sens_wave = np.arange(sens['WAVELENGTH'].min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens['WAVELENGTH'].max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
-        sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=0, right=0)
+        sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=1.e-10, right=1.e-10)
         sens_err = np.interp(sens_wave, sens['WAVELENGTH'], sens['ERROR'], left=0, right=0)
         
         sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
@@ -166,8 +166,8 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
                 sens_sens0 = sens['SENSITIVITY']
                 sens_err0 = sens['ERROR']
 
-            sens_sens = np.interp(sens_wave, sens_wave0, sens_sens0, left=0, right=0)
-            sens_err = np.interp(sens_wave, sens_wave0, sens_err0, left=0, right=0)
+            sens_sens = np.interp(sens_wave, sens_wave0, sens_sens0, left=1.e-10, right=1.e-10)
+            sens_err = np.interp(sens_wave, sens_wave0, sens_err0, left=1.e-10, right=1.e-10)
                         
             sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
             red.sens_files[beam] = sens_data
@@ -3134,7 +3134,7 @@ class GrismModel():
         #print 'TWOD_SPECTRUM xminmax: %d %d' %(xmin, xmax)
         
         #### Try hard-coding the 1st order extraction region to keep constant
-        first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
+        #first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
         first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[60, 192]}
         xx = first_order[self.grism_element]
         xmin, xmax = first_order[self.grism_element]

@@ -1193,6 +1193,7 @@ class Interlace1D():
         self.flux = self.data['FLUX']/convert
         self.error = self.data['ERROR']/convert
         self.contam = self.data['CONTAM']/convert
+        self.grism = grism
                 
         if PNG:
             self.show(savePNG=True)

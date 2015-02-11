@@ -43,16 +43,26 @@ def multi_test(field='goodss', n_proc=32):
         interlace_func(root)
         
     p = Pool(processes=n_proc)
+    p.map(interlace_func, roots)
+    
+    for root in roots:
+        adriz_func(root)
+        model_func(root)
+        
     p.map(reduce_func, roots)
 
 
 def interlace_func(root):
-
-    import unicorn
-    import numpy as np
-    import unicorn.interlace_test as test
-    import os
    
+    NGROWX = 200
+    NGROWY = 30 
+    grow, auto_off = 2, False
+        
+    unicorn.reduce.interlace_combine(root=root+'-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
+    unicorn.reduce.interlace_combine(root=root+'-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
+
+def adriz_func(root):
+    
     NGROWX = 200
     NGROWY = 30 
     grow, auto_off = 2, False
@@ -81,19 +91,26 @@ def interlace_func(root):
         CATALOG = '../REF/UDS_IR.cat'
         REF_IMAGE = '../REF/uds_3dhst.v4.0.IR_orig_sci.fits'
         SEG_IMAGE = '../REF/UDS_F125W_F140W_F160W.seg.fits'
-        
-    unicorn.reduce.interlace_combine(root=root+'-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
-    unicorn.reduce.interlace_combine(root=root+'-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
-        
+            
     #### Interlaced reference
     adriz_blot = unicorn.reduce.adriz_blot_from_reference
     adriz_blot(pointing=root+'-F140W', pad=60, NGROWX=NGROWX, NGROWY=NGROWY, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0, ref_image=REF_IMAGE, ref_ext=0, ref_filter='F140W', seg_image=SEG_IMAGE, cat_file=CATALOG)
       
-def reduce_func(root):
-      
+def model_func(root):
+    
     m0 = unicorn.reduce.GrismModel(root=root)
     model_list = m0.get_eazy_templates(dr_min=0.5, MAG_LIMIT=25)
     model = unicorn.reduce.process_GrismModel(root=root, model_list=model_list, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
+    
+
+def reduce_func(root):
+      
+    import unicorn
+    import numpy as np
+    import unicorn.interlace_test as test
+    import os
+      
+    model = unicorn.reduce.process_GrismModel(root=root)
     model.mask_zeroth()
      
     model.extract_spectra_and_diagnostics(MAG_LIMIT=24.)    

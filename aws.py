@@ -72,7 +72,7 @@ def interlace_func(root):
         REF_IMAGE = '../REF/goodsn_3dhst.v4.0.IR_orig_sci.fits'
         SEG_IMAGE = '../REF/goodsn_3dhst.v4.0.F160W_seg.fits'
         
-    if root.startswith('goodsn'):
+    if root.startswith('goodss'):
         CATALOG = '../REF/GOODS-S_IR.cat'
         REF_IMAGE = '../REF/goodss_3dhst.v4.0.IR_orig_sci.fits'
         SEG_IMAGE = '../REF/GOODS-S_IR.seg.fits'
@@ -134,7 +134,7 @@ def time_test():
     
 def fit_timer(n_repeats=3, n_runs=1):
     """
-    My desktop: ~49s
+    My desktop: ~??s
     """
     
     import timeit

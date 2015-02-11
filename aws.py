@@ -38,15 +38,17 @@ def multi_test(field='goodss', n_proc=32):
     from multiprocessing import Pool
     import glob
     roots = [r.split('-F140W')[0] for r in glob.glob('{}-*F140W_asn.fits'.format(field))]
+
+    for root in roots:
+        interlace_func(root)
         
     p = Pool(processes=n_proc)
     p.map(reduce_func, roots)
 
 
-def reduce_func(root):
+def interlace_func(root):
 
     import unicorn
-    #import unicorn.reduce_scripts
     import numpy as np
     import unicorn.interlace_test as test
     import os
@@ -86,6 +88,8 @@ def reduce_func(root):
     #### Interlaced reference
     adriz_blot = unicorn.reduce.adriz_blot_from_reference
     adriz_blot(pointing=root+'-F140W', pad=60, NGROWX=NGROWX, NGROWY=NGROWY, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0, ref_image=REF_IMAGE, ref_ext=0, ref_filter='F140W', seg_image=SEG_IMAGE, cat_file=CATALOG)
+      
+def reduce_func(root):
       
     m0 = unicorn.reduce.GrismModel(root=root)
     model_list = m0.get_eazy_templates(dr_min=0.5, MAG_LIMIT=25)
@@ -129,6 +133,9 @@ def time_test():
     gris.new_fit_constrained()
     
 def fit_timer(n_repeats=3, n_runs=1):
+    """
+    My desktop: ~49s
+    """
     
     import timeit
     import numpy as np

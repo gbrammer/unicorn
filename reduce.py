@@ -2930,7 +2930,7 @@ class GrismModel():
         seg = np.cast[int](self.segm[0].data)
         
         #### Check that center within the image
-        if (xc < 0) | (xc > (self.sh[1]-1)):
+        if (xc < 0) | (xc > (self.sh[1]-1)) | (yc < 0) | (yc > (self.sh[0]-1)):
             threedhst.showMessage('Object %d at (%d, %d) is off the image (%d,%d)' %(id, xc, yc, self.sh[1], self.sh[0]), warn=True)
             return False
         

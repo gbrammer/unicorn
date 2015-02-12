@@ -756,30 +756,30 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.new_fit_zgrid(zrange=zsecond[zsub], dz=dzsecond, is_grid=True, ignore_spectrum=False, ignore_photometry=(self.dr > 0.5), apply_prior=False, refit_norm=False)
         self.zgrid_second = self.zgrid
         self.lnprob_second_spec = self.lnprob_spec*1.
-        
+
         #### Smooth it with a gaussian
         wz = 0.0005
         xg = np.arange(-5*wz, 5*wz+1.e-6, dzsecond)
         yg = np.exp(-xg**2/2/wz**2)
         sm_spec = nd.convolve1d(np.exp(self.lnprob_second_spec*1.), yg, mode='constant', cval=0.)
         self.lnprob_second_spec = np.log(sm_spec/sm_spec.max())
-        
+
         #### Total probability with the prior
         lnprior = self.get_prior(self.zgrid_second)
         self.lnprob_second_photom = sm_photom[zsub]
         self.lnprob_second_total = self.lnprob_second_photom*0 + self.lnprob_second_spec + lnprior
         self.lnprob_second_total -= self.lnprob_second_total.max()
-        
+
         self.get_redshift_stats()
         
         self.z_max_spec = self.zgrid[np.argmax(self.lnprob_second_total)]
-        
+
         self.norm_prob = np.exp(self.lnprob_second_total) / np.trapz(np.exp(self.lnprob_second_total), self.zgrid_second)
         self.z_peak_spec = np.trapz(self.zgrid_second*self.norm_prob, self.zgrid_second)
         self.pzsum = np.cumsum(self.norm_prob[1:]*np.diff(self.zgrid_second))
         self.c68 = np.interp([0.16,0.84], self.pzsum, self.zgrid_second[1:])
         self.c95 = np.interp([0.025,0.975], self.pzsum, self.zgrid_second[1:])
-        
+
         ###### Save fit information
         fp = open(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit_tilt.dat','w')
         fp.write('poly\n')
@@ -789,6 +789,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         fp.close()
 
         self.lnprob_spec = self.lnprob_second_total*1.
+
         if make_plot:
             self.make_new_fit_figure(ignore_photometry=(self.dr > 0.5), NO_GUI=True, log_pz=True)
             self.new_save_fits()
@@ -943,7 +944,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             
         if (self.coeffs is None) | force_refit:
             self.fit_combined(self.z_show, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=ignore_photometry, ignore_spectrum=ignore_spectrum, background=background)
-         
+                         
         #
         igmz, igm_factor = self.phot.get_IGM(self.z_show, matrix=False)
         self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_show)**2*igm_factor
@@ -952,7 +953,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         flux_2D = self.spec_flux.reshape(self.shape2D)
         xflux_1D, yflux_1D = self.twod.optimal_extract(flux_2D)
-        
+         
         self.oned_wave, self.best_1D = self.twod.optimal_extract(self.best_2D)
         self.model_1D = self.best_1D
         
@@ -1003,7 +1004,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             
         #### Spectrum in f_lambda
         #self.oned.data.sensitivity /= 100
-        
+         
         ax = fig.add_subplot(142)
         ax.plot(self.oned.data.wave[show]/1.e4, yflux[show]/self.oned.data.sensitivity[show]*100, color='black', alpha=0.1)
         
@@ -1035,16 +1036,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #### p(z)
         ax = fig.add_subplot(143)
+        
         ax.plot(self.phot_zgrid, np.exp(self.phot_lnprob-self.phot_lnprob.max()), color='green')
-        if self.zgrid is not None:
-            ax.plot(self.zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.4)
-            ax.fill_between(self.zgrid, np.exp(self.lnprob_spec), np.exp(self.lnprob_spec)*1.e-5, color='blue', alpha=0.2)
-            
-        #ax.plot(zgrid1, np.exp(full_prob1), color='blue')
 
-        # ax.plot(self.phot_zgrid, (self.phot_lnprob-self.phot_lnprob.max()), color='green')
-        # ax.plot(zgrid0, (full_prob0), color='blue', alpha=0.4)
-        # ax.plot(zgrid1, (full_prob1), color='blue')
+        if self.zgrid is not None:
+            ax.plot(self.zgrid, np.exp(self.lnprob_spec), color='blue', alpha=0.8)        
+            #ax.fill_between(self.zgrid, np.exp(self.lnprob_spec), np.exp(self.lnprob_spec)*1.e-5, color='blue', alpha=0.2)
+            
         
         zsp = -1
         if not self.skip_photometric:
@@ -1065,7 +1063,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         ax.set_ylabel(r'$p(z)$')
         ax.set_yticklabels([])
         ax.xaxis.set_major_locator(unicorn.analysis.MyLocator(5, prune='both'))
-        
+         
         #### Make title text
         if not self.skip_photometric:
             deltaz = ''
@@ -1077,7 +1075,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ax.text(-0.05, 1.1, r'%s  $H_{140}=$%.2f  $z_\mathrm{gris}$=%.3f' %(self.grism_id, self.twod.im[0].header['MAG'], self.z_show), transform=ax.transAxes, horizontalalignment='center')
             unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' + self.grism_id+'.zfit.%s' %(self.FIGURE_FORMAT))
             return True
-        
+
         ####  Show the (photometric) SED with the spectrum overplotted
         ax = fig.add_subplot(144)
 

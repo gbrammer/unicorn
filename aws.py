@@ -27,7 +27,7 @@ def run_test():
     unicorn.unit_test.run_wfc3(run_prep=False, run_interlace=False, run_redshifts=True)
 
 
-def multi_test(field='goodss', n_proc=32):
+def multi_test(field='goodss', n_proc=28):
     
     """
     from multiprocessing import Pool
@@ -38,9 +38,6 @@ def multi_test(field='goodss', n_proc=32):
     from multiprocessing import Pool
     import glob
     roots = [r.split('-F140W')[0] for r in glob.glob('{}-*F140W_asn.fits'.format(field))]
-
-    for root in roots:
-        interlace_func(root)
         
     p = Pool(processes=n_proc)
     p.map(interlace_func, roots)
@@ -113,11 +110,11 @@ def reduce_func(root):
     model = unicorn.reduce.process_GrismModel(root=root)
     model.mask_zeroth()
      
-    model.extract_spectra_and_diagnostics(MAG_LIMIT=24.)    
+    model.extract_spectra_and_diagnostics(MAG_LIMIT=25.)    
 
     cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
     
-    ii = np.where(model.cat.mag < 24.)
+    ii = np.where(model.cat.mag < 25.)
     for id in model.cat.id[ii]:
         obj_root='%s-G141_%05d' %(root, id)
         if os.path.exists(obj_root+'.new_zfit.pz.fits'):
@@ -151,7 +148,9 @@ def time_test():
     
 def fit_timer(n_repeats=3, n_runs=1):
     """
-    My desktop: ~??s
+    hyperion: [64.93909096717834, 62.57095193862915, 67.32873106002808] 64.9462579886
+    unicorn: [97.09501099586487, 93.94038319587708, 93.99588394165039] 95.0104260445
+    aws: [97.73548483848572, 97.6720449924469, 97.60361194610596] 97.6703805923
     """
     
     import timeit

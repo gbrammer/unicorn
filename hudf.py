@@ -896,7 +896,7 @@ class Stack2D(object):
         import copy
         root=self.root
         
-        im = pyfits.open(self.files[-1])
+        im = pyfits.open(self.files[0])
         
         im['DSCI'].data = self.dsci
         im['DWHT'].data = self.dwht
@@ -1010,54 +1010,7 @@ class Stack2D(object):
         #### Save the file
         outfile='%s_%05d_stack.png' %(self.root, self.id)
         print outfile
-        unicorn.plotting.savefig(fig, outfile)
-        
-    
-def new_stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270, files=None):
-    """
-    Stack multiple spectra for a given object ID, assumes latest fixed 
-    width extractions
-    
-    Use scikit-image to transform the different spectra to align wavelength
-    grids
-    """
-    import skimage
-    import skimage.transform
-    
-    import scipy.ndimage as nd
-    import glob
-    
-    if plt.cm.get_cmap().name != 'gray':
-        plt.gray()
-        
-    if files is None:
-        files=glob.glob('%s*%05d.2D.fits' %(search, id))
-    
-    N = len(files)
-    
-    #### Read images
-    ims = []
-    for file in files:
-        ims.append(pyfits.open(file))
-    
-    #### Get shifts, etc.
-    ix, iy, rot, sh, dlam = [], [], [], [], []
-    for i, im in enumerate(ims):
-        sh.append(im['WAVE'].data.shape)
-        dlam.append(np.diff(im['WAVE'].data)[0])
-        ix.append(np.interp(ref_wave, im['WAVE'].data, np.arange(sh[i][0])))
-        iy.append(np.interp(ref_wave, im['WAVE'].data, im['YTRACE'].data))
-        rot.append(np.arctan((im['YTRACE'].data[-1] - im['YTRACE'].data[0])/sh[i][0]))
-        
-    #### Get affine transforms
-    transforms = []
-    for i in range(N):
-        dx = ix[i]/(dlam[0]/dlam[i])-ix[0]
-        dy = (iy[i]-iy[0]) + (ims[i][0].header['FINEY'] - ims[0][0].header['FINEY'])
-        scl = dlam[0]/dlam[i]
-        tf = skimage.transform.AffineTransform(scale=(scl, 1), translation=(dx, dy), rotation=rot[i]-rot[0])
-        transforms.append(tf)
-    
+        unicorn.plotting.savefig(fig, outfile)    
     
 def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270, files=None):
     """

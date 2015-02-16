@@ -717,6 +717,348 @@ def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     #stack(id, dy=20, save=True, inverse=True)
     
 #
+class Stack2D(object):
+    def __init__(self, id=6818, inverse=False, scale=[1,99], fcontam=2., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', files=None, go=True):
+        """
+        Class for stacking 2D grism spectra
+        
+        xxx
+        
+        ref_wave = 1.4e4
+        root='gs'
+        field='goodss'
+        id=46504
+        self = hudf.Stack2D(id, root=root, search='%s*' %(field), NX=310, fcontam=2)
+        
+        """
+        
+        import scipy.ndimage as nd
+        import glob
+
+        if plt.cm.get_cmap().name != 'gray':
+            plt.gray()
+        
+        #### Parameters
+        self.ref_wave = ref_wave
+        self.id = id
+        self.fcontam = fcontam
+        self.root = root
+        self.search = search
+        
+        #### Find the files
+        if files is None:
+            self.files = glob.glob('%s*%05d.2D.fits' %(search, id))
+        else:
+            self.files = files
+            
+        self.N = len(self.files)
+        
+        #### Read the files
+        self.ims = []
+        for file in self.files:
+            self.ims.append(pyfits.open(file))
+        
+        self.sh2D = self.ims[0]['SCI'].data.shape
+        
+        self._get_transforms()
+        
+        self._apply_transforms()
+        
+        if go:
+            self._stack_spectra()
+            self._make_stacked_FITS()
+            self._make_plot(scale=scale)
+            
+    def _get_transforms(self, verbose=True):
+        """
+        Get parameters for affine transform (shift, scale, rotate) between
+        spectra.
+        """
+        import skimage
+        import skimage.transform
+        
+        #### Get shifts, etc.
+        self.ix, self.iy, self.rot, self.sh, self.dlam = [], [], [], [], []
+        for i, im in enumerate(self.ims):
+            self.sh.append(im['WAVE'].data.shape)
+            self.dlam.append(np.diff(im['WAVE'].data)[0])
+            self.ix.append(np.interp(self.ref_wave, im['WAVE'].data, np.arange(self.sh[i][0])))
+            self.iy.append(np.interp(self.ref_wave, im['WAVE'].data, im['YTRACE'].data))
+            self.rot.append(np.arctan((im['YTRACE'].data[-1] - im['YTRACE'].data[0])/self.sh[i][0]))
+        
+        #### Get affine transforms
+        self.transforms = []
+        for i in range(self.N):
+            dx = self.ix[i]/(self.dlam[0]/self.dlam[i]) - self.ix[0]
+            dy = (self.iy[i] - self.iy[0])
+            if 'FINEY' in self.ims[i][0].header.keys():
+                dy += (self.ims[i][0].header['FINEY'] - self.ims[0][0].header['FINEY'])
+            
+            scl = self.dlam[0] / self.dlam[i]
+            rot = self.rot[i] - self.rot[0]
+            
+            tf = skimage.transform.AffineTransform(scale=(scl, 1), translation=(dx, dy), rotation=rot)
+            self.transforms.append(tf)
+            
+            if verbose:
+                print '%s  %5.2f %5.2f  %6.3f  %6.2f' %(self.ims[i].filename(), dx, dy, scl, rot/np.pi*180)
+    
+    def _apply_transforms(self):
+        """
+        Apply the affine transforms to the SCI, ERR, CONTAM arrays
+        """
+        import skimage
+        import skimage.transform
+        
+        full_shape = (self.N, self.sh2D[0], self.sh2D[1])
+        
+        #### Set up arrays
+        self.flux = np.zeros(full_shape)
+        self.err = np.zeros(full_shape)
+        self.contam = np.zeros(full_shape)
+        self.model = np.zeros(full_shape)
+        
+        self.dsci = np.zeros((self.sh2D[0], self.sh2D[0]))
+        self.dseg = np.zeros((self.sh2D[0], self.sh2D[0]))
+        
+        #### Apply the transforms
+        exp_wht = 0.
+        for i in range(self.N):
+            im = self.ims[i]
+            
+            #### 2D spectra
+            ti = self.transforms[i]
+            self.flux[i,:,:] = self._warp(im['SCI'].data, ti)
+            self.err[i,:,:] = self._warp(im['WHT'].data, ti)
+            self.contam[i,:,:] = self._warp(im['CONTAM'].data, ti)
+            self.model[i,:,:] = self._warp(im['MODEL'].data, ti)
+            
+            #### Thumbnails
+            exp_wht_i = np.median(im['WHT'].data[im['WHT'].data > 0])**2
+            if (im['WHT'].data > 0).sum() == 0:
+                exp_wht_i = 1.e10
+            #
+            #print self.twod[i].im.filename(), exp_wht_i
+            self.dsci += im['DSCI'].data/exp_wht_i
+            exp_wht += 1./exp_wht_i
+            
+            self.dwht = im['DWHT'].data
+            self.dseg = ((self.dseg == self.id) | (im['DSEG'].data == self.id))*int(self.id)
+        
+        #### Weighted thumbnails
+        self.dsci /= exp_wht
+        
+        #### parameters from the first reference spectrum
+        im0 = self.ims[0]
+        self.wave = im0['WAVE'].data
+        self.ytrace = im0['YTRACE'].data
+        self.sens = im0['SENS'].data
+        
+        return True
+        
+            
+    def _warp(self, data, transform, fix=[10,10000], order=0, cval=0.):
+        """
+        Apply skimage.transform.warp(data, transform)
+        
+        `fix` rescales the data to avoid problems with negative numbers
+        """
+        import skimage
+        import skimage.transform
+        
+        warp = skimage.transform.warp((data+fix[0])/fix[1], transform, order=order, cval=cval)*fix[1]-fix[0]
+        
+        ## zeros
+        warp[warp == fix[0]] = 0
+        return warp
+    
+    def _stack_spectra(self):
+        """
+        Stack the flux/contam/weight arrays of the available UDF spectra with
+        inverse variance weighting.
+        """
+        weight = 1./((self.fcontam*self.contam)**2+self.err**2)
+        weight[self.err <= 0] = 0
+        weight[self.err < 1.e-6] = 0
+        
+        sum_weight = weight.sum(axis=0)
+        sum_weight[sum_weight == 0] = 1.
+
+        self.sum_flux = (self.flux*weight).sum(axis=0)/sum_weight
+        self.sum_contam = (self.contam*weight).sum(axis=0)/sum_weight
+        self.sum_model = (self.model*weight).sum(axis=0)/sum_weight
+        self.sum_var = 1./sum_weight
+    
+    def _make_stacked_FITS(self):
+        """
+        Make a dummy 2D FITS file
+        """
+        import copy
+        root=self.root
+        
+        im = pyfits.open(self.files[-1])
+        
+        im['DSCI'].data = self.dsci
+        im['DWHT'].data = self.dwht
+        im['DSEG'].data = self.dseg
+        
+        im['SCI'].data = self.sum_flux
+        im['WHT'].data = np.sqrt(self.sum_var)
+        im['MODEL'].data = self.sum_model
+        im['CONTAM'].data = self.sum_contam
+        im['WAVE'].data = self.wave
+        im['SENS'].data = self.sens
+        im['YTRACE'].data = self.ytrace
+        
+        for i in range(self.N):
+            im[0].header['TWOD%03d' %(i)] = self.files[i].split('.2D')[0]
+            
+        im.writeto('%s_%05d.2D.fits' %(root, self.id), clobber=True)
+        
+        ### 1D FITS file
+        self.optimal_flux = self.wave*0.+1
+        self.optimal_contam = self.wave*0.
+        self.optimal_error = self.optimal_flux/10.
+        self.trace_flux = self.wave*0.+1
+        self.trace_err = self.wave*0.+1
+        
+        self._make_1D_spectrum()
+        twod = unicorn.reduce.Interlace2D('%s_%05d.2D.fits' %(root, self.id))
+        twod.oned_spectrum()
+    #
+    def _make_1D_spectrum(self):
+        root=self.root
+        
+        oned = pyfits.open(self.files[-1].replace('2D','1D'))
+        
+        c1 = pyfits.Column(name='wave', format='D', unit='ANGSTROMS', array=self.wave)
+        c2 = pyfits.Column(name='flux', format='D', unit='ELECTRONS/S', array=self.optimal_flux)
+        c3 = pyfits.Column(name='error', format='D', unit='ELECTRONS/S', array=self.optimal_error)
+        c4 = pyfits.Column(name='contam', format='D', unit='ELECTRONS/S', array=self.optimal_contam)
+        c5 = pyfits.Column(name='trace', format='D', unit='ELECTRONS/S', array=self.trace_flux)
+        c6 = pyfits.Column(name='etrace', format='D', unit='ELECTRONS/S', array=self.trace_err)
+        
+        growx = self.ims[0][0].header['GROWX']
+        growy = self.ims[0][0].header['GROWY']
+        c7 = pyfits.Column(name='sensitivity', format='D', unit='E/S / 1E-17 CGS', array=self.sens*(growx*growy))
+        #print 'MAX SENS: %.f' %(self.sens.max())
+        
+        coldefs = pyfits.ColDefs([c1,c2,c3,c4,c5,c6,c7])
+        head = oned[1].header
+
+        tbHDU = pyfits.new_table(coldefs, header=head)
+        tbHDU.writeto('%s_%05d.1D.fits' %(root, self.id), clobber=True)
+    
+    def _make_plot(self, scale=[1,90], inverse=True):
+        
+        ##### Scaling
+        diff = self.sum_flux - self.sum_contam
+        ok = (self.sum_var > 0) & (self.sum_flux != 0)
+        #return sum_flux, sum_contam, ok
+        if ok.sum() > 1:
+            #print 'xxx', scale
+            vmin, vmax = np.percentile(diff[ok].flatten(), scale[0]), np.percentile(diff[ok].flatten(), scale[1])
+        else:
+            vmin, vmax = -1,1
+        # 
+        # if inverse:
+        #     fi = -1
+        #     vmin, vmax = -vmax, -vmin
+        # else:
+        #     fi = 1
+        #     
+        sh = self.sh2D
+        aspect = (self.N+2)*sh[0]*1./(3*sh[1])
+        fig = unicorn.plotting.plot_init(square=True, left=0.01, right=0.01, top=0.01, bottom=0.01, hspace=0.0, wspace=0.0, aspect=aspect, xs=10, NO_GUI=True)
+        
+        if inverse:
+            plt.ioff()
+            plt.set_cmap(plt.cm.gray_r)
+        
+        #### Show individual spectra
+        counter = 4
+        for i in range(self.N):
+            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+            a = ax.imshow(self.flux[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
+            if i == 0: ax.set_title('Flux')
+            #
+            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+            a = ax.imshow(self.contam[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
+            ax.text(0.95, 0.95, self.files[i].split('_')[0], ha='right', va='top', transform=ax.transAxes, color='red', size=8)
+            if i == 0: 
+                ax.set_title('Contam')
+                ax.text(0,1.5,'%s #%d' %(self.root, self.id), ha='left', va='bottom', transform=ax.transAxes, color='black', size=10)
+            #
+            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+            a = ax.imshow((self.flux-self.contam)[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
+            if i == 0: ax.set_title(r'Flux $-$ Contam')
+        
+        #### Show the sum
+        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+        a = ax.imshow(self.sum_flux, interpolation='nearest', vmin=vmin, vmax=vmax)
+        #
+        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+        a = ax.imshow(self.sum_contam, interpolation='nearest', vmin=vmin, vmax=vmax)
+        ax.text(0.95, 0.95, 'Stack', ha='right', va='top', transform=ax.transAxes, color='red', size=8)
+        #
+        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
+        a = ax.imshow((self.sum_flux-self.sum_contam), interpolation='nearest', vmin=vmin, vmax=vmax)
+        
+        for ax in fig.axes:
+            a = ax.set_xticklabels([]); a = ax.set_yticklabels([])
+                     
+        #### Save the file
+        outfile='%s_%05d_stack.png' %(self.root, self.id)
+        print outfile
+        unicorn.plotting.savefig(fig, outfile)
+        
+    
+def new_stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270, files=None):
+    """
+    Stack multiple spectra for a given object ID, assumes latest fixed 
+    width extractions
+    
+    Use scikit-image to transform the different spectra to align wavelength
+    grids
+    """
+    import skimage
+    import skimage.transform
+    
+    import scipy.ndimage as nd
+    import glob
+    
+    if plt.cm.get_cmap().name != 'gray':
+        plt.gray()
+        
+    if files is None:
+        files=glob.glob('%s*%05d.2D.fits' %(search, id))
+    
+    N = len(files)
+    
+    #### Read images
+    ims = []
+    for file in files:
+        ims.append(pyfits.open(file))
+    
+    #### Get shifts, etc.
+    ix, iy, rot, sh, dlam = [], [], [], [], []
+    for i, im in enumerate(ims):
+        sh.append(im['WAVE'].data.shape)
+        dlam.append(np.diff(im['WAVE'].data)[0])
+        ix.append(np.interp(ref_wave, im['WAVE'].data, np.arange(sh[i][0])))
+        iy.append(np.interp(ref_wave, im['WAVE'].data, im['YTRACE'].data))
+        rot.append(np.arctan((im['YTRACE'].data[-1] - im['YTRACE'].data[0])/sh[i][0]))
+        
+    #### Get affine transforms
+    transforms = []
+    for i in range(N):
+        dx = ix[i]/(dlam[0]/dlam[i])-ix[0]
+        dy = (iy[i]-iy[0]) + (ims[i][0].header['FINEY'] - ims[0][0].header['FINEY'])
+        scl = dlam[0]/dlam[i]
+        tf = skimage.transform.AffineTransform(scale=(scl, 1), translation=(dx, dy), rotation=rot[i]-rot[0])
+        transforms.append(tf)
+    
+    
 def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', min_xpix=200, NX=270, files=None):
     """
     Stack all UDF spectra for a given object ID
@@ -739,7 +1081,8 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
             p = files.pop(i)
             continue
         #
-        dy = np.minimum(sh[0]/2-5, dy)
+        #dy = np.minimum(sh[0]/2-5, dy)
+        dy = np.minimum(sh[0]/2, dy)
         #print sh[0]/2,dy
         
     print 'DY: %d' %(dy)
@@ -768,6 +1111,9 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
         dx = int(np.round(xref-x0))
         print y0, sh, x0, x0-xref, dx
         if sh[1] < NX:
+            flux[i,:,:] = 0.
+            contam[i,:,:] = 0.
+            model[i,:,:] = 0.
             err[i,:,:] = 10000.
             print 'NX=%d, Skip: %s' %(sh[1], file)
             continue
@@ -885,7 +1231,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     # plt.close()
     
     #
-    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root, search=search, files=files)
+    udf = UDF(id=id, NPIX=dy, fcontam=fcontam, ref_wave=ref_wave, root=root, search=search, files=files, NX=NX)
     if udf.status is False:
         return False
     
@@ -902,7 +1248,7 @@ def stack(id=6818, dy=20, save=True, inverse=False, scale=[1,90], fcontam=0., re
     ### Should be able to sum spectra for any object like this....
 
 class UDF():
-    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF', search='[GP][OR]', files=None):
+    def __init__(self, id=6818, NPIX=20, verbose=True, fcontam=0., ref_wave=1.4e4, root='UDF', search='[GP][OR]', files=None, NX=270):
         """
         Read in the 2D FITS files
         """        
@@ -910,16 +1256,27 @@ class UDF():
         
         self.id = id
         if files is None:
-            self.files=glob.glob('%s*%05d.2D.fits' %(search, id))
+            self.input_files=glob.glob('%s*%05d.2D.fits' %(search, id))
         else:
-            self.files = files
+            self.input_files = files
             
         self.NPIX = NPIX
         self.fcontam = fcontam
         self.ref_wave = ref_wave
         self.root = root
         
+        self.N = len(self.input_files)
+        self.twod = []
+        self.files = []
+        
+        for i in range(self.N):
+            twod_i = unicorn.reduce.Interlace2D(self.input_files[i])
+            if twod_i.im['SCI'].shape[1] >= NX:    
+                self.twod.append(twod_i)
+                self.files.append(self.input_files[i])
+        
         self.N = len(self.files)
+        
         self.nx = np.ones(self.N, dtype=int)*1.e4
         self.ny = np.ones(self.N, dtype=int)
         self.y0 = np.ones(self.N)
@@ -946,13 +1303,12 @@ class UDF():
         
         NPIX = self.NPIX
         
-        self.twod = []
+        iref = 0
         for i in range(self.N):
             ### Size of FITS arrays
-            self.twod.append(unicorn.reduce.Interlace2D(self.files[i]))
             im = self.twod[i].im
             self.ny[i], self.nx[i] = im['SCI'].data.shape
-
+            
             ### Ycenter of trace
             self.y0[i] = np.interp(1.4e4, im['WAVE'].data, im['YTRACE'].data)
             ### Xoffset to register wavelength

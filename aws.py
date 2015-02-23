@@ -111,11 +111,11 @@ def reduce_func(root):
     model = unicorn.reduce.process_GrismModel(root=root)
     model.mask_zeroth()
      
-    #model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
+    model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
 
     cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
     
-    ii = np.where(model.cat.mag < 24.)
+    ii = np.where(model.cat.mag < 26.)
     for id in model.cat.id[ii]:
         obj_root='{}-G141_{:05d}'.format(root, id)
         if not os.path.exists(obj_root+'.2D.fits'):

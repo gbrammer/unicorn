@@ -99,6 +99,8 @@ def model_func(root):
     m0 = unicorn.reduce.GrismModel(root=root)
     model_list = m0.get_eazy_templates(dr_min=0.5, MAG_LIMIT=25)
     model = unicorn.reduce.process_GrismModel(root=root, model_list=model_list, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
+    if not os.path.exists(os.path.basename(model.root) + '-G141_maskbg.dat'):
+        model.refine_mask_background(threshold=0.002, grow_mask=14, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True)
     
 
 def reduce_func(root):

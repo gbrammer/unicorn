@@ -111,7 +111,7 @@ def reduce_func(root):
     model = unicorn.reduce.process_GrismModel(root=root)
     model.mask_zeroth()
      
-    model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
+    #model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
 
     cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
     
@@ -142,6 +142,12 @@ def reduce_func(root):
                 gris.make_2d_model()
             except:
                 continue
+        if os.path.exists('{}-G141-big_{:05d}.2D.fits'.format(root, id)) and not os.path.exists('{}-G141-big_{:05d}.new_zfit.fits'.format(root, id)):
+            os.system('cp {}.1D.fits {}-G141-big_{:05d}.1D.fits'.format(obj_root, root, id))
+            os.system('cp {}.new_zfit.pz.fits {}-G141-big_{:05d}.new_zfit.pz.fits'.format(obj_root,root, id))
+            gris_big = test.SimultaneousFit('{}-G141-big_{:05d}'.format(root, id))
+            gris_big.make_2d_model(base='new_zfit', write_fits = True)
+            os.system('rm {0}-G141-big_{1:05d}.1D.fits {0}-G141-big_{1:05d}.new_zfit.pz.fits'.format(root, id))
         if not os.path.exists(obj_root+'.linefit.fits'):
             try:
                 gris.new_fit_free_emlines(ztry=None)

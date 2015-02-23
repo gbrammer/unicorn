@@ -39,14 +39,15 @@ def multi_test(field='goodss', n_proc=28):
     import glob
     roots = [r.split('-F140W')[0] for r in glob.glob('{}-*F140W_asn.fits'.format(field))]
         
-    p = Pool(processes=n_proc)
-    p.map(interlace_func, roots)
+    p1 = Pool(processes=n_proc)
+    p1.map(interlace_func, roots)
     
     for root in roots:
         adriz_func(root)
         model_func(root)
         
-    p.map(reduce_func, roots)
+    p2 = Pool(processes=n_proc)
+    p2.map(reduce_func, roots)
 
 
 def interlace_func(root):
@@ -110,25 +111,21 @@ def reduce_func(root):
     model = unicorn.reduce.process_GrismModel(root=root)
     model.mask_zeroth()
      
-    model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
+    #model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
 
     cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
     
-    ii = np.where(model.cat.mag < 26.)
+    ii = np.where(model.cat.mag < 24.)
     for id in model.cat.id[ii]:
-        obj_root='%s-G141_%05d' %(root, id)
-        if os.path.exists(obj_root+'.new_zfit.pz.fits'):
-            continue
+        obj_root='{}-G141_{:05d}'.format(root, id)
         if not os.path.exists(obj_root+'.2D.fits'):
             status = model.twod_spectrum(id)
-            print status
-            if status:
-                print 'Printing big thumb for {}'.format(id)
-                model.twod_spectrum(id, verbose=False, miny=80, USE_FLUX_RADIUS_SCALE=3,
-                    USE_REFERENCE_THUMB=True, 
-                    BIG_THUMB=True, extract_1d=False)                
-            else:
+            if not status:
                 continue
+        if not os.path.exists('{}-G141-big_{:05d}.2D.fits'.format(root, id)):
+            status_big = model.twod_spectrum(id, verbose=False, miny=80, USE_FLUX_RADIUS_SCALE=3,
+                USE_REFERENCE_THUMB=True, 
+                BIG_THUMB=True, extract_1d=False)                                
         try:
             gris = test.SimultaneousFit(obj_root,lowz_thresh=0.01, FIGURE_FORMAT='png') 
         except:
@@ -138,12 +135,18 @@ def reduce_func(root):
             continue
         #
         print '\n'
-        try:
-            gris.new_fit_constrained()
-            gris.new_save_results()
-            gris.make_2d_model()
-        except:
-            continue
+        if not os.path.exists(obj_root+'.new_zfit.pz.fits'):
+            try:
+                gris.new_fit_constrained()
+                gris.new_save_results()
+                gris.make_2d_model()
+            except:
+                continue
+        if not os.path.exists(obj_root+'.linefit.fits'):
+            try:
+                gris.new_fit_free_emlines(ztry=None)
+            except:
+                continue
         
 def time_test():
     

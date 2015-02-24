@@ -38,6 +38,7 @@ def multi_test(field='goodss', n_proc=28):
     from multiprocessing import Pool
     import glob
     roots = [r.split('-F140W')[0] for r in glob.glob('{}-*F140W_asn.fits'.format(field))]
+    roots.sort()
         
     p1 = Pool(processes=n_proc)
     p1.map(interlace_func, roots)
@@ -54,7 +55,12 @@ def interlace_func(root):
    
     NGROWX = 200
     NGROWY = 30 
-    grow, auto_off = 2, False
+    grow= 2
+    
+    if root in ['aegis-01','goodsn-12', 'goodsn-13', 'goodsn-21', 'goodsn-22', 'goodsn-24', 'goodsn-31','goodsn-111','goodsn-114','goodsn-123','goodss-15']:
+        auto_off = True
+    else:
+        auto_off = False
         
     unicorn.reduce.interlace_combine(root=root+'-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
     unicorn.reduce.interlace_combine(root=root+'-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROWX=NGROWX, NGROWY=NGROWY, ddx=0, ddy=0, growx=grow, growy=grow, auto_offsets=auto_off, ref_exp=0)
@@ -63,7 +69,12 @@ def adriz_func(root):
     
     NGROWX = 200
     NGROWY = 30 
-    grow, auto_off = 2, False
+    grow = 2
+    
+    if root in ['aegis-01','goodsn-12', 'goodsn-13', 'goodsn-21', 'goodsn-22', 'goodsn-24', 'goodsn-31','goodsn-111','goodsn-114','goodsn-123','goodss-15']:
+        auto_off = True
+    else:
+        auto_off = False
 
     if root.startswith('aegis'):
         CATALOG = '../REF/aegis_3dhst.v4.0.IR_orig.cat'
@@ -96,9 +107,14 @@ def adriz_func(root):
       
 def model_func(root):
     
+    if root == 'goodsn-111':
+        align_reference = False
+    else:
+        align_reference = True
+    
     m0 = unicorn.reduce.GrismModel(root=root)
     model_list = m0.get_eazy_templates(dr_min=0.5, MAG_LIMIT=25)
-    model = unicorn.reduce.process_GrismModel(root=root, model_list=model_list, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
+    model = unicorn.reduce.process_GrismModel(root=root, model_list=model_list, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'], align_reference=align_reference)
     if not os.path.exists(os.path.basename(model.root) + '-G141_maskbg.dat'):
         model.refine_mask_background(threshold=0.002, grow_mask=14, update=True, resid_threshold=4, clip_left=640, save_figure=True, interlace=True)
     

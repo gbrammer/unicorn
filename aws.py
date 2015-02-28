@@ -171,6 +171,18 @@ def reduce_func(root):
                 gris.new_fit_free_emlines(ztry=None)
             except:
                 continue
+                
+def extract_func(root):
+    
+    import unicorn
+    import numpy as np
+    import unicorn.interlace_test as test
+    import os
+      
+    model = unicorn.reduce.process_GrismModel(root=root)
+    model.mask_zeroth()
+     
+    model.extract_spectra_and_diagnostics(MAG_LIMIT=30.)                
         
 def time_test():
     

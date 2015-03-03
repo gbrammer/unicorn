@@ -126,7 +126,12 @@ def reduce_func(root):
     import unicorn.interlace_test as test
     import os
       
-    model = unicorn.reduce.process_GrismModel(root=root)
+    if root == 'goodsn-111':
+        align_reference = False
+    else:
+        align_reference = True  
+      
+    model = unicorn.reduce.process_GrismModel(root=root, align_reference=align_reference)
     model.mask_zeroth()
      
     model.extract_spectra_and_diagnostics(MAG_LIMIT=26.)    
@@ -179,7 +184,12 @@ def extract_func(root):
     import unicorn.interlace_test as test
     import os
       
-    model = unicorn.reduce.process_GrismModel(root=root)
+    if root == 'goodsn-111':
+        align_reference = False
+    else:
+        align_reference = True        
+      
+    model = unicorn.reduce.process_GrismModel(root=root, align_reference=align_reference)
     model.mask_zeroth()
      
     model.extract_spectra_and_diagnostics(MAG_LIMIT=30.)                

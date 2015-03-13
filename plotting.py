@@ -161,7 +161,22 @@ class MyLocator(mticker.MaxNLocator):
     def __call__(self, *args, **kwargs):
         return mticker.MaxNLocator.__call__(self, *args, **kwargs)
 
-
+def fill_between_steps(x, y, z, ax=None, *args, **kwargs):
+    """
+    Make `fill_between` work like linestyle='steps-mid'.
+    """
+    so = np.argsort(x)
+    mid = x[so][:-1] + np.diff(x[so])/2.
+    xfull = np.append(np.append(x, mid), mid+np.diff(x[so])/1.e6)
+    yfull = np.append(np.append(y, y[:-1]), y[1:])
+    zfull = np.append(np.append(z, z[:-1]), z[1:])
+    
+    so = np.argsort(xfull)
+    if ax is None:
+        ax = plt.gca()
+    
+    ax.fill_between(xfull[so], yfull[so], zfull[so], *args, **kwargs)
+    
 def scatter_annotate(x, y, labels, xtol=None, ytol=None, ax=None,*args, **kwargs):
     if ax is None:
         axi = plt
@@ -257,6 +272,7 @@ class AnnoteFinder:
       self.axis.figure.canvas.draw()
     else:
       t = axis.text(x,y, "%s" %(annote), )
+      print annote
       m = axis.scatter([x],[y], marker='s', c='r', zorder=100)
       self.drawnAnnotations[(x,y)] =(t,m)
       self.axis.figure.canvas.draw()

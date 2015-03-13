@@ -1463,7 +1463,8 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
                 #
                 asn.write(asn.product+'_asn.fits')
                 if make_region:
-                    threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                    #threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                    threedhst.utils.ASN_footprint(asn.product+'_asn.fits', pat_to_flt='../RAW')
                     
     # for target in targets:        
     #     filters = np.unique(list.filter[list.targname == target])

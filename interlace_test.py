@@ -293,7 +293,7 @@ def refit_specz_objects():
             fp.close()
 
     #zz = zsp.zspec[idx][model.objects == id]
-    
+            
 class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
     """
     Extension of the `unicorn.interlace_fit.GrismSpectrumFit` class. 
@@ -310,6 +310,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         """
         Read the eazy-interpolated continuum + emission line templates
         """
+        import scipy.ndimage as nd
         import threedhst.eazyPy as eazy
         
         #### Read template error function
@@ -322,6 +323,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
         self.phot = self.phot_lines
         
+        # if True:
+        #     threedhst.showMessage('Conroy model', warn=True)
+        #     cvd12 = np.loadtxt(unicorn.GRISM_HOME+'/templates/cvd12_t11_solar_Chabrier.dat')
+        #     self.phot.temp_seds[:,0] = np.interp(self.phot.templam, cvd12[:,0], cvd12[:,1])
+            
         #### SPECTRUM
         self.poly_tilt_coeffs = [1]
         self.beta_tilt_coeffs = [0]
@@ -349,10 +355,15 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         #var += ((0.02*self.twod.im['SCI'].data)**2).flatten()
         #var += ((0.05*self.twod.im['SCI'].data)**2).flatten()
-
+        
+        #### Smooth contam model along dispersion axis
+        sm_kern = np.ones((3,30*2./self.twod.growx))
+        sm_err = nd.convolve(self.twod.im['CONTAM'].data, sm_kern/sm_kern.sum())
+        var += (self.contam_ferror*sm_err**2).flatten()
+        
         var[var == 0] = 1.e6
         #var += ((0.5*self.twod.im['CONTAM'].data)**2).flatten()
-        var += ((self.twod.im['CONTAM'].data)**2).flatten()
+        var += (self.contam_ferror*(self.twod.im['CONTAM'].data)**2).flatten()
         
         #### Include sensitivity curve uncertainty
         # status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH'])*0 + 1.)
@@ -389,6 +400,21 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         var *= (np.ones((self.shape2D[0],1))*(1+sens_weight*2.)).flatten()
         
         self.spec_var = var
+        
+        #### Bad pixel outliers
+        # import scipy.ndimage as nd
+        # resid = (self.twod.im['SCI'].data - self.twod.im['CONTAM'].data)#/self.twod.im['WHT'].data
+        # resid[self.twod.im['WHT'].data == 0] = 0
+        # max = nd.maximum_filter(resid, size=3)#-resid
+        # med = nd.median_filter(resid, size=3)#-resid
+        
+        # 
+        # avg[avg == 0] = 0
+        # flag = ((resid-avg) > 20).flatten()
+        # self.spec_flux[flag] = 0
+        #self.twod.im['WHT'].data[flag] = 0
+        #self.twod.im['SCI'].data[flag] = 0
+        #print 'Flagged %d outlier pixels.' %(flag.sum())
         
         ## Flux
         self.spec_flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
@@ -518,7 +544,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
         model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
         model_phot_2D = np.dot(phot_coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
-        
+                
         ### 
         # f2d = self.spec_flux.reshape(self.shape2D)
         # xf, yf = self.twod.optimal_extract(f2d)
@@ -841,8 +867,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.zgrid1 = self.zgrid_second*1
         self.full_prob1 = self.lnprob_second_total*1
         
-        self.fit_combined(self.z_max_spec, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=True, ignore_spectrum=False, background=False)
-
+        self.fit_combined(self.z_max_spec, nmf_toler=1.e-6, te_scale = 0.5, ignore_photometry=(self.dr > 0.5), ignore_spectrum=False, background=False)
+        
         igmz, igm_factor = self.phot.get_IGM(self.z_max_spec, matrix=False)
         self.best_spec = np.dot(self.coeffs, self.phot.temp_seds.T)/(1+self.z_max_spec)**2*igm_factor
         self.best_photom = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
@@ -1301,14 +1327,14 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             #
             full_variance[self.phot.NFILT:] += self.spec_var
             full_flux[self.phot.NFILT:] += self.spec_flux-background
-                    
+                            
         #### Fit Non-negative coefficients
         #### Need to seed the dusty template coefficient with a small number
         if init_coeffs is None:
             init_coeffs = np.ones(self.phot.NTEMP)
             if self.phot.NTEMP == 10:
                 init_coeffs[-3:] *= 1.e-12
-        
+                
         amatrix = utils_c.prepare_nmf_amatrix(full_variance[mask], self.templates[:,mask])
         self.coeffs = utils_c.run_nmf(full_flux[mask], full_variance[mask], self.templates[:,mask], amatrix, toler=nmf_toler, MAXITER=1e6, init_coeffs=init_coeffs)
         

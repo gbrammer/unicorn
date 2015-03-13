@@ -90,7 +90,7 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False, contam_ferror=0.1):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -108,6 +108,7 @@ class GrismSpectrumFit():
 
         self.pointing = root.split('_')[0]
         self.field = '-'.join(root.split('-')[:-1])
+        self.contam_ferror = contam_ferror
         
         if RELEASE:
             self.OUTPUT_PATH='refit'
@@ -219,7 +220,25 @@ class GrismSpectrumFit():
         self.linex2, self.liney2 = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.hiOIII.txt', unpack=True)
         # self.linex, self.liney = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
         # self.linex2, self.liney2 = np.loadtxt(unicorn.GRISM_HOME+'/templates/dobos11/SF0_0.emline.txt', unpack=True)
-
+        
+        #### Smooth the line templates
+        if True:
+            threedhst.showMessage('Smooth template')
+            import scipy.ndimage as nd
+            
+            s = 10
+            xx = np.arange(100,8.e4)
+            yy = nd.gaussian_filter1d(np.interp(xx, self.linex, self.liney), s)
+            self.liney = np.interp(self.linex, xx, yy)
+            
+            yy = nd.gaussian_filter1d(np.interp(xx, self.linex2, self.liney2), s)
+            self.liney2 = np.interp(self.linex2, xx, yy)
+                              
+        #### Sensitivity error component
+        self.sens_var = 0.
+        self.twod.get_sensitivity_error(scale=1./20)
+        self.sens_var = self.twod.sens_var.flatten()
+        
         #### Try to read the previous p(z) from the pickle file
         if RELEASE:
             pz_path = '%s/%s/ZFIT/PZ/' %(BASE_PATH, self.pointing)
@@ -342,7 +361,10 @@ class GrismSpectrumFit():
         #### Observed flux and variance images of the 2D spectrum
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
-        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+        var += (self.contam_ferror*self.twod.im['CONTAM'].data**2).flatten()
+        
+        var += self.sens_var
+        
         # 
         # w2d = np.dot(np.ones((self.twod.im['CONTAM'].data.shape[0],1)), self.twod.im['WAVE'].data.reshape(1,-1)).flatten()
         # var[w2d < 1.08e4] *= 10
@@ -365,11 +387,13 @@ class GrismSpectrumFit():
         tilt_red = ((self.templam_nolines-x0)/dx+1)*2
         self.compute_model_function(self.templam_nolines, tilt_red)
         tilt_red_model = self.twod.model*1.
-
+                
         tilt_blue = (-(self.templam_nolines-x0)/dx+1)*2
         self.compute_model_function(self.templam_nolines, tilt_blue)
         tilt_blue_model = self.twod.model*1.
         #tilt_red_model = tilt_blue_model*1.
+        
+        
         #### Loop through redshift grid
         pmax = -1.e10
         zbest = 0
@@ -395,7 +419,22 @@ class GrismSpectrumFit():
                 templates = np.ones((5,line_model.size))
                 templates[2,:] = tilt_blue_model.flatten()
                 templates[3,:] = tilt_red_model.flatten()
-
+                
+                #### Line and continuum indices
+                ixl = np.array([1,4])
+                ixc = np.array([0,2,3])
+                
+                # if True:
+                #     threedhst.showMessage('fit background', warn=True)
+                #     templates = np.ones((6,line_model.size))
+                #     templates[2,:] = tilt_blue_model.flatten()
+                #     templates[3,:] = tilt_red_model.flatten()
+                #     templates[5,:] = tilt_red_model.flatten()*0+0.01
+                # 
+                #     #### Line and continuum indices
+                #     ixl = np.array([1,4])
+                #     ixc = np.array([0,2,3,5])
+                
             #### Put in the spectral templates
             templates[0,:] = continuum_model.flatten()
             ### Don't use slope
@@ -406,8 +445,7 @@ class GrismSpectrumFit():
             #### Second line template
             self.compute_model_function(self.linex2*(1+z_test), self.liney2)
             templates[4,:] = (self.twod.model*1.).flatten()
-            ixl = [1,4]
-            
+                        
             ##### Probably no flux in the direct image
             if templates.max() == 0:
                 self.status = False
@@ -421,7 +459,8 @@ class GrismSpectrumFit():
 
             #### If `get_model_at_z`, return the model at that redshift
             if (get_model):
-                ixc = np.array([0,2,3])
+                #threedhst.showMessage(coeffs.__str__(), warn=True)
+                
                 self.cont_model = np.dot(coeffs[ixc].reshape((1,-1)), templates[ixc,:]).reshape(line_model.shape)
                 self.slope_model = np.dot(coeffs[2:4].reshape((1,-1)), templates[2:4,:]).reshape(line_model.shape)
                 self.line_model = np.dot(coeffs[ixl].reshape((1,-1)), templates[ixl,:]).reshape(line_model.shape)
@@ -471,7 +510,7 @@ class GrismSpectrumFit():
         #### Observed flux and variance images of the 2D spectrum
         var = self.twod.oned.data['error']**2
         var[var == 0] = 1.e6
-        var += 0.1*self.twod.oned.data['contam']**2
+        var += self.contam_ferror*self.twod.oned.data['contam']**2
         
         sens_int = np.interp(self.twod.im['WAVE'].data, unicorn.reduce.sens_files['A']['WAVELENGTH'], unicorn.reduce.sens_files['A']['SENSITIVITY'].max()*unicorn.reduce.sens_files['A']['ERROR']/unicorn.reduce.sens_files['A']['SENSITIVITY']**2)
         
@@ -920,11 +959,12 @@ class GrismSpectrumFit():
         ax.plot(self.oned_wave/1.e4, self.model_1D, color='red', alpha=0.08, linewidth=2)
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'e$^-$ / s')
+        ok = np.isfinite(yflux) & np.isfinite(y)
         if wuse.sum() > 5:
             #ymax = yflux[wuse].max(); 
-            ymax = y[wuse].max()
+            ymax = y[ok & wuse].max()
         else:
-            ymax = yflux.max()
+            ymax = yflux[ok].max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
         ax.set_xlim(1.0, 1.73)
@@ -937,8 +977,8 @@ class GrismSpectrumFit():
             ax_int = np.array(xint)#*1.e4
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.49, 0.98)
-            xint = [0.5, 0.6, 0.7, 0.8, 0.9]
+            ax.set_xlim(0.49, 1.08)
+            xint = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             ax_int = np.array(xint)#*1.e4
         
         ax.set_xticks(ax_int)
@@ -961,10 +1001,10 @@ class GrismSpectrumFit():
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'$f_\lambda$')
         if wuse.sum() > 5:
-            ymax = ((yflux-ycont)/self.oned.data.sensitivity)[wuse].max()
+            ymax = ((yflux-ycont)/self.oned.data.sensitivity)[wuse & ok].max()
             #ymax = show_flux.max()
         else:
-            ymax = (yflux/self.oned.data.sensitivity).max()
+            ymax = (yflux[ok]/self.oned.data.sensitivity).max()
             
         ax.set_ylim(-0.05*ymax, 1.1*ymax)
         ax.set_xlim(1.0, 1.73)
@@ -973,7 +1013,7 @@ class GrismSpectrumFit():
             ax.set_xlim(0.74, 1.17)
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.49, 0.98)
+            ax.set_xlim(0.49, 1.08)
         
         ax.set_xticks(ax_int)
         
@@ -1084,7 +1124,7 @@ class GrismSpectrumFit():
             ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         #
         if self.grism_element == 'G800L':
-            xint = [0.6, 0.7, 0.8, 0.9]
+            xint = [0.6, 0.7, 0.8, 0.9, 1.0]
             ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
@@ -1216,7 +1256,7 @@ class GrismSpectrumFit():
             
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
-        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+        var += (self.contam_ferror*self.twod.im['CONTAM'].data**2).flatten()
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)
@@ -1241,7 +1281,7 @@ class GrismSpectrumFit():
         for i, temp in enumerate(templates):
             self.compute_model_function(lam_spec=self.linex*(1+ztry), flux_spec=temp/self.twod.total_flux)
             twod_templates[i,:] = self.twod.model.flatten()
-        
+                
         #
         amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
         coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
@@ -1262,6 +1302,12 @@ class GrismSpectrumFit():
         #step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1**(-np.arange(tilt_order)/2.))
         step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1*np.ones(tilt_order))
         step_sig[0] = 0.1
+                
+        #threedhst.showMessage('%d' %(len(coeffs)), warn=True)
+        #threedhst.showMessage(init.__str__(), warn=True)
+        #threedhst.showMessage(step_sig.__str__(), warn=True)
+        
+        #step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.0*np.ones(tilt_order))
         
         #### Fit just emission lines, z fixed to z_grism
         obj_fun = unicorn.interlace_fit._objective_lineonly_new
@@ -1411,7 +1457,7 @@ class GrismSpectrumFit():
             ax.set_xlim(0.74, 1.18)
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.58, 0.92)
+            ax.set_xlim(0.58, 1.05)
         
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
@@ -1435,7 +1481,7 @@ class GrismSpectrumFit():
             
         var = np.cast[float](self.twod.im['WHT'].data**2).flatten()
         var[var == 0] = 1.e6
-        var += (0.1*self.twod.im['CONTAM'].data**2).flatten()
+        var += (self.contam_ferror*self.twod.im['CONTAM'].data**2).flatten()
 
         flux = np.cast[float](self.twod.im['SCI'].data-self.twod.im['CONTAM'].data).flatten()
         use = np.isfinite(flux)

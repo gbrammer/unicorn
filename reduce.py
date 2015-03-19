@@ -3149,7 +3149,7 @@ class GrismModel():
         
         #### Try hard-coding the 1st order extraction region to keep constant
         #first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
-        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[3, 158]}
+        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[5, 158]}
         xx = first_order[self.grism_element]
         xmin, xmax = first_order[self.grism_element]
         xmin *= self.growx

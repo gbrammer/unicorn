@@ -1337,7 +1337,7 @@ def get_all_emission_lines(field='GOODS-N', force=True, skip=True):
     os.chdir(PWD)
            
 class Interlace2D():
-    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2, ngrowx=0, ngrowy=0):
+    def __init__(self, file='GOODS-S-34_00446.2D.fits', PNG=True, growx=2, growy=2, ngrowx=0, ngrowy=0, flatten_thumb=False):
         """
         
         Get 'NGROW' from the header if it exists, or use parameter.
@@ -1418,6 +1418,13 @@ class Interlace2D():
         #### XXX need to get the zeropoint for arbitrary filter
         self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
+        
+        #### Subtract a background from the direct thumbnail
+        if flatten_thumb:
+            threedhst.showMessage('Flatten %f' %(np.median(self.flux[self.seg == 0])), warn=True)
+            self.flux -= np.median(se.flux[self.seg == 0])
+            self.total_flux = np.sum(self.flux*(self.seg == self.id))
+        
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
         
         self.init_model()
@@ -1847,9 +1854,15 @@ class Interlace2D():
         
         ### Set up
         sh = self.sh
-        thumb_matrix = np.zeros((sh[1], sh[0], sh[1]))
         NX = sh[0]/2
-        ytrace = self.im['YTRACE'].data-NX#-0.2
+        if (sh[0] % 2) == 0:
+            NXodd=0
+        else:
+            NXodd=1
+            
+        thumb_matrix = np.zeros((sh[1], sh[0], sh[1]))
+        
+        ytrace = self.im['YTRACE'].data-NX+NXodd*0.5 #-0.2
         #ytrace = np.cast[int](np.round(ytrace))
         
         ### For resampling pixels
@@ -1857,11 +1870,11 @@ class Interlace2D():
         
         for i in range(1, NX):
             #print i
-            thumb_matrix[i,:,:NX+i] = nd.shift(thumb, (ytrace[i], 0))[:,NX-i:]*self.im['SENS'].data[i]*flux_scale
+            thumb_matrix[i,:,:NX+i+NXodd] = nd.shift(thumb, (ytrace[i], 0))[:,NX-i:]*self.im['SENS'].data[i]*flux_scale
 
         for i in range(NX,sh[1]-NX):
             #print i
-            thumb_matrix[i,:,i-NX:i+NX] = nd.shift(thumb, (ytrace[i], 0))*self.im['SENS'].data[i]*flux_scale
+            thumb_matrix[i,:,i-NX:i+NX+NXodd] = nd.shift(thumb, (ytrace[i], 0))*self.im['SENS'].data[i]*flux_scale
 
         #
         # for i in range(0,sh[1],2): 
@@ -2763,7 +2776,7 @@ class GrismModel():
             
         mag = self.cat['MAG_AUTO']
         so = np.argsort(mag)
-        so = so[mag[so] <= MAG_LIMIT]
+        so = so[(mag[so] <= MAG_LIMIT) & (mag[so] > -10)]
         
         if self.use_segm:
             so = np.arange(len(self.total_fluxes.keys()))
@@ -4623,6 +4636,8 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
         sub_cat.add_column(x_flt_column)
         sub_cat.add_column(y_flt_column)
         sub_cat.write('%s-%s_inter.cat' %(pointing_root, grism), format='ascii.commented_header')
+        ### XXX
+        #sub_cat.write('%s-%s_inter0.cat' %(pointing_root, grism), format='ascii.commented_header')
     
         cols = sub_cat.colnames
         cat_header = []
@@ -4635,9 +4650,13 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
             cat_header.append(line+'\n')
     
         lines = open('%s-%s_inter.cat' %(pointing_root, grism)).readlines()
+        skip = 0
+        while lines[skip].startswith('#'):
+            skip+=1
+        
         fp = open('%s-%s_inter.cat' %(pointing_root, grism), 'w')
         fp.writelines(cat_header)
-        fp.writelines(lines[1:])
+        fp.writelines(lines[skip:])
         fp.close()
     
         #### Make region file
@@ -5710,3 +5729,49 @@ def field_dependent_multi(xi, yi, str_coeffs):
     xy = np.array([xi*0+1,xi,yi,xi**2,xi*yi,yi**2, xi**3, xi**2*yi, xi*yi**2, yi**3])
     a = np.sum(coeffs*xy[0:len(coeffs),:].T, axis=-1)
     return a
+
+def check_flux_units():
+    """
+    Quick check on the units of the sensitivity curves in various files
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    import pysynphot as s
+    import unicorn.interlace_test
+    
+    #### Can be any object
+    gris = unicorn.interlace_test.SimultaneousFit('cosmos-01-G141_19652', RELEASE=False, lowz_thresh=True, fast=True)
+    
+    import pysynphot as s
+    AB = 23
+    #### PySynphot model
+    spec = s.FlatSpectrum(AB, fluxunits='ABMag')
+    spec.convert('flam')
+    syn = s.Observation(spec, s.ObsBandpass('wfc3,ir,g141')).countrate()
+    
+    #### simulate 2D grism spectrum
+    gris.twod.compute_model(spec.wave, spec.flux/1.e-17/gris.twod.total_flux)
+    
+    #### Fluxed extractions
+    extract_2D = (gris.twod.model/gris.twod.im['SENS'].data).sum(axis=0)
+    extract_1D = (gris.twod.model/gris.oned.sens).sum(axis=0)
+    
+    lw = 4
+    #### Compare fluxed spectra
+    plt.plot(spec.wave, spec.flux/1.e-17, label='PySynphot input (AB=%.1f)' %(AB), linewidth=lw, alpha=0.7)
+    plt.plot(gris.twod.im['WAVE'].data, extract_2D, color='red', label='"SENS" in 2D.fits', linewidth=lw, alpha=0.7)
+    plt.plot(gris.twod.im['WAVE'].data, extract_2D/4., color='red', linestyle='--', linewidth=lw*2, alpha=0.7, label='"SENS"x4 in 2D.fits')
+    plt.plot(gris.twod.im['WAVE'].data, extract_1D, label='"sensitivity" 1D.fits', linewidth=lw, alpha=0.7)
+    
+    plt.xlim(0.9e4,1.8e4)
+    plt.ylim(0,0.3)
+    plt.xlabel(r'$\lambda$'); plt.ylabel(r'$f_\lambda \times 10^{-17}$')
+    plt.tight_layout()
+    
+    lab = 'Total countrate: \n  model=%.1f e-/s\n  synphot=%.1f e-/s\n  ratio=%.2f' %(gris.twod.model.sum(), syn, gris.twod.model.sum()/syn)
+    plt.legend(loc='upper right', title=lab, fontsize=9)
+    
+    plt.savefig('/tmp/sensitivity_units_check.pdf')
+    
+    

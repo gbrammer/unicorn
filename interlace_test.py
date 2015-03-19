@@ -843,7 +843,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         hduList.writeto(self.OUTPUT_PATH + '/' + self.grism_id+'.new_zfit.pz.fits', clobber=True, output_verify='silentfix')
     
     def new_load_fits(self, PATH='./'):
-        pzfits = '%s/%s.new_zfit.pz.fits' %(PATH, self.grism_id)
+        #pzfits = '%s/%s.new_zfit.pz.fits' %(PATH, self.grism_id)
+        pzfits = self.twod.file.replace('2D','new_zfit.pz')
         if not os.path.exists(pzfits):
             return False
         
@@ -997,6 +998,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #
         if self.grism_element == 'G800L':
             wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
+            #wuse = (self.oned.data.wave > 0.5e4) & (self.oned.data.wave < 1.05e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         wuse = wuse & np.isfinite(yflux)
@@ -1026,7 +1028,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ax.set_xlim(0.74, 1.17)
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.58, 0.92)
+            ax.set_xlim(0.5, 1.05)
             
         #### Spectrum in f_lambda
         #self.oned.data.sensitivity /= 100
@@ -1057,7 +1059,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ax.set_xlim(0.74, 1.17)
         #
         if self.grism_element == 'G800L':
-            ax.set_xlim(0.58, 0.92)
+            #ax.set_xlim(0.58, 0.92)
+            ax.set_xlim(0.5, 1.05)
 
         
         #### p(z)

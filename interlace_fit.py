@@ -90,7 +90,7 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False, contam_ferror=0.1):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False, contam_ferror=0.1, flatten_thumb=False):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -122,11 +122,13 @@ class GrismSpectrumFit():
             
             #self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
             BASE_PATH = '/Volumes/3DHST_Gabe/RELEASE_v4.0/Spectra/%s/WFC3/' %(self.field)
+            BASE_PATH = '/Volumes/3DHST_Gabe/RELEASE_v4.0/Spectra/%s/WFC3/' %(self.field)
+            BASE_PATH = '/Volumes/3DHST_Gabe/3DHST/v4.1.4/%s-wfc3-spectra_v4.1.4' %(self.field.split('-')[0])
             
-            self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+            self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing.split('-G141')[0], root), PNG=False, flatten_thumb=flatten_thumb)
 
         else:
-            self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False)            
+            self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False, flatten_thumb=flatten_thumb)            
         #
         if 'GRISM' not in self.twod.im[0].header.keys():
             self.grism_element = 'G141'
@@ -148,7 +150,9 @@ class GrismSpectrumFit():
             return None
         
         if RELEASE:
-            self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+            #self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
+            self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing.split('-G141')[0], root), PNG=False)
+            
             #print '%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root)
         else:
             #self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
@@ -851,6 +855,9 @@ class GrismSpectrumFit():
     def load_fits(self, path='./'):
         
         file = path + self.grism_id+'.zfit.pz.fits'
+        #file = self.twod.file.replace('2D','new_zfit.pz')
+        #threedhst.showMessage(file, warn=True)
+        
         if not os.path.exists(file):
             return False
             
@@ -1298,9 +1305,17 @@ class GrismSpectrumFit():
         coeffs = np.maximum(coeffs, 1.e-5)
         #coeffs[0] = 1
         #### First parameter is slope, rest are template normalizations
-        init = np.append(np.log(coeffs), np.zeros(tilt_order))
+        
+        ## Log line fluxes 
+        # init = np.append(np.log(coeffs), np.zeros(tilt_order))
+        # #step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1**(-np.arange(tilt_order)/2.))
+        # step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1*np.ones(tilt_order))
+        # step_sig[0] = 0.1
+
+        ## Linear line fluxes
+        init = np.append(coeffs, np.zeros(tilt_order))
         #step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1**(-np.arange(tilt_order)/2.))
-        step_sig = np.append(np.ones(len(coeffs))*np.log(1.05), 0.1*np.ones(tilt_order))
+        step_sig = np.append(np.ones(len(coeffs))*0.5, 0.1*np.ones(tilt_order))
         step_sig[0] = 0.1
                 
         #threedhst.showMessage('%d' %(len(coeffs)), warn=True)
@@ -1375,7 +1390,10 @@ class GrismSpectrumFit():
             #
             continuum_scale = np.exp(continuum_scale)
             #
-            eqw_post = -np.trapz(-templates[i+1,ok]/templates[0,ok], self.linex[ok]*(1+ztry))*np.exp(self.chain[line])/continuum_scale
+            ## log line flux
+            #eqw_post = -np.trapz(-templates[i+1,ok]/templates[0,ok], self.linex[ok]*(1+ztry))*np.exp(self.chain[line])/continuum_scale
+            ## linear line flux
+            eqw_post = -np.trapz(-templates[i+1,ok]/templates[0,ok], self.linex[ok]*(1+ztry))*(self.chain[line])/continuum_scale
             eqw[i] = np.median(eqw_post[:,self.chain.nburn:])
             #eqw_err[i] = threedhst.utils.biweight(eqw_post)
             eqw_err[i] = (np.percentile(eqw_post[:,self.chain.nburn:], 84) - np.percentile(eqw_post[:,self.chain.nburn:], 16))/2.
@@ -1432,18 +1450,22 @@ class GrismSpectrumFit():
             #hist = plt.hist(chain[:,i+1], bins=50)
             #stats = threedhst.utils.biweight(chain[:,i+1], both=True)
             stats = self.chain.stats[self.chain.param_names[i+1]]
-            flux_med = np.exp(stats['q50'])*(1+ztry)#/corr_factor[i]
-            flux_err = flux_med * stats['width'] #/corr_factor[i]
+            ## Log line flux
+            # flux_med = np.exp(stats['q50'])*(1+ztry)#/corr_factor[i]
+            # flux_err = flux_med * stats['width'] #/corr_factor[i]
+            ## Linear line flux
+            flux_med = (stats['q50'])*(1+ztry)#/corr_factor[i]
+            flux_err = stats['width']*(1+ztry) #/corr_factor[i]
             print flux_med, flux_err
             #median = np.median(chain[:,i+1])
             #range = np.percentile(chain[:,i+1], [15.8655,100-15.8655])
             fp.write('%4s  %6.2f  %.2f  %.3f %6.2f %6.2f\n' %(line, flux_med, flux_err, corr_factor[i], eqw[i], eqw_err[i]))
-            ax.fill_between([0.03,0.43],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
+            ax.fill_between([0.03,0.43],np.array([0.95,0.95])-0.07*i, np.array([0.88, 0.88])-0.07*i, color='white', alpha=0.8, transform=ax.transAxes, zorder=-21)
             #
-            if flux_med/flux_err > 1:
-                ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line][0], flux_med, flux_err, flux_med/flux_err, eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20, fontsize=8)
+            if flux_med/flux_err > -1000:
+                ax.text(0.05, 0.95-0.07*i, '%4s  %6.1f$\pm$%.1f  %4.1f  %6.1f\n' %(fancy[line][0], flux_med, flux_err, flux_med/flux_err, eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=-20, fontsize=7)
             else:
-                ax.text(0.05, 0.95-0.07*i, '%4s  (%0.1f,%.1f)  %4.1f  %6.1f\n' %(fancy[line][0], np.exp(stats['q05'])*(1+ztry), np.exp(stats['q95'])*(1+ztry), flux_med/flux_err, eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=20, fontsize=8)
+                ax.text(0.05, 0.95-0.07*i, '%4s  (%0.1f,%.1f)  %4.1f  %6.1f\n' %(fancy[line][0], (stats['q05'])*(1+ztry), (stats['q95'])*(1+ztry), flux_med/flux_err, eqw[i]), horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, zorder=-20, fontsize=7)
                 
         ax.fill_between([0.61,0.96],np.array([0.95,0.95]), np.array([0.88, 0.88]), color='white', alpha=0.8, transform=ax.transAxes, zorder=19)
         ax.text(0.95, 0.95, self.grism_id, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, zorder=20)
@@ -1612,15 +1634,21 @@ class GrismSpectrumFit():
         line_wavelengths['Hd'] = [4102.892]; line_ratios['Hd'] = [1.]
         line_wavelengths['OIIIx'] = [4364.436]; line_ratios['OIIIx'] = [1.]
         line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
+        line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
+        line_wavelengths['OI'] = [6302.046]; line_ratios['OI'] = [1]
+
+        line_wavelengths['NeIII'] = [3869]; line_ratios['NeIII'] = [1.]
         #### Fix OIII / Hb
         #line_wavelengths['OIII'] = [5008.240, 4960.295, 4862.68]; line_ratios['OIII'] = [2.98, 1, 0.332]
 
         #line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [4., 1]
-        line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['SII'] = [6718.29, 6732.67]; line_ratios['SII'] = [1, 1]
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
         line_wavelengths['HeII'] = [4687.5]; line_ratios['HeII'] = [1.]
         line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
+        #### Test line
+        #line_wavelengths['HeI'] = fakeLine; line_ratios['HeI'] = [1. for line in fakeLine]
+        
         line_wavelengths['MgII'] = [2799.117]; line_ratios['MgII'] = [1.]
         line_wavelengths['CIV'] = [1549.480]; line_ratios['CIV'] = [1.]
         line_wavelengths['Lya'] = [1215.4]; line_ratios['Lya'] = [1.]
@@ -1631,7 +1659,9 @@ class GrismSpectrumFit():
         fancy['Hg'] = (r'H$\gamma$', line_wavelengths['Hg'] )
         fancy['Hd'] = (r'H$\delta$', line_wavelengths['Hd'] )
         fancy['OIII'] = ( 'O III', line_wavelengths['OIII'] )
+        fancy['OI'] = ( 'O I', line_wavelengths['OI'] )
         fancy['OIIIx'] = ( 'O IIIx', line_wavelengths['OIIIx'] )
+        fancy['NeIII'] = ( 'Ne III', line_wavelengths['NeIII'] )
         fancy['OII']  = ( 'O II', line_wavelengths['OII'] )
         fancy['SII']  = ( 'S II', line_wavelengths['SII'] ) 
         fancy['SIII'] = ( 'S III', line_wavelengths['SIII'] )
@@ -1653,11 +1683,12 @@ class GrismSpectrumFit():
         ### Make sure have resolution at the desired wavelenghts
         newx = self.linex*1.
         for line in use_lines:
-            l0 = line_wavelengths[line][0]
-            if np.interp(l0, self.linex[1:], np.diff(self.linex))/l0*3.e5 > 100:
-                #print line, np.interp(l0, self.linex[1:], np.diff(self.linex))/l0*3.e5
-                xg = np.arange(-5,5,0.1)*100./3.e5*l0+l0
-                newx = np.append(newx, xg)
+            for l0 in line_wavelengths[line]:
+                #l0 = line_wavelengths[line][0]
+                if np.interp(l0, self.linex[1:], np.diff(self.linex))/l0*3.e5 > 100:
+                    #print line, np.interp(l0, self.linex[1:], np.diff(self.linex))/l0*3.e5
+                    xg = np.arange(-5,5,0.1)*100./3.e5*l0+l0
+                    newx = np.append(newx, xg)
         #
         newx = np.unique(newx)
         newx = newx[np.argsort(newx)]
@@ -1677,6 +1708,7 @@ class GrismSpectrumFit():
         for i,line in enumerate(use_lines):
             yline = self.linex*0.
             nmult = len(line_wavelengths[line])
+            #print line, nmult, line_ratios[line]
             for j in range(nmult):
                 lam = line_wavelengths[line][j]
                 norm = line_ratios[line][j]
@@ -1968,12 +2000,19 @@ def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten,
     scale = np.exp(polyval(s, wave_flatten))
     flux_fit *= scale
     
-    flux_fit += np.dot(np.exp(np.minimum(params[1:NT],345)).reshape((1,-1)), twod_templates[1:,:]).flatten()
+    ## log line fluxes
+    # flux_fit += np.dot(np.exp(np.minimum(params[1:NT],345)).reshape((1,-1)), twod_templates[1:,:]).flatten()
+    
+    ## linear line fluxes
+    flux_fit += np.dot(params[1:NT].reshape((1,-1)), twod_templates[1:,:]).flatten()
     
     #print scale.min(), scale.max()
     
-    lnprob = -0.5*np.sum((observed-flux_fit)**2/var)
-
+    prior = 0
+    ### prior against negative fluxes
+    prior = -0.5*np.sum(np.minimum(params[1:NT], 0)**2/1.**2)
+    
+    lnprob = -0.5*np.sum((observed-flux_fit)**2/var) + prior
     #print params, lnprob
     
     if get_model:
@@ -2534,5 +2573,3 @@ def check_lineflux():
 #         self.spec_2d.compute_model()
 #         self.model = self.spec_2d.model.copy()
 #         self.status = True
-
-    

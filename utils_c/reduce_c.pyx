@@ -95,7 +95,7 @@ def total_flux(np.ndarray[DTYPE_t, ndim=2] flux, np.ndarray[UINT_t, ndim=2] segm
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.embedsignature(True)
-def get_model_ratio(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE_t, ndim=2] model, np.ndarray[DTYPE_t, ndim=2] observed):
+def get_model_wht(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE_t, ndim=2] model, np.ndarray[DTYPE_t, ndim=2] observed):
     
     cdef unsigned int NX, NY, ix, iy, x
     cdef np.ndarray[DTYPE_t, ndim=1] ratio_extract

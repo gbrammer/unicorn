@@ -758,6 +758,17 @@ class Stack2D(object):
         for file in self.files:
             self.ims.append(pyfits.open(file))
         
+        #### Fill wavelength elements that might be set to zero
+        for im in self.ims:
+            wave = im['WAVE'].data
+            dl = np.median(np.diff(wave))
+            xpix = np.arange(len(wave))
+            eq0 = wave == 0
+            if eq0.sum() > 0:
+                x0 = xpix[~eq0][0]
+                wave_fill = dl*(xpix-x0)+wave[x0]
+                wave[eq0] = wave_fill[eq0]
+            
         self.sh2D = self.ims[0]['SCI'].data.shape
         
         self._get_transforms()
@@ -883,12 +894,15 @@ class Stack2D(object):
         
         sum_weight = weight.sum(axis=0)
         sum_weight[sum_weight == 0] = 1.
-
-        self.sum_flux = (self.flux*weight).sum(axis=0)/sum_weight
-        self.sum_contam = (self.contam*weight).sum(axis=0)/sum_weight
-        self.sum_model = (self.model*weight).sum(axis=0)/sum_weight
-        self.sum_var = 1./sum_weight
-    
+        
+        weight /= sum_weight
+        
+        self.sum_flux = (self.flux*weight).sum(axis=0)
+        self.sum_contam = (self.contam*weight).sum(axis=0)
+        self.sum_model = (self.model*weight).sum(axis=0)
+        #self.sum_var = 1./sum_weight
+        self.sum_var = (self.err**2*weight**2).sum(axis=0)
+        
     def _make_stacked_FITS(self):
         """
         Make a dummy 2D FITS file

@@ -78,8 +78,7 @@ def interp_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] xp, np.n
         j+=1
                 
     return f
-    
-#
+        
 def interp_conserve(x, xp, fp, left=0., right=0.):
     """
     Interpolate `xp`,`yp` array to the output x array, conserving flux.  
@@ -109,6 +108,76 @@ def interp_conserve(x, xp, fp, left=0., right=0.):
         
     return outy
 
+@cython.boundscheck(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
+def integral_cumsum_c(np.ndarray[DTYPE_t, ndim=1] xp, np.ndarray[DTYPE_t, ndim=1] fp, extrapolate=0.):
+    
+    cdef np.ndarray[DTYPE_t, ndim=1] ycumsum
+    cdef long Nxp, i
+    cdef double x0, x1, old
+    
+    #### Implementation of cumsum * dx
+    Nxp = len(xp)
+    ycumsum = np.zeros(Nxp, dtype=DTYPE)
+    
+    x0 = xp[0]
+    ycumsum[0] = fp[0]*(xp[1]-x0)
+    
+    old = ycumsum[0]
+    for i in range(1,Nxp):
+        x1 = xp[i]
+        old += fp[i]*(x1-x0)
+        ycumsum[i] = old
+        x0 = x1
+    
+    return ycumsum
+    
+@cython.boundscheck(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
+def new_interp_conserve_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] xp, np.ndarray[DTYPE_t, ndim=1] fp, extrapolate=0.):
+    """
+    Interpolate `xp`,`yp` array to the output x array, conserving flux.  
+    `xp` can be irregularly spaced.
+    """
+    cdef np.ndarray[DTYPE_t, ndim=1] ycumsum
+    cdef np.ndarray[DTYPE_t, ndim=1] inty
+    cdef np.ndarray[DTYPE_t, ndim=1] outy
+    
+    cdef long Nx, Nxp, i
+    cdef double x0, x1, old, y0, y1
+    
+    #### Implementation of cumsum * dx
+    Nxp = len(xp)
+    ycumsum = np.zeros(Nxp)
+    x0 = xp[0]
+    ycumsum[0] = fp[0]*(xp[1]-x0)
+    
+    old = ycumsum[0]
+    for i in range(1,Nxp):
+        x1 = xp[i]
+        old += fp[i]*(x1-x0)
+        ycumsum[i] = old
+        x0 = x1
+    
+    Nx = len(x)
+    inty = interp_c(x, xp, ycumsum, extrapolate=extrapolate)
+    outy = np.zeros(Nx)
+    
+    x0 = x[0]
+    y0 = inty[0]
+    for i in range(1,Nx):
+        y1 = inty[i]
+        x1 = x[i]
+        outy[i] = (y1-y0)/(x1-x0)
+        x0 = x1
+        y0 = y1
+        
+    outy[0] = outy[1]
+    return outy
+    
+    
 @cython.boundscheck(False)
 def interp_conserve_c(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] tlam, np.ndarray[DTYPE_t, ndim=1] tf, double left=0, double right=0):
     """
@@ -287,7 +356,12 @@ def run_nmf(np.ndarray[DTYPE_t, ndim=1] flux, np.ndarray[DTYPE_t, ndim=1] varian
     #### Fit coefficients
     cdef np.ndarray[DTYPE_t, ndim=1] coeffs = np.ones(NTEMP, dtype=DTYPE)*init_coeffs
     tol = 100
-
+    
+    #### Lots of negative data, force coeffs to be zero
+    for i in range(NTEMP):
+        if bvector[i] < 0:
+            coeffs[i] = 0.
+            
     itcount=0;
     while (tol>toler) & (itcount<MAXITER):
         tolnum=0.

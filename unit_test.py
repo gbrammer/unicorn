@@ -87,7 +87,7 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_thresh
         model = unicorn.reduce.process_GrismModel(root=root, grow_factor=2, growx=2, growy=2, MAG_LIMIT=25, REFINE_MAG_LIMIT=21, make_zeroth_model=False, use_segm=False, model_slope=0, model_list=None, direct='F140W', grism='G141', BEAMS=['A', 'B', 'C', 'D', 'E'])
         
         #### Some objects with z_spec, em lines; v4.0 IDs
-        ids = [25778, 26087, 26550, 28052, 28870, 29122, 30520, 30662]
+        ids = [25778, 25909, 26087, 26550, 28052, 28870, 29122, 30309, 30520, 30662]
         for id in ids:
             if os.path.exists('%s_%05d.2D.fits' %(model.baseroot, id)):
                 continue
@@ -96,7 +96,7 @@ def run_wfc3(run_prep=True, run_interlace=True, run_redshifts=True, align_thresh
             #
             ### Original fit
             gris = unicorn.interlace_fit.GrismSpectrumFit(root='%s_%05d' %(model.baseroot, id), FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.4, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=0.0001, use_mag_prior=True, dr_match=1.0)
-            gris.fit_in_steps(dzfirst=0.003, zrfirst=(0.6, 3.3), dzsecond=0.0002, save=True, make_plot=True, skip_second=False, oned=False)
+            gris.fit_in_steps(dzfirst=0.003, zrfirst=(0.3, 3.3), dzsecond=0.0002, save=True, make_plot=True, skip_second=False, oned=False)
             ### New fit
             gris = test.SimultaneousFit(root='%s_%05d' %(model.baseroot, id), FIGURE_FORMAT='png', lowz_thresh=0.4)
             gris.new_fit_constrained(zrfirst=[0.6, 3.3], dzfirst=0.005, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True, faint_limit=24)
@@ -128,7 +128,7 @@ def run_acs(run_prep=True, run_interlace=True, run_redshifts=True):
         
         #### Interlaced reference, self as reference image
         adriz_blot = unicorn.reduce.adriz_blot_from_reference
-        adriz_blot(pointing='goodss-34-03-F814W', ACS=True, pad=100, NGROW=0, growx=1, growy=1, auto_offsets=False, ref_exp=0, ref_image='goodss-34-03-F814W_drc_sci.fits', ref_ext=0, ref_filter='F814W', seg_image='Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='Catalog/goodss_3dhst.v4.0.IR_cutout.cat')
+        adriz_blot(pointing='goodss-34-03-F814W', ACS=True, pad=100, NGROWX=0, NGROWY=0, growx=1, growy=1, auto_offsets=False, ref_exp=0, ref_image='goodss-34-03-F814W_drc_sci.fits', ref_ext=0, ref_filter='F814W', seg_image='Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='Catalog/goodss_3dhst.v4.0.IR_cutout.cat')
         
         ### test blot from UDF reference [works]
         #adriz_blot(pointing='goodss-34-03-F814W', ACS=True, pad=100, NGROW=0, growx=1, growy=1, auto_offsets=False, ref_exp=0, ref_image='hlsp_xdf_hst_acswfc-60mas_hudf_f814w_v1_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/goodss_3dhst.v4.0.IR_cutout_seg.fits', cat_file='Catalog/goodss_3dhst.v4.0.IR_cutout.cat')

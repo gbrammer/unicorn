@@ -466,7 +466,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         z0 = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_z0, left=prior_z0[0], right=prior_z0[-1])
         gamma = np.interp(self.twod.im[0].header['MAG'], prior_mag, prior_gamma, left=prior_gamma[0], right=prior_gamma[-1])
         
-        zgrid = self.ln_zgrid(zrange=[0,10], dz=0.01)
+        zgrid = self.ln_zgrid(zrange=[0.0001,10], dz=0.01)
+        #threedhst.showMessage('z0=%f; gamma=%f; mag=%f' %(z0, gamma, self.twod.im[0].header['MAG']), warn=True)
         prior_pz = np.log(zgrid**gamma * np.exp(-(zgrid / z0)**gamma))
         #prior_pz[0] = prior_pz[1]-10
         ok = np.isfinite(prior_pz)

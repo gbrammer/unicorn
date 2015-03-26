@@ -1332,6 +1332,7 @@ class GrismSpectrumFit():
         
         self.obj_args = obj_args
         self.obj_fun = obj_fun
+        self.obj_init = init
         
         model = obj_fun(init, *obj_args).reshape(sh)
         
@@ -1671,7 +1672,7 @@ class GrismSpectrumFit():
         fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 
         fancy['Lya'] = (r'Ly$\alpha$', line_wavelengths['Lya'] )
         
-        fit_wavelengths = {'G102':[8000, 1.16e4], 'G141':[1.05e4, 1.68e4], 'G800L':[5420, 1.035e4]}
+        fit_wavelengths = {'G102':[8000, 1.16e4], 'G141':[1.06e4, 1.68e4], 'G800L':[5420, 1.035e4]}
         
         if use_determined_lines & (self.use_lines is not None):
             use_lines = self.use_lines
@@ -1999,7 +2000,7 @@ def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten,
     #scale = np.exp(s0 + s1*wave_flatten)
     NT = twod_templates.shape[0]
     s = np.append(params[0], params[NT:])[::-1]
-    scale = np.exp(polyval(s, wave_flatten))
+    scale = np.exp(polyval(s, wave_flatten))        
     flux_fit *= scale
     
     ## log line fluxes
@@ -2020,8 +2021,12 @@ def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten,
     if get_model:
         return flux_fit
     else:
-        return lnprob
-
+        if np.isfinite(lnprob):
+            return lnprob
+        else:
+            print params, 'Nan!'
+            return -1e10
+            
 def _objective_lineonly(coeffs, observed, var, templates):
     ### The "minimum" function limits the exponent to acceptable float values
     flux_fit = np.dot(np.exp(np.minimum(coeffs,345)).reshape((1,-1)), templates)

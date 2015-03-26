@@ -1283,6 +1283,10 @@ class GrismSpectrumFit():
         
         (use_lines, fancy), templates = self.get_emline_templates_new(ztry=ztry, line_width=line_width0)
         
+        if len(use_lines) == 0:
+            threedhst.showMessage('No lines within usuable wavelength range (%s)' %(self.root), warn=True)
+            return False
+            
         #### Initial guess for template normalizations
         twod_templates = np.zeros((1+len(use_lines), var.size))
         for i, temp in enumerate(templates):
@@ -1297,7 +1301,7 @@ class GrismSpectrumFit():
             amatrix = utils_c.prepare_nmf_amatrix(var[use], twod_templates[:,use])
             coeffs = utils_c.run_nmf(flux[use], var[use], twod_templates[:,use], amatrix, toler=1.e-5)
         except:
-            threedhst.showMessage('Something went wrong with setting up the line fit', warn=True)
+            threedhst.showMessage('Something went wrong with setting up the line fit (%s)' %(self.root), warn=True)
             return False
             
         flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.linex.shape))
@@ -1679,10 +1683,13 @@ class GrismSpectrumFit():
         if use_determined_lines & (self.use_lines is not None):
             use_lines = self.use_lines
         else:
+            spec_has_data = np.sum(self.twod.im['WHT'].data, axis=0) > 0
+            usable_wave = self.oned_wave[spec_has_data]
+            
             use_lines = []
             for line in line_wavelengths.keys():
                 lam = line_wavelengths[line][0]
-                if (lam*(1+ztry) > np.maximum(self.oned_wave.min(), fit_wavelengths[self.twod.grism_element][0])) & (lam*(1+ztry) < np.minimum(fit_wavelengths[self.twod.grism_element][1], self.oned_wave.max())):
+                if (lam*(1+ztry) > np.maximum(usable_wave.min(), fit_wavelengths[self.twod.grism_element][0])) & (lam*(1+ztry) < np.minimum(fit_wavelengths[self.twod.grism_element][1], usable_wave.max())):
                     use_lines.append(line)
         
         ### Make sure have resolution at the desired wavelenghts

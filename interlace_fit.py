@@ -2024,7 +2024,7 @@ def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten,
         if np.isfinite(lnprob):
             return lnprob
         else:
-            print params, 'Nan!'
+            #print params, 'Nan!'
             return -1e10
             
 def _objective_lineonly(coeffs, observed, var, templates):

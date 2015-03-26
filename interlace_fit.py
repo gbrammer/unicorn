@@ -1671,13 +1671,15 @@ class GrismSpectrumFit():
         fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 
         fancy['Lya'] = (r'Ly$\alpha$', line_wavelengths['Lya'] )
         
+        fit_wavelengths = {'G102':[8000, 1.16e4], 'G141':[1.05e4, 1.68e4], 'G800L':[5420, 1.035e4]}
+        
         if use_determined_lines & (self.use_lines is not None):
             use_lines = self.use_lines
         else:
             use_lines = []
             for line in line_wavelengths.keys():
                 lam = line_wavelengths[line][0]
-                if (lam*(1+ztry) > self.oned_wave.min()) & (lam*(1+ztry) < self.oned_wave.max()):
+                if (lam*(1+ztry) > np.maximum(self.oned_wave.min(), fit_wavelengths[self.twod.grism_element][0])) & (lam*(1+ztry) < np.minimum(fit_wavelengths[self.twod.grism_element][1], self.oned_wave.max())):
                     use_lines.append(line)
         
         ### Make sure have resolution at the desired wavelenghts
@@ -2270,7 +2272,7 @@ class emceeChain():
         stats['width'] = (stats['q84']-stats['q16'])/2.
         return stats
         
-    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0, ax = None, add_labels=True, hist=False, *args, **kwargs):
+    def show_chain(self, param='a1', chain=None, alpha=0.15, color='blue', scale=1, diff=0, ax = None, add_labels=True, hist=False, autoscale=True, *args, **kwargs):
         """
         Make a plot of the chain for a given parameter.
         
@@ -2285,11 +2287,13 @@ class emceeChain():
             plotter = ax
             xlabel = ax.set_xlabel
             ylabel = ax.set_ylabel
+            ylim = ax.set_ylim
         else:
             plotter = plt
             xlabel = plt.xlabel
             ylabel = plt.ylabel
-        
+            ylim = plt.ylim
+            
         if hist:
             h = plotter.hist(chain[:,self.nburn:].flatten(), alpha=alpha, color=color, *args, **kwargs)
             if add_labels:
@@ -2301,7 +2305,10 @@ class emceeChain():
             if add_labels:
                 xlabel('Step')
                 ylabel(param)
-              
+            #
+            if autoscale:
+                ylim(self.stats[param]['q50'] + np.array([-8,8])*self.stats[param]['width'])
+            
     def save_chain(self, file='emcee_chain.pkl', verbose=True):
         """
         Save the chain to a Pkl file

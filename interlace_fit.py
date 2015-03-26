@@ -1302,7 +1302,9 @@ class GrismSpectrumFit():
             
         flux_fit = np.dot(coeffs.reshape((1,-1)), templates).reshape((self.linex.shape))
         
+        coeffs[~np.isfinite(coeffs)] = 0.
         coeffs = np.maximum(coeffs, 1.e-5)
+        
         #coeffs[0] = 1
         #### First parameter is slope, rest are template normalizations
         
@@ -1332,7 +1334,7 @@ class GrismSpectrumFit():
         
         self.obj_args = obj_args
         self.obj_fun = obj_fun
-        self.obj_init = init
+        self.obj_init = init*1.
         
         model = obj_fun(init, *obj_args).reshape(sh)
         

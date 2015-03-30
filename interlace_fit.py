@@ -870,6 +870,10 @@ class GrismSpectrumFit():
         
         self.z_max_spec = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
         
+        file = path + self.grism_id+'.linefit.fits'
+        if os.path.exists(file):
+            self.chain = emceeChain(file=file)
+            
         return True
         
     def get_redshift_confidence(self, limits=[2.5, 16, 84, 97.5]):
@@ -1248,7 +1252,7 @@ class GrismSpectrumFit():
         
         return temp_sed
     
-    def new_fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100, save_chain=False, lrange=(0.9e4,2e4), tilt_order=1):
+    def new_fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100, save_chain=False, lrange=(0.9e4,2e4), tilt_order=1, make_chain_plot=True):
         """
         Fit the normalization and slope directly rather than with the
         fake red/blue templates.
@@ -1491,14 +1495,72 @@ class GrismSpectrumFit():
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
         ymax = self.model_1D[np.isfinite(self.model_1D)].max()
-        ax.set_ylim(-0.1*ymax, 1.5*ymax)
+        ax.set_ylim(-0.3*ymax, 1.5*ymax)
         
         unicorn.catalogs.savefig(fig, self.OUTPUT_PATH + '/' +  self.grism_id+'.linefit.'+self.FIGURE_FORMAT)
         
         fp.close()
         
-        return True
+        if make_chain_plot:
+            self.show_line_chain()
         
+        plt.ion()
+        
+        return True
+    
+    def show_line_chain(self):
+        """
+        Diagnostic figure showing the line flux fits
+        """
+        from collections import OrderedDict
+        
+        cp = [(0.0, 0.4470588235294118, 0.6980392156862745),
+         (0.0, 0.6196078431372549, 0.45098039215686275),
+         (0.8352941176470589, 0.3686274509803922, 0.0),
+         (0.8, 0.4745098039215686, 0.6549019607843137)]
+        
+        colors = OrderedDict()
+        colors['OII'] = cp[0]
+        colors['NeIII'] = cp[3]
+        colors['Hb'] = cp[1]
+        colors['OIII'] = cp[2]
+        colors['Ha'] = cp[0]
+        colors['SII'] = cp[3]
+        colors['SIII'] = cp[2]
+
+        plot_count = 0
+        for line in colors.keys():
+            if line in self.chain.param_names:
+                plot_count += 1
+                
+        fig = unicorn.plotting.plot_init(xs=3.7, aspect=1, fontsize=6.3, NO_GUI=True)
+        ax = fig.add_subplot(211+plot_count*100)
+        self.chain.show_chain('s0', color='black', alpha=0.15, ax=ax)
+        ax = fig.add_subplot(212+plot_count*100)
+        self.chain.show_chain('s1', color='black', alpha=0.15, ax=ax)
+        ii = 0
+        ztry = self.zgrid1[self.full_prob1 == self.full_prob1.max()][0]
+        
+        for line in colors.keys():
+            if line in self.chain.param_names:
+                ii+=1
+                ax = fig.add_subplot(212+ii+plot_count*100)
+                self.chain.show_chain(line, color=colors[line], alpha=0.15, ax=ax, scale=(1+ztry), add_labels=False)
+                ax.plot([0,self.chain.nstep], [0,0], color='black', alpha=0.8, linewidth=2)
+                ax.set_ylabel(line)
+                #ax.grid()
+                
+        ax.set_xlabel('Step')
+                
+        for ax in fig.axes[:-1]:
+            ax.set_xticklabels([])
+            ax.set_xlabel(' ')
+            #ax.xaxis.labelpad=0
+            
+        fig.tight_layout(pad=0.2)
+        #unicorn.plotting.savefig(fig, '%s')
+        unicorn.plotting.savefig(fig, self.OUTPUT_PATH + '/' +  self.grism_id+'.linefit.chain.'+self.FIGURE_FORMAT)
+            
     def fit_free_emlines(self, ztry=None, verbose=True, NTHREADS=1, NWALKERS=50, NSTEP=200, FIT_REDSHIFT=False, FIT_WIDTH=False, line_width0=100):
         import emcee
         
@@ -2321,7 +2383,7 @@ class emceeChain():
                 ylabel(param)
             #
             if autoscale:
-                ylim(self.stats[param]['q50'] + np.array([-8,8])*self.stats[param]['width'])
+                ylim(self.stats[param]['q50']*scale + np.array([-8,8])*self.stats[param]['width']*scale)
             
     def save_chain(self, file='emcee_chain.pkl', verbose=True):
         """

@@ -884,6 +884,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
                 
         print 'Read p(z) from %s: z_max = %.4f [%.3f, %.3f]' %(pzfits, self.z_max_spec, self.c68[0], self.c68[1])
         
+        linefits = self.twod.file.replace('2D.f','linefit.f')
+        if os.path.exists(linefits):
+            print 'Read %s' %(linefits)
+            self.chain = unicorn.interlace_fit.emceeChain(file=linefits)
+        
         return True
         
     def get_redshift_stats(self):

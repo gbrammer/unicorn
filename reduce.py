@@ -80,7 +80,7 @@ for beam in ['A','B','C','D','E']:
         sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
         
         sens_wave = np.arange(sens['WAVELENGTH'].min() - float(conf['DLDP_%s_1' %(beam)].split()[0])*2, sens['WAVELENGTH'].max() + float(conf['DLDP_%s_1' %(beam)].split()[0])*2, np.diff(sens['WAVELENGTH'])[0]/2.)
-        sens_sens = np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=1.e-10, right=1.e-10)
+        sens_sens = np.maximum(np.interp(sens_wave, sens['WAVELENGTH'], sens['SENSITIVITY'], left=1.e-10, right=1.e-10), 1.e-10)
         sens_err = np.interp(sens_wave, sens['WAVELENGTH'], sens['ERROR'], left=0, right=0)
         
         sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
@@ -166,7 +166,7 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
                 sens_sens0 = sens['SENSITIVITY']
                 sens_err0 = sens['ERROR']
 
-            sens_sens = np.interp(sens_wave, sens_wave0, sens_sens0, left=1.e-10, right=1.e-10)
+            sens_sens = np.maximum(np.interp(sens_wave, sens_wave0, sens_sens0, left=1.e-10, right=1.e-10), 1.e-10)
             sens_err = np.interp(sens_wave, sens_wave0, sens_err0, left=1.e-10, right=1.e-10)
                         
             sens_data = {'WAVELENGTH': sens_wave, 'SENSITIVITY': sens_sens, 'ERROR':sens_err}
@@ -1422,7 +1422,7 @@ class Interlace2D():
         #### Subtract a background from the direct thumbnail
         if flatten_thumb:
             threedhst.showMessage('Flatten %f' %(np.median(self.flux[self.seg == 0])), warn=True)
-            self.flux -= np.median(se.flux[self.seg == 0])
+            self.flux -= np.median(self.flux[self.seg == 0])
             self.total_flux = np.sum(self.flux*(self.seg == self.id))
         
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
@@ -1634,7 +1634,7 @@ class Interlace2D():
             trace_hi = trace_pix+1
         else:
             trace_lo = trace_pix-width
-            trace_hi = trace_pix+width
+            trace_hi = trace_pix+width+1
         
         trace2D = obj_cleaned*0
         for i in range(len(ytrace)):
@@ -2913,7 +2913,7 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=328, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True, check_seg=True, wlim=None):
+    def twod_spectrum(self, id, outroot=None, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True, check_seg=True, wlim=None):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -2928,6 +2928,9 @@ class GrismModel():
         """
         import unicorn.reduce
         
+        if outroot is None:
+            outroot = self.baseroot
+            
         if id not in self.cat.id:
             print 'Object #%d not in catalog.' %(id)
             return False
@@ -3002,7 +3005,7 @@ class GrismModel():
                     
         #### Initialize the output FITS file
         prim = pyfits.PrimaryHDU()
-        prim.header.update('POINTING', self.baseroot)
+        prim.header.update('POINTING', outroot)
         prim.header.update('ID', id)
         prim.header.update('X_PIX', self.cat.x_pix[ii], comment='X pixel in interlaced image')
         prim.header.update('Y_PIX', self.cat.y_pix[ii], comment='Y pixel in interlaced image')
@@ -3134,7 +3137,7 @@ class GrismModel():
         wavelength_region = (self.object_wave >= wlim[0]) & (self.object_wave <= wlim[1])
         
         if np.sum(wavelength_region) < 20:
-            fp = open(self.baseroot+'_%05d.2D.xxx' %(id),'w')
+            fp = open(outroot+'_%05d.2D.xxx' %(id),'w')
             fp.write('%.2f %.2f  %d %d\n' %(xc, yc, -1, -1))
             fp.close()
             self.twod_status = False
@@ -3161,7 +3164,7 @@ class GrismModel():
         #print 'FORCE: %d %d' %(xmin, xmax)
         
         if ((self.sh[1]-xmin) < 20) | ((xmax-xmin) < 20):
-            fp = open(self.baseroot+'_%05d.2D.xxx' %(id),'w')
+            fp = open(outroot+'_%05d.2D.xxx' %(id),'w')
             fp.write('%.2f %.2f  %d %d\n' %(xc, yc, xmin, xmax))
             fp.close()
             return False
@@ -3242,14 +3245,14 @@ class GrismModel():
         
         hdu = pyfits.HDUList(extensions)
         if BIG_THUMB:
-            hdu.writeto(self.baseroot+'-big_%05d.2D.fits' %(id), clobber=True)
+            hdu.writeto(outroot+'-big_%05d.2D.fits' %(id), clobber=True)
         else:
-            hdu.writeto(self.baseroot+'_%05d.2D.fits' %(id), clobber=True)
+            hdu.writeto(outroot+'_%05d.2D.fits' %(id), clobber=True)
         
         self.twod = hdu
         
         if extract_1d:
-            self.oned_spectrum(verbose=verbose)
+            self.oned_spectrum(outroot=outroot, verbose=verbose)
         
         return True
         
@@ -3335,12 +3338,14 @@ class GrismModel():
             canvas = FigureCanvasAgg(fig)
             canvas.print_figure(self.baseroot+'_%05d.2D.png' %(self.id), dpi=100, transparent=False)
                         
-    def oned_spectrum(self, verbose=True):
+    def oned_spectrum(self, outroot=None, verbose=True):
         """
         1D extraction after generating the 2D spectra.
         
         Currently just testing
         """
+        if outroot is None:
+            outroot = self.baseroot
         
         t0 = time.time()
         
@@ -3449,7 +3454,7 @@ class GrismModel():
         head.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')        
         
         tbHDU = pyfits.new_table(coldefs, header=head)
-        tbHDU.writeto(self.baseroot+'_%05d.1D.fits' %(self.id), clobber=True)
+        tbHDU.writeto(outroot+'_%05d.1D.fits' %(self.id), clobber=True)
         
         if verbose:
             t1 = time.time(); dt = t1-t0; t0=t1

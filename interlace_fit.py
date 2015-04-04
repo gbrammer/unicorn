@@ -1425,6 +1425,10 @@ class GrismSpectrumFit():
             aa = ax.plot(wave_model/1.e4, flux_model, color='red', alpha=0.05, zorder=1)    
             flux_models.append(flux_model)
         
+        ## Model at median params
+        model_best = obj_fun(self.chain.median, *obj_args).reshape(sh)
+        wave_best, flux_best = self.twod.optimal_extract(model_step)
+        
         ##### Save the EMCEE chain and the draws made for the plot
         self.chain.save_fits(self.root+'.linefit.fits', verbose=False)
         lf = pyfits.open(self.root+'.linefit.fits', mode='update')
@@ -1433,6 +1437,8 @@ class GrismSpectrumFit():
         lf[0].header.update('z', self.z_max_spec)
         lf.append(pyfits.ImageHDU(data=np.array(flux_models), name='DRAW1D'))
         lf.append(pyfits.ImageHDU(data=wave_model, name='WAVE1D'))
+        lf.append(pyfits.ImageHDU(data=model_best, name='BEST2D'))
+        lf.append(pyfits.ImageHDU(data=flux_best, name='BEST1D'))
         lf.flush()
         
         #ax.plot(self.oned_wave[wok]/1.e4, self.model_1D[wok], color='green', alpha=0.5, linewidth=2, zorder=10)

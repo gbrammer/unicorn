@@ -12,7 +12,7 @@ import matplotlib.pyplot
 import threedhst.dq
 import numpy as np
 
-def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undistorted=False, pad = 120, NGROW=0, ddx=0, ddy=0, growx=1, growy=1, auto_offsets=False, chip=1, filter='F814W', outroot='UDS-19', center=None):
+def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undistorted=False, pad = 120, NGROW=0, ddx=0, ddy=0, growx=1, growy=1, auto_offsets=False, chip=1, filter='F814W', outroot='UDS-19', center=None, file_ext='flc'):
     """
     Combine four dithered ACS exposures in an interlaced image, but use the same native ACS pixel grid
     since the dither offsets don't evenly sample the ACS pixel.  This also simplifies the image distortions
@@ -43,12 +43,20 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
 
     #
     asn = threedhst.utils.ASNFile(root+'_asn.fits')
-    flt = pyfits.open(asn.exposures[0]+'_flc.fits')
+    flt = pyfits.open(asn.exposures[0]+'_%s.fits' %(file_ext))
     
-    ### xx update for ACS PAM
-    im = pyfits.open(os.getenv('jref')+'wfc%d_pam.fits' %(chip))
-    PAM = im[0].data
-    im.close()
+    ### Works for WFC3/G280
+    if flt[0].header['INSTRUME'] == 'WFC3':
+        NX, NY = 4096, 2051
+        im = pyfits.open(os.getenv('iref')+'UVIS%dwfc3_map.fits' %(chip))
+        PAM = im[1].data
+        im.close()
+    else:
+        NX, NY = 4096, 2048
+        im = pyfits.open(os.getenv('jref')+'wfc%d_pam.fits' %(chip))
+        PAM = im[0].data
+        im.close()
+    
     
     #PAM = flt[1].data*0.+1
     
@@ -59,8 +67,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
         xsh, ysh = threedhst.utils.xyrot(np.array(run.xsh)*scl, np.array(run.ysh)*scl, run.rot[0])
     else:
         xsh, ysh = np.zeros(len(asn.exposures)), np.zeros(len(asn.exposures))
-    
-    NX, NY = 4096, 2048
+            
     yi,xi = np.indices((NY, NX))
     
     #pad += NGROW*4
@@ -98,7 +105,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
             for r in 'hdm':
                 rdst = rdst.replace(r, ':')
             #
-            xpix[i], ypix[i] = skytopix.rd2xy('%s_flc.fits[sci,%d]' %(exp, chip_ext[chip]), rdst.split()[0], rdst.split()[1], verbose=False)
+            xpix[i], ypix[i] = skytopix.rd2xy('%s_%s.fits[sci,%d]' %(exp, file_ext, chip_ext[chip]), rdst.split()[0], rdst.split()[1], verbose=False)
         #
         dxs = -np.cast[int](np.round(xpix-xpix[0]))
         dys = -np.cast[int](np.round(ypix-ypix[0]))
@@ -113,7 +120,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
     hot_pix = np.zeros((NY, NX),dtype='int')
     
     for flt in asn.exposures:
-        im = pyfits.open(flt+'_flc.fits')
+        im = pyfits.open(flt+'_%s.fits' %(file_ext))
         hot_pix += (im['DQ',chip_ext[chip]].data & 4096) / 4096
         
     hot_pix = hot_pix > (len(asn.exposures)-2)
@@ -121,7 +128,7 @@ def interlace_combine_acs(root='jbhm19010', view=True, use_error=True, make_undi
     for i,flt in enumerate(asn.exposures):
         print flt
         #flt = run.flt[i]
-        im = pyfits.open(flt+'_flc.fits')
+        im = pyfits.open(flt+'_%s.fits' %(file_ext))
         #ds9.frame(i+1); ds9.view(im[1].data); ds9.scale(0,5)
         
         #### Use the pixel area map correction

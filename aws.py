@@ -42,6 +42,7 @@ def multi_test(field='goodss', n_proc=28):
         
     p1 = Pool(processes=n_proc)
     p1.map(interlace_func, roots)
+    p1.close()
     
     for root in roots:
         adriz_func(root)
@@ -49,7 +50,7 @@ def multi_test(field='goodss', n_proc=28):
         
     p2 = Pool(processes=n_proc)
     p2.map(reduce_func, roots)
-
+    p2.close()
 
 def interlace_func(root):
    
@@ -173,7 +174,7 @@ def reduce_func(root):
             os.system('rm {0}-G141-big_{1:05d}.1D.fits {0}-G141-big_{1:05d}.new_zfit.pz.fits'.format(root, id))
         if not os.path.exists(obj_root+'.linefit.fits'):
             try:
-                gris.new_fit_free_emlines(ztry=None)
+                gris.new_fit_free_emlines(ztry=None, NSTEP=600)
             except:
                 continue
                 

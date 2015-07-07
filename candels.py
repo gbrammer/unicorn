@@ -1458,7 +1458,7 @@ def make_asn_files(force=False, make_region=False, uniquename=True, translate = 
                 asn.exposures = []
                 asn.product=product
                 for fits in exposure_list:
-                    root = os.path.basename(fits).split('_flt')[0]
+                    root = os.path.basename(fits).split('_fl')[0]
                     asn.exposures.append(root)
                 #
                 asn.write(asn.product+'_asn.fits')
@@ -2918,6 +2918,7 @@ def luptonRGB(imr, img, imb, Q=5, alpha=3, m0=-0.05, m1=1, shape=(300,300), file
     Make a 3 color image scaled with the color clipping and 
     asinh scaling from Lupton et al. (2004)
     """   
+    import numpy as np
     try:
         from PIL import Image
     except:
@@ -3072,6 +3073,7 @@ def go_prep_F105W():
     files.extend(glob.glob('GOODSN*asn.fits'))
     
     radec = os.getenv('THREEDHST') + '/ASTRODRIZZLE_FLT/Catalog/goodsn_radec.dat'
+    radec = os.getenv('THREEDHST')+'/3DHST_Detection/%s_radec.dat' %('goodss')
     
     for file in files:
         if os.path.exists(file.replace('asn','drz_sci')):
@@ -3176,3 +3178,47 @@ def go_prep_F105W():
     pyfits.writeto('goodsn_3dhst.v4.x.fill.F105W_drz_sci.fits', data=sci, header=h, clobber=True)
     #pyfits.writeto('goodsn_3dhst.v4.x.fill.F105W_drz_wht.fits', data=wht, header=h, clobber=True)
      
+def new_f105w():
+    
+    import glob
+
+    import unicorn
+    import threedhst
+    import threedhst.prep_flt_astrodrizzle as prep
+    
+    unicorn.candels.make_asn_files(uniquename=False)
+    
+    files=glob.glob('GOODN*asn.fits')
+    files.extend(glob.glob('GOODSN*asn.fits'))
+    
+    radec = os.getenv('THREEDHST') + '/ASTRODRIZZLE_FLT/Catalog/goodsn_radec.dat'
+    
+    radec = os.getenv('THREEDHST')+'/3DHST_Detection/%s_radec.dat' %('goodss')
+    
+    files=glob.glob('*F098M_asn.fits')
+    FORCE=False
+    
+    threedhst.options['FLT_PERSISTENCE_PATH'] = '../Persistence/'
+    for direct_asn in files:
+        if (not os.path.exists(direct_asn.replace('_asn.fits', '_shifts.txt'))) | FORCE:
+            print direct_asn
+            prep.prep_direct_grism_pair(direct_asn=direct_asn, grism_asn=None, radec=radec, scattered_light=False, final_scale=0.06, order=1, align_threshold=7, get_shift=True)
+    
+    ####
+    files = glob.glob('*flt.fits')
+    fp = open('sky.file','w')
+    for file in files:
+        fp.write('%s 0.0\n' %(file))
+        threedhst.regions.apply_dq_mask(file, extension=3, mask_file=None, addval=4096, fk5=False, verbose=True)
+        
+    fp.close()
+    
+    bits = 64+512
+    drizzlepac.astrodrizzle.AstroDrizzle(files, output='goodss_3dhst.v4.x.F098M', clean=True, context=False, preserve=False, skysub=True, skyfile='sky.file', driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_combine=True, final_wcs=True, final_kernel='square', resetbits=0, final_pixfrac=0.8, final_bits=bits, final_wht_type='IVM', final_refimage='/Users/brammer/3DHST/Ancillary/Mosaics/goodss_3dhst.v4.0.F160W_orig_sci.fits')
+    
+    sci = pyfits.open('goodss_3dhst.v4.x.F098M_drz_sci.fits', mode='update')
+    wht = pyfits.open('goodss_3dhst.v4.x.F098M_drz_wht.fits')
+    mask = wht[0].data == 0
+    sci[0].data[mask] = 0.
+    sci.flush()
+    

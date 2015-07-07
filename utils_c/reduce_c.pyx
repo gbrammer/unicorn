@@ -160,6 +160,73 @@ def get_model_ratio_optimal(np.ndarray[DTYPE_t, ndim=2] object, np.ndarray[DTYPE
         
     return ratio_extract
 
+#### 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.embedsignature(True)
+def c_fast_model_dot(np.ndarray[DTYPE_t, ndim=1] flux_interp, np.ndarray[DTYPE_t, ndim=2] thumb_matrix):
+    shx = flux_interp.shape
+    shy = thumb_matrix.shape
+    cdef unsigned int NY = int(shy[1]/shy[0])
+    cdef unsigned int NY2 = int(NY/2)
+    cdef unsigned int NY3 = shy[0]-NY2
+    cdef unsigned int NY4 = shy[0]
+    cdef unsigned int ix, i, j, i1, i2
+    cdef double fi
+    cdef np.ndarray[DTYPE_t, ndim=2] out
+    out = np.zeros((NY, shy[0]), dtype=np.double)
+        
+    for ix in range(0, NY2):
+        fi = flux_interp[ix]
+        i1, i2 = 0, ix+NY2
+        for i in range(i1, i2):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix, j*shy[0]+i]
+            
+    for ix in range(NY2, NY3):
+        fi = flux_interp[ix]
+        i1, i2 = ix-NY2, ix+NY2
+        for i in range(i1, i2):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix, j*shy[0]+i]
+    
+    for ix in range(NY3, NY4):
+        fi = flux_interp[ix]
+        i1, i2 = ix-NY2, NY4
+        for i in range(i1, i2):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix, j*shy[0]+i]
+    
+    return out
+
+def fast_model_dot(flux_interp, thumb_matrix):
+    shx = flux_interp.shape
+    shy = thumb_matrix.shape
+    NY = int(shy[1]/shy[0])
+    NY2 = int(NY/2)
+    out = np.zeros((NY, shy[0]))
+    
+    for ix in range(0, NY2):
+        fi = flux_interp[ix]
+        for i in range(0,ix+NY2):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix,j*shy[0]+i]
+        
+    for ix in range(NY2, shy[0]-NY2):
+        fi = flux_interp[ix]
+        for i in range(ix-NY2,ix+NY2):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix,j*shy[0]+i]
+    
+    for ix in range(shy[0]-NY2, shy[0]):
+        fi = flux_interp[ix]
+        for i in range(ix-NY2,shy[0]):
+            for j in range(0,NY):
+                out[j,i] += fi*thumb_matrix[ix,j*shy[0]+i]
+    
+    return out
+
 #### Compute IGM absorption factors as in EAZY, Hyperz, etc.
 @cython.boundscheck(False)
 @cython.cdivision(True)

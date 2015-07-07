@@ -175,8 +175,8 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
         skip=1
         
 
-    sky1 = pyfits.open('../CONF/ACS.WFC.CHIP1.msky.1.fits')
-    sky2 = pyfits.open('../CONF/ACS.WFC.CHIP2.msky.1.fits')
+    sky1 = pyfits.open('CONF/ACS.WFC.CHIP1.msky.1.fits')
+    sky2 = pyfits.open('CONF/ACS.WFC.CHIP2.msky.1.fits')
     skies = [sky1, sky2]
     extensions = [1,4] ### SCI extensions
     

@@ -91,7 +91,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         goodsn=True
     if root.startswith('GN20') | root.startswith('G850.1'):
         goodsn=True
-    if root.startswith('GOODS-S') | root.startswith('goodss'):
+    if root.startswith('GOODS-S') | root.startswith('goodss') | root.startswith('gs'):
         cdfs=True
 
     if root.startswith('CDFS'):
@@ -103,6 +103,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     
     #### G. Barro
     if 'gdn' in root.lower():
+        goodsn=True
+    #
+    if 'GN-z10' in root:
         goodsn=True
         
         
@@ -464,6 +467,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.zout' %(hff)
         FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.fout' %(hff)
         KTOT_COL = 'f_Ks'
+
+        # CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/GLASS/MACS0416/Catalog/'
+        # CAT_FILE = CAT_PATH + 'macs0416_HST_vX.cat'
+        # hff='with'
+        # #hff='no'
+        # ZOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.zout'
+        # FOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.fout'
+        # KTOT_COL = 'flux_f160w'
         
     if ('1423' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
@@ -487,12 +498,19 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'OUTPUT/rxj2248.fout'
         KTOT_COL = 'f160w_flux'
     
-    if ('1149' in root.split('_')[0]):
+    if ('1149' in root.split('_')[0]) | ('REFSDAL' in root.upper()):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
-        CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1149_cat.txt.flux_AB25'
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1149_cat.txt.flux_hasH' #'.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m1149.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m1149.fout'
         KTOT_COL = 'f160w_flux'
+        # 
+        # CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/HLSP/M1149_cluster/'
+        # CAT_FILE = CAT_PATH+'/macs1149_HST_vX.cat' #'.flux_AB25'
+        # ZOUT_FILE = CAT_PATH+'EAZY/OUTPUT/macs1149_ff_noTE.zout'
+        # FOUT_FILE = CAT_PATH+'EAZY/OUTPUT/macs1149_ff.fout'
+        # KTOT_COL = 'flux_f160w'
+        
     #
     if ('2129' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
@@ -506,6 +524,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_ir_macs0647_cat.txt.flux_AB25'
         ZOUT_FILE = CAT_PATH+'OUTPUT/m0647.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m0647.fout'
+        KTOT_COL = 'f160w_flux'
+    #
+    if ('0744' in root.split('_')[0]):
+        CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
+        #hlsp_clash_hst_acs-ir_macs0744_cat.txt.flux_AB25
+        CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs0744_cat.txt.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/m0744.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/m0744.fout'
         KTOT_COL = 'f160w_flux'
     
     #### D. Newman's grism program

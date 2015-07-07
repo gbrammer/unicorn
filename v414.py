@@ -232,7 +232,8 @@ def make_master_catalog():
     phot.add_column(Column(data=cat2.MLv, name='eazy_MLv'))
     phot.add_column(Column(data=cat2.Lv, name='eazy_Lv'))
     phot.add_column(Column(data=cat2.template_Halpha, name='eazy_Halpha'))
-    phot.add_column(Column(data=cat2.template_O2, name='eazy_OIII'))
+    phot.add_column(Column(data=cat2.template_O2, name='eazy_OII'))
+    phot.add_column(Column(data=cat2.template_O3, name='eazy_OIII'))
     
     field_id = np.ones(len(phot), dtype=int)
     for fi, field in enumerate(['AEGIS', 'COSMOS', 'GOODS-N', 'GOODS-S', 'UDS']):
@@ -243,6 +244,241 @@ def make_master_catalog():
     phot.write('3dhst.v4.1.4.full.v2.fits')
     
     #full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
+    
+def master_spec():
+    full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
+    lran = np.arange(1.e4,1.7e4,23)
+    spec = np.zeros((len(full), len(lran)))
+    contam = np.zeros((len(full), len(lran)))
+    err = np.zeros((len(full), len(lran)))
+    
+    N = len(full)
+    PATH = '/Volumes/WD5_ESOMAC/3DHST/Spectra/Release/v4.1.4'
+    for i in range(N):
+        if full['z_max_grism'][i] >= 0:
+            obj = full['spec_id'][i]
+            field = obj.split('-')[0]
+            pointing = obj.split('-G1')[0]
+            try:
+                print obj
+                oned = unicorn.reduce.Interlace1D('%s/%s-wfc3-spectra_v4.1.4/%s/1D/FITS/%s.1D.fits' %(PATH, field, pointing, obj))
+                spec[i,:] = np.interp(lran, oned.lam, oned.flux/oned.sens, left=0, right=0)
+                contam[i,:] = np.interp(lran, oned.lam, oned.contam/oned.sens, left=0, right=0)
+                err[i,:] = np.interp(lran, oned.lam, oned.error/oned.sens, left=0, right=0)
+            except:
+                print '(failed)'
+                pass
+    
+    hdu = [pyfits.PrimaryHDU()]
+    hdu.append(pyfits.ImageHDU(data=lran, name='WAVE'))
+    hdu.append(pyfits.ImageHDU(data=spec, name='FLUX'))
+    hdu.append(pyfits.ImageHDU(data=err, name='ERR'))
+    hdu.append(pyfits.ImageHDU(data=contam, name='CONTAM'))
+    
+    pyfits.HDUList(hdu).writeto('master_spec_v4.1.4.fits')
+    
+    ### Galaxies
+    npix = (img['FLUX'].data != 0).sum(axis=1)
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
+    so = np.argsort(full['z_max_grism'][ok])
+    skip = 15
+    
+    #### Continuum
+    line_SN = npix < 0
+    for line in ['OII', 'OIII', 'HALPHA']:
+        line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 2) & (full['%s_FLUX' %(line)] > 0)
+    
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & line_SN
+    so = np.argsort(full['z_max_grism'][ok])
+    skip = 5
+    
+    ## sort by stellar mass
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.3)
+    
+    ### High-z
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 1.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.2)
+    ### lowz
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.18) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 0.9)
+
+    so = np.argsort(full['lmass'][ok])
+    skip = 21
+    
+    #### stars
+    imj = -2.5*np.log10(full['f_F814W']/full['f_F125W'])
+    imj = -2.5*np.log10(full['f_F125W']/full['f_F140W'])
+    ok = (npix > 150) & ((img['CONTAM'].data/img['FLUX'].data > 3).sum(axis=1) < 60) & (full['hmag'] < 24) & (full['star_flag'] == 1) & np.isfinite(imj)
+    so = np.argsort(imj[ok])
+    skip = 5
+    #avg = np.median(smooth[0:100,:], axis=0)
+    
+    sub = (img['FLUX'].data-img['CONTAM'].data)[ok,:][so,:]
+    scl = 10**(0.4*(full['hmag'][ok][so]-21))
+    sub = (sub.T*scl).T
+    
+    smooth = sub*1.
+    for i in range(ok.sum())[::skip]:
+        smooth[i,:] = np.median(sub[i:i+skip,:], axis=0)
+    
+    smooth = smooth[::skip]
+    avg = np.median(smooth, axis=0)
+    
+    zi = full['z_max_grism'][ok][so][::skip]
+    lrest = np.arange(2500, 1.3e4, 10)
+    lrest = np.arange(2500, 1.4e4, 10)
+    sh = smooth.shape
+    spec_rest = np.zeros((sh[0], len(lrest)))
+    for i in range(sh[0]):
+        spec_rest[i,:] = np.interp(lrest, lran[30:]/(1+zi[i]), smooth[i,30:]/avg[30:], left=0, right=0)
+    
+    ### full rest, for when not sorted by redshift
+    zzi = full['z_max_grism'][ok][so]
+    sh = sub.shape
+    spec_rest_full = np.zeros((sh[0], len(lrest)))
+    for i in range(sh[0]):
+        spec_rest_full[i,:] = np.interp(lrest, lran[30:-5]/(1+zzi[i]), sub[i,30:-5]/avg[30:-5], left=0, right=0)
+    
+    spec_rest_full[~np.isfinite(spec_rest_full)] = 0
+    smooth_full = spec_rest_full*1.
+    for i in range(ok.sum())[::skip]:
+        print i
+        sub_region = np.ma.masked_array(spec_rest_full[i:i+skip,:], mask=spec_rest_full[i:i+skip,:] == 0)
+        smooth_full[i,:] = np.ma.median(sub_region, axis=0)
+    
+    smooth_full = smooth_full[::skip]
+    
+    ### Stack
+    spec_rest[~np.isfinite(spec_rest)] = 0
+    sum_rest = np.sum(spec_rest, axis=0)
+    N = np.sum(spec_rest != 0, axis=0)
+    
+    spec_rest[spec_rest == 0] = 100
+    
+    import seaborn as sns
+    sns.set(style="ticks")
+    plt.ioff()
+    fig = unicorn.plotting.plot_init(aspect=sh[0]*1./sh[1]*0.5, xs=6, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    
+    ax = fig.add_subplot(111)
+    ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+    
+    zpix = np.arange(0.25,3.1,0.25)
+    zpixstr = list(zpix)
+    for i in range(len(zpix))[::2]:
+        zpixstr[i] = ''
+    
+    ypix = np.interp(zpix, zi, np.arange(sh[0]))
+    ax.set_yticks(ypix); ax.set_yticklabels(zpixstr)
+    ax.set_ylim(0, sh[0])
+    
+    ax2 = ax.twinx()
+    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+    ynticks = np.arange(0, ok.sum(), 5000)
+    ynv = ynticks/skip
+    ax2.set_yticks(ynv); ax2.set_yticklabels(ynticks)
+    ax2.set_ylim(0, sh[0])
+    ax2.set_ylabel(r'$N$')
+    ax.set_ylabel(r'$z$')
+    
+    xlam = [0.25,0.5,0.75,1,1.25]
+    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
+    ax.set_xticks(xpix); ax.set_xticklabels(xlam)
+    ax2.set_xticks(xpix); ax2.set_xticklabels(xlam)
+    ax.set_xlabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
+    
+    fig.tight_layout()
+    
+    unicorn.plotting.savefig(fig, '3dhst_allspecs.pdf')
+    
+    
+    ##### Horizontal
+    import seaborn as sns
+    sns.set(style="ticks")
+    plt.ioff()
+    fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]*0.5), xs=10, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    
+    ax = fig.add_subplot(111)
+    ax.imshow(255-unicorn.candels.clipLog(spec_rest.T, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+    
+    zpix = np.arange(0.25,3.1,0.25)
+    zpixstr = list(zpix)
+    for i in range(len(zpix))[::2]:
+        zpixstr[i] = ''
+    
+    ypix = np.interp(zpix, zi, np.arange(sh[0]))
+    ax.set_xticks(ypix); ax.set_xticklabels(zpixstr)
+    ax.set_xlim(0, sh[0])
+    
+    ax2 = ax.twiny()
+    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+    ynticks = np.arange(0, ok.sum(), 5000)
+    ynv = ynticks/skip
+    ax2.set_xticks(ynv); ax2.set_xticklabels(ynticks)
+    ax2.set_xlim(0, sh[0])
+    ax2.set_xlabel(r'$N$')
+    ax.set_xlabel(r'$z$')
+    
+    xlam = [0.25,0.5,0.75,1,1.25]
+    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
+    ax.set_yticks(xpix); ax.set_yticklabels(xlam)
+    ax2.set_yticks(xpix); ax2.set_yticklabels(xlam)
+    ax.set_ylabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
+    
+    fig.tight_layout()
+    
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_horiz.pdf')
+    
+    #### Sort stellar mass
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as font_manager
+
+    path = '/Library/Fonts/Microsoft/Calibri.ttf'
+    prop = font_manager.FontProperties(fname=path)
+    mpl.rcParams['font.family'] = prop.get_name()
+    mpl.rcParams['font.style'] = 'normal'
+    mpl.rcParams['font.weight'] = 'normal'
+    
+    sh = smooth_full.shape
+    import seaborn as sns
+    sns.set(style="ticks")
+    plt.ioff()
+    smooth_full[smooth_full == 0] = 100
+    fig = unicorn.plotting.plot_init(aspect=1./1.3, xs=6, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    
+    ax = fig.add_subplot(111)
+    ax.imshow(255-unicorn.candels.clipLog(smooth_full.T, lexp=1e5, cmap=[6.47, 0.88235], scale=[0,5]), origin='lower', aspect='auto')
+    
+    mass = full['lmass'][ok][so][::skip]
+    zpix = np.arange(9,11.1,0.5)
+    zpixstr = list(zpix)
+    
+    ypix = np.interp(zpix, mass, np.arange(sh[0]))
+    ax.set_xticks(ypix); ax.set_xticklabels(zpixstr)
+    ax.set_xlim(0, sh[0])
+    
+    ax2 = ax.twiny()
+    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+    ynticks = np.arange(0, ok.sum(), 2000)
+    ynv = ynticks/skip
+    ax2.set_xticks(ynv); ax2.set_xticklabels(ynticks)
+    ax2.set_xlim(0, sh[0])
+    ax2.set_xlabel(r'$N$')
+    ax.set_xlabel(r'$\log\ M/M_\odot$')
+    
+    xlam = [0.25,0.5,0.75,1,1.25]
+    xlam = np.arange(4000,8000,1000)/1.e4
+    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
+    ax.set_yticks(xpix); ax.set_yticklabels(np.cast[int](xlam*1e4))
+    ax2.set_yticks(xpix); ax2.set_yticklabels(np.cast[int](xlam*1e4))
+    ax.set_ylabel(r'$\lambda_\mathrm{rest}$ / \AA')
+    ax.set_ylim(np.interp([0.33, 0.72], lrest/1.e4, np.arange(len(lrest))))
+    fig.tight_layout()
+    
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    ax.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
+    ax2.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
+    
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_mass.pdf')
     
 def get_full_catalog():
     """
@@ -279,6 +515,17 @@ def get_full_catalog():
     
     unicorn.v414.make_selection_webpage(full, selection, output='zspec_outliers_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'z_spec', 'abs(dz)'])
     
+    #### stars
+    imj = -2.5*np.log10(full['f_F814W']/full['f_F125W'])
+    full.add_column(Column(data=imj, name='i-J', format='%.3f'))
+    jmh = -2.5*np.log10(full['f_F125W']/full['f_F140W'])
+    full.add_column(Column(data=jmh, name='J-H', format='%.3f'))
+
+    selection = (full['z_max_grism'] > 0) & (full['star_flag'] == 1) & (full['hmag'] < 24) & (full['hmag'] > 21.5) & np.isfinite(imj) #& (imj > 1) 
+
+    selection = (full['z_max_grism'] > 0) & (full['star_flag'] == 1) & (full['hmag'] < 24) #& (jmh > 1)
+
+    unicorn.v414.make_selection_webpage(full, selection, output='red_stars_GBr.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'i-J', 'J-H'])
     """
     from threedhst import catIO
     PATH = '/Library/WebServer/Documents/P/GRISM_v4.1.4'
@@ -413,13 +660,35 @@ def random_objects(N=200):
     for i in range(N):
         obj = objects[idx][i]
         os.system('ln -s /Volumes/WD5_ESOMAC/3DHST/Spectra/Release/v4.1.4/*4/*/ZFIT/PNG/%s*png .' %(obj))
+      
+  
         
-        
-def make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism']):
+def make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism'], local=False):
     """
     Make an HTML table with image links
     
     full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
+
+    cd "/Users/brammer/3DHST/Spectra/Release/v4.1.4/Selection"
+    full = catIO.Table('../3dhst.v4.1.4.full.v1.fits')
+    
+    ### z_spec outliers
+    dz = (full['z_max_grism'] - full['z_spec'])/(1+full['z_spec'])
+    selection = (np.abs(dz) > 0.1) & (full['z_spec'] > 0.5) & (full['z_max_grism'] > 0.4)
+    unicorn.v414.make_selection_webpage(full, selection, output='zspec_outliers.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'z_spec'], local=True)
+
+    ### z_phot outliers
+    dz = (full['z_max_grism'] - full['z_peak'])/(1+full['z_peak'])
+    selection = (np.abs(dz) > 0.1) & (full['z_peak'] > 0.5) & (full['z_max_grism'] > 0.4) & (full['hmag'] < 24) & (full['star_flag'] == 0) & (full['near_star'] == 0)
+    unicorn.v414.make_selection_webpage(full, selection, output='zpeak_outliers.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'z_peak'], local=True)
+    
+    ### H-alpha and [OIII]
+    selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['HALPHA_EQW']/full['HALPHA_EQW_ERR'] > 3) &  (full['OIII_EQW']/full['OIII_EQW_ERR'] > 3)
+    unicorn.v414.make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'HALPHA_EQW', 'OIII_EQW'])
+    
+    selection = (full['z_max_grism'] > 1.5) & (full['use_all'] > 0) & (full['hmag'] < 22) & (full['lmass'] > 10.9) 
+    unicorn.v414.make_selection_webpage(full, selection, output='test.html', columns=['spec_id', 'ra', 'dec', 'hmag', 'z_max_grism', 'lmass', 'OIII_EQW'])
+    
     
     ### Example, high EW OIII
     selection = (full['z_max_grism'] > 0) & (full['use_all'] > 0) & (full['hmag'] < 24) & (full['OIII_EQW'] > 2000) & (full['OIII_EQW']/full['OIII_EQW_ERR'] > 3)
@@ -450,17 +719,26 @@ def make_selection_webpage(full, selection, output='test.html', columns=['spec_i
     
     sub = full[selection]
     
-    BASE = 'http://unicorn.astro.yale.edu/P/GRISM_v4.1.4/HTML/PNG'
+    if local:
+        BASE = 'file:///Users/brammer/3DHST/Spectra/Release/v4.1.4/'
+    else:
+        BASE = 'http://unicorn.astro.yale.edu/P/GRISM_v4.1.4/HTML/PNG'
     
     zfit, zfit2, linefit, thumb = [], [], [], []
     for id in sub['spec_id']:
         field = id.split('-')[0]
         pointing = id.split('-G141')[0]
         objid = id.split('G141_')[1]
-        pngdir = '%s/%s/%s/' %(BASE, field, pointing)
-        zfit.append('<img src=%s/%s.new_zfit.png height=200>' %(pngdir, id))
-        zfit2.append('<img src=%s/%s.new_zfit.2D.png height=200>' %(pngdir, id))
-        linefit.append('<img src=%s/%s.linefit.png height=200>' %(pngdir, id))
+        if local:
+            zfitdir = '%s/%s-wfc3-spectra_v4.1.4/%s/ZFIT/PNG' %(BASE, field, pointing)
+            lfitdir = '%s/%s-wfc3-spectra_v4.1.4/%s/LINE/PNG' %(BASE, field, pointing)
+        else:
+            zfitdir = '%s/%s/%s/' %(BASE, field, pointing)
+            lfitdir = '%s/%s/%s/' %(BASE, field, pointing)
+            
+        zfit.append('<img src=%s/%s.new_zfit.png height=200>' %(zfitdir, id))
+        zfit2.append('<img src=%s/%s.new_zfit.2D.png height=200>' %(zfitdir, id))
+        linefit.append('<img src=%s/%s.linefit.png height=200>' %(lfitdir, id))
         thumb.append('<img src=%s/RGB/%s_%s_vJH_6.png height=180>' %(BASE, field, objid))
         
     sub.add_column(Column(data=np.array(zfit), name='zfitpng'))
@@ -636,5 +914,174 @@ def random_assignments():
             print 'cp %s %s' %(rgb, dir)
             os.system('cp %s %s' %(rgb, dir))
             
-            
+def redshift_plot():
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
     
+    ok_zsp = ok & (full['z_spec'] > 0.)
+    
+    line = ((full['OIII_EQW']/full['OIII_EQW_ERR'] > 1) | (full['OII_EQW']/full['OII_EQW_ERR'] > 1) | (full['HALPHA_EQW']/full['HALPHA_EQW_ERR'] > 1))
+    
+    dz = (full['z_max_grism']-full['z_spec'])/(1+full['z_spec'])
+    
+    plt.ioff()
+    
+    fig = unicorn.plotting.plot_init(aspect=0.55, square=True, xs=7, use_tex=True)
+    
+    ax = fig.add_subplot(121)
+    ax.scatter(full['z_spec'][ok_zsp & ~line], full['z_max_grism'][ok_zsp & ~line], alpha=0.2, color='black')
+    ax.scatter(full['z_spec'][ok_zsp & line], full['z_max_grism'][ok_zsp & line], alpha=0.2, color='red')
+    ax.set_xlim(0,3.4); ax.set_ylim(0,3.4)
+    ax.set_xlabel(r'$z_\mathrm{spec}$'); ax.set_ylabel(r'$z_\mathrm{grism}$')
+    
+    ax = fig.add_subplot(122)
+    ax.hist(dz[ok_zsp & ~line], range=[-0.03, 0.03], bins=100, color='black', alpha=0.3, normed=True, label='NO lines, $\sigma$=%0.3f' %(threedhst.utils.nmad(dz[ok_zsp & ~line])))
+    ax.hist(dz[ok_zsp & line], range=[-0.03, 0.03], bins=100, color='red', alpha=0.3, normed=True, label='Lines, $\sigma$=%0.3f' %(threedhst.utils.nmad(dz[ok_zsp & line])))
+    ax.legend(loc='upper right', fontsize=8, ncol=1)
+    ax.set_xlabel(r'$\Delta z/(1+z)$'); ax.set_ylabel(r'$N$')
+    ax.set_xlim(-0.03, 0.03)
+    
+    fig.tight_layout()
+    
+    unicorn.plotting.savefig(fig, 'master_deltaz.pdf')
+#
+
+fakeLine = [1.4e4/(1+0.85)][::-1]
+def test_line_fit():
+    """
+    Add a strong HeI line to an observed spectrum and try to recover the line 
+    flux.
+    """
+    import pysynphot as s
+    import astropy.io.fits as pyfits
+    import threedhst
+    from threedhst import catIO
+    import unicorn
+    import unicorn.interlace_test as test
+    import os
+    
+    hizels = catIO.Table('Orig/match_0.84.cat')
+    hizels = catIO.Table('Orig/match_1.47.cat')
+    
+    gris = test.SimultaneousFit('Orig/cosmos-23-G141_11986', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-02-G141_03882', fast=False, lowz_thresh=0.01)
+    #gris = test.SimultaneousFit('Orig/cosmos-28-G141_23070', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-28-G141_23019', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-02-G141_04752', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-01-G141_19894', fast=False, lowz_thresh=0.01)
+    #gris = test.SimultaneousFit('Orig/cosmos-27-G141_19894', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-05-G141_07983', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/uds-17-G141_19754', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/uds-24-G141_31562', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/uds-13-G141_27783', fast=False, lowz_thresh=0.01)
+    
+    id=int(gris.root.split('_')[-1])
+    hizels_flux = 10**(hizels['logFlux'][hizels['id'] == id][0])
+    
+    lines = [5877.2] # HeI
+    lines = [6718.29, 6732.67] # SII
+    #lines = [6564.61] # Ha
+    lines = unicorn.interlace_fit.fakeLine
+    spec = s.FlatSpectrum(0, fluxunits='flam')
+    for l0 in lines:
+        #spec += s.GaussianSource(10.e-16/len(lines), l0*(1+gris.z_max_spec), 2.)
+        spec += s.GaussianSource(hizels_flux, l0*(1+0.85), 2.)
+    
+    gris.twod.compute_model(spec.wave, spec.flux/1.e-17/gris.twod.total_flux)
+    threedhst.showMessage('%f %f.  HiZELS:%.1f' %(gris.twod.model.sum(), s.Observation(spec, s.ObsBandpass('wfc3,ir,g141')).countrate(), hizels_flux/1.e-17))
+    
+    gris.twod.im['SCI'].data += gris.twod.model
+    gris.twod.im.writeto(os.path.basename(gris.twod.file), clobber=True)
+
+    os.system('cp %s .' %(gris.twod.file.replace('2D.','1D.')))
+    os.system('cp %s .' %(gris.twod.file.replace('2D.','new_zfit.pz.')))
+    os.system('cp %s .' %(gris.twod.file.replace('2D.','new_zfit.')))
+    twod = unicorn.reduce.Interlace2D(os.path.basename(gris.twod.file))
+    twod.oned_spectrum()
+    gris = test.SimultaneousFit(gris.root, fast=False, lowz_thresh=0.01)
+    
+    gris.new_fit_free_emlines(NTHREADS=1, NSTEP=400)
+    
+    #### Try aperture flux
+    gris = test.SimultaneousFit('Orig/uds-13-G141_27783', fast=False, lowz_thresh=0.01)
+    gris = test.SimultaneousFit('Orig/cosmos-02-G141_03882', fast=False, lowz_thresh=0.01)
+    f = pyfits.open(gris.twod.file.replace('.2D', '.new_zfit'))
+    chain = unicorn.interlace_fit.emceeChain(file=os.path.basename(gris.twod.file.replace('.2D', '.linefit')))
+    
+    import scipy.ndimage as nd
+    kern = nd.maximum_filter((gris.twod.im['DSEG'].data == gris.twod.id)*1., size=3)
+    #kern /= kern.sum()
+        
+    var2D = gris.twod.im['WHT'].data*1.
+    var2D[gris.twod.im['WHT'].data > 1] = 0.
+    var = nd.convolve((var2D/(gris.twod.im['SENS'].data*4.))**2, kern)
+    
+    flux = nd.convolve((gris.twod.cleaned - f['CONT2D'].data*1)*(var2D > 0)/(gris.twod.im['SENS'].data*4.), kern)
+    xf, yf = gris.twod.trace_extract(flux, width=0, dy=0)
+    plt.plot(xf, yf * threedhst.utils.diff(xf), color='black', alpha=0.7)
+
+    flux = nd.convolve((f['LINE2D'].data+f['CONT2D'].data*0)*(var2D > 0)/(gris.twod.im['SENS'].data*4.), kern)
+    xf, yf = gris.twod.trace_extract(flux, width=0, dy=0)
+    plt.plot(xf, yf * threedhst.utils.diff(xf), color='red', alpha=0.5)
+    
+    xvar, yvar = gris.twod.trace_extract(var, width=0, dy=0)
+    plt.plot(xvar, np.sqrt(yvar) * threedhst.utils.diff(xf), color='orange', alpha=0.5)
+    
+    plt.fill_between(xf, yf*0.+np.exp(chain.stats['Ha']['q16'])*(1+gris.z_max_spec), yf*0.+np.exp(chain.stats['Ha']['q84'])*(1+gris.z_max_spec), color='blue', linewidth=2, alpha=0.5)
+    
+    plt.ylim(-5,30)
+    
+def check_twod_flux():
+    """
+    Do full PySynphot test to check line fits
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    import pysynphot as s
+    import unicorn
+    
+    flux, z = 31.3e-17, 2.1947
+    #### 1D model
+    spec = s.GaussianSource(flux*1./3.98, 4959*(1+z), 10) + s.GaussianSource(flux*2.98/3.98, 5007*(1+z), 10)
+    check_flux = np.trapz(spec.flux, spec.wave)
+    #### Is this what we think
+    print 'Model flux=%.1e (ratio=%.2f)' %(np.trapz(spec.flux, spec.wave), np.trapz(spec.flux, spec.wave)/flux)
+    
+    #### model 2D spectrum
+    twod = unicorn.reduce.Interlace2D('cosmos-23-G141_10280.2D.fits')
+    twod.compute_model(spec.wave, spec.flux/1.e-17/twod.total_flux)
+    sens_scaled = twod.im['SENS'].data*4 # this will be fixed eventually
+    flux_density = twod.model / sens_scaled
+    dlam = np.diff(twod.im['WAVE'].data) # this missing an element
+    dlam = np.append(dlam[0], dlam)      # add the element for the first entry
+    integrated = np.sum(flux_density*dlam)*1.e-17
+    
+    ### Check 2D integrated flux
+    print '2D flux = %.1e (ratio=%.2f)' %(integrated, integrated/flux)
+    
+    ### Check that looks right in the image
+    fig = plt.figure(figsize=[4,4])
+    ax = fig.add_subplot(311); ax.imshow(0-twod.model, vmin=-0.1, vmax=0.01, interpolation='Nearest')
+    ax.text(0.95, 0.2, 'Model', transform=ax.transAxes, color='red', ha='right', va='top', fontsize=12)
+    ax.text(0.05, 0.9, twod.file.split('.2D')[0], ha='left', va='top', color='black', fontsize=13, transform=ax.transAxes)
+    ax.text(0.05, 0.15, r'[OIII] flux = %.1e erg/s/cm2/A' %(flux), ha='left', va='top', color='black', fontsize=10, transform=ax.transAxes)
+    
+    ax = fig.add_subplot(312); ax.imshow(0-twod.cleaned, vmin=-0.1, vmax=0.01, interpolation='Nearest')
+    ax.text(0.95, 0.2, 'Spectrum', transform=ax.transAxes, color='red', ha='right', va='top', fontsize=12)
+
+    ax = fig.add_subplot(313); ax.imshow(0-(twod.cleaned - twod.model), vmin=-0.1, vmax=0.01, interpolation='Nearest')
+    ax.text(0.95, 0.2, 'Diff.', transform=ax.transAxes, color='red', ha='right', va='top', fontsize=12)
+    
+    for ax in fig.axes:
+        ax.set_xticklabels([]); ax.set_yticklabels([])
+        ax.set_xlim(207, 285)
+        
+    fig.tight_layout(pad=0.1)
+    fig.savefig('line_flux_2D.pdf')
+    
+def check_cutoff_pz():
+    """
+    Some objects have grism p(z) that looks cut off with respect 
+    to photoz
+    """
+    gris = test.SimultaneousFit('goodss-29-G141_41381', fast=False, lowz_thresh=0.01)

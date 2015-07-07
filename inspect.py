@@ -421,12 +421,20 @@ class ImageClassifier():
             # elif len(spl) > 2:
             #     rgb_file = ''.join(spl[:2])+'_'+spl[2].split('_')[1]
             rgb_file = '%s_%s' %(image_file.split('-')[0], image_file.split('-')[-1].split('_')[1].split('.new')[0])
+            #rgb_file = image_file
             
         if self.rgb_lower:
             rgb_file = rgb_file.lower()
                     
         ### GOODS-S-25_22461 -> goodss_24461_vJH_6    
         rgb_file = os.path.join(self.RGB_PATH, rgb_file.split('.new_zfit')[0].split('.zfit')[0].split('_stack')[0].split('.2d.png')[0] + self.RGB_EXTENSION)
+        
+        if 'stack' in image_file:
+            rgb_file = image_file.replace('_stack.png', '.thumb.png')
+            rgb_file = 'RGB/'+image_file.replace('_stack.png', '.rgb.png')
+        #
+        rgb_file = 'RGB/'+image_file.replace('.new_zfit.png', '.rgb.png')
+        
         print rgb_file
         
         if not os.path.exists(rgb_file):

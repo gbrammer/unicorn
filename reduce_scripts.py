@@ -249,6 +249,15 @@ def interlace_goodsn():
     extract_limit = 35.
     skip_completed=False
     
+    ### Combine redo orientations
+    for filter in ['F140W', 'G141']:
+        files=glob.glob('goodsn-22-??-*%s_asn.fits' %(filter))
+        asn = threedhst.utils.ASNFile(files[0])
+        asn0 = threedhst.utils.ASNFile(files[1])
+        asn.exposures.extend(asn0.exposures)
+        asn.product = 'goodsn-22-%s' %(filter)
+        asn.write('%s_asn.fits' %(asn.product))
+        
     ##### Generate the interlaced images, including the "blotted" detection image
     for i in range(len(direct)):
         pointing=direct[i].split('-F140')[0]

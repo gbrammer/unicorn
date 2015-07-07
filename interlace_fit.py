@@ -950,6 +950,9 @@ class GrismSpectrumFit():
         #
         if self.grism_element == 'G800L':
             wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
+        #
+        if self.grism_element == 'GRS':
+            wuse = (self.oned.data.wave > 1.4e4) & (self.oned.data.wave < 1.95e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         y = yflux-ycont
@@ -992,6 +995,11 @@ class GrismSpectrumFit():
             xint = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             ax_int = np.array(xint)#*1.e4
         
+        if self.grism_element == 'GRS':
+            ax.set_xlim(1.3,2.0)
+            xint = [1.4,1.5,1.6,1.7,1.8,1.9]
+            ax_int = np.array(xint)#*1.e4
+        
         ax.set_xticks(ax_int)
         
         #### Spectrum in f_lambda
@@ -1025,6 +1033,9 @@ class GrismSpectrumFit():
         #
         if self.grism_element == 'G800L':
             ax.set_xlim(0.49, 1.08)
+        #
+        if self.grism_element == 'GRS':
+            ax.set_xlim(1.3,2.0)
         
         ax.set_xticks(ax_int)
         
@@ -1072,9 +1083,12 @@ class GrismSpectrumFit():
         keep = (self.oned.data.wave > 1.2e4) & (self.oned.data.wave < 1.5e4)
         if self.grism_element == 'G102':
             keep = (self.oned.data.wave > 0.85e4) & (self.oned.data.wave < 1.05e4)
-        #
+        
         if self.grism_element == 'G800L':
             keep = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
+        
+        if self.grism_element == 'GRS':
+            keep = (self.oned.data.wave > 1.4e4) & (self.oned.data.wave < 1.9e4)
         
         flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
@@ -1136,6 +1150,10 @@ class GrismSpectrumFit():
         #
         if self.grism_element == 'G800L':
             xint = [0.6, 0.7, 0.8, 0.9, 1.0]
+            ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
+        #
+        if self.grism_element == 'GRS':
+            xint = [1.4,1.5,1.6,1.7,1.8,1.9]
             ax_int = np.interp(np.array(xint)*1.e4, wave, np.arange(wave.shape[0]))
         
         fig = unicorn.catalogs.plot_init(xs=5,aspect=aspect, left=left, right=0.02, bottom=bottom, top=top, NO_GUI=True)
@@ -1382,6 +1400,9 @@ class GrismSpectrumFit():
         if self.grism_element == 'G800L':
             wok = (self.oned_wave > 0.60e4)
         
+        if self.grism_element == 'GRS':
+            wok = (self.oned_wave > 1.3e4)
+                    
         ax.plot(self.oned_wave[wok]/1.e4, self.oned.data.flux[wok]-self.oned.data.contam[wok], color='black', alpha=0.8)
         
         #### Line equivalent widths, combined error of line and continuum
@@ -1711,8 +1732,11 @@ class GrismSpectrumFit():
         line_wavelengths['OIII'] = [5008.240, 4960.295]; line_ratios['OIII'] = [2.98, 1]
         line_wavelengths['OII'] = [3729.875]; line_ratios['OII'] = [1]
         line_wavelengths['OI'] = [6302.046]; line_ratios['OI'] = [1]
-
+        
+        
         line_wavelengths['NeIII'] = [3869]; line_ratios['NeIII'] = [1.]
+        line_wavelengths['NeV'] = [3346.8]; line_ratios['NeV'] = [1.]
+        line_wavelengths['NeVI'] = [3426.85]; line_ratios['NeVI'] = [1.]
         #### Fix OIII / Hb
         #line_wavelengths['OIII'] = [5008.240, 4960.295, 4862.68]; line_ratios['OIII'] = [2.98, 1, 0.332]
 
@@ -1721,6 +1745,7 @@ class GrismSpectrumFit():
         line_wavelengths['SIII'] = [9068.6, 9530.6]; line_ratios['SIII'] = [1, 2.44]
         line_wavelengths['HeII'] = [4687.5]; line_ratios['HeII'] = [1.]
         line_wavelengths['HeI'] = [5877.2]; line_ratios['HeI'] = [1.]
+        line_wavelengths['HeIb'] = [3889.5]; line_ratios['HeIb'] = [1.]
         #### Test line
         #line_wavelengths['HeI'] = fakeLine; line_ratios['HeI'] = [1. for line in fakeLine]
         
@@ -1737,10 +1762,13 @@ class GrismSpectrumFit():
         fancy['OI'] = ( 'O I', line_wavelengths['OI'] )
         fancy['OIIIx'] = ( 'O IIIx', line_wavelengths['OIIIx'] )
         fancy['NeIII'] = ( 'Ne III', line_wavelengths['NeIII'] )
+        fancy['NeV'] = ( 'Ne V', line_wavelengths['NeV'] )
+        fancy['NeVI'] = ( 'Ne VI', line_wavelengths['NeVI'] )
         fancy['OII']  = ( 'O II', line_wavelengths['OII'] )
         fancy['SII']  = ( 'S II', line_wavelengths['SII'] ) 
         fancy['SIII'] = ( 'S III', line_wavelengths['SIII'] )
         fancy['HeI']  = ( 'He I', line_wavelengths['HeI'] ) 
+        fancy['HeIb']  = ( 'He Ib', line_wavelengths['HeIb'] ) 
         fancy['HeII']  = ( 'He II', line_wavelengths['HeII'] ) 
         fancy['MgII'] = ( 'Mg II', line_wavelengths['MgII'] )
         fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 

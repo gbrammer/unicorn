@@ -1123,10 +1123,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, normalize_model_list=True, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False, align_reference=True):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, normalize_model_list=True, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False, align_reference=True, expand_seg=0):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism, old_filenames=old_filenames)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism, old_filenames=old_filenames, expand_seg=expand_seg)
     
     if align_reference:
         if 'FINEX' not in model.im[0].header.keys():
@@ -1153,8 +1153,11 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
         model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
         
         ### Make zeroth-order region file
-        model.make_zeroth_regions(MAG_LIMIT=23, scale_size=True, id_label=True)
-        
+        try:
+            model.make_zeroth_regions(MAG_LIMIT=23, scale_size=True, id_label=True)
+        except:
+            pass
+            
     return model
     
 class Interlace1D():
@@ -1380,8 +1383,12 @@ class Interlace2D():
         self.conf = unicorn.reduce.conf
         self.sens_files = unicorn.reduce.sens_files
         
-        self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
-                    
+        try:
+            self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
+        except:
+            print 'No 1D spectrum found.  Generate one with `self.oned_spectrum()`'
+            pass
+            
         self.sh = self.im['SCI'].data.shape
         
         if 'WMIN' in self.im[0].header.keys():
@@ -1449,10 +1456,11 @@ class Interlace2D():
                 
         ys = orders.shape
         xord += self.xi[0]
+        xleft = xord.min()
         yord -= (ys[0]-1)/2
         #        
         sh = self.thumb.shape
-        NX = xord.max()+sh[0]
+        NX = (xord.max()-xord.min())+sh[0]
         ypad = 10
         self.object = np.zeros((sh[0]+2*ypad, NX), dtype=np.double)
         self.obj_flux = np.zeros((sh[0]+2*ypad, NX), dtype=np.double)
@@ -1465,9 +1473,9 @@ class Interlace2D():
         # self.obj_seg[self.obj_flux/self.obj_flux.max() < 0.01] = 0
         # self.total_flux = np.sum(self.obj_flux[self.obj_seg > 0])
         
-        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord, yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, xord-xleft, yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
         
-        xxi = np.int(np.round(sh[0]/2.))+xord
+        xxi = np.int(np.round(sh[0]/2.))+xord-xleft
         use = (xxi >= 0) & (xxi < (NX))
         ### First order only
         #use = use & (xord > 10*self.grow_factor) & (xord < 213*self.grow_factor) 
@@ -1519,6 +1527,7 @@ class Interlace2D():
         self.yc = -self.im['SCI'].header['YTOFF']
         
         self.xord = xord
+        self.xleft = xleft
         self.yord = yord
         self.ford = ford
         self.non_zero = non_zero
@@ -1552,7 +1561,7 @@ class Interlace2D():
             
         ### Integrated over the thumbnail
         self.object *= 0.
-        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, self.xord, self.yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
+        status = utils_c.disperse_grism_object(self.obj_flux, self.id, self.obj_seg, self.xord-self.xleft, self.yord, ford, self.object, xpix=[0, self.thumb.shape[0]], ypix=[self.ypad, self.thumb.shape[0]+self.ypad])
                 
         ### Done!
         self.model = self.object[self.yc+self.ypad:self.yc-self.ypad,self.xmin:self.xmax]
@@ -1843,11 +1852,13 @@ class Interlace2D():
         
         unicorn.plotting.savefig(fig, self.file.replace('2D.fits', 'thumb.png'))
         
-    def init_fast_model(self):
+    def init_fast_model(self, recenter=True, recenter_maglimit=23.5, dy=0):
         """
         Init of thumbnail-based approach building a model up summing
         the thumbnail
         """        
+        import scipy.sparse
+        
         thumb = self.im['DSCI'].data*1
         thumb[self.im['DSEG'].data != self.id] = 0
         thumb *= self.total_flux/np.sum(thumb)
@@ -1862,7 +1873,7 @@ class Interlace2D():
             
         thumb_matrix = np.zeros((sh[1], sh[0], sh[1]))
         
-        ytrace = self.im['YTRACE'].data-NX+NXodd*0.5 #-0.2
+        ytrace = self.im['YTRACE'].data-NX+NXodd*0.5+dy #-0.2
         #ytrace = np.cast[int](np.round(ytrace))
         
         ### For resampling pixels
@@ -1886,10 +1897,45 @@ class Interlace2D():
             #print i
             thumb_matrix[i,:,sh[1]-sh[0]+ix:] = nd.shift(thumb, (ytrace[i], 0))[:,:sh[0]-ix]*self.im['SENS'].data[i]*flux_scale
         
-        self.thumb_matrix = thumb_matrix.reshape(sh[1],-1)
+        self.thumb_matrix = scipy.sparse.csr_matrix(thumb_matrix.reshape(sh[1],-1).T)
         self.wave = np.cast[float](self.im['WAVE'].data)
         
+        if recenter & (self.im[0].header['MAG'] < recenter_maglimit):
+            try:
+                from astropy.modeling import models, fitting
+            except:
+                self.fast_dy = dy
+                print 'Break!'
+                return False
+                
+            #self = gris.twod
+            self.fast_compute_model()
+            mprof = self.model.sum(axis=1)
+            cprof = self.cleaned.sum(axis=1)
+            # plt.plot(mprof/mprof.sum()); plt.plot(cprof/cprof.sum())
+            # NX = self.model.shape[0]/2
+            import astropy.modeling
+            
+            g_init = models.Gaussian1D(amplitude=1., mean=NX, stddev=1.)
+            fit_g = fitting.LevMarLSQFitter()
+            x = np.arange(NX*2)
+            gm = fit_g(g_init, x[NX-5:NX+5], (mprof/mprof.sum())[NX-5:NX+5])
+            gc = fit_g(g_init, x[NX-5:NX+5], (cprof/cprof.sum())[NX-5:NX+5])
+            #plt.plot(x[NX-5:NX+5], gm(x[NX-5:NX+5]))
+            #plt.plot(x[NX-5:NX+5], gc(x[NX-5:NX+5]))
+            dgauss = gc.mean - gm.mean
+            if np.abs(dgauss) < 1.:
+                dy += dgauss
+                #print gm, gc
+                self.init_fast_model(recenter=False, dy=dy)
+            
+        self.fast_dy = dy
+        return True
+        
     def fast_compute_model(self, lam_spec=None, flux_spec=None):
+        """
+        Compute 2D model with the little thumbnails
+        """
         try:
             flx = self.wave*0
         except:
@@ -1899,10 +1945,11 @@ class Interlace2D():
             flux_interp = self.wave*0.+1
         else:
             flux_interp = unicorn.utils_c.interp_conserve_c(self.wave, lam_spec, flux_spec)
-            
-        mflat = np.dot(flux_interp, self.thumb_matrix)
+        
+        mflat = self.thumb_matrix.dot(flux_interp)    
+        #mflat = np.dot(flux_interp, self.thumb_matrix)        
         self.model = mflat.reshape(self.sh)
-    
+                                
     def simple_normalization(self, lam_spec=None, flux_spec=None):
         """
         The total flux in the spectrum should be similar to that of the 
@@ -1913,7 +1960,47 @@ class Interlace2D():
         mask = self.model > 0.05*self.model.max()
         norm =  clean[mask].sum() / self.model[mask].sum()
         return norm
+    
+    def twod_background(self, degree=1, verbose=True, apply_to_fits=True):
+        """
+        Fit a 2D polynomial to the 2D spectrum, masked for the object and contamination
+        """
+        from astropy.modeling import models, fitting
+        p_init = models.Polynomial2D(degree=degree)
         
+        #fit_p = fitting.LevMarLSQFitter()
+        fit_p = fitting.LinearLSQFitter()
+        #fit_p = fitting.SimplexLSQFitter()
+        
+        yc, xc = np.indices(self.model.shape)
+        wht = np.sqrt(self.im['WHT'].data**2 + (100*self.im['CONTAM'].data)**2)
+        ok = (self.im['MODEL'].data < (0.02*self.im['MODEL'].data.max())) & (self.im['CONTAM'].data/self.im['WHT'].data < 0.5) & (self.im['WHT'].data > 0)
+
+        ok = (self.im['MODEL'].data < (0.02*self.im['MODEL'].data.max())) & (self.im['WHT'].data > 0)
+        
+        self.twod_background_mask = self.model > 1e10 # False
+        self.twod_background_mask[ok] = True
+        
+        if ok.sum() == 0:
+            self.twod_background_param = None
+            self.twod_background_image = None
+        else:
+            p = fit_p(p_init, xc[ok], yc[ok], self.cleaned[ok]) #, weights=1/wht[ok]) #, weights=signoise[i,ok]**2)
+            self.twod_background_param = p
+            self.twod_background_image = p(xc, yc)
+            self.im['SCI'].data -= self.twod_background_image
+            
+            if apply_to_fits:
+                im = pyfits.open(self.im.filename(), mode='update')
+                im['SCI'].data -= self.twod_background_image
+                for i in range(len(p.parameters)):
+                    im[0].header[p.param_names[i]] = (p.parameters[i], '2D Background, %s' %(p.param_names[i]))
+                    if verbose:
+                        print '2D background: %s = %.3e' %(p.param_names[i], p.parameters[i])
+                        
+                im.flush()
+                self.oned_spectrum()
+                
     def timer(self):
         """
         Test how long it takes to execute.
@@ -1997,9 +2084,180 @@ class Interlace2D():
         self.obj_flux = oflux*1.
         
         self.sens_var = self.model**2
+    #
+    def auto_line(self, wpeak=6563., kernel_exp=6, ztry=None, fcontam=0., use_cleaned=True):
+        import scipy.ndimage as nd
+        import stsci.convolve
+        from scipy import polyfit, polyval
+        import pysynphot as S
+        
+        convolve = nd.convolve
+        convolve = stsci.convolve.convolve2d
+        
+        mask = self.im['DSEG'].data == self.id
+
+        kernel_obj = (self.im['DSCI'].data*mask)**kernel_exp
+        kernel_obj /= kernel_obj.sum()
+        #kernel_obj2 = kernel_obj**2
+
+        sh = kernel_obj.shape
+        #kernel_flat = np.roll(kernel_obj, sh[1]/2, axis=1)
+        ### background kernel is doubled
+        kernel_flat = np.zeros((sh[0], sh[1]*2))
+        kernel_flat[:,0:sh[1]] = kernel_obj/2.
+        kernel_flat[:,sh[1]:] = kernel_obj/2.
+        
+        #### Contam cleaned
+        if use_cleaned:
+            conv_flat = convolve(self.cleaned, kernel_flat, fft=1)
+            conv_obj = convolve(self.cleaned, kernel_obj, fft=1)
+        else:
+            conv_flat = convolve(self.im['SCI'].data, kernel_flat, fft=1)
+            conv_obj = convolve(self.im['SCI'].data, kernel_obj, fft=1)
+        
+        wave, out_flat = self.trace_extract(conv_flat, width=0, dy=0)
+        wave, out_obj = self.trace_extract(conv_obj, width=0, dy=0)
+        
+        #### Variance
+        wht = self.im['WHT'].data**2+(fcontam*self.im['CONTAM'].data)**2
+        wht[self.im['WHT'].data > 10] = 0.
+        conv_obj_var = convolve(wht, kernel_obj**2, fft=1)
+        wave, out_obj_var = self.trace_extract(conv_obj_var, width=0, dy=0)
+        #conv_flat_var = nd.convolve(self.im['WHT'].data**2+(0.2*self.im['CONTAM'].data)**2, kernel_flat**2)
+        #wave, out_flat_var = self.trace_extract(conv_flat_var, width=0, dy=0)
+
+        out_obj_sig = np.sqrt(out_obj_var) # + out_flat_var)
+                
+        #### Continuum model
+        xm = np.arange(7000,2.e4,1000)
+        beta = -1.5
+        ym = (xm/PLAMs[self.direct_filter])**beta
+        self.compute_model(xm, ym)
+        
+        xconv_flat = convolve(self.model, kernel_flat, fft=1)
+        xconv_obj = convolve(self.model, kernel_obj, fft=1)
+        wave, xout_flat = self.trace_extract(xconv_flat, width=0, dy=0)    
+        wave, xout_obj = self.trace_extract(xconv_obj, width=0, dy=0)
+        
+        #### Find the line
+        line_finder = (out_obj-out_flat - (xout_obj-xout_flat))/out_obj_sig
+        
+        #### Contam
+        cconv_flat = convolve(self.im['CONTAM'].data, kernel_flat, fft=1)
+        cconv_obj = convolve(self.im['CONTAM'].data, kernel_obj, fft=1)
+        wave, cout_flat = self.trace_extract(cconv_flat, width=0, dy=0)    
+        wave, cout_obj = self.trace_extract(cconv_obj, width=0, dy=0)
+
+        # plt.plot(wave, out_obj/out_flat)
+        # c = polyfit(wave, out_obj/out_flat, 2)
+        # plt.plot(wave, polyval(c, wave))
+
+        has_pix = np.sum(self.im['WHT'].data > 0, axis=0)
+        min_pix = np.maximum(0.5*has_pix.max(), 12)
+        #min_pix = 4
+        
+        if self.grism_element == 'G141':
+            test = (wave > 1.06e4) & (wave < 1.7e4) & np.isfinite(line_finder) & (has_pix > min_pix) & (line_finder < 1000)
+        else:
+            test = (wave > 8000) & (wave < 1.2e4) & np.isfinite(line_finder) & (has_pix > min_pix) & (line_finder < 1000)
+        
+        if test.sum() == 0:
+            return False
+            
+        line_finder[~test] = 0
+        m = line_finder[test].max()
+        ix = np.argmax(line_finder*test)
+        if ztry is None:
+            #ztry = wave[ix]/wpeak-1
+            #return m, line_finder, wave, wpeak   
+            c = polyfit(wave[ix-1:ix+2], line_finder[ix-1:ix+2], 2)
+            x0 = -c[1]/(2*c[0])
+            print x0
+            ztry = x0/wpeak-1
+            
+            zbest = 0
+            NITER=3
+            for iter in range(NITER):
+                line = S.FlatSpectrum(1.e-22, fluxunits='flam')
+                if wpeak == 5007:
+                    line += S.GaussianSource(1.e-17, 5007*(1+ztry), 100./3.e5*1.4e4)
+                    line += S.GaussianSource(1.e-17/2.97, 4959*(1+ztry), 100./3.e5*1.4e4)
+                else:
+                    line += S.GaussianSource(1.e-17, wpeak*(1+ztry), 100./3.e5*1.4e4)
+                    
+                self.compute_model(line.wave, line.flux/1.e-17/self.total_flux)
+                
+                mconv_flat = convolve(self.model, kernel_flat, fft=1)
+                mconv_obj = convolve(self.model, kernel_obj, fft=1)
+                wave, mout_flat = self.trace_extract(mconv_flat, width=0, dy=0)
+                wave, mout_obj = self.trace_extract(mconv_obj, width=0, dy=0)
+                kernel_finder = (mout_obj-mout_flat)/out_obj_sig    
+                kernel_finder[~test] = 0.
+                ix_k = np.argmax(kernel_finder*test)
+                ck = polyfit(wave[ix_k-1:ix_k+2], kernel_finder[ix_k-1:ix_k+2], 2)
+                xk = -ck[1]/(2*ck[0])
+                ztry += (x0-xk)/x0*(1+ztry)
+                print ztry
+                zbest += ztry
+        
+            ztry = zbest/NITER
+        
+        #### Line model
+        line = S.FlatSpectrum(1.e-22, fluxunits='flam') + S.GaussianSource(1.e-17, 6563.*(1+ztry), 100./3.e5*1.4e4)
+        line += S.GaussianSource(0.17e-17, 6731.*(1+ztry), 100./3.e5*1.4e4)
+        line += S.GaussianSource(1e-17, 5007.*(1+ztry), 100./3.e5*1.4e4)
+        line += S.GaussianSource(1e-17/2.97, 4959.*(1+ztry), 100./3.e5*1.4e4)
+        line += S.GaussianSource(1e-17/5, 4861.*(1+ztry), 100./3.e5*1.4e4)
+        line += S.GaussianSource(1e-17, 3727.*(1+ztry), 100./3.e5*1.4e4)
+        self.compute_model(line.wave, line.flux/1.e-17/self.total_flux)
+
+        mconv_flat = convolve(self.model, kernel_flat, fft=1)
+        mconv_obj = convolve(self.model, kernel_obj, fft=1)
+        wave, mout_flat = self.trace_extract(mconv_flat, width=0, dy=0)
+        wave, mout_obj = self.trace_extract(mconv_obj, width=0, dy=0)
+        kernel_finder = (mout_obj-mout_flat)/out_obj_sig    
+        scl = m/kernel_finder[test].max()
+        
+        ls = 'steps-mid'
+        fig = plt.figure(figsize=[6,4])
+        ax = fig.add_subplot(111)
+        ax.plot(wave, out_obj/out_obj_sig, color='red', alpha=0.4, linestyle=ls)
+        ax.plot(wave, out_flat/out_obj_sig, color='orange', alpha=0.4, linestyle=ls)
+        #plt.plot(wave, line_finder, color='black', alpha=0.8, linewidth=1, linestyle=ls)
+        unicorn.plotting.fill_between_steps(wave, line_finder, line_finder*0, color='black', alpha=0.5)
+        #plt.plot(wave[ix-4:ix+5], polyval(c, wave[ix-4:ix+5]), color='black', alpha=0.4)
+        
+        ax.plot(wave, kernel_finder*scl, color='purple', alpha=0.9, linewidth=1, linestyle=ls)
+        #plt.plot(wave[ix_k-4:ix_k+5], polyval(ck, wave[ix_k-4:ix_k+5])*scl, color='purple', alpha=0.4)
+
+        ax.plot(wave, out_obj_sig*0+5, color='blue', alpha=0.5, linewidth=2, linestyle=ls)
+        ax.plot(wave, (cout_obj-cout_flat)/out_obj_sig, color='blue', alpha=0.2, linestyle=ls)
+        ax.plot(wave, (xout_obj-xout_flat)/out_obj_sig, color='green', alpha=0.4, linestyle=ls)
+        mi = np.maximum(m, 5)
+        ax.set_ylim(-0.6*mi, mi*1.5)
+        ax.set_ylabel('S/N'); ax.set_xlabel(r'$\lambda$')
+        ax.set_title(self.file.split('.2D')[0])
+        ax.text(0.5, 0.95, 'z(%.0f)=%.4f, S/N=%.1f' %(wpeak, ztry, m), ha='center', va='top', transform=ax.transAxes)
+        #ax2 = ax.twinx()
+        for i, lid in enumerate([3727, 5007, 6563.]):
+            zid = x0/lid-1.
+            ax.scatter(np.array([3727, 5007, 6563.])*(1+zid), np.ones(3)*(i+1)*0.07*m+m, marker='s', color='red')
+            ax.text(0.9*(wave.max()-wave.min())+wave.min(), (i+1)*0.07*m+m, '%.3f' %(zid), ha='left', va='center', fontsize=8)
+            
+        ax.set_xlim(wave.min(), wave.max())        
+        fig.tight_layout(pad=0.14)
+        fig.savefig(self.file.replace('.2D.fits', '.autoline.png'))
+        plt.close()
+        
+        fp = open(self.file.replace('.2D.fits', '.autoline.dat'),'w')
+        fp.write('# id wpeak ztry lineflux SN\n')
+        fp.write('%-6d  %7.1f  %7.4f  %10.3e  %10.3e\n' %(self.id, wpeak, ztry, scl, m))
+        fp.close()
+        
+        print 'Line flux: %.1f, z(Ha)=%.4f' %(scl, ztry)
     
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', output_path='./', old_filenames=False):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', expand_seg=0, output_path='./', old_filenames=False):
         """
         Initialize: set padding, growth factor, read input files.
         """
@@ -2088,6 +2346,9 @@ class GrismModel():
         print 'Read files'
         self.read_files()
         
+        if expand_seg > 0:
+            self.expand_seg_mask(expand_seg)
+            
         print 'Init object spectra'
         self.init_object_spectra()
         
@@ -2312,6 +2573,29 @@ class GrismModel():
             print 'Corrected coordinates: %s_inter.cat.wcsfix' %(self.baseroot)
             
         return True
+    
+    def interlace_rd2xy(self, ra, dec, PATH_TO_FLT='./'):
+        """
+        Get interlaced pixel coordinates for a given WCS position
+        """
+        import drizzlepac.skytopix
+        
+        #ref_flt = pyfits.open(os.path.join(PATH_TO_FLT, self.gris[0].header['FILENAME']))
+        #ra, dec = 177.39407, 22.401056
+        
+        h = self.gris[1].header
+        ext = '[%s,%d]' %(h['EXTNAME'], h['EXTVER'])
+        x_flt0, y_flt0 = drizzlepac.skytopix.rd2xy(os.path.join(PATH_TO_FLT, self.gris[0].header['FILENAME'])+ext, ra=ra, dec=dec, verbose=False) #coordfile='%s-%s_radec.dat' %(pointing_root, grism), verbose=False)
+        NGROWX, NGROWY, growx, growy, pad = h['NGROWX'], h['NGROWY'], h['growx'], h['growy'], h['pad']
+        x_flt = (x_flt0+0+NGROWX)*growx+pad/2#-1 
+        y_flt = (y_flt0+0+NGROWY)*growy+pad/2#-1 
+        
+        if growx == 2:
+            x_flt -= 1
+        if growy == 2:
+            y_flt -= 1
+        
+        return x_flt[0], y_flt[0]
         
     def make_wcs_region_file(self, filename=None):
         """
@@ -2479,18 +2763,28 @@ class GrismModel():
                 thumb_shift = nd.shift(thumb, (dy[i], 0))
                 self.object[yc-NX:yc+NX, xc+di-NX:xc+di+NX] += thumb_shift*sens[i]
             
-    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D'], verbose=False, normalize=True):
+    def compute_object_model(self, id=328, lam_spec=None, flux_spec=None, BEAMS=['A','B','C','D'], verbose=False, normalize=True, force_position=None):
         import unicorn.reduce
         
         t0 = time.time()
-        
-        ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
-        
-        self.id = id
-        
-        xc = np.float(self.cat.x_pix[ii])
-        yc = np.float(self.cat.y_pix[ii])
-        
+                
+        seg = np.cast[int](self.segm[0].data)
+        #### Force extraction at a particular RA, Dec
+
+        if force_position:
+            ra, dec, id, rpix = force_position
+            x_flt, y_flt = self.interlace_rd2xy(ra, dec)
+            xc = np.int(np.round(x_flt))
+            yc = np.int(np.round(y_flt))
+            yi, xi = np.indices(seg.shape)
+            mask = np.sqrt((xi-xc)**2+(yi-yc)**2) <= rpix
+            seg[mask] = id
+        else:
+            ii = np.where(np.cast[int](self.cat.NUMBER) == id)[0][0]
+            self.id = id
+            xc = np.float(self.cat.x_pix[ii])
+            yc = np.float(self.cat.y_pix[ii])
+            
         #### Normalize the input spectrum to the direct image passband
         t0 = time.time()
         if (lam_spec is not None) & (normalize is True):            
@@ -2531,7 +2825,8 @@ class GrismModel():
         #
         self.object *= 0.
     
-        mask = self.segm[0].data == id
+        #mask = self.segm[0].data == id
+        mask = seg == id
         xpix = self.xf[mask]
         ypix = self.yf[mask]
         
@@ -2646,7 +2941,7 @@ class GrismModel():
         # clip[clip/clip.max(axis=0) < 0.1] = 0
         # ratio_extract = utils_c.get_model_ratio_optimal(clip, self.model, self.gris[1].data, self.gris[2].data)
         ratio_extract = utils_c.get_model_ratio_optimal(self.object, self.model, self.gris[1].data, self.gris[2].data)
-        
+            
         if verbose:
             t1 = time.time(); dt=t1-t0; t0=t1
             print 'Make ratio  (%.3f)' %(dt)
@@ -2671,6 +2966,14 @@ class GrismModel():
             self.obj_in_model[id] = True
             if verbose:
                 print 'Skipping refine: only %d wavelength steps.' %(keep.sum())
+            
+            return True
+        
+        if ratio_extract[keep].max() > 20:
+            print '\n\nBad refine, max=%.2e\n\n' %(ratio_extract[keep].max())
+            ratio_extract = ratio_extract*0.+1
+            self.model += self.object
+            self.obj_in_model[id] = True
             
             return True
             
@@ -2913,7 +3216,7 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id, outroot=None, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True, check_seg=True, wlim=None):
+    def twod_spectrum(self, id=None, outroot=None, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True, check_seg=True, wlim=None, BEAMS=['A','B','C','D'], force_position=None):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -2925,12 +3228,24 @@ class GrismModel():
         
         `USE_REFERENCE_THUMB`: Use the reference image rather than the 
         nominal F140W image for the 2D thumbnail.
+        
+        
+        To force an extraction at a particular RA, Dec provide a list with the following entries:
+            
+            force_position = [ra, dec, xid, rpix]
+        
+        The software will make an artificial segmentation region of a circle with radius `rpix` and 
+        manually assign an ID number `xid`.
+        
         """
         import unicorn.reduce
         
         if outroot is None:
             outroot = self.baseroot
-            
+        
+        if id is None:
+            id = self.cat.id[0]
+                
         if id not in self.cat.id:
             print 'Object #%d not in catalog.' %(id)
             return False
@@ -2944,6 +3259,26 @@ class GrismModel():
         #count=0; print 'HERE%d' %(count)
         
         seg = np.cast[int](self.segm[0].data)
+        
+        #### Force extraction at a particular RA, Dec
+        ftotal = self.total_fluxes[id]
+        x_flt, y_flt = self.cat.x_pix[ii], self.cat.y_pix[ii]
+        ra, dec = self.ra_wcs[ii], self.dec_wcs[ii]
+        
+        if force_position:
+            ra, dec, id, rpix = force_position
+            x_flt, y_flt = self.interlace_rd2xy(ra, dec)
+            xc = np.int(np.round(x_flt))
+            yc = np.int(np.round(y_flt))
+            yi, xi = np.indices(seg.shape)
+            mask = np.sqrt((xi-xc)**2+(yi-yc)**2) <= rpix
+            seg[mask] = id
+            
+            ftotal = self.flux[mask].sum()
+            refine = False
+            extract_1d = False
+            self.flux_specs[id] = self.lam_spec*0+1
+            self.obj_in_model[id] = True
         
         #### Check that center within the image
         if (xc < 0) | (xc > (self.sh[1]-1)) | (yc < 0) | (yc > (self.sh[0]-1)):
@@ -2974,7 +3309,7 @@ class GrismModel():
         #NT = np.min([self.pad/2, NT])
                                 
         NT = np.min([NT, xc, yc, self.sh[1]-xc, self.sh[0]-yc])
-        
+                    
         if (miny < 0) & (NT < np.abs(miny)):
             print "not enough y pixels"
             return False
@@ -3007,12 +3342,12 @@ class GrismModel():
         prim = pyfits.PrimaryHDU()
         prim.header.update('POINTING', outroot)
         prim.header.update('ID', id)
-        prim.header.update('X_PIX', self.cat.x_pix[ii], comment='X pixel in interlaced image')
-        prim.header.update('Y_PIX', self.cat.y_pix[ii], comment='Y pixel in interlaced image')
-        prim.header.update('RA', self.ra_wcs[ii], comment='Target R.A.')
-        prim.header.update('DEC', self.dec_wcs[ii], comment='Target Dec.')
+        prim.header.update('X_PIX', x_flt, comment='X pixel in interlaced image')
+        prim.header.update('Y_PIX', y_flt, comment='Y pixel in interlaced image')
+        prim.header.update('RA', ra, comment='Target R.A.')
+        prim.header.update('DEC', dec, comment='Target Dec.')
         prim.header.update('MAG', self.cat.mag[ii], comment='MAG_AUTO from interlaced catalog')
-        prim.header.update('FTOTAL', self.total_fluxes[id], comment='Total flux within segmentation image (1E-17)')
+        prim.header.update('FTOTAL', ftotal, comment='Total flux within segmentation image (1E-17)')
         prim.header.update('PAD', self.pad, comment='Padding at edge of interlaced image')
         prim.header.update('NGROWX', self.ngrowx, comment='Additional extra pixels at the image edges in X')
         prim.header.update('NGROWY', self.ngrowy, comment='Additional extra pixels at the image edges in Y')
@@ -3070,16 +3405,16 @@ class GrismModel():
         if radius is None:
             radius = 30.  ### stop-gap
                     
-        dylo = self.cat.y_pix-self.cat.y_pix[ii]-radius*3
-        dy0 = self.cat.y_pix-self.cat.y_pix[ii]
-        dyhi = self.cat.y_pix-self.cat.y_pix[ii]+radius*3
+        dylo = self.cat.y_pix-yc-radius*3
+        dy0 = self.cat.y_pix-yc
+        dyhi = self.cat.y_pix-yc+radius*3
         dy = np.minimum(np.abs(dylo), np.abs(dy0))
         dy = np.minimum(np.abs(dyhi), dy)
                 
-        dx = self.cat.x_pix-self.cat.x_pix[ii]
+        dx = self.cat.x_pix-xc
         nearby = (dy < (NT/2.+5)) & (dx < 420*self.growx) & (self.cat.mag < CONTAMINATING_MAGLIMIT)
         
-        BEAMS=['A','B','C','D'] #,'E']
+        #,'E']
         view=False
         if nearby.sum() > 0:
             ids = self.cat.id[nearby][np.argsort(self.cat.mag[nearby])]
@@ -3108,12 +3443,12 @@ class GrismModel():
         if refine:
             self.refine_model(id, BEAMS=BEAMS, view=view)      
         else:
-            self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
+            self.compute_object_model(id, BEAMS=BEAMS, lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False, force_position=force_position)      
             if not self.obj_in_model[id]:
                 self.model += self.object
                 self.obj_in_model[id] = True
         #
-        self.compute_object_model(id, BEAMS=['A'], lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False)      
+        self.compute_object_model(id, BEAMS=['A'], lam_spec=self.lam_spec, flux_spec=self.flux_specs[id], normalize=False, force_position=force_position)      
         
         #### Find pixels of the 1st order        
         xarr = np.arange(self.sh[1])
@@ -3152,7 +3487,7 @@ class GrismModel():
         
         #### Try hard-coding the 1st order extraction region to keep constant
         #first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
-        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[5, 158]}
+        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[5, 158], 'GRS':[-330,330]}
         xx = first_order[self.grism_element]
         xmin, xmax = first_order[self.grism_element]
         xmin *= self.growx
@@ -3161,6 +3496,7 @@ class GrismModel():
         # extensions[0].header['DXMAX'] = (xmax, 'Right edge of first order spectrum')
         xmin += xc
         xmax += xc
+        
         #print 'FORCE: %d %d' %(xmin, xmax)
         
         if ((self.sh[1]-xmin) < 20) | ((xmax-xmin) < 20):
@@ -3174,12 +3510,14 @@ class GrismModel():
         xoff_int = np.arange(xmin, xmax, dtype=np.double)
         yoff_int = utils_c.interp_c(xoff_int, xoff_arr, self.xi[4])
 
-        yc_spec = np.int(np.round(self.cat.y_pix[ii]+yoff_int.mean()))-1
+        yc_spec = np.int(np.round(y_flt+yoff_int.mean()))-1
         spec_y_offset = yc-yc_spec
         
         self.ytrace = NT/2.+yoff_int-yoff_int.mean()
-                        
+                   
         self.wave = self.object_wave[xmin:xmax]
+        #print xmin, xmax, self.wave
+        
         self.dwave = self.wave[1]-self.wave[0]
         
         #print '\nxxx: wave %f %f\nxxx\n' %(self.wave.min(), self.wave.max())
@@ -3835,8 +4173,63 @@ class GrismModel():
             self.im = pyfits.open(self.im.filename())
             
         return self.fine_offset
+    
+    def expand_seg_mask(self, expand_factor):
+        """
+        Grow segmentation mask with a maximum filter
+        """
+        import scipy.ndimage as nd
+        self.segm[0].data = nd.maximum_filter(self.segm[0].data, expand_factor)
+            
+    def context_figure(self, id=1, NX=100, NY=20, MAG_LIMIT=28):
+        """
+        Make a figure showing the segmentation context of a given object
+        """
+        try:
+            from skimage import measure
+        except:
+            print 'Couldn\'t import skimage.measure'
+            return False
         
-    def get_eazy_templates(self, dr_min=0.2, MAG_LIMIT=23):
+        fig = plt.figure(figsize=[3,3*2.*NY/NX])
+        
+        ix = self.cat.id == id
+        xc, yc = int(np.round(self.cat['X_FLT'][ix])), int(np.round(self.cat['Y_FLT'][ix]))
+        direct_sub = self.im[1].data[yc-NY:yc+NY, xc-NX:xc+NX]
+        direct_sub = unicorn.candels.clipLog(direct_sub, lexp=1e10, cmap=[16.0889, 0.810924], scale=[-0.1, 10])
+        ax = fig.add_subplot(211)
+        ax.imshow(0-direct_sub, vmin=-1, vmax=0)
+        
+        ax2 = fig.add_subplot(212)
+        direct_seg = self.segm[0].data[yc-NY:yc+NY, xc-NX:xc+NX]
+        seg_ids = np.unique(direct_seg[direct_seg > 0])
+        ax2.imshow(direct_seg*0, vmin=-1, vmax=0) #, vmin=seg_ids.min()-1, vmax=seg_ids.max())
+        
+        for seg_id in seg_ids:
+            seg_ix = self.cat.id == seg_id
+            seg_obj = (direct_seg == seg_id)*1
+            if seg_obj.sum() < 5:
+                continue
+            
+            contours = measure.find_contours(seg_obj, 0.8)
+            if (seg_id == id) | (self.cat.mag[seg_ix] < MAG_LIMIT):
+                ax2.text(self.cat['X_FLT'][seg_ix]-xc+NX, self.cat['Y_FLT'][seg_ix]-yc+NY, seg_id, va='center', ha='center', color='red', fontsize=6.5)
+            for n, contour in enumerate(contours):
+                ax.plot(contour[:, 1], contour[:, 0], linewidth=1, color='red', alpha=0.12)
+                ax2.plot(contour[:, 1], contour[:, 0], linewidth=1, color='red', alpha=0.07)
+        
+        for ax in fig.axes:
+            ax.set_xticklabels([]); ax.set_yticklabels([])
+            ax.set_xlim([0,NX*2]); ax.set_ylim([0,NY*2])
+            ax.set_xticks([0,NX*2]); ax.set_yticks([0,NY*2])
+        
+        fig.tight_layout(pad=0.01, h_pad=0.01, w_pad=0.01)
+        
+        plt.savefig('%s-%s_%05d.context.png' %(self.root, self.grism_element, id))
+        plt.close()
+        
+            
+    def get_eazy_templates(self, root=None, dr_min=0.2, MAG_LIMIT=23):
         """
         Get EAZY templates for objects in the field.  
         
@@ -3846,7 +4239,10 @@ class GrismModel():
         from threedhst import eazyPy as eazy
         from threedhst import catIO
         
-        cat, zout, fout = unicorn.analysis.read_catalogs(root=self.root)
+        if root is None:
+            root = self.root
+            
+        cat, zout, fout = unicorn.analysis.read_catalogs(root=root)
         #cat.kmag = 23.86-2.5*np.log10(cat.field(KTOT_COL))
         CAT_PATH = os.path.dirname(cat.filename)
         
@@ -4497,6 +4893,9 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
     seg = pyfits.open(seg_image)
     seg_data = np.cast[np.float32](seg[0].data)
     seg_ones = np.cast[np.float32](seg_data > 0)
+    
+    #### Need 32-bit for ablot
+    ref[ref_ext].data = np.cast[np.float32](ref[ref_ext].data)
     
     ref_wcs = stwcs.wcsutil.HSTWCS(ref, ext=ref_ext)
     seg_wcs = stwcs.wcsutil.HSTWCS(seg, ext=0)

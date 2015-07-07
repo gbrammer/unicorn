@@ -250,7 +250,7 @@ def redo_prep():
         if ('AEGIS-20' in file):
             continue
         #
-        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = None, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift')
+        threedhst.prep_flt_files.process_3dhst_pair(file, file.replace('F140W', 'G141'), adjust_targname=False, ALIGN_IMAGE = None, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=True, align_geometry='rotate, shift', GRISM_HIGHER_ORDER=0)
             
     files=glob.glob('*[0-9]-G141_drz.fits')
     skip = True
@@ -272,7 +272,8 @@ def redo_prep():
         pointing=file.split('_inter')[0]
         unicorn.reduce.set_grism_config(grism='G141', use_new_config=True, force=True)
         model = unicorn.reduce.process_GrismModel(pointing, MAG_LIMIT=25, REFINE_MAG_LIMIT=22.5, make_zeroth_model=False, BEAMS=['A','B','C','D','E'])
-    
+        model.refine_mask_background(grow_mask=12, threshold=0.002, update=False)
+        
     ### Extract spec-z objects
     import unicorn
     import glob

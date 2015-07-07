@@ -1,4 +1,6 @@
 """
+DEPRECATED by new Interlaced reductions....
+
 Run the full reduction scripts.
 
 > Make the tarfiles for the web outputs:
@@ -347,7 +349,6 @@ def goodsn():
 #
 def sn_primo():
     from pyraf import iraf
-    from iraf import iraf
 
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -495,7 +496,6 @@ def sn_george():
 
     """
     from pyraf import iraf
-    from iraf import iraf
 
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc
@@ -536,7 +536,6 @@ def sn_marshall():
 
     """
     from pyraf import iraf
-    from iraf import iraf
 
     import unicorn.go_3dhst as go
     import threedhst.process_grism as proc

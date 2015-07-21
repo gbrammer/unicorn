@@ -329,52 +329,124 @@ def fix_GOODSN_asn():
 
     
 def GOODSN(FORCE=False, GET_SHIFT=True):
-    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    import unicorn
+    from threedhst.prep_flt_astrodrizzle import prep_direct_grism_pair as pair
     import threedhst.prep_flt_files
+    import drizzlepac
     import glob
     import os
-    
-    os.chdir(unicorn.GRISM_HOME+'GOODS-N/INTERLACE_v4.1')
-    
-    ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-N/HST_Images/goodsn_3dhst.v4.0.F160W_orig_sci.fits'
+        
+    os.chdir(unicorn.GRISM_HOME+'GOODS-N/INTERLACE_v4.1.1')
 
-    # only select the original exposures, the repeats have ASN names ib374[0-9]*_asn.fits
-    direct=glob.glob('ib37[0-3]*050_asn.fits')
-    grism = glob.glob('ib37[0-3]*060_asn.fits')
+    ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-N/HST_Images/goodsn_3dhst.v4.0.F160W_orig_sci.fits'
+    CATALOG = '/3DHST/Photometry/Work/GOODS-N/v4/sextr/catalogs/GOODS-N_IR_radec.cat'
     
-    #### The following is for the old GOODS-N*asn.fits 
-    #### The ASN files are generated from elsewhere to account for the fact that many of 
-    #### the visits with the worst sky background levels and earth-glow were redone in early
-    #### 2011.  I can't find the code where I generated the ASN files, however....
+    unicorn.candels.make_asn_files(uniquename=True)
+        
     
-    #### Process direct + grism pairs
-    direct=glob.glob('goodsn-*-F140W_asn.fits')
-    grism = glob.glob('goodsn-*-G141_asn.fits')
+    ### Quality checks on the additional pointings:
+    direct_files =  glob.glob('goodsn-*-4*-*-F140W_asn.fits')
+    grism_files =  glob.glob('goodsn-*-4*-*-G141_asn.fits')
+    for direct, grism in zip(direct_files, grism_files):
+        print direct, grism
+        threedhst.dq.checkDQ(asn_grism_file=grism, asn_direct_file=direct, path_to_flt='./', size=1000)
+        
     
     ### The following direct images require masks:
     ### 'ib3702uuq_flt.fits', 'ib3703uxq_flt.fits', 'ib3704wpq_flt.fits', 'ib3705xzq_flt.fits', 'ib3707c8q_flt.fits', 'ib3708ivq_flt.fits', 'ib3710n4q_flt.fits', 'ib3711c8q_flt.fits', 'ib3712m5q_flt.fits', 'ib3715siq_flt.fits', 'ib3715sxq_flt.fits', 'ib3716q3q_flt.fits', 'ib3716qiq_flt.fits', 'ib3717wyq_flt.fits', 'ib3720fbq_flt.fits', 'ib3721xtq_flt.fits', 'ib3721y8q_flt.fits', 'ib3723r0q_flt.fits', 'ib3727u2q_flt.fits', 'ib3728d9q_flt.fits', 'ib3728doq_flt.fits', 'ib3749obq_flt.fits'
-    FORCE=True
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
-        if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=True, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
-    
-    #### Refine one set of shifts
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='GOODS-N-28-F140W', 
-              ALIGN_IMAGE=ALIGN, ALIGN_EXTENSION=0,  
-              fitgeometry='shift', clean=True)
-    
-    threedhst.prep_flt_files.startMultidrizzle('GOODS-N-28-F140W_asn.fits',
-                 use_shiftfile=True, skysub=False,
-                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                 updatewcs=False, clean=True, median=False)
-    
-    threedhst.shifts.plot_shifts('GOODS-N-28-F140W', '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
-    
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
-        threedhst.shifts.plot_shifts(pointing.split('_asn')[0], '/3DHST/Ancillary/GOODS-N/GOODS_ACS/h_nz*drz*fits', skip_swarp=True)
+
+    ## Rename assosciation tables
+    grism = 'G141'
+    filter = 'F140W'
+
+    ### Rename single exposures
+    rename = ['goodsn-15','goodsn-16','goodsn-17','goodsn-18','goodsn-25','goodsn-26','goodsn-27','goodsn-28','goodsn-32', 'goodsn-33', 'goodsn-34', 'goodsn-35', 'goodsn-36', 'goodsn-41', 'goodsn-42', 'goodsn-43', 'goodsn-44', 'goodsn-45', 'goodsn-46']
+    for target in rename:
+        if len(glob.glob('{}*-??-???-{}_asn.fits'.format(target, grism))) > 1:
+            print 'MORE THAN ONE MATCH: {}'.target
+            continue
+        else:
+            file = glob.glob('{}*-??-???-{}_asn.fits'.format(target, grism))[0]
+        root = file.split('-{}'.format(grism))[0]
+        print root
+        asn_grism = threedhst.utils.ASNFile(file)
+        asn_grism.product = '{}-{}'.format(target,grism)
+        asn_grism.write('{}_asn.fits'.format(asn_grism.product))
+        asn_direct = threedhst.utils.ASNFile(file.replace(grism, filter))
+        asn_direct.product = '{}-{}'.format(target, filter)
+        asn_direct.write('{}_asn.fits'.format(asn_direct.product))
+        print 'mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(root, grism)
+        os.system('mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(root, grism))
+        print 'mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(root, filter)
+        os.system('mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(root, filter))
         
+    rename_repeats = {'goodsn-11-01-345':'goodsn-11', 'goodsn-11-41-345':'goodsn-111', 'goodsn-14-04-342':'goodsn-14', 'goodsn-14-44-341':'goodsn-114', 'goodsn-23-07-339':'goodsn-23', 'goodsn-23-47-345':'goodsn-123'}
+    for target in rename_repeats.keys():
+        asn_grism = threedhst.utils.ASNFile('{}-{}_asn.fits'.format(target, grism))
+        asn_grism.product = '{}-{}'.format(rename_repeats[target],grism)
+        asn_grism.write('{}_asn.fits'.format(asn_grism.product))
+        asn_direct = threedhst.utils.ASNFile('{}-{}_asn.fits'.format(target, filter))
+        asn_direct.product = '{}-{}'.format(rename_repeats[target],filter)
+        asn_direct.write('{}_asn.fits'.format(asn_direct.product))
+        print 'mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(target, grism)
+        os.system('mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(target, grism))
+        print 'mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(target, filter)
+        os.system('mv {0}-{1}_asn.fits {0}-{1}_asn.fits.X'.format(target, filter))
+            
+
+    direct=glob.glob('goodsn-*-F140W_asn.fits')
+    grism = glob.glob('goodsn-*-G141_asn.fits')
+ 
+    for i in range(len(direct)):
+        print direct[i], grism[i]
+        pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=0.06, skip_direct=False, ACS=False, align_threshold=6)
+
+    ### Coadd the ASNs for repeat observations:
+    combine = ['goodsn-12', 'goodsn-13', 'goodsn-21', 'goodsn-22', 'goodsn-24', 'goodsn-31']
+    grism = 'G141'
+    filter = 'F140W'
+    
+    for target in combine:
+        files = glob.glob('{}*-??-???-{}_asn.fits'.format(target, grism))
+        print files
+        rots = []
+        for file in files:
+            rots.append(file.split('-{}'.format(grism))[0][-3:])
+        for rot in np.unique(rots):
+            files = glob.glob('{}*-??-{}-{}_asn.fits'.format(target, rot, grism))
+            exposures = []
+            direct_exposures = []
+            for file in files:
+                asn_grism = threedhst.utils.ASNFile(file)
+                exposures.extend(asn_grism.exposures)
+                print 'mv {0} {0}.X'.format(file)
+                os.system('mv {0} {0}.X'.format(file))
+                direct = glob.glob(file.split('-{}'.format(grism))[0]+'-{}_asn.fits'.format(filter))[0]
+                asn_direct = threedhst.utils.ASNFile(direct)
+                direct_exposures.extend(asn_direct.exposures)  
+                print 'mv {0} {0}.X'.format(direct)
+                os.system('mv {0} {0}.X'.format(direct))
+            asn_grism.exposures = exposures
+            asn_grism.product = '{}-{}'.format(target, grism)
+            asn_grism.write('{}_asn.fits'.format(asn_grism.product), clobber=True)
+            asn_direct.exposures = direct_exposures
+            asn_direct.product = '{}-{}'.format(target, filter)
+            asn_direct.write('{}_asn.fits'.format(asn_direct.product), clobber=True)
+            drizzlepac.astrodrizzle.AstroDrizzle('{}_asn.fits'.format(asn_grism.product), 
+                clean=True, skysub=False, final_pixfrac=0.8, context=False, resetbits=0, 
+                driz_sep_bits=576, final_bits=576, preserve=False, driz_separate=False,     
+                driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_cr_corr=False)
+            
+    redo_cr = ['goodsn-12-G141_asn.fits', 'goodsn-13-G141_asn.fits', 'goodsn-21-G141_asn.fits', 'goodsn-22-G141_asn.fits', 'goodsn-24-G141_asn.fits', 'goodsn-31-G141_asn.fits']
+
+    for asn in redo_cr:
+        drizzlepac.astrodrizzle.AstroDrizzle(asn, clean=True, skysub=False, final_scale=None, 
+        final_pixfrac=0.8, context=False, driz_sep_bits=576, final_bits=576, preserve=False, 
+        driz_cr_snr='5.0 4.0', driz_cr_scale = '2.5 0.7') 
+    
+            
+
+    #### Diagnostic HTML:
     threedhst.gmap.makeImageMap(['GOODS-N-21-F140W_drz.fits', 'GOODS-N-21-F140W_align.fits[0]*4','GOODS-N-31-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("GOODS-N-*-F140W_asn.pointing.reg"))
     
     #### Make direct image for each pointing that also include 
@@ -547,45 +619,31 @@ def GOODSN_mosaic():
     
 def COSMOS(FORCE=False):
     import unicorn
-    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    from threedhst.prep_flt_astrodrizzle import prep_direct_grism_pair as pair
     import threedhst.prep_flt_files
     import glob
     import os
         
-    #os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.1')
+    #os.chdir(unicorn.GRISM_HOME+'COSMOS/INTERLACE_v4.1.1')
     ALIGN = '/3DHST/Photometry/Release/v4.0/COSMOS/HST_Images/cosmos_3dhst.v4.0.F160W_orig_sci.fits'
+    CATALOG = '/3DHST/Photometry/Work/COSMOS/Sex/cosmos_3dhst.v4.0.IR_radec.cat'
     
-    #### Direct images only
-    direct=glob.glob('ibhm4[057]*30_asn.fits')
-    grism = glob.glob('ibhm4[057]*40_asn.fits')
+    unicorn.candels.make_asn_files(uniquename=False)
+        
+    direct=glob.glob('cosmos-*-F140W_asn.fits')
+    grism = glob.glob('cosmos-*-G141_asn.fits')
     
     ### The following direct images have masks:
     ### ibhm40brq_flt.fits, ibhm45xzq_flt.fits, ibhm45ziq_flt.fits, ibhm45zqq_flt.fits, ibhm47h8q_flt.fits, ibhm53onq_flt.fits
-    
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+    loop_list = range(len(direct))
+    FORCE=True
+    for i in loop_list:
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
-    
-    #### Fix shifts for COSMOS-18
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-1-F140W', 
-              ALIGN_IMAGE=ALIGN, ALIGN_EXTENSION=0,  
-              fitgeometry='shift', clean=True)
-    #
-    threedhst.prep_flt_files.startMultidrizzle('COSMOS-1-F140W_asn.fits',
-                 use_shiftfile=True, skysub=False,
-                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                 updatewcs=False, clean=True, median=False)
-    
-    threedhst.shifts.refine_shifts(ROOT_DIRECT='COSMOS-18-F140W', 
-              ALIGN_IMAGE='COSMOS-17-F140W_drz.fits', ALIGN_EXTENSION=1,  
-              fitgeometry='rotate', clean=True)
-    
-    threedhst.prep_flt_files.startMultidrizzle('COSMOS-18-F140W_asn.fits',
-                 use_shiftfile=True, skysub=False,
-                 final_scale=0.06, pixfrac=0.8, driz_cr=False,
-                 updatewcs=False, clean=True, median=False)
-    
+            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=0.06, skip_direct=False, ACS=False, align_threshold=6)
+
+    """
+    # Diagnostic HTML maps:
     threedhst.gmap.makeImageMap(['COSMOS-12-F140W_drz.fits', 'COSMOS-12-G141_drz.fits','/3DHST/Ancillary/COSMOS/WIRDS/WIRDS_Ks_100028+021230_T0002.fits[0]*0.04', '/3DHST/Ancillary/COSMOS/ACS/acs_I_030mas_077_sci.fits[0]*3'][0:2], aper_list=[14,15,16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
 
     threedhst.gmap.makeImageMap(['COSMOS-F140W_drz.fits'], aper_list=[16], polyregions=glob.glob("COSMOS-*-F140W_asn.pointing.reg"))
@@ -605,7 +663,8 @@ def COSMOS(FORCE=False):
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='COSMOS-*-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)
-    
+    """
+
 def COSMOS_mosaic():
     import threedhst.prep_flt_files
     os.chdir(unicorn.GRISM_HOME+'COSMOS/PREP_FLT')
@@ -683,7 +742,7 @@ def GOODSS(FORCE=False):
     import glob
     import os
 
-    os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1.4')
+    #os.chdir(unicorn.GRISM_HOME+'GOODS-S/INTERLACE_v4.1.5')
         
     ALIGN = '/3DHST/Photometry/Release/v4.0/GOODS-S/HST_Images/goodss_3dhst.v4.0.F160W_orig_sci.fits'
     CATALOG = '/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR_radec.cat'
@@ -703,7 +762,7 @@ def GOODSS(FORCE=False):
     for i in loop_list:
         pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=None, skip_direct=False, ACS=False)
+            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=None, skip_direct=False, ACS=False, align_threshold=6)
             
 
 def GOODSS_mosaic():
@@ -974,37 +1033,86 @@ def UDF():
     
 def AEGIS(FORCE=False):
     import unicorn
-    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    from threedhst.prep_flt_astrodrizzle import prep_direct_grism_pair as pair
     import threedhst.prep_flt_files
     import glob
     import os
 
-    #os.chdir(unicorn.GRISM_HOME+'AEGIS/INTERLACE_v4.1')
-    ALIGN = '/3DHST/Photometry/Release/v4.0/AEGIS/HST_Images/aegis_3dhst.v4.0.F160W_orig_sci.fits'
-
-    #### Direct images only
-    direct=glob.glob('ibhj*30_asn.fits')
-    grism = glob.glob('ibhj*40_asn.fits')
+    os.chdir(unicorn.GRISM_HOME+'AEGIS/INTERLACE_v4.1.5')
         
+    ALIGN = '/3DHST/Photometry/Release/v4.0/AEGIS/HST_Images/aegis_3dhst.v4.0.F160W_orig_sci.fits'
+    CATALOG = '/3DHST/Photometry/Work/AEGIS/Sex/aegis_3dhst.v4.0.IR_radec.cat'
+    
     ### The following direct images have masks:
     ### ibhj40hvq_flt.fits, ibhj49agq_flt.fits, ibhj49boq_flt.fits, ibhj50enq_flt.fits ibhj50euq_flt.fits ibhj50f1q_flt.fits ibhj52brq_flt.fits ibhj53jbq_flt.fits ibhj66ddq_flt.fits
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
-        if 'aegis-20' in pointing:
-            continue
-        if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
-            
-    d20 = threedhst.utils.ASNFile('ibhj58030_asn.fits')
-    d20.exposures = d20.exposures[0:3]
-    d20.write(out_file='aegis-20-F140W_asn.fits')
-    g20 = threedhst.utils.ASNFile('ibhj58040_asn.fits')
-    g20.exposures = g20.exposures[0:2]
-    g20.write(out_file='aegis-20-G141_asn.fits')
     
-    pair('aegis-20-F140W_asn.fits', 'aegis-20-G141_asn.fits', ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift', sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
-        
-        
+    unicorn.candels.make_asn_files(uniquename=False)
+    
+    direct=glob.glob('aegis-*-F140W_asn.fits')
+    grism = glob.glob('aegis-*-G141_asn.fits')
+    
+    loop_list = range(len(direct))
+    FORCE=True
+    for i in loop_list:
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
+        if (not os.path.exists(pointing)) | FORCE:
+            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=0.06, skip_direct=False, ACS=False, align_threshold=6)
+                        
+          
+    ### Coadd the ASNs for repeat observations:
+    target = 'aegis-01'
+    grism = 'G141'
+    filter = 'F140W'
+    
+    files = glob.glob('{}*-??-???-{}_asn.fits'.format(target, grism))
+    print files
+    rots = []
+    for file in files:
+        rots.append(file.split('-{}'.format(grism))[0][-3:])
+    print rots
+    #   
+    for rot in np.unique(rots):
+        files = glob.glob('{}*-??-{}-{}_asn.fits'.format(target, rot, grism))
+        exposures = []
+        direct_exposures = []
+        for file in files:
+            asn_grism = threedhst.utils.ASNFile(file)
+            exposures.extend(asn_grism.exposures)
+            print 'mv {0} {0}.X'.format(file)
+            os.system('mv {0} {0}.X'.format(file))
+            direct = glob.glob(file.split('-{}'.format(grism))[0]+'-{}_asn.fits'.format(filter))[0]
+            asn_direct = threedhst.utils.ASNFile(direct)
+            direct_exposures.extend(asn_direct.exposures)  
+            print 'mv {0} {0}.X'.format(direct)
+            os.system('mv {0} {0}.X'.format(direct))
+        asn_grism.exposures = exposures
+        asn_grism.product = '{}-{}'.format(target, grism)
+        asn_grism.write('{}_asn.fits'.format(asn_grism.product), clobber=True)
+        asn_direct.exposures = direct_exposures
+        asn_direct.product = '{}-{}'.format(target, filter)
+        asn_direct.write('{}_asn.fits'.format(asn_direct.product), clobber=True)
+        drizzlepac.astrodrizzle.AstroDrizzle('{}_asn.fits'.format(asn_grism.product), 
+            clean=True, skysub=False, final_pixfrac=0.8, context=False, resetbits=0, 
+            driz_sep_bits=576, final_bits=576, preserve=False, driz_separate=False, driz_sep_wcs=False, median=False, blot=False, driz_cr=False, driz_cr_corr=False)
+            
+    redo_cr = ['aegis-01-G141_asn.fits','aegis-01-F140W_asn.fits']
+
+    for asn in redo_cr:
+        drizzlepac.astrodrizzle.AstroDrizzle(asn, clean=True, skysub=False, final_scale=None, 
+        final_pixfrac=0.8, context=False, driz_sep_bits=576, final_bits=576, preserve=False, 
+        driz_cr_snr='5.0 4.0', driz_cr_scale = '2.5 0.7') 
+          
+    ### Fix the backgrounds for pointing which have bad background
+    pointings = ['aegis-02-F140W','aegis-07-F140W','aegis-08-F140W','aegis-09-F140W']
+    for pointing in pointings:
+        threedhst.prep_flt_astrodrizzle.subtract_flt_background(pointing,scattered_light=False, 
+            sex_background=True)
+        drizzlepac.astrodrizzle.AstroDrizzle('{}_asn.fits'.format(pointing), clean=False, context=False, 
+            preserve=False, skysub=True, driz_separate=True, driz_sep_wcs=True, median=True, blot=True, 
+            driz_cr=True, driz_cr_corr=True, driz_combine=True)
+
+    """
+    # Make diagnostic HTML maps:
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 'AEGIS-1-F140W_align.fits[0]*4', 'AEGIS-1-G141_drz.fits'][0:], aper_list=[15, 16], polyregions=glob.glob('AEGIS-*-F140W_asn.pointing.reg'), tileroot=['wfc3','acs','g141'] )
     threedhst.gmap.makeImageMap(['AEGIS-1-F140W_drz.fits', 
 'AEGIS-1-F140W_align.fits[0]*4', 
@@ -1072,6 +1180,7 @@ def AEGIS(FORCE=False):
     threedhst.prep_flt_files.process_3dhst_pair('AEGIS-1-F140W_asn.fits', 'AEGIS-1-G141_asn.fits', adjust_targname=False, ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=True, SKIP_DIRECT=False, align_geometry='rotate, shift')
     unicorn.reduce.interlace_combine(root='AEGIS-1-F140W', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=125, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False)
     unicorn.reduce.interlace_combine(root='AEGIS-1-G141', view=False, use_error=True, make_undistorted=False, pad=60, NGROW=125, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False)
+    """
 
 def AEGIS_mosaic():
     import threedhst.prep_flt_files
@@ -1132,48 +1241,37 @@ def AEGIS_mosaic():
 
 #
 def UDS(FORCE=False):
+
     import unicorn
-    from threedhst.prep_flt_files import process_3dhst_pair as pair
+    from threedhst.prep_flt_astrodrizzle import prep_direct_grism_pair as pair
     import threedhst.prep_flt_files
     import glob
     import os
+        
+    #os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v4.1.5')
 
-    os.chdir(unicorn.GRISM_HOME+'UDS/INTERLACE_v4.1/')
     ALIGN = '/3DHST/Photometry/Release/v4.0/UDS/HST_Images/uds_3dhst.v4.0.F160W_orig_sci.fits'
-
-    #### Direct images only
-    direct=glob.glob('ibhm2[56]*30_asn.fits')
-    grism = glob.glob('ibhm2[56]*40_asn.fits')
+    CATALOG = '/3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR_radec.cat'
+    
+    unicorn.candels.make_asn_files(uniquename=False)
+        
+    direct=glob.glob('uds-*-F140W_asn.fits')
+    grism = glob.glob('uds-*-G141_asn.fits')
     
     ### The following direct images have masks:
     ### ibhm12ubq_flt.fits, ibhm12udq_flt.fits, ibhm12uiq_flt.fits, ibhm12ukq_flt.fits, ibhm23glq_flt.fits, ibhm24fkq_flt.fits, ibhm26n5q_flt.fits, ibhm27qnq_flt.fits, ibhm28slq_flt.fits
     ### ibhm26n0q_flt.fits, ibhm26n7q_flt.fits, ibhm26neq_flt.fits, ibhm26noq_flt.fits, ibhm25m8q_flt.fits, ibhm26n7q_flt.fits, ibhm25mmq_flt.fits, ibhm25mtq_flt.fits 
-    
-    for i in range(len(direct)):
-        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=False)
+    loop_list = range(len(direct))
+    FORCE=True
+    for i in loop_list:
+        pointing=threedhst.prep_flt_files.make_targname_asn(direct[i], newfile=True)
         if (not os.path.exists(pointing)) | FORCE:
-            pair(direct[i], grism[i], ALIGN_IMAGE = ALIGN, SKIP_GRISM=False, GET_SHIFT=False, SKIP_DIRECT=False, align_geometry='rotate,shift',sky_images=['zodi_G141_clean.fits', 'excess_lo_G141_clean.fits', 'G141_scattered_light.fits'])
-    
+            pair(direct_asn=direct[i], grism_asn=grism[i], radec=CATALOG, raw_path='../RAW/', mask_grow=8, scattered_light=False, final_scale=0.06, skip_direct=False, ACS=False)
+
+    """
     #### Check
     threedhst.gmap.makeImageMap(['UDS-23-F140W_drz.fits', 'UDS-23-F140W_align.fits[0]','UDS-23-G141_drz.fits'], aper_list=[14,15,16],  polyregions=glob.glob('UDS-*-F140W_asn.pointing.reg'))
-    
-    ### Bright remnants
-    visits = [12]
-    for visit in visits:
-        threedhst.dq.checkDQ(asn_direct_file='UDS-%02d-F140W_asn.fits' %(visit), asn_grism_file='UDS-%02d-G141_asn.fits' %(visit), path_to_flt='../RAW/', SIMPLE_DS9=False)
-    
-    #### Try combining visits around the lens
-    direct_files = glob.glob('UDS-1[47]-F140W_asn.fits')
-    threedhst.utils.combine_asn_shifts(direct_files, out_root='lens-F140W',path_to_FLT='./', run_multidrizzle=False)
-    threedhst.prep_flt_files.startMultidrizzle('lens-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
-    
-    direct_files = glob.glob('UDS-1[47]-G141_asn.fits')
-    threedhst.utils.combine_asn_shifts(direct_files, out_root='lens-G141',path_to_FLT='./', run_multidrizzle=False)
-    threedhst.prep_flt_files.startMultidrizzle('lens-G141_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False)
-    
-    #
-    threedhst.prep_flt_files.startMultidrizzle('UDS-1-F140W_asn.fits', use_shiftfile=True, skysub=False, final_scale=0.06, pixfrac=0.8, driz_cr=False, updatewcs=False, clean=True, median=False, build_drz=False)
-    
+        
     #### Make direct image for each pointing that also include 
     #### neighboring pointings, not coded yet but need to regenerate the original 
     #### single drz pointings to avoid growing them each time.
@@ -1188,7 +1286,8 @@ def UDS(FORCE=False):
         threedhst.prep_flt_files.mosaic_to_pointing(mosaic_list='UDS-*-F140W',
                                     pointing=pointing,
                                     run_multidrizzle=True, grow=200)
-
+    """
+    
 def UDS_mosaic():
     import threedhst.prep_flt_files
     

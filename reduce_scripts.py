@@ -2601,13 +2601,17 @@ def make_duplicates_lists(field ='', version='v4.1.5'):
     
     import glob
     
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    
+    print 'Finding all 2D files ...'
     ### make an array of IDs for all files with 1D extractions
     files_2d = []
     inter_files = glob.glob(field+'*G141_inter.fits')
     for inter in inter_files:
         pointing = inter.split('_inter')[0]
         files_2d = files_2d + glob.glob('{}_*.2D.fits'.format(pointing))
-        
+    
+    print 'FOUND {} 2D FILES.'.format(len(files_2d))    
     files_2d = [f.replace('.2D.fits','') for f in files_2d]
     ids_2d = np.array([int(f[-5:]) for f in files_2d])
     max_repeats_2d = max([list(ids_2d).count(x) for x in np.unique(ids_2d)])
@@ -2616,6 +2620,8 @@ def make_duplicates_lists(field ='', version='v4.1.5'):
     zfit_file = '{}.new_zfit.{}.dat'.format(field, version)
     zfit_data = ascii.read('{}.new_zfit.{}.dat'.format(field, version))
     id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit_data['spec_id']]
+    
+    print 'FOUND {} ZFIT OBJECTS.'.format(len(id_zfit))
     
     ### how many repeats per object
     unq_zfit = np.unique(np.array(zfit_data['phot_id']))
@@ -2663,7 +2669,7 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
     
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
-    zfit = table.read(ZFIT_FILE)
+    zfit = table.read(ZFIT_FILE, format='ascii')
     
     n_rows = len(cat)
     empty = np.empty(n_rows, dtype=float)

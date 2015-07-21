@@ -2430,7 +2430,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
             raise Exception('Reference Sextractor catalog not set.')
             
     # Read in master catalog with NIR magnitudes.     
-    s_cat = table.read(CATALOG, format='ascii.sextractor')
+    s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
 
     # read in new_zfit   
     zfit_file = '{}.new_zfit.{}.dat'.format(field, version)

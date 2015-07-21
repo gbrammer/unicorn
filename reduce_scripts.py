@@ -31,6 +31,7 @@ import astropy
 import astropy.io.fits as fits
 import astropy.io.ascii as ascii
 from astropy.table import Table as table
+from astropy.table import Column
 
 def interlace_aegis():
     """
@@ -2405,24 +2406,21 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
 # Author: I. Momcheva (Tue Nov  4 01:31:06 2014)
 
 
-def linematched_catalogs_flags(field='', version='v4.1.5'):
+def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
         
     
-    if field == 'aegis':
-        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat'
+    REF = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
+        'cosmos':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat', 
+        'goodsn':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat',
+        'goodss':'/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat',
+        'uds':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'}
 
-    if field == 'cosmos':
-        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat'
-
-    if field == 'goodsn':
-        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat'
-        
-    if field == 'goodss':
-        CATALOG = '/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat'
-        
-    if field == 'uds':
-        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'
-
+    if (not REF_CATALOG):
+        if unicorn.hostname().startswith('unic'):
+            REF_CATALOG = REF[field]
+        else:
+            raise Exception('Reference Sextractor catalog not set.')
+            
     # Read in master catalog with NIR magnitudes.     
     s_cat = table.read(CATALOG, format='ascii.sextractor')
 
@@ -2438,8 +2436,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5'):
     dq_file = '{}.dqflag.{}.dat'.format(field, version)
     dq_data = ascii.read(dq_file)
     if len(zfit_data) != len(dq_data):
-        print 'DQ and ZFIT files have different length.'
-        exit()
+        raise Exception('DQ and ZFIT files have different length.')
 
     dq_data.add_column(zfit_data['phot_id'])
     ### how many repeats per object
@@ -2666,7 +2663,7 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
     import os
     
     # read in linematched 
-    
+    print 'Reading in catalogs and creating placeholder table...'
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
     zfit = table.read(ZFIT_FILE, format='ascii')
@@ -2694,6 +2691,7 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
     
     lines_all_tab = lines_bright_tab
  
+    print 'Populating catalog ...'
     for ii, row in enumerate(zfit):
  
         line_filename = '{}.linefit.dat'.format(row['spec_id'])

@@ -2748,7 +2748,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     lines_bright_tab.write('{}.linefit.linematched.{}.fits'.format(field, version),format='fits')
     
 
-def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_LIST='', ZFIT_FILE=''):
+def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT_FILE=''):
     
     import os
     
@@ -2756,7 +2756,7 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_LIST='', ZFIT
     print 'Reading in catalogs and creating placeholder table...'
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     zfit = table.read(ZFIT_FILE, format='ascii') ### use the bright one
-    master_flags = table.read(MASTER_LIST)
+    master_flags = table.read(MASTER_FLAG)
     
     n_rows = len(cat)
      
@@ -2787,7 +2787,7 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_LIST='', ZFIT
     flags_tab.write('{}.flags.{}.fits'.format(field, version), format='fits')
     flags_tab.write('{}.flags.{}.dat'.format(field, version), format='fits')
 
-def run_catalogs():
+def run_catalogs(MASTER_FLAG = ''):
     
     fields = ['aegis', 'cosmos', 'goodsn','goodss','uds']
     
@@ -2807,7 +2807,8 @@ def run_catalogs():
         
     for field in fields:
         
-        os.chdir(os.path.join('/3D-HST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
+        print 'Working on {}'.format(field.upper())
+        os.chdir(os.path.join('/3DHST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
         
         if (not REF_CATALOG):
             if unicorn.hostname().startswith('hyp'):
@@ -2817,14 +2818,18 @@ def run_catalogs():
             else:
                 raise Exception('Reference Sextractor catalog not set.')
         
+        print 'Making linematched redshift catalog for {}.'.format(field.upper())
         linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG)
         
+        print 'Making duplicates catalog for {}.'.format(field.upper())
         make_duplicates_lists(field=field)
         
+        print 'Making emission line catalog for {}.'.format(field.upper())
         make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
             ZFIT_FILE='{}.new_zfit.linematched_all.v4.1.5.dat'.format(field))
                 
-        make_linematched_flags(field=field, MASTER_LIST='',  
+        print 'Making linematched flags catalog for {}.'.format(field.upper())
+        make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  
             ZFIT_FILE='{}.new_zfit.linematched.v4.1.5.dat'.format(field))
     
     

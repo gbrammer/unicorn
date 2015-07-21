@@ -11,6 +11,9 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ib3701skq_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ib3701skq_raw.fits', pop_reads=[1,2,3])
 
+    # unicorn.prepare.show_MultiAccum_reads('ib3701sgq_raw.fits')
+    unicorn.prepare.make_IMA_FLT(raw='ib3701sgq_raw.fits', pop_reads=[2])
+
     # unicorn.prepare.show_MultiAccum_reads('ib3702u8q_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ib3702u8q_raw.fits', pop_reads=[1,2,3,4,5,6,7])
 
@@ -191,6 +194,9 @@ def go():
     # unicorn.prepare.show_MultiAccum_reads('ibhm53o3q_raw.fits')
     unicorn.prepare.make_IMA_FLT(raw='ibhm53o3q_raw.fits', pop_reads=[1])
     
+    ### SN-TILE41
+    unicorn.prepare.make_IMA_FLT(raw='ibwjc7gmq_raw.fits',pop_reads=[1,2])
+    
 
 def process_raw_all(field = 'AEGIS'):
     #### Reprocess *all* of the FLTs with variable backgrounds that 
@@ -218,7 +224,7 @@ def process_raw_all(field = 'AEGIS'):
             else: 
                 no_skip = False
         rawfile='%sq_raw.fits'%(os.path.split(file)[-1].split('j_')[0])
-        #print rawfile, np.ptp(bg.bg[1:]), var_bg, no_skip, var_bg & no_skip
+        print rawfile, np.ptp(bg.bg[1:]), var_bg, no_skip, var_bg & no_skip
         #   
         if var_bg & no_skip:
             redo_list.append(rawfile)

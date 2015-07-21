@@ -2424,7 +2424,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
     if (not REF_CATALOG):
         if unicorn.hostname().startswith('hyp'):
             REF_CATALOG = REF_HYP[field]
-        elif unicorn.hostname().startswith('hyp'):
+        elif unicorn.hostname().startswith('uni'):
             REF_CATALOG = REF_UNI[field]
         else:
             raise Exception('Reference Sextractor catalog not set.')
@@ -2812,7 +2812,7 @@ def run_catalogs(MASTER_FLAG = ''):
         
         if unicorn.hostname().startswith('hyp'):
             REF_CATALOG = REF_HYP[field]
-        elif unicorn.hostname().startswith('hyp'):
+        elif unicorn.hostname().startswith('uni'):
             REF_CATALOG = REF_UNI[field]
         else:
             raise Exception('Reference Sextractor catalog not set.')

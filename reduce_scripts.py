@@ -27,6 +27,10 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 import scipy.ndimage as nd
+import astropy
+import astropy.io.fits as fits
+import astropy.io.ascii as ascii
+from astropy.table import Table as table
 
 def interlace_aegis():
     """
@@ -2399,3 +2403,335 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
     
 # aegis.dqflag.linematched.v4.1.4.dat
 # Author: I. Momcheva (Tue Nov  4 01:31:06 2014)
+
+
+def linematched_catalogs_flags(field='', version='v4.1.5'):
+        
+    
+    if field == 'aegis':
+        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat'
+
+    if field == 'cosmos':
+        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat'
+
+    if field == 'goodsn':
+        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat'
+        
+    if field == 'goodss':
+        CATALOG = '/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat'
+        
+    if field == 'uds':
+        CATALOG = '/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'
+
+    # Read in master catalog with NIR magnitudes.     
+    s_cat = table.read(CATALOG, format='ascii.sextractor')
+
+    # read in new_zfit   
+    zfit_file = '{}.new_zfit.{}.dat'.format(field, version)
+    zfit_data = ascii.read('{}.new_zfit.{}.dat'.format(field, version))
+    id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit_data['spec_id']]
+        
+    # read in flags    
+    flags = table.read('/Volumes/Voyager/TEST_SPECTRA_v4.1.5/INSPECT_2/inspect_3dhst_all.{}.fits'.format(version))
+    
+    # read in DQ file    
+    dq_file = '{}.dqflag.{}.dat'.format(field, version)
+    dq_data = ascii.read(dq_file)
+    if len(zfit_data) != len(dq_data):
+        print 'DQ and ZFIT files have different length.'
+        exit()
+
+    dq_data.add_column(zfit_data['phot_id'])
+    ### how many repeats per object
+    unq_zfit = np.unique(np.array(zfit_data['phot_id']))
+    
+    # read in photometric catalog    
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    N = len(cat)
+     
+    idx_all = np.full(len(unq_zfit),-1,dtype='i4')
+    unq_zfit_bright = []
+    idx_bright = []
+
+    for ii in range(len(idx_all)):
+                
+        use_nn = -1
+        dq_flags = []
+        z_width = []
+        user_flags = []
+                
+        nn = np.where(zfit_data['phot_id'] == unq_zfit[ii])[0]
+        
+        JH_MAG = s_cat['MAG_AUTO'][np.where(s_cat['NUMBER'] == unq_zfit[ii])[0][0]]
+        if JH_MAG <= 24.: 
+            unq_zfit_bright.append(unq_zfit[ii])
+            
+        if len(nn) == 1:                    
+            use_nn = nn[0]
+                
+        else:                
+            ## get dq flags
+            dq_flags = np.array(dq_data['f_cover'][nn])
+                                
+            ## get width of z distribution
+            z_width = np.array([float(zfit_data['u68'][n] - zfit_data['l68'][n]) for n in nn])
+                                
+            if JH_MAG <= 24.:
+                    
+                ## get user flags
+                user_flags = []
+                for id in zfit_data['spec_id'][nn]:
+                    idxf = np.where(flags['file'] == '{}.new_zfit.png'.format(id))[0]
+                    if len(idxf) > 0:
+                        flags_arr = np.array([flags['contam1'][idxf][0], flags['contam2'][idxf][0]])
+                        user_flags.append(np.sum(flags_arr[(flags_arr > 0) & (flags_arr <= 2)]))
+                    else:
+                        user_flags.append(-99)
+                user_flags = np.array(user_flags)
+                    
+                if np.sum(user_flags == -99) > 0:
+                    print 'USER FLAG NOT SET! {} {}'.format(row['NUMBER'], user_flags)
+                    
+                if list(np.unique(user_flags)) == [0]:  ### if none of the user flags are set                        
+                    nn_use_mask = (z_width == np.min(z_width))
+                    if np.sum(nn_use_mask) > 1:
+                        use_nn = nn[nn_use_mask == True][0]
+                    else:
+                        use_nn = nn[nn_use_mask == True]
+                else:
+                    user_flags_mask = (user_flags == 0)
+                    if np.sum(user_flags_mask) == 1:
+                        use_nn = nn[user_flags_mask == True]
+                    elif np.sum(user_flags_mask) > 1:
+                        nn_use_mask = (z_width == np.min(z_width[user_flags_mask]))
+                        if np.sum(nn_use_mask) > 1:
+                            use_nn = nn[nn_use_mask == True][0]
+                        else:
+                            use_nn = nn[nn_use_mask == True]
+                    elif np.sum(user_flags_mask) == 0:
+                        ### HOW MANY OF THESE ARE THERE?
+                        ### z_phot or z_gris?
+                        print 'ALL FLAGS ARE SET: ',zfit_data['spec_id'][nn].data, user_flags_mask, user_flags
+                        use_nn = -1
+            else:
+                    
+                nn_use_mask = (z_width == np.min(z_width))
+                if np.sum(nn_use_mask) > 1:
+                    use_nn = nn[nn_use_mask == True][0]
+                else:
+                    use_nn = nn[nn_use_mask == True]
+
+        idx_all[ii] = int(use_nn)
+        if JH_MAG <= 24.:
+            idx_bright.append(int(use_nn))
+    
+    ### get rid of the ones where all objects are flagged
+    
+    flag = (np.array(idx_all) != -1)
+    unq_zfit = unq_zfit[flag]
+    idx_all = idx_all[flag]
+    
+    idx_bright = np.array(idx_bright)
+    unq_zfit_bright = np.array(unq_zfit_bright)
+    flag = (idx_bright != -1)
+    unq_zfit_bright = unq_zfit_bright[flag]
+    idx_bright = idx_bright[flag]
+        
+    zfit_header = "phot_id   spec_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l95 l68 u68 u95"
+    dq_header = "phot_id spec_id mag q_z f_cover f_flagged max_contam int_contam f_negative"
+    author = "Author: I. Momcheva ({})".format(time.strftime("%c"))
+    
+    
+    ### zfit linematched all
+    tmp_table = table([cat.id, np.full(N,'00000',dtype='S25')], names=('phot_id','spec_id'))
+    tmp_table.remove_column('spec_id')
+    table_zfit_all = astropy.table.join(tmp_table, zfit_data[idx_all], keys='phot_id', join_type = 'left')
+    (table_zfit_all['spec_id'].fill_value, table_zfit_all['dr'].fill_value, table_zfit_all['z_spec'].fill_value, table_zfit_all['z_peak_phot'].fill_value, table_zfit_all['z_max_grism'].fill_value, table_zfit_all['z_peak_grism'].fill_value, table_zfit_all['l95'].fill_value, table_zfit_all['l68'].fill_value, table_zfit_all['u68'].fill_value, table_zfit_all['u95'].fill_value) = ('00000', 0.000, -1.0, -99.0, -99.0, -99.0, 0.0, 0.0, 0.0, 0.0)
+    
+    zfit_outfile_all = zfit_file.replace('zfit','zfit.linematched_all') 
+    table_zfit_all.filled().write(zfit_outfile_all, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f'})
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_all))
+    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_all))
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(zfit_header, zfit_outfile_all))
+    os.system('rm {}.old'.format(zfit_outfile_all))
+
+    table_zfit_all.filled().write(zfit_outfile_all.replace('.dat','.fits'))
+    
+    ### zfit linematched bright
+    table_zfit_bright = astropy.table.join(tmp_table, zfit_data[idx_bright], keys='phot_id', join_type = 'left')
+    (table_zfit_bright['spec_id'].fill_value, table_zfit_bright['dr'].fill_value, table_zfit_bright['z_spec'].fill_value, table_zfit_bright['z_peak_phot'].fill_value, table_zfit_bright['z_max_grism'].fill_value, table_zfit_bright['z_peak_grism'].fill_value, table_zfit_bright['l95'].fill_value, table_zfit_bright['l68'].fill_value, table_zfit_bright['u68'].fill_value, table_zfit_bright['u95'].fill_value) = ('00000', 0.000, -1.0, -99.0, -99.0, -99.0, 0.0, 0.0, 0.0, 0.0)
+    
+    zfit_outfile_bright = zfit_file.replace('zfit','zfit.linematched_bright') 
+    table_zfit_bright.filled().write(zfit_outfile_bright, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f'})
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_bright))
+    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_bright))
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(zfit_header, zfit_outfile_bright))
+    os.system('rm {}.old'.format(zfit_outfile_bright))
+    table_zfit_bright.filled().write(zfit_outfile_bright.replace('.dat','.fits'))
+
+
+    ### dq linematched all
+    tmp_table = table([cat.id, s_cat['MAG_AUTO']], names=('phot_id','mag_jh'))
+    table_dq_all = astropy.table.join(tmp_table, dq_data[idx_all], keys='phot_id', join_type = 'left')
+    (table_dq_all['id'].fill_value, table_dq_all['mag'].fill_value, table_dq_all['q_z'].fill_value, table_dq_all['f_cover'].fill_value, table_dq_all['f_flagged'].fill_value, table_dq_all['max_contam'].fill_value, table_dq_all['int_contam'].fill_value, table_dq_all['f_negative'].fill_value, ) = ('00000',-99.0, 0.00e+00, 0.00, 1.00, 1.00, 1.00, 1.00)
+    
+    dq_outfile_all = dq_file.replace('dqflag','dqflag.linematched_all')
+    table_dq_all.filled().write(dq_outfile_all, delimiter='\t', format='ascii', formats={'mag_f160w':'%8.3f','id':'%25s','mag':'%8.3f','q_z':'%8.5f','f_cover':'%8.5f','f_flagged':'%8.5f','max_contam':'%8.5f','int_contam':'%8.5f','f_negative':'%8.5f'})
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, dq_outfile_all))
+    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(dq_outfile_all))
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(dq_header, dq_outfile_all))
+    os.system('rm {}.old'.format(dq_outfile_all))
+    table_dq_all.filled().write(dq_outfile_all.replace('.dat','.fits'), format='fits')
+
+    ### dq linematched bright
+    tmp_table = table([cat.id, s_cat['MAG_AUTO']], names=('phot_id','mag_jh'))
+    table_dq_bright = astropy.table.join(tmp_table, dq_data[idx_bright], keys='phot_id', join_type = 'left')
+    (table_dq_bright['id'].fill_value, table_dq_bright['mag'].fill_value, table_dq_bright['q_z'].fill_value, table_dq_bright['f_cover'].fill_value, table_dq_bright['f_flagged'].fill_value, table_dq_bright['max_contam'].fill_value, table_dq_bright['int_contam'].fill_value, table_dq_bright['f_negative'].fill_value, ) = ('00000',-99.0, 0.00e+00, 0.00, 1.00, 1.00, 1.00, 1.00)
+    
+    dq_outfile_bright = dq_file.replace('dqflag','dqflag.linematched_bright')
+    table_dq_bright.filled().write(dq_outfile_bright, delimiter='\t', format='ascii', formats={'mag_f160w':'%8.3f','id':'%25s','mag':'%8.3f','q_z':'%8.5f','f_cover':'%8.5f','f_flagged':'%8.5f','max_contam':'%8.5f','int_contam':'%8.5f','f_negative':'%8.5f'})
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, dq_outfile_bright))
+    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(dq_outfile_bright))
+    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(dq_header, dq_outfile_bright))
+    os.system('rm {}.old'.format(dq_outfile_bright))
+    table_dq_bright.filled().write(dq_outfile_bright.replace('.dat','.fits'), format='fits')
+    
+    
+def make_duplicates_lists(field ='', version='v4.1.5'):
+    
+    import glob
+    
+    ### make an array of IDs for all files with 1D extractions
+    files_2d = []
+    inter_files = glob.glob(field+'*G141_inter.fits')
+    for inter in inter_files:
+        pointing = inter.split('_inter')[0]
+        files_2d = files_2d + glob.glob('{}_*.2D.fits'.format(pointing))
+        
+    files_2d = [f.replace('.2D.fits','') for f in files_2d]
+    ids_2d = np.array([int(f[-5:]) for f in files_2d])
+    max_repeats_2d = max([list(ids_2d).count(x) for x in np.unique(ids_2d)])
+    
+    # read in new_zfit   
+    zfit_file = '{}.new_zfit.{}.dat'.format(field, version)
+    zfit_data = ascii.read('{}.new_zfit.{}.dat'.format(field, version))
+    id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit_data['spec_id']]
+    
+    ### how many repeats per object
+    unq_zfit = np.unique(np.array(zfit_data['phot_id']))
+    repeat_count_zfit = np.array([list(zfit_data['phot_id']).count(x) for x in unq_zfit])
+    max_repeats_zfit = max(repeat_count_zfit)
+    print 'MAX NUMBER OF REPEATS: {}'.format(max_repeats_zfit)
+    
+    ### Duplicates files:
+    
+    dup_2d_outfile = '{}.duplicates_2d.{}.dat'.format(field, version) 
+    duplicates_2d = open(dup_2d_outfile,'w')
+    duplicates_2d.write('# Author: I. Momcheva ({})\n'.format(time.strftime("%c")))
+    duplicates_2d.write('# MAX_COUNT: {}\n'.format(max_repeats_2d))
+    
+    dup_zfit_outfile = '{}.duplicates_zfit.{}.dat'.format(field, version) 
+    duplicates_zfit = open(dup_zfit_outfile, 'w')
+    duplicates_zfit.write('# Author: I. Momcheva ({})\n'.format(time.strftime("%c")))
+    duplicates_zfit.write('# MAX_COUNT: {}\n'.format(max_repeats_zfit))
+    
+    
+    for id in cat.id:
+        mzfit = np.where(zfit_data['phot_id'] == id)[0]
+        m2d = np.where(ids_2d == id)[0]        
+        if len(mzfit) == 0: duplicates_zfit.write('{}\t'.format(id)+'00000\t'*max_repeats_zfit+'\n')
+        else:
+            duplicates_zfit.write('{}\t'.format(id))
+            for nn in mzfit:
+                duplicates_zfit.write('{}\t'.format(zfit_data['spec_id'][nn]))
+            duplicates_zfit.write('00000\t'*(max_repeats_zfit-len(mzfit))+'\n')
+        if (len(m2d)) == 0: duplicates_2d.write('{}\t'.format(id)+'00000\t'*max_repeats_2d+'\n')
+        else:
+            duplicates_2d.write('{}\t'.format(id))
+            for nn in m2d:
+                duplicates_2d.write('{}\t'.format(files_2d[nn]))
+            duplicates_2d.write('00000\t'*(max_repeats_2d-len(m2d))+'\n')
+                
+    duplicates_2d.close()
+    duplicates_zfit.close()
+
+def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE=''):
+    
+    import os
+    
+    # read in linematched 
+    
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
+    zfit = table.read(ZFIT_FILE)
+    
+    n_rows = len(cat)
+    empty = np.empty(n_rows, dtype=float)
+     
+    # create table for emission line catalog, bright and faint
+    line_columns = ['number', 'gris_id','z','jh_mag','s0','s0_err','s1','s1_err']
+    types = ['<i8','S22','<f8','<f8','<f8','<f8','<f8','<f8']
+
+    lines_bright_tab = table([cat['id'], zfit['spec_id'], s_cat['MAG_AUTO'], np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
+
+    line_names = ['Lya','CIV','MgII','OII','Hd','Hg','OIIIx','HeII','Hb','OIII','Ha','SII','SIII','HeI','HeIb', 'NeIII','NeV' ,'NeVI', 'OI']
+
+    for line in line_names:
+        
+        col_flux = Column(np.repeat(-99., (n_rows)).tolist(), name='{}_FLUX'.format(line))
+        col_flux_err = Column(np.repeat(-99., (n_rows)).tolist(), name='{}_FLUX_ERR'.format(line))
+        col_scale = Column(np.repeat(-99., (n_rows)).tolist(), name='{}_SCALE'.format(line))
+        col_eqw = Column(np.repeat(-99., (n_rows)).tolist(), name='{}_EQW'.format(line))
+        col_eqw_err = Column(np.repeat(-99., (n_rows)).tolist(), name='{}_EQW_ERR'.format(line))        
+                
+        lines_bright_tab.add_columns([col_flux, col_flux_err, col_scale, col_eqw, col_eqw_err])
+    
+    lines_all_tab = lines_bright_tab
+ 
+    for ii, row in enumerate(zfit):
+ 
+        line_filename = '{}.linefit.dat'.format(row['spec_id'])
+
+        if os.path.exists(os.path.join(LINE_DIR, line_filename)):
+
+            with open(line_filename, 'r') as fp:            
+                for ll in fp:
+                    if ll.startswith('# z'):
+                        z = float(ll.split('=')[1])
+                    if ll.startswith('# [xxx]'):
+                        values = ll.split()
+                        s0, s0_err, s1, s1_err = float(values[-10]), float(values[-8]), \
+                            float(values[-4]), float(values[-2])
+            
+            lines_all_tab['z'][ii] = z
+            lines_all_tab['s0'][ii] = s0
+            lines_all_tab['s0_err'][ii] = s0_err
+            lines_all_tab['s1'][ii] = s1
+            lines_all_tab['s1_err'][ii] = s1_err
+            
+            if s_cat['MAG_AUTO'][ii] <=24.:
+                lines_bright_tab['z'][ii] = z
+                lines_bright_tab['s0'][ii] = s0
+                lines_bright_tab['s0_err'][ii] = s0_err
+                lines_bright_tab['s1'][ii] = s1
+                lines_bright_tab['s1_err'][ii] = s1_err
+                        
+            file = table.read(line_filename, format='ascii')
+            for ll in file:
+                name = ll['line']
+                lines_all_tab['{}_FLUX'.format(name)][ii] = ll['flux']
+                lines_all_tab['{}_FLUX_ERR'.format(name)][ii] = ll['error']
+                lines_all_tab['{}_SCALE'.format(name)][ii] = ll['scale_to_photom']
+                lines_all_tab['{}_EQW'.format(name)][ii] = ll['EQW_obs']
+                lines_all_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
+                
+                if s_cat['MAG_AUTO'][ii] <= 24.:
+                    lines_bright_tab['{}_FLUX'.format(name)][ii] = ll['flux']
+                    lines_bright_tab['{}_FLUX_ERR'.format(name)][ii] = ll['error']
+                    lines_bright_tab['{}_SCALE'.format(name)][ii] = ll['scale_to_photom']
+                    lines_bright_tab['{}_EQW'.format(name)][ii] = ll['EQW_obs']
+                    lines_bright_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
+    
+    lines_all_tab.write('',format='fits')
+    lines_bright_tab.write('',format='fits')
+    

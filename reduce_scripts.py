@@ -2810,13 +2810,12 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Working on {}'.format(field.upper())
         os.chdir(os.path.join('/3DHST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
         
-        if (not REF_CATALOG):
-            if unicorn.hostname().startswith('hyp'):
-                REF_CATALOG = REF_HYP[field]
-            elif unicorn.hostname().startswith('hyp'):
-                REF_CATALOG = REF_UNI[field]
-            else:
-                raise Exception('Reference Sextractor catalog not set.')
+        if unicorn.hostname().startswith('hyp'):
+            REF_CATALOG = REF_HYP[field]
+        elif unicorn.hostname().startswith('hyp'):
+            REF_CATALOG = REF_UNI[field]
+        else:
+            raise Exception('Reference Sextractor catalog not set.')
         
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
         linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG)

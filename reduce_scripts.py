@@ -2737,5 +2737,5 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
                     lines_bright_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
     
     lines_all_tab.write('{}.linefit.linematched_all.{}.fits'.format(field, version),format='fits')
-    lines_bright_tab.write('{}.linefit.linematched_all.{}.fits'.format(field, version),format='fits')
+    lines_bright_tab.write('{}.linefit.linematched_bright.{}.fits'.format(field, version),format='fits')
     

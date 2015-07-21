@@ -2409,15 +2409,23 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
 def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
         
     
-    REF = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
+    REF_HYP = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
         'cosmos':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat', 
         'goodsn':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat',
         'goodss':'/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat',
         'uds':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'}
+        
+    REF_UNI = {'aegis':'/3DHST/Photometry/Work/AEGIS/Sex/aegis_3dhst.v4.0.IR_orig.cat', 
+        'cosmos':'/3DHST/Photometry/Work/COSMOS/Sex/cosmos_3dhst.v4.0.IR_orig.cat', 
+        'goodsn':'/3DHST/Photometry/Work/GOODS-N/v4/sextr/catalogs/GOODS-N_IR.cat',
+        'goodss':'/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR.cat',
+        'uds':' /3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR.cat'}
 
     if (not REF_CATALOG):
-        if unicorn.hostname().startswith('unic'):
-            REF_CATALOG = REF[field]
+        if unicorn.hostname().startswith('hyp'):
+            REF_CATALOG = REF_HYP[field]
+        elif unicorn.hostname().startswith('hyp'):
+            REF_CATALOG = REF_UNI[field]
         else:
             raise Exception('Reference Sextractor catalog not set.')
             
@@ -2558,7 +2566,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
     table_zfit_bright = astropy.table.join(tmp_table, zfit_data[idx_bright], keys='phot_id', join_type = 'left')
     (table_zfit_bright['spec_id'].fill_value, table_zfit_bright['dr'].fill_value, table_zfit_bright['z_spec'].fill_value, table_zfit_bright['z_peak_phot'].fill_value, table_zfit_bright['z_max_grism'].fill_value, table_zfit_bright['z_peak_grism'].fill_value, table_zfit_bright['l95'].fill_value, table_zfit_bright['l68'].fill_value, table_zfit_bright['u68'].fill_value, table_zfit_bright['u95'].fill_value) = ('00000', 0.000, -1.0, -99.0, -99.0, -99.0, 0.0, 0.0, 0.0, 0.0)
     
-    zfit_outfile_bright = zfit_file.replace('zfit','zfit.linematched_bright') 
+    zfit_outfile_bright = zfit_file.replace('zfit','zfit.linematched') 
     table_zfit_bright.filled().write(zfit_outfile_bright, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f'})
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_bright))
     os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_bright))
@@ -2585,7 +2593,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
     table_dq_bright = astropy.table.join(tmp_table, dq_data[idx_bright], keys='phot_id', join_type = 'left')
     (table_dq_bright['id'].fill_value, table_dq_bright['mag'].fill_value, table_dq_bright['q_z'].fill_value, table_dq_bright['f_cover'].fill_value, table_dq_bright['f_flagged'].fill_value, table_dq_bright['max_contam'].fill_value, table_dq_bright['int_contam'].fill_value, table_dq_bright['f_negative'].fill_value, ) = ('00000',-99.0, 0.00e+00, 0.00, 1.00, 1.00, 1.00, 1.00)
     
-    dq_outfile_bright = dq_file.replace('dqflag','dqflag.linematched_bright')
+    dq_outfile_bright = dq_file.replace('dqflag','dqflag.linematched')
     table_dq_bright.filled().write(dq_outfile_bright, delimiter='\t', format='ascii', formats={'mag_f160w':'%8.3f','id':'%25s','mag':'%8.3f','q_z':'%8.5f','f_cover':'%8.5f','f_flagged':'%8.5f','max_contam':'%8.5f','int_contam':'%8.5f','f_negative':'%8.5f'})
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, dq_outfile_bright))
     os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(dq_outfile_bright))
@@ -2658,7 +2666,7 @@ def make_duplicates_lists(field ='', version='v4.1.5'):
     duplicates_2d.close()
     duplicates_zfit.close()
 
-def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE=''):
+def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_CATALOG='', ZFIT_FILE=''):
     
     import os
     
@@ -2666,13 +2674,13 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
     print 'Reading in catalogs and creating placeholder table...'
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
-    zfit = table.read(ZFIT_FILE, format='ascii')
+    zfit = table.read(ZFIT_FILE, format='ascii') ###  use the full one
     
     n_rows = len(cat)
     empty = np.empty(n_rows, dtype=float)
      
     # create table for emission line catalog, bright and faint
-    line_columns = ['number', 'gris_id','z','jh_mag','s0','s0_err','s1','s1_err']
+    line_columns = ['number', 'gris_id','jh_mag','z','s0','s0_err','s1','s1_err']
     types = ['<i8','S22','<f8','<f8','<f8','<f8','<f8','<f8']
 
     lines_bright_tab = table([cat['id'], zfit['spec_id'], s_cat['MAG_AUTO'], np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
@@ -2737,5 +2745,86 @@ def make_emission_line_catalog(field='',LINE_DIR = '', REF_CATALOG='', ZFIT_FILE
                     lines_bright_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
     
     lines_all_tab.write('{}.linefit.linematched_all.{}.fits'.format(field, version),format='fits')
-    lines_bright_tab.write('{}.linefit.linematched_bright.{}.fits'.format(field, version),format='fits')
+    lines_bright_tab.write('{}.linefit.linematched.{}.fits'.format(field, version),format='fits')
+    
+
+def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_LIST='', ZFIT_FILE=''):
+    
+    import os
+    
+    # read in linematched 
+    print 'Reading in catalogs and creating placeholder table...'
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    zfit = table.read(ZFIT_FILE, format='ascii') ### use the bright one
+    master_flags = table.read(MASTER_LIST)
+    
+    n_rows = len(cat)
+     
+    # create table for emission line catalog, bright and faint
+    columns = ['number', 'gris_id','flag1','flag2']
+    types = ['<i8','S22','<i8','<i8']
+
+    flags_tab = table([cat['id'], zfit['spec_id'], np.repeat(-1., (n_rows)).tolist(), 
+        np.repeat(-1., (n_rows)).tolist()], names = columns, dtype = types)
+    
+    print 'Populating catalog ...'
+    for ii, row in enumerate(zfit):
+        
+        if row['spec_id'] != '00000':                        
+            nn = np.where((master_flags['pointing'] == row['spec_id'].split('-G141')[0]) & (master_flags['id'] == row['phot_id']))[0]
+            
+            if len(nn) == 1:                
+                flags_tab['flag1'][ii] = master_flags['contam1'][nn[0]]
+                flags_tab['flag2'][ii] = master_flags['contam2'][nn[0]]
+    
+            elif len(nn) > 1:                
+                print 'There should be only one match: {}'.format(row['spec_id'])
+            
+            elif len(nn) == 0:                
+                print 'No match: {}'.format(row['spec_id'])
+    
+    
+    flags_tab.write('{}.flags.{}.fits'.format(field, version), format='fits')
+    flags_tab.write('{}.flags.{}.dat'.format(field, version), format='fits')
+
+def run_catalogs():
+    
+    fields = ['aegis', 'cosmos', 'goodsn','goodss','uds']
+    
+    wd = {'aegis': 'AEGIS', 'cosmos':'COSMOS', 'goodsn':'GOODS-N','goodss':'GOODS-S','uds':'UDS'}
+       
+    REF_HYP = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
+        'cosmos':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat', 
+        'goodsn':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat',
+        'goodss':'/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat',
+        'uds':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'}
+        
+    REF_UNI = {'aegis':'/3DHST/Photometry/Work/AEGIS/Sex/aegis_3dhst.v4.0.IR_orig.cat', 
+        'cosmos':'/3DHST/Photometry/Work/COSMOS/Sex/cosmos_3dhst.v4.0.IR_orig.cat', 
+        'goodsn':'/3DHST/Photometry/Work/GOODS-N/v4/sextr/catalogs/GOODS-N_IR.cat',
+        'goodss':'/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR.cat',
+        'uds':' /3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR.cat'}
+        
+    for field in fields:
+        
+        os.chdir(os.path.join('/3D-HST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
+        
+        if (not REF_CATALOG):
+            if unicorn.hostname().startswith('hyp'):
+                REF_CATALOG = REF_HYP[field]
+            elif unicorn.hostname().startswith('hyp'):
+                REF_CATALOG = REF_UNI[field]
+            else:
+                raise Exception('Reference Sextractor catalog not set.')
+        
+        linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG)
+        
+        make_duplicates_lists(field=field)
+        
+        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+            ZFIT_FILE='{}.new_zfit.linematched_all.v4.1.5.dat'.format(field))
+                
+        make_linematched_flags(field=field, MASTER_LIST='',  
+            ZFIT_FILE='{}.new_zfit.linematched.v4.1.5.dat'.format(field))
+    
     

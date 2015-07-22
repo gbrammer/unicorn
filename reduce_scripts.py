@@ -2406,7 +2406,7 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
 # Author: I. Momcheva (Tue Nov  4 01:31:06 2014)
 
 
-def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
+def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MASTER_FLAG=''):
         
     
     REF_HYP = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
@@ -2438,7 +2438,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
     id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit_data['spec_id']]
         
     # read in flags    
-    flags = table.read('/Volumes/Voyager/TEST_SPECTRA_v4.1.5/INSPECT_2/inspect_3dhst_all.{}.fits'.format(version))
+    flags = table.read(MASTER_FLAG)
     
     # read in DQ file    
     dq_file = '{}.dqflag.{}.dat'.format(field, version)
@@ -2785,7 +2785,7 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT
     
     
     flags_tab.write('{}.flags.{}.fits'.format(field, version), format='fits')
-    flags_tab.write('{}.flags.{}.dat'.format(field, version), format='fits')
+    flags_tab.write('{}.flags.{}.dat'.format(field, version), format='ascii')
 
 def run_catalogs(MASTER_FLAG = ''):
     
@@ -2818,7 +2818,7 @@ def run_catalogs(MASTER_FLAG = ''):
             raise Exception('Reference Sextractor catalog not set.')
         
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
-        linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG)
+        linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG)
         
         print 'Making duplicates catalog for {}.'.format(field.upper())
         make_duplicates_lists(field=field)

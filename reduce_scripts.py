@@ -2495,7 +2495,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = ''):
                 user_flags = np.array(user_flags)
                     
                 if np.sum(user_flags == -99) > 0:
-                    print 'USER FLAG NOT SET! {} {}'.format(row['NUMBER'], user_flags)
+                    print 'USER FLAG NOT SET! {} {}'.format(unq_zfit[ii], user_flags)
                     
                 if list(np.unique(user_flags)) == [0]:  ### if none of the user flags are set                        
                     nn_use_mask = (z_width == np.min(z_width))
@@ -2803,7 +2803,7 @@ def run_catalogs(MASTER_FLAG = ''):
         'cosmos':'/3DHST/Photometry/Work/COSMOS/Sex/cosmos_3dhst.v4.0.IR_orig.cat', 
         'goodsn':'/3DHST/Photometry/Work/GOODS-N/v4/sextr/catalogs/GOODS-N_IR.cat',
         'goodss':'/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR.cat',
-        'uds':' /3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR.cat'}
+        'uds':'/3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR.cat'}
         
     for field in fields:
         

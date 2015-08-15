@@ -2697,7 +2697,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
                 
         lines_bright_tab.add_columns([col_flux, col_flux_err, col_scale, col_eqw, col_eqw_err])
     
-    lines_all_tab = lines_bright_tab
+    lines_all_tab = lines_bright_tab.copy(copy_data=True)
  
     print 'Populating catalog ...'
     for ii, row in enumerate(zfit):
@@ -2744,6 +2744,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
                     lines_bright_tab['{}_EQW'.format(name)][ii] = ll['EQW_obs']
                     lines_bright_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
     
+    print np.sum(lines_all_tab['z'] != -1.), np.sum(lines_bright_tab['z'] != -1.)
     lines_all_tab.write('{}.linefit.linematched_all.{}.fits'.format(field, version),format='fits')
     lines_bright_tab.write('{}.linefit.linematched.{}.fits'.format(field, version),format='fits')
     

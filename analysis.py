@@ -468,13 +468,11 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.fout' %(hff)
         KTOT_COL = 'f_Ks'
 
-        # CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/GLASS/MACS0416/Catalog/'
-        # CAT_FILE = CAT_PATH + 'macs0416_HST_vX.cat'
-        # hff='with'
-        # #hff='no'
-        # ZOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.zout'
-        # FOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.fout'
-        # KTOT_COL = 'flux_f160w'
+        CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/GLASS/MACS0416/Catalog/'
+        CAT_FILE = CAT_PATH + 'macs0416_HST_vX.cat'
+        ZOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.zout'
+        FOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.fout'
+        KTOT_COL = 'flux_f160w'
         
     if ('1423' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
@@ -497,7 +495,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'OUTPUT/rxj2248.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/rxj2248.fout'
         KTOT_COL = 'f160w_flux'
-    
+     
     if ('1149' in root.split('_')[0]) | ('REFSDAL' in root.upper()):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs1149_cat.txt.flux_hasH' #'.flux_AB25'
@@ -533,6 +531,13 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH+'OUTPUT/m0744.zout'
         FOUT_FILE = CAT_PATH+'OUTPUT/m0744.fout'
         KTOT_COL = 'f160w_flux'
+    #
+    if ('0327' in root.split('_')[0]):
+        CAT_PATH = '/Users/brammer/3DHST/Spectra/Work/Rigby/EAZY/'
+        CAT_FILE = CAT_PATH+'RCS0327-2015.225-HST.cat' #'.flux_AB25'
+        ZOUT_FILE = CAT_PATH+'OUTPUT/rcs0327.zout'
+        FOUT_FILE = CAT_PATH+'OUTPUT/rcs0327.fout'
+        KTOT_COL = 'flux_F160W'
     
     #### D. Newman's grism program
     if ('JKCS041' in root):

@@ -2314,7 +2314,7 @@ def go_MCMC_fit_OLD():
 
 class emceeChain():     
     def __init__(self, chain=None, file=None, param_names=[],
-                       burn_fraction=0.5):
+                       burn_fraction=0.5, sampler=None):
         
         self.param_names = []
         
@@ -2326,10 +2326,19 @@ class emceeChain():
                 self.load_fits(file=file)            
             else:
                 self.load_chain(file=file)
-                
+                     
         self.process_chain(param_names = param_names,
                            burn_fraction=burn_fraction)
-        
+        #
+        if sampler is not None:
+            from numpy import unravel_index
+            max_ix = unravel_index(sampler.lnprobability.argmax(), sampler.lnprobability.shape)
+            self.map = self.chain[max_ix[0], max_ix[1],:]
+            self.is_map = True
+        else:
+            self.map = self.median
+            self.is_map = False
+            
     def process_chain(self, param_names=[], burn_fraction=0.5):
         """
         Define parameter names and get parameter statistics
@@ -2357,6 +2366,7 @@ class emceeChain():
         self.nburn = int(np.round(burn_fraction*self.nstep))
         self.stats = {}
         self.median = np.zeros(self.nparam)
+                
         for param in self.param_names:
             pid = self.param_dict[param]
             self.stats[param] = self.get_stats(pid, burn=self.nburn)
@@ -2520,6 +2530,78 @@ class emceeChain():
         pid = self.param_dict[param]
         return self.chain[:,:,pid]
         
+    def contour(self, p1, p2, labels=None, levels=[0.683, 0.955], colors=None, limits=None, bins=20, ax=None, fill=False, **kwargs):
+        """
+        Plot sigma contours
+        """
+        import astroML.plotting
+        
+        if isinstance(p1, str):
+            trace1 = self.__getitem__(p1)[:,self.nburn:].flatten()
+            pname1 = p1
+        else:
+            trace1 = p1.flatten()
+            pname1 = ''
+        
+        if isinstance(p2, str):
+            trace2 = self.__getitem__(p2)[:,self.nburn:].flatten()
+            pname2 = p2
+        else:
+            trace2 = p2.flatten()
+            pname2 = ''
+        
+        if labels is None:
+            labels = [pname1, pname2]
+            
+        if limits is None:
+            limits = [(t.min(), t.max()) for t in [trace1, trace2]]
+        
+        bins = [np.linspace(limits[i][0], limits[i][1], bins + 1)
+                for i in range(2)]
+        
+        
+        H, xbins, ybins = np.histogram2d(trace1, trace2, bins=(bins[0], bins[1]))
+        H[H == 0] = 1E-16
+        Nsigma = astroML.plotting.mcmc.convert_to_stdev(np.log(H))
+        
+        if ax is None:
+            ax = plt
+        
+        ax.contour(0.5 * (xbins[1:] + xbins[:-1]),
+                   0.5 * (ybins[1:] + ybins[:-1]),
+                   Nsigma.T, levels=levels, **kwargs)
+        
+        if fill:
+            if ax is plt:
+                col = plt.gca().collections
+            else:
+                col = ax.collections
+            
+            n_levels = len(levels)
+            if colors is None:
+                dc = 1./(n_levels+1)
+                colors = ['%.2f' %((i+1)*dc) for i in np.arange(n_levels)]
+                print colors
+
+            for i in range(n_levels): 
+                print colors[i]
+                col[i].set_facecolor(colors[i])
+                col[i].set_edgecolor(colors[i])
+                col[i].set_zorder(-10-i)
+                col[i].set_alpha(0.8)
+                
+                
+        if ax is plt:
+            ax.xlabel(labels[0])
+            ax.ylabel(labels[1])
+            ax.xlim(limits[0])
+            ax.ylim(limits[1])
+        else:
+            ax.set_xlabel(labels[0])
+            ax.set_ylabel(labels[1])
+            ax.set_xlim(limits[0])
+            ax.set_ylim(limits[1])
+            
 def objective_twod_OLD(params, return_model=False):
     """
     Objective function for the MCMC redshift fit

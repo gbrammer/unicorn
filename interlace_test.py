@@ -295,7 +295,7 @@ def refit_specz_objects():
     #zz = zsp.zspec[idx][model.objects == id]
 
 class MultiFit():
-    def __init__(self, files=[], fcontam=2, min_err=0.05, z=None, znorm='z_peak', norm_maglimit=23.5, ignore_photometry=False, clip_edges=False, fitbg=False, smooth_oned=1):
+    def __init__(self, files=[], fcontam=2, min_err=0.05, z=None, znorm='z_peak', norm_maglimit=23.5, ignore_photometry=False, clip_edges=False, fitbg=False, smooth_oned=1, outroot=None, flatten_thumb=False):
         import threedhst.eazyPy as eazy
         
         if len(files) == 0:
@@ -308,7 +308,7 @@ class MultiFit():
         #### Use GrismSpectrumFit as helper for reading EAZY products
         status = False
         for file in files:
-            self.gris = unicorn.interlace_fit.GrismSpectrumFit(file.split('.2D.fits')[0], lowz_thresh=0)
+            self.gris = unicorn.interlace_fit.GrismSpectrumFit(file.split('.2D.fits')[0].split('_2d.fits')[0], lowz_thresh=0)
             if self.gris.status:
                 status = True
                 break
@@ -342,7 +342,7 @@ class MultiFit():
         #### Read spectra
         self.twod = []
         for file in files:
-            t = unicorn.reduce.Interlace2D(file)
+            t = unicorn.reduce.Interlace2D(file, flatten_thumb=flatten_thumb)
             if not t:
                 continue
             
@@ -350,7 +350,7 @@ class MultiFit():
             
             t.bg, t.scl = 0., 1
             t.cwht = 1/np.sqrt(t.im['WHT'].data**2 + (self.fcontam*t.im['CONTAM'].data)**2)
-            t.wht = 1/t.im['WHT'].data**2
+            t.wht = 1/(t.im['WHT'].data**2 + (self.fcontam*t.im['CONTAM'].data)**2)
             wht_mask = (t.im['WHT'].data == 0) | ~np.isfinite(t.cwht) | (t.im['WHT'].data > 100)
             t.fast_compute_model()
             wht_mask |= (t.model < 0.05*t.model.max())
@@ -358,7 +358,7 @@ class MultiFit():
             t.cwht[wht_mask] = 0.
             t.wave = np.cast[float](t.im['WAVE'].data)
             t.sens = np.cast[float](t.im['SENS'].data*(t.im[0].header['GROWX']*t.im[0].header['GROWY']))
-
+                
             t.ok_mask = ~wht_mask
             
             ### don't use edges of the arrays where uncertain for large extended galaxies
@@ -389,7 +389,11 @@ class MultiFit():
             self.status = False
             return
             
-        self.root = self.gris.root.split('-G1')[0]
+        if outroot is None:
+            self.root = self.gris.root.split('-G1')[0]
+        else:
+            self.root = outroot
+            
         self.id = self.twod[0].id
         
         # self.norm_to_template(); plt.ylim(-0.1, 1)
@@ -433,7 +437,21 @@ class MultiFit():
             self.z = z
         
         self.status = True
+    
+    def mask_photometry(self, idx, z=None):
+        self.efobs[idx] = 10000
+        for t in self.twod:
+            t.scl = 1.
+            t.bg = 0
         
+        self.update_data()
+        if z is None:
+            if self.gris.z_peak > 0:
+                z = self.gris.z_peak*1
+        
+        if (z is not None) & (z > 0):        
+            self.fit_at_z(z, renorm=True)
+    
     def update_data(self):
         print 'update'
         
@@ -762,7 +780,7 @@ class MultiFit():
             scl = np.clip(t.model.max(), 0.03, 1)
             scl = np.clip(np.percentile((t.cleaned/t.scl-t.bg), 95)*1.1, 0.03, 1)
             #print scl
-            
+                            
             ax = fig.add_subplot(gs1[i*2])
             ax.imshow((t.cleaned/t.scl-t.bg)/scl, origin='lower', vmin=-0.1, vmax=1, interpolation='nearest', aspect='auto')
             self.axis_ticks(ax, t)
@@ -797,7 +815,7 @@ class MultiFit():
         for t in self.twod:
             wave, yspec_data = t.optimal_extract((t.cleaned-t.bg)/t.scl)
             xok = t.im['SENS'].data > 0.15*t.im['SENS'].data.max()
-            t.wopt, t.fopt = wave[xok]/1.e4, ((yspec_data)/t.im['SENS'].data)[xok]/t.im[0].header['GROW']**2
+            t.wopt, t.fopt = wave[xok]/1.e4, ((yspec_data)/t.im['SENS'].data)[xok]/t.im[0].header['GROWX']/t.im[0].header['GROWY']
             if self.smooth_oned > 0:
                 ax.plot(t.wopt, nd.gaussian_filter(t.fopt, self.smooth_oned), alpha=0.5, linestyle='steps-mid')
             else:
@@ -807,7 +825,7 @@ class MultiFit():
             
             t.fast_compute_model(self.phot_lines.templam*(1+self.z_fit), best_temp/(1+self.z_fit)**2/t.total_flux)
             wave, yspec_model = t.optimal_extract(t.model) 
-            t.mopt = (yspec_model/t.im['SENS'].data)[xok]/t.im[0].header['GROW']**2
+            t.mopt = (yspec_model/t.im['SENS'].data)[xok]/t.im[0].header['GROWX']/t.im[0].header['GROWY']
             ax.plot(wave[xok]/1.e4, t.mopt, color='black', linewidth=2, alpha=0.5)
             ymax = np.maximum(ymax, t.mopt.max())
             ymin = np.minimum(ymin, t.mopt.min())

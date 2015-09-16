@@ -664,17 +664,17 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
     #
     fp.close()
     
-    clean_files = [os.path.join(PATH, root)+'.zeropoint', 'tweak/tweak.dat']
+    clean_files = [os.path.join(PATH, root)+'.zeropoint', 'tweak_%s/tweak.dat' %(root)]
     for file in clean_files:
         if os.path.exists(file):
             os.remove(file)
     #
     NT = len(param.templates)
-    fp = open('tweak/spectra.param','w')
+    fp = open('tweak_%s/spectra.param' %(root),'w')
     for i in range(NT):
         wt, ft = np.loadtxt(param.templates[i], unpack=True)
-        np.savetxt('tweak/%s' %(os.path.basename(param.templates[i])), np.array([wt, ft]).T, fmt='%.5e')
-        fp.write('%d tweak/%s 1.0 0 1.0\n' %(i+1, os.path.basename(param.templates[i])))
+        np.savetxt('tweak_%s/%s' %(root, os.path.basename(param.templates[i])), np.array([wt, ft]).T, fmt='%.5e')
+        fp.write('%d tweak_%s/%s 1.0 0 1.0\n' %(i+1, root, os.path.basename(param.templates[i])))
     
     fp.close()
     
@@ -725,13 +725,13 @@ def loop_zeropoints(root='cosmos', tfile='zphot.translate.cosmos',  zfile='zphot
         #### Use tweaked templates after two iterations
         if i == 0:
             try:
-                os.remove('tweak/tweak.dat')
+                os.remove('tweak_%s/tweak.dat' %(root))
             except:
                 pass
             #
         
         if (i == 1) & (use_tweaked_templates):
-            param.params['TEMPLATES_FILE'] = 'tweak/spectra.param'
+            param.params['TEMPLATES_FILE'] = 'tweak_%s/spectra.param' %(root)
             param.write('zphot.param.iter')
         
         os.system('eazy -p zphot.param.iter -t zphot.translate.iter -z %s' %(zfile))

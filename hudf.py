@@ -718,7 +718,7 @@ def extract_all(id_extract=6818, fit=False, miny=-200, MAGLIMIT=28, FORCE=True):
     
 #
 class Stack2D(object):
-    def __init__(self, id=6818, inverse=False, scale=[1,99], fcontam=2., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', files=None, go=True):
+    def __init__(self, id=6818, inverse=False, scale=[1,99], fcontam=2., ref_wave = 1.4e4, root='UDF', search='[PG][RO]', files=None, go=True, new_contam=False):
         """
         Class for stacking 2D grism spectra
         
@@ -757,7 +757,16 @@ class Stack2D(object):
         self.ims = []
         for file in self.files:
             self.ims.append(pyfits.open(file))
-        
+            
+        #### Use new contam images
+        if new_contam:
+            for im in self.ims:
+                contam_file = im.filename().replace('.2D.', '.new_contam.')
+                if os.path.exists(contam_file):
+                    print 'Use CONTAM from %s' %(contam_file)
+                    new = pyfits.open(contam_file)
+                    im['CONTAM'].data = new[0].data
+                    
         #### Fill wavelength elements that might be set to zero
         for im in self.ims:
             wave = im['WAVE'].data

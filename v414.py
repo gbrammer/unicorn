@@ -157,7 +157,9 @@ def make_master_catalog():
     Combine all columns into a master FITS file
     """
     from collections import OrderedDict
+    import numpy as np
     from astropy.table import Table, Column
+    from threedhst import catIO
     
     #### Redshifts
     zout = catIO.Table('3dhst.dusty.v4.1.zout', format='ascii.commented_header')
@@ -245,6 +247,62 @@ def make_master_catalog():
     
     #full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
     
+    #############
+    full = catIO.Table('../../v4.1.4/3dhst.v4.1.4.full.v2.fits')
+    for line in ['OIII', 'OIIIX', 'OII', 'HALPHA', 'HBETA', 'SII']:
+        for ext in ['SCALE', 'FLUX', 'FLUX_ERR', 'EQW', 'EQW_ERR']:
+            full.remove_column('%s_%s' %(line, ext))
+            
+    ### update with v4.1.5 redshifts
+    ### cat aegis.new_zfit.linematched.v4.1.5.dat cosmos.new_zfit.linematched.v4.1.5.dat
+    fields = ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']
+    ### columns that need "zfit" before the name
+    prepend_columns = ['z_spec', 'l95', 'l68', 'u68', 'u95']
+    for field in fields:
+        print field
+        #zfit = catIO.Table('Files/%s.new_zfit.linematched.v4.1.5.dat' %(field))
+        zfit = catIO.Table('Files/%s.new_zfit.linematched_all.v4.1.5.fits' %(field))
+        ix = full['field'] == field.upper().replace('GOODS','GOODS-')
+        for col in zfit.columns:
+            print col
+            outcol = col
+            if col in prepend_columns:
+                outcol = 'zfit_%s' %(col)
+            
+            full[outcol][ix] = zfit[col]
+    
+    #### linefit
+    tt = catIO.Table('Files/aegis.linefit.linematched_all.v4.1.5.fits')
+    cols = list(tt.columns[3:])
+    cols[0] = 'linefit_z'
+    
+    for col in cols:
+        data = np.zeros(len(full))-99
+        full.add_column(catIO.Column(data=data, name=col))
+        
+    for field in fields:
+        print field
+        linefit = catIO.Table('Files/%s.linefit.linematched_all.v4.1.5.fits' %(field))
+        ix = full['field'] == field.upper().replace('GOODS','GOODS-')
+        linefit.rename_column('z', 'linefit_z')
+        for col in cols:
+            full[col][ix] = linefit[col]
+    
+    full.write('3dhst.v4.1.5.full.v1.fits')
+
+    full = catIO.Table('3dhst.v4.1.5.full.v1.fits')
+#
+class SpecSorted(object):
+    def __init__(self, spec_rest, wave, skip, selection, sort, sort_name):
+        self.spec_rest = spec_rest*1
+        self.wave = wave*1
+        self.sh = self.spec_rest.shape
+        self.skip = skip
+        self.selection = selection
+        self.N = self.selection.sum()
+        self.sort = sort
+        self.sort_name = sort_name
+        
 def master_spec():
     full = catIO.Table('3dhst.v4.1.4.full.v1.fits')
     lran = np.arange(1.e4,1.7e4,23)
@@ -277,31 +335,68 @@ def master_spec():
     
     pyfits.HDUList(hdu).writeto('master_spec_v4.1.4.fits')
     
+    img = pyfits.open('/Users/brammer/3DHST/Spectra/Release/v4.1.4/master_spec_v4.1.4.fits')
+    lran = img['WAVE'].data*1
+    
     ### Galaxies
     npix = (img['FLUX'].data != 0).sum(axis=1)
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
+    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
+    ok = (npix > 100) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
     so = np.argsort(full['z_max_grism'][ok])
     skip = 15
     
     #### Continuum
     line_SN = npix < 0
-    for line in ['OII', 'OIII', 'HALPHA']:
-        line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 2) & (full['%s_FLUX' %(line)] > 0)
-    
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & line_SN
+    no_line_SN = npix < 0
+    line_list = ['OII', 'OIII', 'HALPHA']
+    line_list = ['OII', 'OIII', 'Ha', 'SIII']
+    for line in line_list:
+        line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 3) & (full['%s_SCALE' %(line)] > 0)
+        #no_line_SN[full['%s_SCALE' %(line)] != 0] &= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] < 1)[full['%s_SCALE' %(line)] != 0]
+        no_line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 2) & (full['%s_SCALE' %(line)] > 0)
+        #no_line_SN[full['%s_SCALE' %(line)] != 0] &= (full['%s_EQW' %(line)] - full['%s_EQW_ERR' %(line)] < 50)[full['%s_SCALE' %(line)] != 0]
+        
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & line_SN
     so = np.argsort(full['z_max_grism'][ok])
-    skip = 5
+    #skip = 5
+    skip = 18
+    skip = ok.sum()/305
+
+    ### No line
+    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & no_line_SN
+    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 23) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & no_line_SN & (~line_SN)
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 23) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & ~no_line_SN #& (~line_SN)
+    so = np.argsort(full['z_max_grism'][ok])
+    #so = np.argsort(full['hmag'][ok])
+    skip = 18
+    skip = ok.sum()/305
     
     ## sort by stellar mass
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.3)
+    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.6)
+    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.6)
     
     ### High-z
     ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 1.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.2)
     ### lowz
     ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.18) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 0.9)
-
+    
+    
     so = np.argsort(full['lmass'][ok])
-    skip = 21
+    xx = full['lmass'][ok]
+    #skip = ok.sum()/200
+
+    so = np.argsort(full['UmV'][ok])
+    xx = full['UmV'][ok]
+
+    # so = np.argsort(full['lssfr'][ok])
+    # so = np.argsort(full['fout_Av'][ok])
+    # xx = full['fout_Av'][ok] + np.random.rand(ok.sum())*0.1
+    # so = np.argsort(xx)
+
+    so = np.argsort(full['eazy_MLv'][ok])
+    xx = full['eazy_MLv'][ok]
+    
+    skip = ok.sum()/200
     
     #### stars
     imj = -2.5*np.log10(full['f_F814W']/full['f_F125W'])
@@ -311,31 +406,61 @@ def master_spec():
     skip = 5
     #avg = np.median(smooth[0:100,:], axis=0)
     
-    sub = (img['FLUX'].data-img['CONTAM'].data)[ok,:][so,:]
-    scl = 10**(0.4*(full['hmag'][ok][so]-21))
-    sub = (sub.T*scl).T
+    ########## Copy from here
     
+    sub = (img['FLUX'].data-img['CONTAM'].data)[ok,:][so,:]
+    #scl = 10**(0.4*(full['hmag'][ok][so]-21))
+    h2 = 25-2.5*np.log10(full['f_F140W'][ok][so])
+    scl = 10**(0.4*(h2-21))
+    
+    import numpy.ma as ma
+    mask = np.isfinite(sub) & (sub > 0)
+    sub = ma.masked_array(sub, mask=(~mask))
+    
+    sub = (sub.T*scl).T
     smooth = sub*1.
     for i in range(ok.sum())[::skip]:
-        smooth[i,:] = np.median(sub[i:i+skip,:], axis=0)
+        #smooth[i,:] = np.median(sub[i:i+skip,:], axis=0)
+        smooth[i,:] = ma.median(sub[i:i+skip,:], axis=0)
     
     smooth = smooth[::skip]
     avg = np.median(smooth, axis=0)
-    
+        
     zi = full['z_max_grism'][ok][so][::skip]
     lrest = np.arange(2500, 1.3e4, 10)
     lrest = np.arange(2500, 1.4e4, 10)
+
+    lrest = np.arange(2500, 1.7e4/(1+0.605), 10)  #### limit z range to h-alpha
+    lrest = np.linspace(2500, 1.7e4/(1+0.605), smooth.shape[1])  #### limit z range to h-alpha
+
     sh = smooth.shape
     spec_rest = np.zeros((sh[0], len(lrest)))
     for i in range(sh[0]):
-        spec_rest[i,:] = np.interp(lrest, lran[30:]/(1+zi[i]), smooth[i,30:]/avg[30:], left=0, right=0)
+        #spec_rest[i,:] = np.interp(lrest, lran[30:]/(1+zi[i]), smooth[i,30:]/avg[30:], left=0, right=0)
+        spec_rest[i,:] = unicorn.utils_c.interp_conserve_c(lrest, lran[33:]/(1+zi[i]), smooth[i,33:]/avg[33:], left=0, right=0)
+    
+    spec_rest[spec_rest == 0] = 100
+    
+    # spec_rest_line = SpecSorted(spec_rest, lrest, skip, ok, zi, 'z')
+    # 
+    # spec_rest_cont = SpecSorted(spec_rest, lrest, skip, ok, zi, 'z')
+        
+    ###### To here
     
     ### full rest, for when not sorted by redshift
+    lrest = np.linspace(3500, 8000, smooth.shape[0])  #### limit z range to h-alpha
+    #g=1
+    lrest = np.linspace(3000, 10000, smooth.shape[0]*g)  #### limit z range to h-alpha
+    lrest = 10**np.linspace(np.log10(3000), np.log10(15200), smooth.shape[0]*g)  #### limit z range to h-alpha
+    lrest = 10**np.linspace(np.log10(3200), np.log10(10000), smooth.shape[0]*g)  #### limit z range to h-alpha
+    #lrest = np.linspace(3300, 13000, smooth.shape[0])  #### limit z range to h-alpha
     zzi = full['z_max_grism'][ok][so]
     sh = sub.shape
     spec_rest_full = np.zeros((sh[0], len(lrest)))
     for i in range(sh[0]):
-        spec_rest_full[i,:] = np.interp(lrest, lran[30:-5]/(1+zzi[i]), sub[i,30:-5]/avg[30:-5], left=0, right=0)
+        #spec_rest_full[i,:] = np.interp(lrest, lran[30:-5]/(1+zzi[i]), sub[i,30:-5]/avg[30:-5], left=0, right=0)
+        sl = slice(40,-10)
+        spec_rest_full[i,:] = unicorn.utils_c.interp_conserve_c(lrest, lran[sl]/(1+zzi[i]), sub[i,sl]/avg[sl], left=0, right=0)
     
     spec_rest_full[~np.isfinite(spec_rest_full)] = 0
     smooth_full = spec_rest_full*1.
@@ -345,9 +470,16 @@ def master_spec():
         smooth_full[i,:] = np.ma.median(sub_region, axis=0)
     
     smooth_full = smooth_full[::skip]
+    smooth_full[smooth_full == 0] = 100
+
+    spec_rest_z = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'z')
+    
+    #spec_rest_mass = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass')
+    spec_rest_av = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'Av')
+    spec_rest_UmV = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'UV')
     
     ### Stack
-    spec_rest[~np.isfinite(spec_rest)] = 0
+    spec_rest[~np.isfinite(spec_rest) | (spec_rest > 99)] = 0
     sum_rest = np.sum(spec_rest, axis=0)
     N = np.sum(spec_rest != 0, axis=0)
     
@@ -387,14 +519,16 @@ def master_spec():
     
     fig.tight_layout()
     
-    unicorn.plotting.savefig(fig, '3dhst_allspecs.pdf')
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf')
     
     
     ##### Horizontal
     import seaborn as sns
     sns.set(style="ticks")
     plt.ioff()
-    fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]*0.5), xs=10, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    #fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]*0.5), xs=10, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    # natural shape
+    fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]), xs=5, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
     
     ax = fig.add_subplot(111)
     ax.imshow(255-unicorn.candels.clipLog(spec_rest.T, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
@@ -418,6 +552,7 @@ def master_spec():
     ax.set_xlabel(r'$z$')
     
     xlam = [0.25,0.5,0.75,1,1.25]
+    xlam = np.arange(0.3,1.4,0.1)
     xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
     ax.set_yticks(xpix); ax.set_yticklabels(xlam)
     ax2.set_yticks(xpix); ax2.set_yticklabels(xlam)
@@ -425,7 +560,7 @@ def master_spec():
     
     fig.tight_layout()
     
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_horiz.pdf')
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_horiz_xx.pdf')
     
     #### Sort stellar mass
     import matplotlib as mpl
@@ -451,6 +586,12 @@ def master_spec():
     mass = full['lmass'][ok][so][::skip]
     zpix = np.arange(9,11.1,0.5)
     zpixstr = list(zpix)
+    ax.set_xlabel(r'$\log\ M/M_\odot$')
+
+    # mass = xx[so][::skip]
+    # zpix = np.arange(0,2.1,0.5)
+    # zpixstr = list(zpix)
+    # ax.set_xlabel(r'$A_V$')
     
     ypix = np.interp(zpix, mass, np.arange(sh[0]))
     ax.set_xticks(ypix); ax.set_xticklabels(zpixstr)
@@ -463,7 +604,6 @@ def master_spec():
     ax2.set_xticks(ynv); ax2.set_xticklabels(ynticks)
     ax2.set_xlim(0, sh[0])
     ax2.set_xlabel(r'$N$')
-    ax.set_xlabel(r'$\log\ M/M_\odot$')
     
     xlam = [0.25,0.5,0.75,1,1.25]
     xlam = np.arange(4000,8000,1000)/1.e4
@@ -478,7 +618,228 @@ def master_spec():
     ax.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
     ax2.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
     
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_mass.pdf')
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_mass_xx.pdf')
+    
+    #### Show lines and continuum
+    import seaborn as sns
+    sns.set(style="ticks")
+    plt.rcParams['xtick.direction'] = u'in'
+    plt.rcParams['ytick.direction'] = u'in'
+    #sns.set_style("darkgrid", {"axes.facecolor": ".9"})
+    plt.ioff()
+    fig = unicorn.plotting.plot_init(aspect=0.55, xs=8, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+    
+    #for subplot, obj in zip([121, 122], [spec_rest_line, spec_rest_cont]):
+    for subplot, obj in zip([121, 122], [spec_rest_UmV, spec_rest_av]):
+        #for subplot, obj in zip([111], [spec_rest_z]):
+        zi = obj.sort
+        sh = obj.sh
+        spec_rest = obj.spec_rest*1
+        N = obj.N
+        
+        ax = fig.add_subplot(subplot) ### run twice
+        #ax = fig.add_subplot(122) ### run twice
+    
+        #ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+        if obj.sort_name in ['lmass', 'UV']:
+            #dy=6
+            spec_rest[sh[0]/18/3+dy-1:sh[0]/18+dy+1,:] += 100
+            for line in [[3727, '[OII]'], [4980, r'H$\beta$, [OIII]'], [6600, r'H$\alpha$, [SII]']]:
+                xpix = np.interp(line[0], obj.wave, np.arange(len(obj.wave)))
+                ax.text(xpix, sh[0]/45.+dy, line[1], ha='center', va='baseline', zorder=10, fontsize=8)
+                
+        ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1000, cmap=[9.62222, 0.90352], scale=[-0.02, 2]), origin='lower', aspect='auto', interpolation='Nearest')
+    
+        if obj.sort_name == 'z':
+            if subplot == 111:
+                xlam = np.arange(0.3,1.51, 0.1)            
+                zpix = np.arange(0.25,3.1,0.25)
+            else:
+                xlam = np.arange(0.3,1.01, 0.1)
+                zpix = np.arange(0.75,3.1,0.25)
+            
+            ax.set_ylabel(r'$z$')
+            zpixstr = list(zpix)
+            for i in range(len(zpix))[::2]:
+                zpixstr[i] = ''
+        
+            if subplot == 122:
+                zpixstr[-1] = ''
+        
+        elif obj.sort_name == 'lmass':
+            xlam = np.arange(0.4,0.81, 0.1)
+            ax.set_ylabel(r'$\log\ M/M_\odot$')
+            zpix = np.arange(9,11.5,0.25)
+            zpixstr = list(zpix)
+            for i in range(len(zpix))[1::2]:
+                zpixstr[i] = ''
+        
+        elif obj.sort_name == 'Av':
+            xlam = np.arange(0.4,0.81, 0.1)
+            ax.set_ylabel(r'$A_V$')
+            zpix = np.arange(0,3.6,0.5)
+            zpixstr = list(zpix)
+            zpixstr[-3] = ''
+            zpixstr[-1] = ''
+        
+        elif obj.sort_name == 'UV':
+            xlam = np.arange(0.4,0.81, 0.1)
+            ax.set_ylabel(r'$(U-V)_\mathrm{rest-frame}$')
+            zpix = np.arange(0.5,2.1, 0.5)
+            zpixstr = list(zpix)
+            # zpixstr[-3] = ''
+            # zpixstr[-1] = ''
+        
+        ypix = np.interp(zpix, zi, np.arange(sh[0]))
+        ax.set_yticks(ypix); ax.set_yticklabels(zpixstr)
+        ax.set_ylim(0, sh[0])
+    
+        ax2 = ax.twinx()
+        #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
+        ynticks = np.arange(0, N, 1000)
+        ynv = ynticks/obj.skip
+        ax2.set_yticks(ynv); ax2.set_yticklabels([]) #ynticks)
+        ax2.set_ylim(0, sh[0])
+        #ax2.set_ylabel(r'$N$')
+        
+        if subplot == 111:
+            ax2.set_ylabel(r'$N\times1000$')
+            keep_label = [0,1,2,5,10,20]
+            yy = ['']*len(ynv)
+            for i in range(len(yy)):
+                if ynticks[i]/1000 in keep_label:
+                    yy[i] = r'%d' %(ynticks[i]/1000)
+            
+            yy[0] = '0'
+            
+            ax2.set_yticklabels(yy)
+                     
+        #xlam = [0.25,0.5,0.75,1,1.25]
+        xpix = np.interp(xlam, obj.wave/1.e4, np.arange(len(obj.wave)))
+        ax.set_xticks(xpix); ax.set_xticklabels(xlam)
+        ax2.set_xticks(xpix); ax2.set_xticklabels(xlam)
+        ax.set_xlabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
+    
+    for ax in fig.axes:
+        ax.tick_params(axis='both', color='0.9', width=1.5, which='both')
+        
+    fig.tight_layout(pad=0.3)
+    
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf', dpi=200)
+            
+def pure_line_flux():
+    """
+    Calculate lien flux for pure emission line at H140=26
+    """
+    waves = np.linspace(1.2e4,1.6e4,100)
+    fluxes = waves*0.
+    for i in range(len(waves)):
+        print waves[i]
+        G = S.GaussianSource(1.e-17, waves[i], 10)
+        sp = G.renorm(26, 'ABMag', S.ObsBandpass('wfc3,ir,f140w'))
+        fluxes[i] = np.trapz(sp.flux, sp.wave)
+        
+    ### EW limit
+    line = S.GaussianSource(5.e-17, 1.4e4, 10)
+    cont = S.FlatSpectrum(26, fluxunits='ABMag')
+    
+    line_obs = S.Observation(line, S.ObsBandpass('wfc3,ir,f140w'))
+    cont_obs = S.Observation(cont, S.ObsBandpass('wfc3,ir,f140w'))
+    
+    scl = (cont_obs.countrate() - line_obs.countrate()) / (cont_obs.countrate())
+    sp_line = cont*scl+line
+    sp_cont = cont*scl+line*0
+    sp_line.convert('flam')
+    sp_cont.convert('flam')
+    EW = np.trapz((sp_line.flux-sp_cont.flux)/(sp_cont.flux), sp_cont.wave)
+    
+def line_sensitivities():
+    """
+    Plots like in Brammer 2012
+    """
+    
+    import pysynphot as S
+    g141 = S.ObsBandpass('wfc3,ir,g141')
+    
+    line_id, line_wave = 'Ha', 6563.
+
+    #line_id, line_wave = 'OIII', 5007.
+    #line_id, line_wave = 'OII', 3727.
+    
+    lx = (1+full['z_max_grism'])*line_wave
+    ok = (full['%s_SCALE' %(line_id)] > 0) & (full['star_flag'] == 0) & (full['hmag'] < 24) & (lx > 1.1e4) & (lx < 1.65e4) & (full['%s_FLUX_ERR' %(line_id)] > 0) #(full['z_max_grism'] > 0.68) & (full['z_max_grism'] < 1.53)
+    
+    pow = 2
+    
+    inv_through = 1/g141.throughput**pow
+    inv_through /= np.interp(1.5e4, g141.wave, inv_through)
+
+    ### Throughput / z / wavelength
+    interp_z = np.interp(full['z_max_grism'], g141.wave/line_wave-1, inv_through)
+    
+    #xm, ym, ys, nn = threedhst.utils.runmed((1+full['z_max_grism'][ok])*line_wave/1.e4, full['%s_FLUX_ERR' %(line_id)][ok]/interp_size[ok])
+    #cc = polyfit(xm-1.49, ym, 2)    
+    #interp_z = np.interp((1+full['z_max_grism'])*line_wave/1.e4, xm, ym/ym.min())
+    
+    xsize = np.arange(0,1000)
+    ysize = (xsize/4.)    
+    size_key = 'flux_radius'
+    #size_key = 'kron_radius'
+    interp_size = np.interp(full[size_key], xsize, ysize)
+    
+    ### size
+    okx = ok & (np.abs(full[size_key]-5) < 0.2)
+    size_scl = np.median(full['%s_FLUX_ERR' %(line_id)][okx]/interp_z[okx]) 
+    size_scl = 0.689
+    
+    plt.ioff()
+    fig = unicorn.plotting.plot_init(aspect=0.5, xs=8, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+
+    ax = fig.add_subplot(121)
+    aa = ax.scatter((1+full['z_max_grism'][ok])*line_wave/1.e4, full['%s_FLUX_ERR' %(line_id)][ok]/interp_size[ok], alpha=0.1, color='black', marker='.')
+    #ax.scatter(full['z_max_grism'][ok], full['%s_FLUX_ERR' %(line_id)][ok], c=full[size_key][ok], vmin=0, vmax=10, alpha=0.2)
+    #ax.scatter((1+full['z_max_grism'][ok])*line_wave/1.e4, full['%s_FLUX_ERR' %(line_id)][ok]/interp_size[ok]/interp_z[ok], c=full[size_key][ok], vmin=0, vmax=10, alpha=0.2)
+    
+    #aa = ax.scatter([0],[0], c=[0], vmin=0, vmax=10, alpha=0.8)
+    
+    #ax.plot(xm, ym, color='orange', linewidth=3)
+    
+    ax.plot(g141.wave/1.e4, inv_through*size_scl, color='red', linewidth=3, alpha=0.5, label=r'$\sigma\propto$ (G141 throughput)$^{-2}$')
+    ax.legend(loc='upper left', fontsize=9)
+    
+    ax.set_xlim(1.08, 1.7)
+    ax.set_ylim(0,3)
+    ax.set_xlabel(r'Line $\lambda$')
+    ax.set_ylabel(r'Line uncertainty, 1$\sigma$, $R=4$ pix') #, ($\times 10^{-17}\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^2$)')
+    
+    # cb = plt.colorbar(aa)
+    # cb.set_label(size_key.replace('_','\_'))
+    
+    ax = fig.add_subplot(122)
+    aa = ax.scatter(full[size_key][ok], full['%s_FLUX_ERR' %(line_id)][ok]/interp_z[ok], alpha=0.1, color='black', marker='.')
+    #ax.scatter(full[size_key][ok], full['%s_FLUX_ERR' %(line_id)][ok]/interp_z[ok]/interp_size[ok], c=full['z_max_grism'][ok], vmin=0.7, vmax=1.5, alpha=0.2)
+    #aa = ax.scatter([0],[0], c=[0], vmin=1.1, vmax=1.6, alpha=0.8)
+    
+    ax.plot(xsize, ysize*size_scl, color='red', linewidth=3, alpha=0.5, label=r'$\sigma\propto R$')
+    ax.legend(loc='upper left', fontsize=9)
+        
+    ax.set_xlim(2.8,15)
+    ax.semilogx()
+    ax.set_ylim(0,3)
+    ax.set_xlabel(r'$R = $ %s, pix' %(size_key.replace('_','\_')))
+    
+    #ax.set_ylabel(r'Line uncertainty, 1$\sigma$ ($\times 10^{-17}\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^2$)')
+    ax.set_xticks([5,10,15])
+    ax.set_xticklabels([5,10,15])
+    ax.set_ylabel(r'Line uncertainty, 1$\sigma$, $\lambda=1.5~\mu\mathrm{m}$') #, ($\times 10^{-17}\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^2$)')
+    
+    # cb = plt.colorbar(aa)
+    # cb.set_label(r'Line $\lambda$')
+    
+    fig.tight_layout(pad=0.5)
+    
+    fig.savefig('3dhst_line_sensitivity.pdf')
+    
     
 def get_full_catalog():
     """

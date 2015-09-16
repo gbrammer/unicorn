@@ -90,12 +90,12 @@ for beam in ['A','B','C','D','E']:
 #### wavelength limits
 grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4]}
 
-ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667, 'F555W':25.718, 'F475W':26.059, 'F625W':25.907, 'F775W':25.665, 'F850LP':24.842}
+ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667, 'F555W':25.718, 'F475W':26.059, 'F625W':25.907, 'F775W':25.665, 'F850LP':24.842, 'F132N':22.947}
 
 ### STMag zeropoints
-ZPsST = {'F105W':27.6933, 'F125W':28.0203, 'F140W':28.4790, 'F160W':28.1875, 'F606W':26.664, 'F814W':26.786, 'F435W':25.155, 'F110W':28.4401, 'F098M':29.9456}
+ZPsST = {'F105W':27.6933, 'F125W':28.0203, 'F140W':28.4790, 'F160W':28.1875, 'F606W':26.664, 'F814W':26.786, 'F435W':25.155, 'F110W':28.4401, 'F098M':29.9456, 'F132N':24.856}
 
-PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872., 'F110W':1.1534e4, 'F098M':9864.1}
+PLAMs = {'F105W':1.0552e4, 'F125W':1.2486e4, 'F140W':1.3923e4, 'F160W': 1.5369e4, 'F606W':5917.678, 'F814W':8059.761, 'F435W':4350., 'F775W':7750., 'F850LP':9000, 'ch1':3.6e4, 'ch2':4.5e4, 'K':2.16e4, 'U':3828., 'G':4870., 'R':6245., 'I':7676., 'Z':8872., 'F110W':1.1534e4, 'F098M':9864.1, 'F132N':13188.}
 
 # BWs = {}
 # for filt in PLAMs.keys():
@@ -461,7 +461,7 @@ def get_interlace_offsets(asn_file, growx=2, growy=2, path_to_flt='./', verbose=
     #print xinter, yinter
     return xinter-xinter[0], yinter-yinter[0]
     
-def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=180, NGROWY=30, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3, min_neighbors=2, reference_pixel=None):
+def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_undistorted=False, pad = 60, NGROWX=180, NGROWY=30, ddx=0, ddy=0, growx=2, growy=2, auto_offsets=False, ref_exp=0, nhotpix=2, clip_negative=-3, min_neighbors=2, reference_pixel=None, save_hotpix=False):
     
     # from pyraf import iraf
     # from iraf import dither
@@ -581,7 +581,10 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
         
     threedhst.showMessage('Flagged %d "hot pixels" marked as CRs in > %d images' %((hot_pix > nhotpix).sum(), nhotpix))
     hot_pix = hot_pix > nhotpix #2 # (len(asn.exposures)/2.)
-    
+    if save_hotpix:
+        pyfits.writeto(root+'_hotpix.fits', data=hot_pix*1, clobber=True)
+        threedhst.showMessage('Save %s_hotpix.fits' %(root))
+        
     for i,flt in enumerate(asn.exposures):
         print flt
         #flt = run.flt[i]
@@ -883,7 +886,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     NX,NY = xma-xmi, 8
 
-    NX,NY = xma-xmi, 15
+    NX,NY = xma-xmi, 20
     
     if grism == 'G800L':
         NY = 60
@@ -1024,6 +1027,7 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         f0 = ycenter-y0
         keep = (xarr >= xmi_beam) & (xarr <= xma_beam)
         if xarr[keep].size > 1:
+            #print stripe.shape, y0[keep].min(), y0[keep].max(), NY
             stripe[y0[keep]+NY,xpix[keep]]  = 1-f0[keep]
             stripe[y0[keep]+NY+1,xpix[keep]] = f0[keep]
             wavelength[y0[keep]+NY,xpix[keep]] += lam[keep]
@@ -1346,11 +1350,29 @@ class Interlace2D():
         Get 'NGROW' from the header if it exists, or use parameter.
         
         """
-        self.id = int(file.split('.2D')[0].split('_')[-1])
         self.file = file
         self.im = pyfits.open(file)
-            
+        #self.id = int(file.split('.2D')[0].split('_')[-1])
+        self.id = self.im[0].header['ID']
+           
         self.thumb = np.cast[np.double](self.im['DSCI'].data)
+        if flatten_thumb:
+            #### Subtract some number from the thumbnail
+            if isinstance(flatten_thumb, bool):
+                thumb_percentile = 40.
+            else:
+                thumb_percentile = flatten_thumb
+                
+            limit = np.percentile(self.thumb, thumb_percentile)
+            threedhst.showMessage('Flatten thumb (%.0f percentile), f=%.3f' %(thumb_percentile, limit))
+            
+            self.thumb -= limit
+            #self.thumb = self.thumb**4
+            self.im['DSCI'].data -= limit
+            self.im['DSCI'].data [self.thumb < 0] = 0
+            self.thumb[self.thumb < 0] = 0
+            
+        
         self.thumb_weight = np.cast[np.double](self.im['DWHT'].data)
         self.seg = np.cast[np.uint](self.im['DSEG'].data)
         if 'GRISM' not in self.im[0].header.keys():
@@ -1363,7 +1385,7 @@ class Interlace2D():
         if self.grism_element == 'G800L':
             chip = self.im[0].header['CCDCHIP']
         else:
-            chip=1
+            chip = 1
         
         if 'FINEX' in self.im[0].header.keys():
             self.fine_offset = [self.im[0].header['FINEX'], self.im[0].header['FINEY']]
@@ -1384,7 +1406,7 @@ class Interlace2D():
         self.sens_files = unicorn.reduce.sens_files
         
         try:
-            self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D'), PNG=False)
+            self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D').replace('2d.', '1d.'), PNG=False)
         except:
             print 'No 1D spectrum found.  Generate one with `self.oned_spectrum()`'
             pass
@@ -1426,11 +1448,11 @@ class Interlace2D():
         self.flux = self.thumb * 10**(-0.4*(ZPs[self.direct_filter]+48.6))* 3.e18 / PLAMs[self.direct_filter]**2 / 1.e-17
         self.total_flux = np.sum(self.flux*(self.seg == self.id))
         
-        #### Subtract a background from the direct thumbnail
-        if flatten_thumb:
-            threedhst.showMessage('Flatten %f' %(np.median(self.flux[self.seg == 0])), warn=True)
-            self.flux -= np.median(self.flux[self.seg == 0])
-            self.total_flux = np.sum(self.flux*(self.seg == self.id))
+        # #### Subtract a background from the direct thumbnail
+        # if flatten_thumb:
+        #     threedhst.showMessage('Flatten %f' %(np.median(self.flux[self.seg == 0])), warn=True)
+        #     self.flux -= np.median(self.flux[self.seg == 0])
+        #     self.total_flux = np.sum(self.flux*(self.seg == self.id))
         
         #self.total_flux = np.sum(self.flux*(self.seg > 0))
         
@@ -1438,7 +1460,7 @@ class Interlace2D():
         #self.model_quality(width=5)
         self.twod_mask = np.isfinite(self.im['SCI'].data) & (self.im['WHT'].data > 0)
         self.cleaned = self.im['SCI'].data-self.im['CONTAM'].data
-        
+                    
     def init_model(self, lam_spec=None, flux_spec=None):
         """
         Initialize all of the junk needed to go from the pixels in the 
@@ -1852,7 +1874,7 @@ class Interlace2D():
         
         unicorn.plotting.savefig(fig, self.file.replace('2D.fits', 'thumb.png'))
         
-    def init_fast_model(self, recenter=True, recenter_maglimit=23.5, dy=0):
+    def init_fast_model(self, recenter=True, recenter_maglimit=23.5, dy=0, med=False):
         """
         Init of thumbnail-based approach building a model up summing
         the thumbnail
@@ -1861,6 +1883,9 @@ class Interlace2D():
         
         thumb = self.im['DSCI'].data*1
         thumb[self.im['DSEG'].data != self.id] = 0
+        if med:
+            thumb -= np.median(thumb[thumb != 0])
+            
         thumb *= self.total_flux/np.sum(thumb)
         
         ### Set up
@@ -1989,6 +2014,7 @@ class Interlace2D():
             self.twod_background_param = p
             self.twod_background_image = p(xc, yc)
             self.im['SCI'].data -= self.twod_background_image
+            self.cleaned = self.im['SCI'].data - self.im['CONTAM'].data
             
             if apply_to_fits:
                 im = pyfits.open(self.im.filename(), mode='update')
@@ -3250,7 +3276,7 @@ class GrismModel():
             print 'Object #%d not in catalog.' %(id)
             return False
         
-        unicorn.reduce.set_grism_config(grism=self.grism_element)            
+        unicorn.reduce.set_grism_config(grism=self.grism_element, chip=self.chip)            
         #
         ii = np.where(np.cast[int](self.cat.id) == id)[0][0]
         xc = np.int(np.round(self.cat.x_pix[ii]))-1
@@ -3520,6 +3546,15 @@ class GrismModel():
         
         self.dwave = self.wave[1]-self.wave[0]
         
+        #### missing wavelength / sens pixels
+        bad = (self.wave == 0)
+        if bad.sum() > 0:
+            dlam = np.median(np.diff(self.wave))
+            NL = len(self.wave)
+            lam = (np.arange(len(self.wave))-NL/2)*dlam+self.wave[NL/2]
+            self.wave[bad] = lam[bad]
+            self.dwave = dlam
+            
         #print '\nxxx: wave %f %f\nxxx\n' %(self.wave.min(), self.wave.max())
         
         if verbose:

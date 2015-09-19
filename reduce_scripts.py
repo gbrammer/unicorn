@@ -2666,7 +2666,7 @@ def make_duplicates_lists(field ='', version='v4.1.5'):
     duplicates_2d.close()
     duplicates_zfit.close()
 
-def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_CATALOG='', ZFIT_FILE=''):
+def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_CATALOG='', ZFIT_FILE='', OUT_ROOT='linematched'):
     
     import os
     
@@ -2676,14 +2676,17 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
     zfit = table.read(ZFIT_FILE, format='ascii') ###  use the full one
     
-    n_rows = len(cat)
+    n_rows = len(zfit)
     empty = np.empty(n_rows, dtype=float)
      
     # create table for emission line catalog, bright and faint
     line_columns = ['number', 'gris_id','jh_mag','z','s0','s0_err','s1','s1_err']
     types = ['<i8','S22','<f8','<f8','<f8','<f8','<f8','<f8']
 
-    lines_bright_tab = table([cat['id'], zfit['spec_id'], s_cat['MAG_AUTO'], np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
+    ids = [int(ll.split('_')[1]) for ll in zfit['spec_id']]
+    mags = [s_cat['MAG_AUTO'][np.where(s_cat['NUMBER'] == int(ll.split('_')[1]))[0][0]] for ll in zfit['spec_id']]
+
+    lines_bright_tab = table([ids, zfit['spec_id'], mags, np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
 
     line_names = ['Lya','CIV','MgII','OII','Hd','Hg','OIIIx','HeII','Hb','OIII','Ha','SII','SIII','HeI','HeIb', 'NeIII','NeV' ,'NeVI', 'OI']
 
@@ -2705,7 +2708,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
         line_filename = '{}.linefit.dat'.format(row['spec_id'])
 
         if os.path.exists(os.path.join(LINE_DIR, line_filename)):
-
+            
             with open(line_filename, 'r') as fp:            
                 for ll in fp:
                     if ll.startswith('# z'):
@@ -2721,7 +2724,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
             lines_all_tab['s1'][ii] = s1
             lines_all_tab['s1_err'][ii] = s1_err
             
-            if s_cat['MAG_AUTO'][ii] <=24.:
+            if mags[ii] <=24.:
                 lines_bright_tab['z'][ii] = z
                 lines_bright_tab['s0'][ii] = s0
                 lines_bright_tab['s0_err'][ii] = s0_err
@@ -2737,7 +2740,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
                 lines_all_tab['{}_EQW'.format(name)][ii] = ll['EQW_obs']
                 lines_all_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
                 
-                if s_cat['MAG_AUTO'][ii] <= 24.:
+                if mags[ii] <= 24.:
                     lines_bright_tab['{}_FLUX'.format(name)][ii] = ll['flux']
                     lines_bright_tab['{}_FLUX_ERR'.format(name)][ii] = ll['error']
                     lines_bright_tab['{}_SCALE'.format(name)][ii] = ll['scale_to_photom']
@@ -2745,9 +2748,11 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
                     lines_bright_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
     
     print np.sum(lines_all_tab['z'] != -1.), np.sum(lines_bright_tab['z'] != -1.)
-    lines_all_tab.write('{}.linefit.linematched_all.{}.fits'.format(field, version),format='fits')
-    lines_bright_tab.write('{}.linefit.linematched.{}.fits'.format(field, version),format='fits')
-    
+    if OUT_ROOT:
+        lines_all_tab.write('{}.linefit.{}_all.{}.fits'.format(field, 
+            OUT_ROOT, version),format='fits')
+        lines_bright_tab.write('{}.linefit.{}.{}.fits'.format(field, 
+            OUT_ROOT, version),format='fits')    
 
 def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT_FILE=''):
     

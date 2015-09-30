@@ -2402,12 +2402,11 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
     print '# Author: I. Momcheva ({})\n'.format(time.strftime("%c"))
         
     
-# aegis.dqflag.linematched.v4.1.4.dat
-# Author: I. Momcheva (Tue Nov  4 01:31:06 2014)
+    # aegis.dqflag.linematched.v4.1.4.dat
+    # Author: I. Momcheva (Tue Nov  4 01:31:06 2014)
 
 
-def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MASTER_FLAG=''):
-        
+def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MASTER_FLAG='', USE_FLAG=''):
     
     REF_HYP = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
         'cosmos':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat', 
@@ -2438,7 +2437,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit_data['spec_id']]
         
     # read in flags    
-    flags = table.read(MASTER_FLAG)
+    flags = table.read(MASTER_FLAG, format='ascii')
     
     # read in DQ file    
     dq_file = '{}.dqflag.{}.dat'.format(field, version)
@@ -2542,8 +2541,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     unq_zfit_bright = unq_zfit_bright[flag]
     idx_bright = idx_bright[flag]
         
-    zfit_header = "phot_id   spec_id   dr   z_spec  z_peak_phot  z_max_grism z_peak_grism l95 l68 u68 u95"
-    dq_header = "phot_id spec_id mag q_z f_cover f_flagged max_contam int_contam f_negative"
+    zfit_header = "phot_id spec_id jh_mag z_spec z_peak_phot z_max_grism z_peak_grism l95 l68 u68 u95 id f_cover f_flagged max_contam int_contam f_negative flag1 flag2 use_zgrism"
     author = "Author: I. Momcheva ({})".format(time.strftime("%c"))
     
     
@@ -2551,55 +2549,63 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     tmp_table = table([cat.id, np.full(N,'00000',dtype='S25')], names=('phot_id','spec_id'))
     tmp_table.remove_column('spec_id')
     table_zfit_all = astropy.table.join(tmp_table, zfit_data[idx_all], keys='phot_id', join_type = 'left')
-    (table_zfit_all['spec_id'].fill_value, table_zfit_all['dr'].fill_value, table_zfit_all['z_spec'].fill_value, table_zfit_all['z_peak_phot'].fill_value, table_zfit_all['z_max_grism'].fill_value, table_zfit_all['z_peak_grism'].fill_value, table_zfit_all['l95'].fill_value, table_zfit_all['l68'].fill_value, table_zfit_all['u68'].fill_value, table_zfit_all['u95'].fill_value) = ('00000', 0.000, -1.0, -99.0, -99.0, -99.0, 0.0, 0.0, 0.0, 0.0)
+    table_zfit_all.remove_column('dr')
+    dq_data.remove_column('mag')
+    dq_data.remove_column('id')
+    dq_data.remove_column('q_z')
+    table_zfit_all = astropy.table.join(table_zfit_all, dq_data[idx_all], keys='phot_id', join_type = 'left')
     
-    zfit_outfile_all = zfit_file.replace('zfit','zfit.linematched_all') 
-    table_zfit_all.filled().write(zfit_outfile_all, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f'})
+    (table_zfit_all['spec_id'].fill_value, table_zfit_all['z_spec'].fill_value, table_zfit_all['z_peak_phot'].fill_value, table_zfit_all['z_max_grism'].fill_value, table_zfit_all['z_peak_grism'].fill_value, table_zfit_all['l95'].fill_value, table_zfit_all['l68'].fill_value, table_zfit_all['u68'].fill_value, table_zfit_all['u95'].fill_value, table_zfit_all['f_cover'].fill_value, table_zfit_all['f_flagged'].fill_value, table_zfit_all['max_contam'].fill_value, table_zfit_all['int_contam'].fill_value, table_zfit_all['f_negative'].fill_value) = ('00000', -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,-1.0, -1.0)
+    
+    ### add jh_mag
+    col_jh_mag = astropy.table.Column(np.array(s_cat['MAG_AUTO']), name='jh_mag', format='%7.4f')
+    table_zfit_all.add_column(col_jh_mag, index=2)
+
+    ### add indivifual flags
+    col_flag1 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag1', dtype='<i8')
+    col_flag2 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag2', dtype='<i8')
+
+    for ii, row in enumerate(table_zfit_all):      
+        if (row['spec_id'] != '00000') and (row['jh_mag'] <= 24.):                        
+            nn = np.where((flags['pointing'] == row['spec_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
+            if len(nn) == 1:                
+                col_flag1[ii] = flags['contam1'][nn[0]]
+                col_flag2[ii] = flags['contam2'][nn[0]]    
+            elif len(nn) > 1:                
+                print 'There should be only one match: {}'.format(row['spec_id'])
+            elif len(nn) == 0:                
+                print 'No match: {}'.format(row['spec_id'])
+    
+    
+    table_zfit_all.add_column(col_flag1)
+    table_zfit_all.add_column(col_flag2)
+
+    ### add use flags
+    use_flag = table.read(USE_FLAG, format='ascii')
+    table_zfit_all.add_column(use_flag['use_zgrism'])
+    table_zfit_all['use_zgrism'][table_zfit_all['jh_mag'] >= 24.] = -1
+    table_zfit_all['use_zgrism'][table_zfit_all['spec_id'] == '00000'] = -1
+    
+    ### add z_phot & confidence intervals
+    table_zfit_all['z_peak_phot'] = zout['z_peak']
+    table_zfit_all['z_spec'] = zout['z_spec']
+    col_phot_l95 = astropy.table.Column(zout['l95'], name='z_phot_l95', format='%7.3f')
+    col_phot_l68 = astropy.table.Column(zout['l68'], name='z_phot_l68', format='%7.3f')
+    col_phot_u68 = astropy.table.Column(zout['u68'], name='z_phot_u68', format='%7.3f')
+    col_phot_u95 = astropy.table.Column(zout['u95'], name='z_phot_u95', format='%7.3f')
+    table_zfit_all.add_column(col_phot_l95, index=5)
+    table_zfit_all.add_column(col_phot_l68, index=6)
+    table_zfit_all.add_column(col_phot_u68, index=7)
+    table_zfit_all.add_column(col_phot_u95, index=8)
+    
+    zfit_outfile_all = zfit_file.replace('new_zfit','zfit.linematched') 
+    table_zfit_all.filled().write(zfit_outfile_all, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f', 'mag_f160w':'%8.3f', 'id':'%25s', 'mag':'%8.3f', 'q_z':'%8.5f', 'f_cover':'%8.5f', 'f_flagged':'%8.5f', 'max_contam':'%8.5f', 'int_contam':'%8.5f', 'f_negative':'%8.5f'})
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_all))
     os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_all))
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(zfit_header, zfit_outfile_all))
     os.system('rm {}.old'.format(zfit_outfile_all))
 
-    table_zfit_all.filled().write(zfit_outfile_all.replace('.dat','.fits'))
-    
-    ### zfit linematched bright
-    table_zfit_bright = astropy.table.join(tmp_table, zfit_data[idx_bright], keys='phot_id', join_type = 'left')
-    (table_zfit_bright['spec_id'].fill_value, table_zfit_bright['dr'].fill_value, table_zfit_bright['z_spec'].fill_value, table_zfit_bright['z_peak_phot'].fill_value, table_zfit_bright['z_max_grism'].fill_value, table_zfit_bright['z_peak_grism'].fill_value, table_zfit_bright['l95'].fill_value, table_zfit_bright['l68'].fill_value, table_zfit_bright['u68'].fill_value, table_zfit_bright['u95'].fill_value) = ('00000', 0.000, -1.0, -99.0, -99.0, -99.0, 0.0, 0.0, 0.0, 0.0)
-    
-    zfit_outfile_bright = zfit_file.replace('zfit','zfit.linematched') 
-    table_zfit_bright.filled().write(zfit_outfile_bright, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f'})
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_bright))
-    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_bright))
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(zfit_header, zfit_outfile_bright))
-    os.system('rm {}.old'.format(zfit_outfile_bright))
-    table_zfit_bright.filled().write(zfit_outfile_bright.replace('.dat','.fits'))
-
-
-    ### dq linematched all
-    tmp_table = table([cat.id, s_cat['MAG_AUTO']], names=('phot_id','mag_jh'))
-    table_dq_all = astropy.table.join(tmp_table, dq_data[idx_all], keys='phot_id', join_type = 'left')
-    (table_dq_all['id'].fill_value, table_dq_all['mag'].fill_value, table_dq_all['q_z'].fill_value, table_dq_all['f_cover'].fill_value, table_dq_all['f_flagged'].fill_value, table_dq_all['max_contam'].fill_value, table_dq_all['int_contam'].fill_value, table_dq_all['f_negative'].fill_value, ) = ('00000',-99.0, 0.00e+00, 0.00, 1.00, 1.00, 1.00, 1.00)
-    
-    dq_outfile_all = dq_file.replace('dqflag','dqflag.linematched_all')
-    table_dq_all.filled().write(dq_outfile_all, delimiter='\t', format='ascii', formats={'mag_f160w':'%8.3f','id':'%25s','mag':'%8.3f','q_z':'%8.5f','f_cover':'%8.5f','f_flagged':'%8.5f','max_contam':'%8.5f','int_contam':'%8.5f','f_negative':'%8.5f'})
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, dq_outfile_all))
-    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(dq_outfile_all))
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(dq_header, dq_outfile_all))
-    os.system('rm {}.old'.format(dq_outfile_all))
-    table_dq_all.filled().write(dq_outfile_all.replace('.dat','.fits'), format='fits')
-
-    ### dq linematched bright
-    tmp_table = table([cat.id, s_cat['MAG_AUTO']], names=('phot_id','mag_jh'))
-    table_dq_bright = astropy.table.join(tmp_table, dq_data[idx_bright], keys='phot_id', join_type = 'left')
-    (table_dq_bright['id'].fill_value, table_dq_bright['mag'].fill_value, table_dq_bright['q_z'].fill_value, table_dq_bright['f_cover'].fill_value, table_dq_bright['f_flagged'].fill_value, table_dq_bright['max_contam'].fill_value, table_dq_bright['int_contam'].fill_value, table_dq_bright['f_negative'].fill_value, ) = ('00000',-99.0, 0.00e+00, 0.00, 1.00, 1.00, 1.00, 1.00)
-    
-    dq_outfile_bright = dq_file.replace('dqflag','dqflag.linematched')
-    table_dq_bright.filled().write(dq_outfile_bright, delimiter='\t', format='ascii', formats={'mag_f160w':'%8.3f','id':'%25s','mag':'%8.3f','q_z':'%8.5f','f_cover':'%8.5f','f_flagged':'%8.5f','max_contam':'%8.5f','int_contam':'%8.5f','f_negative':'%8.5f'})
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, dq_outfile_bright))
-    os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(dq_outfile_bright))
-    os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(dq_header, dq_outfile_bright))
-    os.system('rm {}.old'.format(dq_outfile_bright))
-    table_dq_bright.filled().write(dq_outfile_bright.replace('.dat','.fits'), format='fits')
+    table_zfit_all.filled().write(zfit_outfile_all.replace('.dat','.fits'), format='fits')
     
     
 def make_duplicates_lists(field ='', version='v4.1.5'):
@@ -2749,10 +2755,12 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     
     print np.sum(lines_all_tab['z'] != -1.), np.sum(lines_bright_tab['z'] != -1.)
     if OUT_ROOT:
-        lines_all_tab.write('{}.linefit.{}_all.{}.fits'.format(field, 
-            OUT_ROOT, version),format='fits')
-        lines_bright_tab.write('{}.linefit.{}.{}.fits'.format(field, 
-            OUT_ROOT, version),format='fits')    
+        lines_all_tab.write('{}.linefit.{}.{}.fits'.format(field, OUT_ROOT, version),format='fits')
+        lines_bright_tab.write('{}.linefit_bright.{}.{}.fits'.format(field, OUT_ROOT, version),format='fits')   
+    else:
+        lines_all_tab.write('{}.linefit.all.{}.fits'.format(field, version),format='fits')
+        lines_bright_tab.write('{}.linefit_bright.{}.fits'.format(field, version),format='fits')   
+         
 
 def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT_FILE=''):
     
@@ -2762,7 +2770,7 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT
     print 'Reading in catalogs and creating placeholder table...'
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     zfit = table.read(ZFIT_FILE, format='ascii') ### use the bright one
-    master_flags = table.read(MASTER_FLAG)
+    master_flags = ascii.read(MASTER_FLAG)
     
     n_rows = len(cat)
      
@@ -2790,12 +2798,125 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT
                 print 'No match: {}'.format(row['spec_id'])
     
     
-    flags_tab.write('{}.flags.{}.fits'.format(field, version), format='fits')
-    flags_tab.write('{}.flags.{}.dat'.format(field, version), format='ascii')
+    flags_tab.write('{}.flags.linematched.{}.fits'.format(field, version), format='fits')
+    flags_tab.write('{}.flags.linematched.{}.dat'.format(field, version), format='ascii')
+
+def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
+    """
+    Use the concatenated ZFIT and DQ catalogs.
+    """
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    
+    # read in zfit
+    zfit = table.read('{}.new_zfit.{}.dat'.format(field, version), format='ascii')
+    id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit['spec_id']]
+        
+    # read in flags    
+    flags = table.read(MASTER_FLAG, format='ascii')
+    
+    # read in DQ file    
+    dq = table.read('{}.dqflag.{}.dat'.format(field, version), format='ascii')
+    if len(zfit) != len(dq):
+        raise Exception('DQ and ZFIT files have different length.')
+    N = len(zfit)    
+        
+    table_concat = astropy.table.hstack([zfit,dq])
+    table_concat.remove_column('dr')
+    table_concat.remove_column('id')
+    table_concat.remove_column('q_z')
+    table_concat.rename_column('mag','jh_mag')
+    
+    table_concat = table_concat['phot_id', 'spec_id', 'jh_mag', 'z_spec', 'z_peak_phot', 'z_max_grism', 'z_peak_grism', 'l95', 'l68', 'u68', 'u95', 'f_cover', 'f_flagged', 'max_contam', 'int_contam', 'f_negative']
+
+    col_flag1 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag1', dtype='<i8')
+    col_flag2 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag2', dtype='<i8')
+    col_phot_l95 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_phot_l95', format='%7.4f')
+    col_phot_l68 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_phot_l68', format='%7.4f')
+    col_phot_u68 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_phot_u68', format='%7.4f')
+    col_phot_u95 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_phot_u95', format='%7.4f')
+
+    for ii, row in enumerate(table_concat):      
+        ll = np.where(zout['id'] == row['phot_id'])[0][0]
+        col_phot_l95[ii], col_phot_l68[ii], col_phot_u68[ii], col_phot_u95[ii] = (zout['l95'][ll], zout['l68'][ll], zout['u68'][ll], zout['u95'][ll])
+        if (row['spec_id'] != '00000') and (row['jh_mag'] < 24.):                        
+            nn = np.where((flags['pointing'] == row['spec_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
+            if len(nn) == 1:                
+                col_flag1[ii] = flags['contam1'][nn[0]]
+                col_flag2[ii] = flags['contam2'][nn[0]]    
+            elif len(nn) > 1:                
+                print 'There should be only one match: {}'.format(row['spec_id'])
+            elif len(nn) == 0:                
+                print 'No match: {}'.format(row['spec_id'])
+    
+    
+    table_concat.add_column(col_flag1)
+    table_concat.add_column(col_flag2)
+    table_concat.add_column(col_phot_l95, index=5)
+    table_concat.add_column(col_phot_l68, index=6)
+    table_concat.add_column(col_phot_u68, index=7)
+    table_concat.add_column(col_phot_u95, index=8)
+    
+    table_concat.write('{}.zfit.{}.dat'.format(field, version), format='ascii', delimiter='\t', formats={'phot_id':'%d','spec_id':'%s','jh_mag':'%7.3f','z_spec':'%7.4f','z_peak_phot':'%7.4f','z_phot_l95':'%7.4f','z_phot_l68':'%7.4f','z_phot_u68':'%7.4f','z_phot_u95':'%7.4f','z_max_grism':'%7.4f','z_peak_grism':'%7.4f','l95':'%7.4f','l68':'%7.4f','u68':'%7.4f','u95':'%7.4f','f_cover':'%7.2f','f_flagged':'%7.2f','max_contam':'%7.2f','int_contam':'%7.2f','f_negative':'%7.2f','flag1':'%d','flag2':'%d'})
+    table_concat.write('{}.zfit.{}.fits'.format(field, version), format='fits')
+    
+    
+def make_zbest_cat(field='aegis', version='v4.1.5'):
+    """
+    Also z_best, with source z_best_s:
+    0 = star  (z_best=-1 for these)
+    1 = z_spec
+    2 = z_peak_grism
+    3 = z_peak_phot
+    
+    """
+    
+    wd = {'aegis': 'AEGIS', 'cosmos':'COSMOS', 'goodsn':'GOODS-N','goodss':'GOODS-S','uds':'UDS'}
+    
+    print "Making redshift catalog ..."
+    cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+    useflag = table.read('{}_useflag_{}.dat'.format(field,version), format='ascii')
+    zfit = table.read('{}.test.linematched.{}.dat'.format(field,version), format='ascii')
+    N = len(cat)
+    
+    if (len(cat) != len(zfit)) or (len(cat) != len(useflag)):
+        raise Exception('Catalogs have different length.')
+    
+    
+    use_cat = useflag['field','ids','z_best_s','use_phot','use_zgrism','z_best']
+    use_cat.rename_column('ids','phot_id')
+    col_z_tmp = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_tmp', format='%7.4f')
+    col_l95 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_l95', format='%7.4f')
+    col_l68 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_l68', format='%7.4f')
+    col_u68 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_u68', format='%7.4f')
+    col_u95 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_u95', format='%7.4f')
+
+    mask_grism = use_cat['z_best_s'] == 2
+    mask_phot = use_cat['z_best_s'] == 3
+    
+    col_l95[mask_grism], col_l68[mask_grism], col_u68[mask_grism], col_u95[mask_grism] = \
+        (zfit['l95'][mask_grism], zfit['l68'][mask_grism], zfit['u68'][mask_grism],zfit['u95'][mask_grism])
+    col_z_tmp[mask_grism] = zfit['z_max_grism'][mask_grism]
+    
+    col_l95[mask_phot], col_l68[mask_phot], col_u68[mask_phot], col_u95[mask_phot] = \
+        (zfit['z_phot_l95'][mask_phot], zfit['z_phot_l68'][mask_phot], zfit['z_phot_u68'][mask_phot], \
+         zfit['z_phot_u95'][mask_phot])
+    col_z_tmp[mask_phot] = zfit['z_peak_phot'][mask_phot]
+    
+    col_z_tmp[use_cat['z_best_s'] == 1] = zfit['z_spec'][use_cat['z_best_s'] == 1]
+    
+    use_cat.add_column(col_z_tmp)
+    use_cat.add_column(col_l95)
+    use_cat.add_column(col_l68)
+    use_cat.add_column(col_u68)
+    use_cat.add_column(col_u95)
+    
+    use_cat.write('{}.zbest.{}.dat'.format(field, version), format='ascii', delimiter='\t', formats={'field':'%10s', 'phot_id':'%i', 'z_best':'%7.4f'})
+    use_cat.write('{}.zbest.{}.fits'.format(field, version), format='fits')
+    
 
 def run_catalogs(MASTER_FLAG = ''):
     
-    fields = ['aegis', 'cosmos', 'goodsn','goodss','uds']
+    fields = ['aegis']#, 'cosmos', 'goodsn','goodss','uds']
     
     wd = {'aegis': 'AEGIS', 'cosmos':'COSMOS', 'goodsn':'GOODS-N','goodss':'GOODS-S','uds':'UDS'}
        
@@ -2814,27 +2935,50 @@ def run_catalogs(MASTER_FLAG = ''):
     for field in fields:
         
         print 'Working on {}'.format(field.upper())
-        os.chdir(os.path.join('/3DHST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
         
         if unicorn.hostname().startswith('hyp'):
             REF_CATALOG = REF_HYP[field]
         elif unicorn.hostname().startswith('uni'):
             REF_CATALOG = REF_UNI[field]
+            os.chdir(os.path.join('/3DHST/Spectra/Work/', wd[field], 'INTERLACE_v4.1.5/'))
         else:
             raise Exception('Reference Sextractor catalog not set.')
         
+        print 'Making concatenated catalogs for {}.'.format(field.upper())
+        make_concat_catalog(field=field, MASTER_FLAG=MASTER_FLAG)
+        
+        print 'Making concatenated line catalog for {}.'.format(field.upper())
+        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+            ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
+        
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
-        linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG)
+        linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG, 
+            USE_FLAG='{}_useflag_v4.1.5.dat'.format(field))
         
-        print 'Making duplicates catalog for {}.'.format(field.upper())
-        make_duplicates_lists(field=field)
-        
-        print 'Making emission line catalog for {}.'.format(field.upper())
+        print 'Making linematched emission line catalog for {}.'.format(field.upper())
         make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
             ZFIT_FILE='{}.new_zfit.linematched_all.v4.1.5.dat'.format(field))
-                
+
+        print 'Making linematched duplicates catalog for {}.'.format(field.upper())
+        make_duplicates_lists(field=field)
+                        
         print 'Making linematched flags catalog for {}.'.format(field.upper())
         make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  
             ZFIT_FILE='{}.new_zfit.linematched.v4.1.5.dat'.format(field))
+    
+        print 'Making z_best catalogs for {}'.format(field.upper())
+        make_zbest_cat(field=field)
+
+def write_ascii_1D(field='aegis'):
+      
+    files_inter = glob.glob('{}*G141_inter.fits'.format(field))
+
+    for inter in files_inter:
+        root=inter.split('-G141')[0]
+        files = glob.glob('{}*1D.fits'.format(root))
+        print '{}: {}'.format(root, len(files))
+        for file in files:
+            tmp = table.read(file)
+            tmp.write(file.replace('.fits','.ascii'),format='ascii', formats={'wave':'%10.2f', 'flux':'%12.7f', 'error':'%12.7f', 'contam':'%12.7f', 'trace':'%12.7f', 'etrace':'%12.7f', 'sensitivity':'%12.7f'})
     
     

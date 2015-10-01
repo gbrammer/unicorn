@@ -2692,7 +2692,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     print 'Populating catalog ...'
     for ii, row in enumerate(zfit):
  
-        line_filename = '{}.linefit.dat'.format(row['spec_id'])
+        line_filename = '{}.linefit.dat'.format(row['grism_id'])
 
         if os.path.exists(os.path.join(LINE_DIR, line_filename)):
             
@@ -2928,20 +2928,20 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Making concatenated catalogs for {}.'.format(field.upper())
         make_concat_catalog(field=field, MASTER_FLAG=MASTER_FLAG)
         
-        #print 'Making concatenated line catalog for {}.'.format(field.upper())
-        #make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
-        #    ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
+        print 'Making concatenated line catalog for {}.'.format(field.upper())
+        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+            ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
         
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
         linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG, 
             USE_FLAG='{}_useflag_v4.1.5.dat'.format(field))
         
-        #print 'Making linematched emission line catalog for {}.'.format(field.upper())
-        #make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
-        #    ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
+        print 'Making linematched emission line catalog for {}.'.format(field.upper())
+        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+            ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
 
-        #print 'Making linematched duplicates catalog for {}.'.format(field.upper())
-        #make_duplicates_lists(field=field)
+        print 'Making linematched duplicates catalog for {}.'.format(field.upper())
+        make_duplicates_lists(field=field)
                         
         print 'Making linematched flags catalog for {}.'.format(field.upper())
         make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  

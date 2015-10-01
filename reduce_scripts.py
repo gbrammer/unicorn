@@ -2782,11 +2782,14 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT
     flags_tab.write('{}.flags.linematched.{}.fits'.format(field, version), format='fits')
     flags_tab.write('{}.flags.linematched.{}.dat'.format(field, version), format='ascii')
 
-def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
+def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG='', REF_CATALOG=''):
     """
     Use the concatenated ZFIT and DQ catalogs.
     """
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
+
+    # Read in master catalog with NIR magnitudes.     
+    s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
     
     # read in zfit
     zfit = table.read('{}.new_zfit.{}.dat'.format(field, version), format='ascii')
@@ -2805,10 +2808,11 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     table_concat.remove_column('id')
     table_concat.remove_column('q_z')
     table_concat.rename_column('spec_id','grism_id')
-    table_concat.rename_column('mag','jh_mag')
+    table_concat.remove_column('mag')
     
-    table_concat = table_concat['phot_id', 'grism_id', 'jh_mag', 'z_spec', 'z_peak_phot', 'z_max_grism', 'z_peak_grism', 'l95', 'l68', 'u68', 'u95', 'f_cover', 'f_flagged', 'max_contam', 'int_contam', 'f_negative']
+    table_concat = table_concat['phot_id', 'grism_id', 'z_spec', 'z_peak_phot', 'z_max_grism', 'z_peak_grism', 'l95', 'l68', 'u68', 'u95', 'f_cover', 'f_flagged', 'max_contam', 'int_contam', 'f_negative']
 
+    jh_col =  astropy.table.Column(np.repeat(-1., (N)).tolist(), name='jh_mag', format='%7.4f')
     col_flag1 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag1', dtype='<i8')
     col_flag2 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag2', dtype='<i8')
     col_phot_l95 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='z_phot_l95', format='%7.4f')
@@ -2819,7 +2823,8 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     for ii, row in enumerate(table_concat):      
         ll = np.where(zout['id'] == row['phot_id'])[0][0]
         col_phot_l95[ii], col_phot_l68[ii], col_phot_u68[ii], col_phot_u95[ii] = (zout['l95'][ll], zout['l68'][ll], zout['u68'][ll], zout['u95'][ll])
-        if (row['grism_id'] != '00000') and (row['jh_mag'] < 24.):                        
+        jh_col[ii] = s_cat['MAG_AUTO'][ll]
+        if (row['grism_id'] != '00000') and (s_cat['MAG_AUTO'][ll] < 24.):                        
             nn = np.where((flags['pointing'] == row['grism_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
             if len(nn) == 1:                
                 col_flag1[ii] = flags['contam1'][nn[0]]
@@ -2830,6 +2835,7 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
                 print 'No match: {}'.format(row['grism_id'])
     
     
+    table_concat.add_column(jh_col, index=2)
     table_concat.add_column(col_flag1)
     table_concat.add_column(col_flag2)
     table_concat.add_column(col_phot_l95, index=5)
@@ -2897,7 +2903,7 @@ def make_zbest_cat(field='aegis', version='v4.1.5'):
 
 def run_catalogs(MASTER_FLAG = ''):
     
-    fields = ['aegis']#, 'cosmos', 'goodsn','goodss','uds']
+    fields = ['uds']#['aegis', 'cosmos', 'goodsn','goodss','uds']
     
     wd = {'aegis': 'AEGIS', 'cosmos':'COSMOS', 'goodsn':'GOODS-N','goodss':'GOODS-S','uds':'UDS'}
        
@@ -2926,7 +2932,7 @@ def run_catalogs(MASTER_FLAG = ''):
             raise Exception('Reference Sextractor catalog not set.')
         
         print 'Making concatenated catalogs for {}.'.format(field.upper())
-        make_concat_catalog(field=field, MASTER_FLAG=MASTER_FLAG)
+        make_concat_catalog(field=field, MASTER_FLAG=MASTER_FLAG, REF_CATALOG=REF_CATALOG)
         
         print 'Making concatenated line catalog for {}.'.format(field.upper())
         make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 

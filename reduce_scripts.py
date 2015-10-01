@@ -2408,25 +2408,8 @@ def linematched_catalogs(field='aegis',DIR='./', dq_file = 'aegis.dqflag.v4.1.4.
 
 def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MASTER_FLAG='', USE_FLAG=''):
     
-    REF_HYP = {'aegis':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/AEGIS/aegis_3dhst.v4.0.IR_orig.cat', 
-        'cosmos':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/COSMOS/cosmos_3dhst.v4.0.IR_orig.cat', 
-        'goodsn':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/GOODSN/GOODS-N_IR.cat',
-        'goodss':'/Volumes/Voyager/PIETER_INTERLACE_v4.1.4/REF/GOODS-S_IR.cat',
-        'uds':'/Volumes/Voyager/TEST_SPECTRA_v4.1.5/UDS/UDS_IR.cat'}
-        
-    REF_UNI = {'aegis':'/3DHST/Photometry/Work/AEGIS/Sex/aegis_3dhst.v4.0.IR_orig.cat', 
-        'cosmos':'/3DHST/Photometry/Work/COSMOS/Sex/cosmos_3dhst.v4.0.IR_orig.cat', 
-        'goodsn':'/3DHST/Photometry/Work/GOODS-N/v4/sextr/catalogs/GOODS-N_IR.cat',
-        'goodss':'/3DHST/Photometry/Work/GOODS-S/v4/sextr/catalogs/GOODS-S_IR.cat',
-        'uds':' /3DHST/Photometry/Work/UDS/v4/sextr/catalogs/UDS_IR.cat'}
-
     if (not REF_CATALOG):
-        if unicorn.hostname().startswith('hyp'):
-            REF_CATALOG = REF_HYP[field]
-        elif unicorn.hostname().startswith('uni'):
-            REF_CATALOG = REF_UNI[field]
-        else:
-            raise Exception('Reference Sextractor catalog not set.')
+        raise Exception('Reference Sextractor catalog not set.')
             
     # Read in master catalog with NIR magnitudes.     
     s_cat = table.read(REF_CATALOG, format='ascii.sextractor')
@@ -2541,7 +2524,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     unq_zfit_bright = unq_zfit_bright[flag]
     idx_bright = idx_bright[flag]
         
-    zfit_header = "phot_id spec_id jh_mag z_spec z_peak_phot z_max_grism z_peak_grism l95 l68 u68 u95 id f_cover f_flagged max_contam int_contam f_negative flag1 flag2 use_zgrism"
+    zfit_header = "phot_id grism_id jh_mag z_spec z_peak_phot z_max_grism z_peak_grism l95 l68 u68 u95 id f_cover f_flagged max_contam int_contam f_negative flag1 flag2 use_zgrism"
     author = "Author: I. Momcheva ({})".format(time.strftime("%c"))
     
     
@@ -2549,13 +2532,14 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     tmp_table = table([cat.id, np.full(N,'00000',dtype='S25')], names=('phot_id','spec_id'))
     tmp_table.remove_column('spec_id')
     table_zfit_all = astropy.table.join(tmp_table, zfit_data[idx_all], keys='phot_id', join_type = 'left')
+    table_zfit_all.rename_column('spec_id','grism_id')
     table_zfit_all.remove_column('dr')
     dq_data.remove_column('mag')
     dq_data.remove_column('id')
     dq_data.remove_column('q_z')
     table_zfit_all = astropy.table.join(table_zfit_all, dq_data[idx_all], keys='phot_id', join_type = 'left')
     
-    (table_zfit_all['spec_id'].fill_value, table_zfit_all['z_spec'].fill_value, table_zfit_all['z_peak_phot'].fill_value, table_zfit_all['z_max_grism'].fill_value, table_zfit_all['z_peak_grism'].fill_value, table_zfit_all['l95'].fill_value, table_zfit_all['l68'].fill_value, table_zfit_all['u68'].fill_value, table_zfit_all['u95'].fill_value, table_zfit_all['f_cover'].fill_value, table_zfit_all['f_flagged'].fill_value, table_zfit_all['max_contam'].fill_value, table_zfit_all['int_contam'].fill_value, table_zfit_all['f_negative'].fill_value) = ('00000', -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,-1.0, -1.0)
+    (table_zfit_all['grism_id'].fill_value, table_zfit_all['z_spec'].fill_value, table_zfit_all['z_peak_phot'].fill_value, table_zfit_all['z_max_grism'].fill_value, table_zfit_all['z_peak_grism'].fill_value, table_zfit_all['l95'].fill_value, table_zfit_all['l68'].fill_value, table_zfit_all['u68'].fill_value, table_zfit_all['u95'].fill_value, table_zfit_all['f_cover'].fill_value, table_zfit_all['f_flagged'].fill_value, table_zfit_all['max_contam'].fill_value, table_zfit_all['int_contam'].fill_value, table_zfit_all['f_negative'].fill_value) = ('00000', -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0,-1.0, -1.0)
     
     ### add jh_mag
     col_jh_mag = astropy.table.Column(np.array(s_cat['MAG_AUTO']), name='jh_mag', format='%7.4f')
@@ -2566,15 +2550,15 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     col_flag2 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag2', dtype='<i8')
 
     for ii, row in enumerate(table_zfit_all):      
-        if (row['spec_id'] != '00000') and (row['jh_mag'] <= 24.):                        
-            nn = np.where((flags['pointing'] == row['spec_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
+        if (row['grism_id'] != '00000') and (row['jh_mag'] <= 24.):                        
+            nn = np.where((flags['pointing'] == row['grism_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
             if len(nn) == 1:                
                 col_flag1[ii] = flags['contam1'][nn[0]]
                 col_flag2[ii] = flags['contam2'][nn[0]]    
             elif len(nn) > 1:                
-                print 'There should be only one match: {}'.format(row['spec_id'])
+                print 'There should be only one match: {}'.format(row['grism_id'])
             elif len(nn) == 0:                
-                print 'No match: {}'.format(row['spec_id'])
+                print 'No match: {}'.format(row['grism_id'])
     
     
     table_zfit_all.add_column(col_flag1)
@@ -2584,7 +2568,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     use_flag = table.read(USE_FLAG, format='ascii')
     table_zfit_all.add_column(use_flag['use_zgrism'])
     table_zfit_all['use_zgrism'][table_zfit_all['jh_mag'] >= 24.] = -1
-    table_zfit_all['use_zgrism'][table_zfit_all['spec_id'] == '00000'] = -1
+    table_zfit_all['use_zgrism'][table_zfit_all['grism_id'] == '00000'] = -1
     
     ### add z_phot & confidence intervals
     table_zfit_all['z_peak_phot'] = zout['z_peak']
@@ -2599,7 +2583,7 @@ def linematched_catalogs_flags(field='', version='v4.1.5', REF_CATALOG = '', MAS
     table_zfit_all.add_column(col_phot_u95, index=8)
     
     zfit_outfile_all = zfit_file.replace('new_zfit','zfit.linematched') 
-    table_zfit_all.filled().write(zfit_outfile_all, delimiter='\t', format='ascii',formats={'spec_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f', 'mag_f160w':'%8.3f', 'id':'%25s', 'mag':'%8.3f', 'q_z':'%8.5f', 'f_cover':'%8.5f', 'f_flagged':'%8.5f', 'max_contam':'%8.5f', 'int_contam':'%8.5f', 'f_negative':'%8.5f'})
+    table_zfit_all.filled().write(zfit_outfile_all, delimiter='\t', format='ascii',formats={'grism_id':'%25s','dr':'%7.3f','z_spec':'%7.5f','z_peak_phot':'%8.5f','z_max_grism':'%8.5f','z_peak_grism':'%8.5f','l96':'%8.5f','l68':'%8.5f','u68':'%8.5f','u95':'%8.5f', 'mag_f160w':'%8.3f', 'id':'%25s', 'mag':'%8.3f', 'q_z':'%8.5f', 'f_cover':'%8.5f', 'f_flagged':'%8.5f', 'max_contam':'%8.5f', 'int_contam':'%8.5f', 'f_negative':'%8.5f'})
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(author, zfit_outfile_all))
     os.system("sed -i .old '1s/^/\# {0}\\\n/' {0}".format(zfit_outfile_all))
     os.system("sed -i .old '1s/^/\# {}\\\n/' {}".format(zfit_header, zfit_outfile_all))
@@ -2686,13 +2670,10 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     empty = np.empty(n_rows, dtype=float)
      
     # create table for emission line catalog, bright and faint
-    line_columns = ['number', 'gris_id','jh_mag','z','s0','s0_err','s1','s1_err']
+    line_columns = ['number', 'grism_id','jh_mag','z','s0','s0_err','s1','s1_err']
     types = ['<i8','S22','<f8','<f8','<f8','<f8','<f8','<f8']
 
-    ids = [int(ll.split('_')[1]) for ll in zfit['spec_id']]
-    mags = [s_cat['MAG_AUTO'][np.where(s_cat['NUMBER'] == int(ll.split('_')[1]))[0][0]] for ll in zfit['spec_id']]
-
-    lines_bright_tab = table([ids, zfit['spec_id'], mags, np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
+    lines_bright_tab = table([zfit['phot_id'], zfit['grism_id'], zfit['jh_mag'], np.repeat(-1., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist(), np.repeat(0., (n_rows)).tolist()], names = line_columns, dtype = types)
 
     line_names = ['Lya','CIV','MgII','OII','Hd','Hg','OIIIx','HeII','Hb','OIII','Ha','SII','SIII','HeI','HeIb', 'NeIII','NeV' ,'NeVI', 'OI']
 
@@ -2775,27 +2756,27 @@ def make_linematched_flags(field='aegis', version='v4.1.5', MASTER_FLAG='', ZFIT
     n_rows = len(cat)
      
     # create table for emission line catalog, bright and faint
-    columns = ['number', 'gris_id','flag1','flag2']
+    columns = ['number', 'grism_id','flag1','flag2']
     types = ['<i8','S22','<i8','<i8']
 
-    flags_tab = table([cat['id'], zfit['spec_id'], np.repeat(-1., (n_rows)).tolist(), 
+    flags_tab = table([cat['id'], zfit['grism_id'], np.repeat(-1., (n_rows)).tolist(), 
         np.repeat(-1., (n_rows)).tolist()], names = columns, dtype = types)
     
     print 'Populating catalog ...'
     for ii, row in enumerate(zfit):
         
-        if row['spec_id'] != '00000':                        
-            nn = np.where((master_flags['pointing'] == row['spec_id'].split('-G141')[0]) & (master_flags['id'] == row['phot_id']))[0]
+        if (row['grism_id'] != '00000') and (row['jh_mag']<24.):                        
+            nn = np.where((master_flags['pointing'] == row['grism_id'].split('-G141')[0]) & (master_flags['id'] == row['phot_id']))[0]
             
             if len(nn) == 1:                
                 flags_tab['flag1'][ii] = master_flags['contam1'][nn[0]]
                 flags_tab['flag2'][ii] = master_flags['contam2'][nn[0]]
     
             elif len(nn) > 1:                
-                print 'There should be only one match: {}'.format(row['spec_id'])
+                print 'There should be only one match: {}'.format(row['grism_id'])
             
             elif len(nn) == 0:                
-                print 'No match: {}'.format(row['spec_id'])
+                print 'No match: {}'.format(row['grism_id'])
     
     
     flags_tab.write('{}.flags.linematched.{}.fits'.format(field, version), format='fits')
@@ -2947,20 +2928,20 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Making concatenated catalogs for {}.'.format(field.upper())
         make_concat_catalog(field=field, MASTER_FLAG=MASTER_FLAG)
         
-        print 'Making concatenated line catalog for {}.'.format(field.upper())
-        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
-            ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
+        #print 'Making concatenated line catalog for {}.'.format(field.upper())
+        #make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+        #    ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
         
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
         linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG, 
             USE_FLAG='{}_useflag_v4.1.5.dat'.format(field))
         
-        print 'Making linematched emission line catalog for {}.'.format(field.upper())
-        make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
-            ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
+        #print 'Making linematched emission line catalog for {}.'.format(field.upper())
+        #make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
+        #    ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
 
-        print 'Making linematched duplicates catalog for {}.'.format(field.upper())
-        make_duplicates_lists(field=field)
+        #print 'Making linematched duplicates catalog for {}.'.format(field.upper())
+        #make_duplicates_lists(field=field)
                         
         print 'Making linematched flags catalog for {}.'.format(field.upper())
         make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  

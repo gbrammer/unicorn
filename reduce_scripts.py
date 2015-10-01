@@ -2711,7 +2711,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
             lines_all_tab['s1'][ii] = s1
             lines_all_tab['s1_err'][ii] = s1_err
             
-            if mags[ii] <=24.:
+            if row['jh_mag'] <=24.:
                 lines_bright_tab['z'][ii] = z
                 lines_bright_tab['s0'][ii] = s0
                 lines_bright_tab['s0_err'][ii] = s0_err
@@ -2727,7 +2727,7 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
                 lines_all_tab['{}_EQW'.format(name)][ii] = ll['EQW_obs']
                 lines_all_tab['{}_EQW_ERR'.format(name)][ii] = ll['EQW_obs_err']
                 
-                if mags[ii] <= 24.:
+                if row['jh_mag'] <= 24.:
                     lines_bright_tab['{}_FLUX'.format(name)][ii] = ll['flux']
                     lines_bright_tab['{}_FLUX_ERR'.format(name)][ii] = ll['error']
                     lines_bright_tab['{}_SCALE'.format(name)][ii] = ll['scale_to_photom']
@@ -2790,7 +2790,6 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     
     # read in zfit
     zfit = table.read('{}.new_zfit.{}.dat'.format(field, version), format='ascii')
-    id_zfit = [int(id.split('_')[1].split('.2D')[0]) for id in zfit['spec_id']]
         
     # read in flags    
     flags = table.read(MASTER_FLAG, format='ascii')
@@ -2805,9 +2804,10 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     table_concat.remove_column('dr')
     table_concat.remove_column('id')
     table_concat.remove_column('q_z')
+    table_concat.rename_column('spec_id','grism_id')
     table_concat.rename_column('mag','jh_mag')
     
-    table_concat = table_concat['phot_id', 'spec_id', 'jh_mag', 'z_spec', 'z_peak_phot', 'z_max_grism', 'z_peak_grism', 'l95', 'l68', 'u68', 'u95', 'f_cover', 'f_flagged', 'max_contam', 'int_contam', 'f_negative']
+    table_concat = table_concat['phot_id', 'grism_id', 'jh_mag', 'z_spec', 'z_peak_phot', 'z_max_grism', 'z_peak_grism', 'l95', 'l68', 'u68', 'u95', 'f_cover', 'f_flagged', 'max_contam', 'int_contam', 'f_negative']
 
     col_flag1 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag1', dtype='<i8')
     col_flag2 = astropy.table.Column(np.repeat(-1., (N)).tolist(), name='flag2', dtype='<i8')
@@ -2819,15 +2819,15 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     for ii, row in enumerate(table_concat):      
         ll = np.where(zout['id'] == row['phot_id'])[0][0]
         col_phot_l95[ii], col_phot_l68[ii], col_phot_u68[ii], col_phot_u95[ii] = (zout['l95'][ll], zout['l68'][ll], zout['u68'][ll], zout['u95'][ll])
-        if (row['spec_id'] != '00000') and (row['jh_mag'] < 24.):                        
-            nn = np.where((flags['pointing'] == row['spec_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
+        if (row['grism_id'] != '00000') and (row['jh_mag'] < 24.):                        
+            nn = np.where((flags['pointing'] == row['grism_id'].split('-G141')[0]) & (flags['id']==row['phot_id']))[0] 
             if len(nn) == 1:                
                 col_flag1[ii] = flags['contam1'][nn[0]]
                 col_flag2[ii] = flags['contam2'][nn[0]]    
             elif len(nn) > 1:                
-                print 'There should be only one match: {}'.format(row['spec_id'])
+                print 'There should be only one match: {}'.format(row['grism_id'])
             elif len(nn) == 0:                
-                print 'No match: {}'.format(row['spec_id'])
+                print 'No match: {}'.format(row['grism_id'])
     
     
     table_concat.add_column(col_flag1)
@@ -2837,7 +2837,7 @@ def make_concat_catalog(field='aegis', version='v4.1.5', MASTER_FLAG=''):
     table_concat.add_column(col_phot_u68, index=7)
     table_concat.add_column(col_phot_u95, index=8)
     
-    table_concat.write('{}.zfit.{}.dat'.format(field, version), format='ascii', delimiter='\t', formats={'phot_id':'%d','spec_id':'%s','jh_mag':'%7.3f','z_spec':'%7.4f','z_peak_phot':'%7.4f','z_phot_l95':'%7.4f','z_phot_l68':'%7.4f','z_phot_u68':'%7.4f','z_phot_u95':'%7.4f','z_max_grism':'%7.4f','z_peak_grism':'%7.4f','l95':'%7.4f','l68':'%7.4f','u68':'%7.4f','u95':'%7.4f','f_cover':'%7.2f','f_flagged':'%7.2f','max_contam':'%7.2f','int_contam':'%7.2f','f_negative':'%7.2f','flag1':'%d','flag2':'%d'})
+    table_concat.write('{}.zfit.{}.dat'.format(field, version), format='ascii', delimiter='\t', formats={'phot_id':'%d','grism_id':'%s','jh_mag':'%7.3f','z_spec':'%7.4f','z_peak_phot':'%7.4f','z_phot_l95':'%7.4f','z_phot_l68':'%7.4f','z_phot_u68':'%7.4f','z_phot_u95':'%7.4f','z_max_grism':'%7.4f','z_peak_grism':'%7.4f','l95':'%7.4f','l68':'%7.4f','u68':'%7.4f','u95':'%7.4f','f_cover':'%7.2f','f_flagged':'%7.2f','max_contam':'%7.2f','int_contam':'%7.2f','f_negative':'%7.2f','flag1':'%d','flag2':'%d'})
     table_concat.write('{}.zfit.{}.fits'.format(field, version), format='fits')
     
     
@@ -2930,7 +2930,7 @@ def run_catalogs(MASTER_FLAG = ''):
         
         print 'Making concatenated line catalog for {}.'.format(field.upper())
         make_emission_line_catalog(field=field, REF_CATALOG=REF_CATALOG, 
-            ZFIT_FILE='{}.new_zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
+            ZFIT_FILE='{}.zfit.v4.1.5.dat'.format(field), OUT_ROOT='concat')
         
         print 'Making linematched redshift catalog for {}.'.format(field.upper())
         linematched_catalogs_flags(field=field,  REF_CATALOG = REF_CATALOG, MASTER_FLAG = MASTER_FLAG, 

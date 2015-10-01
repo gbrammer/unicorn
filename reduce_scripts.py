@@ -2856,7 +2856,7 @@ def make_zbest_cat(field='aegis', version='v4.1.5'):
     print "Making redshift catalog ..."
     cat, zout, fout = unicorn.analysis.read_catalogs(root=field)
     useflag = table.read('{}_useflag_{}.dat'.format(field,version), format='ascii')
-    zfit = table.read('{}.test.linematched.{}.dat'.format(field,version), format='ascii')
+    zfit = table.read('{}.zfit.linematched.{}.dat'.format(field,version), format='ascii')
     N = len(cat)
     
     if (len(cat) != len(zfit)) or (len(cat) != len(useflag)):

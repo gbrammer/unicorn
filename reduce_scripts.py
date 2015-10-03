@@ -2740,11 +2740,12 @@ def make_emission_line_catalog(field='', version='v4.1.5', LINE_DIR = './', REF_
     
     print np.sum(lines_all_tab['z_max_grism'] != -1.), np.sum(lines_bright_tab['z_max_grism'] != -1.)
     if OUT_ROOT:
-        lines_all_tab.write('{}_3dhst.linefit.{}.{}.fits'.format(field, OUT_ROOT, version),format='fits')
+        lines_all_tab.write('{}_3dhst.linefit.{}.{}.fits'.format(field, OUT_ROOT, version),format='fits', 
+            overwrite=True)
         lines_bright_tab.write('{}_3dhst.linefit_bright.{}.{}.fits'.format(field, OUT_ROOT, version),format='fits', 
             overwrite=True)   
     else:
-        lines_all_tab.write('{}_3dhst.linefit.all.{}.fits'.format(field, version),format='fits')
+        lines_all_tab.write('{}_3dhst.linefit.all.{}.fits'.format(field, version),format='fits', overwrite=True)
         lines_bright_tab.write('{}_3dhst.linefit_bright.{}.fits'.format(field, version),format='fits',overwrite=True)   
          
 
@@ -2960,8 +2961,8 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Making z_best catalogs for {}'.format(field.upper())
         make_zbest_cat(field=field)
         
-        zfit = table.read('{}_3dhst.linematched.v4.1.5.fits')
-        zbest = table.read('{}_3dhst.zbest.v4.1.5.fits')
+        zfit = table.read('{}_3dhst.linematched.v4.1.5.fits'.format(field))
+        zbest = table.read('{}_3dhst.zbest.v4.1.5.fits'.format(field))
 
         zfit.add_column(zbest['use_phot'])
         zfit.add_column(zbest['z_best_s'])
@@ -2971,8 +2972,8 @@ def run_catalogs(MASTER_FLAG = ''):
         zfit.add_column(zbest['z_best_u68'])
         zfit.add_column(zbest['z_best_u95'])
         
-        zfit.write('{}_3dhst.linematched.v4.1.5.fits', format='fits', overwrite=True)
-        zfit.write('{}_3dhst.linematched.v4.1.5.dat', format='ascii')
+        zfit.write('{}_3dhst.linematched.v4.1.5.fits'.format(field), format='fits', overwrite=True)
+        zfit.write('{}_3dhst.linematched.v4.1.5.dat'.format(field), format='ascii')
 
 def write_ascii_1D(field='aegis'):
       

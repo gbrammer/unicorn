@@ -2953,9 +2953,9 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Making linematched duplicates catalog for {}.'.format(field.upper())
         make_duplicates_lists(field=field)
                         
-        print 'Making linematched flags catalog for {}.'.format(field.upper())
-        make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  
-            ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
+        #print 'Making linematched flags catalog for {}.'.format(field.upper())
+        #make_linematched_flags(field=field, MASTER_FLAG=MASTER_FLAG,  
+        #    ZFIT_FILE='{}.zfit.linematched.v4.1.5.dat'.format(field))
     
         print 'Making z_best catalogs for {}'.format(field.upper())
         make_zbest_cat(field=field)

@@ -2961,7 +2961,7 @@ def run_catalogs(MASTER_FLAG = ''):
         print 'Making z_best catalogs for {}'.format(field.upper())
         make_zbest_cat(field=field)
         
-        zfit = table.read('{}_3dhst.linematched.v4.1.5.fits'.format(field))
+        zfit = table.read('{}_3dhst.zfit.linematched.v4.1.5.fits'.format(field))
         zbest = table.read('{}_3dhst.zbest.v4.1.5.fits'.format(field))
 
         zfit.add_column(zbest['use_phot'])
@@ -2972,8 +2972,8 @@ def run_catalogs(MASTER_FLAG = ''):
         zfit.add_column(zbest['z_best_u68'])
         zfit.add_column(zbest['z_best_u95'])
         
-        zfit.write('{}_3dhst.linematched.v4.1.5.fits'.format(field), format='fits', overwrite=True)
-        zfit.write('{}_3dhst.linematched.v4.1.5.dat'.format(field), format='ascii')
+        zfit.write('{}_3dhst.zfit.linematched.v4.1.5.fits'.format(field), format='fits', overwrite=True)
+        zfit.write('{}_3dhst.zfit.linematched.v4.1.5.dat'.format(field), format='ascii')
 
 def write_ascii_1D(field='aegis'):
       

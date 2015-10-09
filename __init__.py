@@ -5,12 +5,8 @@ __init__.py
 
 Created by Gabriel Brammer on 2011-05-18.
 
-$URL$
-$Author$
-$Date$
-
 """
-__version__ = "$Rev$"
+__version__ = "1.0"
 
 import os
 from socket import gethostname as hostname

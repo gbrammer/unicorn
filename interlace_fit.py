@@ -952,7 +952,7 @@ class GrismSpectrumFit():
             wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
         #
         if self.grism_element == 'GRS':
-            wuse = (self.oned.data.wave > 1.4e4) & (self.oned.data.wave < 1.95e4)
+            wuse = (self.oned.data.wave > 1.39e4) & (self.oned.data.wave < 1.8e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         y = yflux-ycont
@@ -996,7 +996,7 @@ class GrismSpectrumFit():
             ax_int = np.array(xint)#*1.e4
         
         if self.grism_element == 'GRS':
-            ax.set_xlim(1.3,2.0)
+            ax.set_xlim(1.38,1.9)
             xint = [1.4,1.5,1.6,1.7,1.8,1.9]
             ax_int = np.array(xint)#*1.e4
         
@@ -1035,7 +1035,7 @@ class GrismSpectrumFit():
             ax.set_xlim(0.49, 1.08)
         #
         if self.grism_element == 'GRS':
-            ax.set_xlim(1.3,2.0)
+            ax.set_xlim(1.38,1.92)
         
         ax.set_xticks(ax_int)
         
@@ -1088,7 +1088,7 @@ class GrismSpectrumFit():
             keep = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
         
         if self.grism_element == 'GRS':
-            keep = (self.oned.data.wave > 1.4e4) & (self.oned.data.wave < 1.9e4)
+            keep = (self.oned.data.wave > 1.38e4) & (self.oned.data.wave < 1.85e4)
         
         flux_spec = (self.oned.data.flux-self.oned.data.contam-self.slope_1D*0)/self.oned.data.sensitivity
         
@@ -1137,7 +1137,7 @@ class GrismSpectrumFit():
         top = 0.055
         bottom = 0.07
         left = 0.06
-        aspect = 3.*sh[0]/sh[1]/(1-(top+bottom-left))
+        aspect = np.maximum(3.*sh[0]/sh[1]/(1-(top+bottom-left)), 0.4)
         
         wave = self.twod.im['WAVE'].data
         if self.grism_element == 'G141':
@@ -1519,6 +1519,9 @@ class GrismSpectrumFit():
         if self.grism_element == 'G800L':
             ax.set_xlim(0.58, 1.05)
         
+        if self.grism_element == 'GRS':
+            ax.set_xlim(1.3,1.95)
+        
         ax.set_xlabel(r'$\lambda / \mu\mathrm{m}$')
         ax.set_ylabel(r'Flux (e - / s)')
         ymax = self.model_1D[np.isfinite(self.model_1D)].max()
@@ -1774,7 +1777,7 @@ class GrismSpectrumFit():
         fancy['CIV']  = ( 'C IV', line_wavelengths['CIV'] ) 
         fancy['Lya'] = (r'Ly$\alpha$', line_wavelengths['Lya'] )
         
-        fit_wavelengths = {'G102':[8000, 1.16e4], 'G141':[1.06e4, 1.68e4], 'G800L':[5420, 1.035e4]}
+        fit_wavelengths = {'G102':[8000, 1.16e4], 'G141':[1.06e4, 1.68e4], 'G800L':[5420, 1.035e4], 'GRS':[1.3e4,1.88e4]}
         
         if use_determined_lines & (self.use_lines is not None):
             use_lines = self.use_lines

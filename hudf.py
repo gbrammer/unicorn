@@ -991,7 +991,7 @@ class Stack2D(object):
         #     fi = 1
         #     
         sh = self.sh2D
-        aspect = (self.N+2)*sh[0]*1./(3*sh[1])
+        aspect = np.maximum((self.N+2)*sh[0]*1./(3*sh[1]), 0.25)
         fig = unicorn.plotting.plot_init(square=True, left=0.01, right=0.01, top=0.01, bottom=0.01, hspace=0.0, wspace=0.0, aspect=aspect, xs=10, NO_GUI=True)
         
         if inverse:
@@ -999,38 +999,42 @@ class Stack2D(object):
             plt.set_cmap(plt.cm.gray_r)
         
         #### Show individual spectra
-        counter = 4
+        counter = 1
         for i in range(self.N):
-            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-            a = ax.imshow(self.flux[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
-            if i == 0: ax.set_title('Flux')
+            ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+            a = ax.imshow(self.flux[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
+            if i == 0: 
+                ax.set_title('Flux')
+                #ax.text(0.5, 1.08, 'Flux', ha='center', va='baseline', transform=ax.transAxes)
             #
-            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-            a = ax.imshow(self.contam[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
+            ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+            a = ax.imshow(self.contam[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
             ax.text(0.95, 0.95, self.files[i].split('_')[0], ha='right', va='top', transform=ax.transAxes, color='red', size=8)
             if i == 0: 
-                ax.set_title('Contam')
-                ax.text(0,1.5,'%s #%d' %(self.root, self.id), ha='left', va='bottom', transform=ax.transAxes, color='black', size=10)
+                #ax.set_title('Contam')
+                ax.set_title('%s #%d\nContam' %(self.root, self.id))
+                #ax.text(0,1.3,'%s #%d' %(self.root, self.id), ha='left', va='bottom', transform=ax.transAxes, color='black', size=10)
             #
-            ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-            a = ax.imshow((self.flux-self.contam)[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax)
+            ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+            a = ax.imshow((self.flux-self.contam)[i,:,:], interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
             if i == 0: ax.set_title(r'Flux $-$ Contam')
         
         #### Show the sum
-        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-        a = ax.imshow(self.sum_flux, interpolation='nearest', vmin=vmin, vmax=vmax)
+        ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+        a = ax.imshow(self.sum_flux, interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
         #
-        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-        a = ax.imshow(self.sum_contam, interpolation='nearest', vmin=vmin, vmax=vmax)
+        ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+        a = ax.imshow(self.sum_contam, interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
         ax.text(0.95, 0.95, 'Stack', ha='right', va='top', transform=ax.transAxes, color='red', size=8)
         #
-        ax = fig.add_subplot(self.N+2,3,counter); counter += 1
-        a = ax.imshow((self.sum_flux-self.sum_contam), interpolation='nearest', vmin=vmin, vmax=vmax)
+        ax = fig.add_subplot(self.N+1,3,counter); counter += 1
+        a = ax.imshow((self.sum_flux-self.sum_contam), interpolation='nearest', vmin=vmin, vmax=vmax, aspect='auto')
         
         for ax in fig.axes:
             a = ax.set_xticklabels([]); a = ax.set_yticklabels([])
                      
         #### Save the file
+        fig.tight_layout(pad=0.05)
         outfile='%s_%05d_stack.png' %(self.root, self.id)
         print outfile
         unicorn.plotting.savefig(fig, outfile)    

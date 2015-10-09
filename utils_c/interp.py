@@ -183,6 +183,49 @@ def test():
     t2 = time.time()
     print 'Cython (opt):  %.3f  %.2e'   %(t2-t1, np.sum((midpoint_c2-midpoint)**2))
     
+# Compare cython to numba
+#@autojit
+def interpolate_tempfilt(tempfilt, zgrid, zi, output):
+    """
+    interpolate_tempfilt(tempfilt, zgrid, zi, output)
+    
+    Linear interpolate an Eazy "tempfilt" grid at z=zi.  
+    
+    `tempfilt` is [NFILT, NTEMP, NZ] integrated flux matrix
+    `zgrid` is [NZ] redshift grid
+    
+    Result is stored in the input variable `output`, which needs shape [NFILT, NTEMP]
+    """
+    #cdef unsigned long NT, NF, NZ, itemp, ifilt, iz
+    #cdef double dz, fint, fint2
+    
+    #cdef extern from "math.h":
+    #    double fabs(double)
+    
+    sh = tempfilt.shape
+    NF, NT, NZ = sh[0], sh[1], sh[2]
+    
+    #### Output array
+    #cdef np.ndarray[DTYPE_t, ndim=2] tempfilt_interp = np.zeros((NF, NT), dtype=DTYPE)
+    
+    for iz in range(NZ-1):
+        dz = zgrid[iz+1]-zgrid[iz]
+        fint = 1 - (zi-zgrid[iz])/dz
+        if (fint > 0) & (fint <= 1):
+            fint2 = 1 - (zgrid[iz+1]-zi)/dz
+            # print iz, zgrid[iz], fint, fint2
+            for ifilt in range(NF):
+                for itemp in range(NT):
+                    #print ifilt, itemp
+                    output[ifilt, itemp] = tempfilt[ifilt, itemp, iz]*fint + tempfilt[ifilt, itemp, iz+1]*fint2
+            #
+            break
+                    
+    return output
+#
+from numba import double, jit
+
+fast_interpolate_tempfilt = jit(double[:,:](double[:,:,:], double[:], double, double[:,:]))(interpolate_tempfilt)
     
 if __name__ == "__main__":
     test()

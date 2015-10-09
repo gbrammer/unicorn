@@ -372,6 +372,9 @@ class MultiFit():
                 #
                 if t.grism_element == 'G800L':
                     t.ok_mask &= (t.wave > 6000.) & (t.wave < 9500)
+                #
+                if t.grism_element == 'GRS':
+                    t.ok_mask &= (t.wave > 1.35e4) & (t.wave < 1.87e4)
                 
                 t.wht[~t.ok_mask] = 0
                 
@@ -996,6 +999,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #xlimit = [1.2e4, 1.6e4]
         if self.grism_element == 'G102':
             xlimit = [0.8e4, 1.1e4]
+        #
+        if self.grism_element == 'G800L':
+            xlimit = [0.58e4, 0.92e4]
+        
+        if self.grism_element == 'GRS':
+            xlimit = [1.35e4, 1.8e4]
         
         sens_weight = x*0.+0.
         sens_weight += np.minimum(np.exp(-(xlimit[0]-x)**2/2./dx**2), 1); sens_weight[x < xlimit[0]] = 1.
@@ -1160,7 +1169,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         subregion = (igmz > 1.1e4) & (igmz < 1.6e4)
         if self.grism_element == 'G102':
             subregion = (igmz > 0.83e4) & (igmz < 1.1e4)
-            
+        
+        if self.grism_element == 'GRS':
+            subregion = (igmz > 1.33e4) & (igmz < 1.8e4)
+        
         subregion = subregion[1:] & (np.diff(igmz) > np.percentile(np.diff(igmz[subregion]), 80.)-5) & (np.diff(igmz) > 5) 
         x, y = igmz[1:][subregion], (model_spec/model_phot)[1:][subregion]
         dy = np.append(0, np.diff(y))
@@ -1203,7 +1215,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             s = np.interp(1.4e4, x, f)
             if self.grism_element == 'G102':
                 s = np.interp(1.e4, x, f)
+            #
+            if self.grism_element == 'G800L':
+                s = np.interp(0.8e4, x, f)
 
+            if self.grism_element == 'GRS':
+                s = np.interp(1.6e4, x, f)
+            
             ax.plot(x/1.e4, y, color='black', linewidth=4)
             ax.plot(x/1.e4, f, color='white', linewidth=2, alpha=0.5)
             ax.plot(x/1.e4, f, color='red', linewidth=1)
@@ -1618,6 +1636,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if self.grism_element == 'G800L':
             wuse = (self.oned.data.wave > 0.58e4) & (self.oned.data.wave < 0.92e4)
             #wuse = (self.oned.data.wave > 0.5e4) & (self.oned.data.wave < 1.05e4)
+        #
+        if self.grism_element == 'GRS':
+            wuse = (self.oned.data.wave > 1.38e4) & (self.oned.data.wave < 1.88e4)
         
         yflux, ycont = self.oned.data.flux, self.oned.data.contam
         wuse = wuse & np.isfinite(yflux)
@@ -1639,7 +1660,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             ymax = yflux[wuse].max(); 
         else:
             ymax = yflux.max()
-                
+        
         ax.set_ylim(-0.05*ymax, 1.1*ymax) 
         ax.set_xlim(1.0, 1.73)
 
@@ -1648,7 +1669,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #
         if self.grism_element == 'G800L':
             ax.set_xlim(0.5, 1.05)
-            
+        #
+        if self.grism_element == 'GRS':
+            ax.set_xlim(1.3, 1.97)
+        
         #### Spectrum in f_lambda
         #self.oned.data.sensitivity /= 100
          
@@ -1680,7 +1704,10 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         if self.grism_element == 'G800L':
             #ax.set_xlim(0.58, 0.92)
             ax.set_xlim(0.5, 1.05)
-
+        #
+        if self.grism_element == 'GRS':
+            ax.set_xlim(1.3, 1.88)
+        
         
         #### p(z)
         ax = fig.add_subplot(143)
@@ -1740,6 +1767,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #
         if self.grism_element == 'G800L':
             keep = (self.oned.data.wave > 0.65) & (self.oned.data.wave < 0.85e4)
+        #
+        if self.grism_element == 'GRS':
+            keep = (self.oned.data.wave > 1.3e4) & (self.oned.data.wave < 1.88e4)
         
         #flux_spec = (self.oned.data.flux-self.oned.data.contam)/self.oned.data.sensitivity*100
         flux_spec = (yflux_1D-background)/self.oned.sens*100

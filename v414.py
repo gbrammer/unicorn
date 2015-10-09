@@ -13,6 +13,8 @@ def make_zbest_catalogs():
     PATH_TO_NEW = '/Users/brammer/3DHST/Spectra/Release/v4.1.4'
     PATH_TO_PHOT = '/Users/brammer/3DHST/Spectra/Release/v4.1'
     
+    PATH_TO_NEW = '/Users/brammer/3DHST/Spectra/Release/v4.1.5/RF_Colors'
+    
     filters = []
     filters.extend(['153', '154', '155']) # Maiz UBV
     filters.extend(['161', '162', '163']) # 2MASS JHK
@@ -24,26 +26,40 @@ def make_zbest_catalogs():
     field='aegis'
     
     for field in ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']:
+        print field
         
-        zfit = catIO.Table('%s/%s-WFC3_v4.1.4_SPECTRA/%s-catalogs/%s.new_zfit.linematched.v4.1.4.dat' %(PATH_TO_NEW, field.upper(), field, field))
-    
         old_cat = catIO.Table('%s/%s_3dhst.v4.1.cats/Catalog/%s_3dhst.v4.1.cat' %(PATH_TO_PHOT, field, field))
-        old_zout = catIO.Table('%s/%s_3dhst.v4.1.cats/Eazy/%s_3dhst.v4.1.zout' %(PATH_TO_PHOT, field, field))
     
-        z_best = old_zout['z_peak']
-        z_type = np.ones(len(z_best), dtype=int)
+        #### v4.1.4
+        # old_zout = catIO.Table('%s/%s_3dhst.v4.1.cats/Eazy/%s_3dhst.v4.1.zout' %(PATH_TO_PHOT, field, field))
+        # zfit = catIO.Table('%s/%s-WFC3_v4.1.4_SPECTRA/%s-catalogs/%s.new_zfit.linematched.v4.1.4.dat' %(PATH_TO_NEW, field.upper(), field, field))
+        #     
+        # z_best = old_zout['z_peak']
+        # z_type = np.ones(len(z_best), dtype=int)
+        # has_grism = zfit['z_max_grism'] > 0
+        # z_best[has_grism] = zfit['z_max_grism'][has_grism]
+        # z_type[has_grism] = 2
         
-        has_grism = zfit['z_max_grism'] > 0
-        z_best[has_grism] = zfit['z_max_grism'][has_grism]
-        z_type[has_grism] = 2
-        
-        z_best_column = catIO.table_base.Column(data=z_best, name='z_best')
-        old_cat.add_column(z_best_column)
-
-        z_type_column = catIO.table_base.Column(data=z_type, name='z_type')
-        old_cat.add_column(z_type_column)
+        #### v4.1.5
+        # zfit = catIO.Table('%s/%s.zbest.v4.1.5.fits' %(PATH_TO_NEW, field))
+        # z_best = zfit['z_best']
+        # z_type = zfit['z_best_s']
+        # 
+        # z_best_column = catIO.table_base.Column(data=z_best, name='z_best')
+        # old_cat.add_column(z_best_column)
+        # 
+        # z_type_column = catIO.table_base.Column(data=z_type, name='z_type')
+        # old_cat.add_column(z_type_column)
+        # old_cat.write(os.path.basename(old_cat.filename).replace('.cat', '.zbest.cat'), format='ascii.commented_header')
     
-        old_cat.write(os.path.basename(old_cat.filename).replace('.cat', '.zbest.cat'), format='ascii.commented_header')
+        #### v4.1.5 zbest + zgrism
+        zfit = catIO.Table('%s/%s_3dhst.zfit.linematched.v4.1.5.fits' %(PATH_TO_NEW, field))
+        old_cat.add_column(zfit['z_max_grism'])
+        old_cat.add_column(zfit['z_best'])
+        old_cat.add_column(zfit['z_best_s'])
+        
+        old_cat.write(os.path.basename(old_cat.filename).replace('.cat', '.zfit.cat'), format='ascii.commented_header')
+        
     
     
 def go():
@@ -62,43 +78,57 @@ def go():
         filters.extend(['135','136','137','138','139']) # Bessel UX BVRI
         filters.extend(['270','271','272','273','274','275']) # Tophat filters
         
-        cat = catIO.Table('%s_3dhst.v4.1.zbest.cat' %(field))
-        rf0 = catIO.Table('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, filters[0]))
+        # cat = catIO.Table('%s_3dhst.v4.1.zbest.cat' %(field))
+        # rf0 = catIO.Table('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, filters[0]))
+        cat = catIO.Table('%s_3dhst.v4.1.zfit.cat' %(field))
+        rf0 = catIO.Table('OUTPUT/%s_3dhst.v4.1.zfit.%s.rf' %(field, filters[0]))
         for c in ['nfilt_fit', 'chi2_fit', 'L%s' %(filters[0])]:
             rf0.remove_column(c)
             
-        rf0.rename_column('z', 'z_best')
-        rf0.add_column(cat['z_type'], index=2)
-        rf0.add_column(cat['z_spec'], index=3)
+        # rf0.rename_column('z', 'z_best')
+        # rf0.add_column(cat['z_type'], index=2)
+        # rf0.add_column(cat['z_spec'], index=3)
+        
+        rf0.rename_column('z', 'z_max_grism')
         
         for f in filters:
             print '%s, filter: %s' %(field, f)
-            rf = catIO.Table('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, f))
+            #rf = catIO.Table('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, f))
+            rf = catIO.Table('OUTPUT/%s_3dhst.v4.1.zfit.%s.rf' %(field, f))
             rf.rename_column('nfilt_fit', 'nfilt%s' %(f))
             rf0.add_columns([rf['L%s' %(f)], rf['nfilt%s' %(f)]])
         
-        rf0.write('%s_3dhst.v4.1.4.zbest.rf' %(field), format='ascii.commented_header')
+        #rf0.write('%s_3dhst.v4.1.4.zbest.rf' %(field), format='ascii.commented_header')
+        rf0.write('%s_3dhst.v4.1.5.z_max_grism.rf' %(field), format='ascii.commented_header')
     
     #
     descrip = ['#\n']
     for f in filters:
         #print '%s, filter: %s' %(field, f)
-        fp = open('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, f))
+        #fp = open('OUTPUT/%s_3dhst.v4.1.zbest.%s.rf' %(field, f))
+        fp = open('OUTPUT/%s_3dhst.v4.1.zfit.%s.rf' %(field, f))
         for i in range(3):
             line = fp.readline()
         
         descrip.append(line)
     
-    descrip.append('#\n# Rest-frame colors computed using templates in tweak_cosmos_v4.1/spectra.param\n#\n# z_type: 1 (phot), 2 (grism)\n#\n')
+    #descrip.append('#\n# Rest-frame colors computed using templates in tweak_cosmos_v4.1/spectra.param\n#\n# z_type: 1 (phot), 2 (grism)\n#\n')
+    descrip.append('#\n# Rest-frame colors computed using templates in tweak_cosmos_v4.1/spectra.param\n#\n# z_type: 0 (star), 1 (spec), 2 (grism), 3(phot)\n#\n')
     
     for field in ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']:
-        lines = open('%s_3dhst.v4.1.4.zbest.rf' %(field)).readlines()
+        #lines = open('%s_3dhst.v4.1.4.zbest.rf' %(field)).readlines()
+        lines = open('%s_3dhst.v4.1.5.z_max_grism.rf' %(field)).readlines()
         for line in descrip[::-1]:
             lines.insert(1, line)
             
-        fp = open('%s_3dhst.v4.1.4.zbest.rf' %(field), 'w')
+        #fp = open('%s_3dhst.v4.1.4.zbest.rf' %(field), 'w')
+        fp = open('%s_3dhst.v4.1.5.z_max_grism.rf' %(field), 'w')
         fp.writelines(lines)
         fp.close()
+    
+    ###
+    # for field in ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']:
+    #     print 'mv %s_3dhst.v4.1.4.zbest.rf %s_3dhst.v4.1.5.zbest.rf' %(field, field)
         
 def fit_zbest_RF_colors(field='aegis'):
     """
@@ -110,7 +140,7 @@ def fit_zbest_RF_colors(field='aegis'):
     param = eazy.EazyParam('%s_3dhst.v4.1.param' %(field))
     
     param['FILTERS_RES'] = 'FILTER.RES.latest'
-    param['CATALOG_FILE'] = '%s_3dhst.v4.1.zbest.cat' %(field)
+    param['CATALOG_FILE'] = '%s_3dhst.v4.1.zfit.cat' %(field)
     param['OUTPUT_DIRECTORY'] = 'OUTPUT'
     
     #### Use z_spec / z_best
@@ -120,7 +150,9 @@ def fit_zbest_RF_colors(field='aegis'):
     #### Dusty template fit
     param['TEMPLATES_FILE'] = 'tweak_cosmos_v4.1/spectra.param'
     param['CACHE_FILE'] = '%s_3dhst.v4.1.zbest.tempfilt' %(field)
-    param['MAIN_OUTPUT_FILE'] = field+'_3dhst.v4.1.zbest'
+    #param['MAIN_OUTPUT_FILE'] = field+'_3dhst.v4.1.zbest'
+    
+    param['MAIN_OUTPUT_FILE'] = field+'_3dhst.v4.1.zfit'
     
     #### Baseline
     param['REST_FILTERS'] = '---'
@@ -129,7 +161,13 @@ def fit_zbest_RF_colors(field='aegis'):
     
     ### translate with z_best = z_spec
     lines = open('%s_3dhst.v4.1.translate' %(field)).readlines()
-    lines.append('z_spec z_spec_old\nz_best z_spec\n')
+    
+    ### z_best
+    #lines.append('z_spec z_spec_old\nz_best z_spec\n')
+    
+    ### z_max_grism
+    lines.append('z_spec z_spec_old\nz_max_grism z_spec\n')
+    
     fp = open('/tmp/zphot.%s.translate' %(field), 'w')
     fp.writelines(lines)
     fp.close()
@@ -335,50 +373,191 @@ def master_spec():
     
     pyfits.HDUList(hdu).writeto('master_spec_v4.1.4.fits')
     
+    #### v4.1.5
+    # os.chdir("/Users/brammer/3DHST/Spectra/Release/v4.1.5/Catalogs")
+    # full = catIO.Table('3dhst.v4.1.5.full.v1.fits')
+
+    os.chdir("/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease")
+    full = catIO.Table('3dhst.v4.1.5.master.fits')
+
+    lran = np.arange(1.e4,1.7e4,23)
+    spec = np.zeros((len(full), len(lran)))
+    contam = np.zeros((len(full), len(lran)))
+    err = np.zeros((len(full), len(lran)))
+    
+    N = len(full)
+    # PATH = '/Volumes/KEYTAR/INTERLACE_v4.1.5'
+    # for i in range(N):
+    #     #for i in range(162462, N):
+    #     if full['z_max_grism'][i] >= 0:
+    #         obj = full['spec_id'][i]
+    #         field = obj.split('-')[0]
+    #         pointing = obj.split('-G1')[0]
+    #         #break
+    #         print "%d %s" %(i, obj)
+    #         oned_file = '%s/%s_INTERLACE_v4.1.5/%s.1D.fits' %(PATH, field.upper(), obj)
+    #         if os.path.exists(oned_file):
+    #             oned = unicorn.reduce.Interlace1D(oned_file)
+    #             #print len(oned_file)
+    #             spec[i,:] = np.interp(lran, oned.lam, oned.flux/oned.sens, left=0, right=0)
+    #             contam[i,:] = np.interp(lran, oned.lam, oned.contam/oned.sens, left=0, right=0)
+    #             err[i,:] = np.interp(lran, oned.lam, oned.error/oned.sens, left=0, right=0)
+    #         else:
+    #             print '%s (not found)' %(oned_file)
+    
+    
+    N = len(full)
+    wave = np.zeros((N, 312), dtype=np.float32)
+    spec = np.zeros((N, 312), dtype=np.float32)
+    contam = np.zeros((N, 312), dtype=np.float32)
+    err = np.zeros((N, 312), dtype=np.float32)
+    continuum = np.zeros((N, 312), dtype=np.float32)
+        
+    PATH = '/Volumes/KEYTAR/INTERLACE_v4.1.5'
+    #for i in range(N):
+    for i in range(77708, N):
+        if full['npoint'][i] > 0:
+            obj = full['grism_id'][i]
+            if obj == '00000':
+                obj = '%s-%s-G141_%05d' %(full['field'][i], full['pointings'][i].split(',')[0], full['phot_id'][i])
+                #print 'x ' + obj
+            else:
+                pass
+                #print obj
+                
+            field = obj.split('-')[0]
+            pointing = obj.split('-G1')[0]
+            #break
+            print "%d %s" %(i, obj)
+            oned_file = '%s/%s_INTERLACE_v4.1.5/%s.1D.fits' %(PATH, field.upper(), obj)
+            if os.path.exists(oned_file):
+                oned = unicorn.reduce.Interlace1D(oned_file)
+                nl = len(oned.lam)
+                wave[i,:nl] = oned.lam*1
+                spec[i,:nl] = oned.flux/oned.sens
+                contam[i,:nl] = oned.contam/oned.sens
+                err[i,:nl] = oned.error/oned.sens
+                zf_file = oned_file.replace('1D','new_zfit')
+                if os.path.exists(zf_file):
+                    zf = pyfits.open(zf_file)
+                    continuum[i,:nl] = zf['CONT1D'].data/oned.sens
+                
+                os.remove(os.path.basename(oned_file).replace('.fits', '.png'))
+            else:
+                print '%s (not found)' %(oned_file)
+                
+    #
+    hdu = [pyfits.PrimaryHDU()]
+    #hdu.append(pyfits.ImageHDU(data=lran, name='WAVE'))
+    hdu.append(pyfits.ImageHDU(data=wave, name='WAVE'))
+    hdu.append(pyfits.ImageHDU(data=spec, name='FLUX'))
+    hdu.append(pyfits.ImageHDU(data=err, name='ERR'))
+    hdu.append(pyfits.ImageHDU(data=contam, name='CONTAM'))
+    hdu.append(pyfits.ImageHDU(data=continuum, name='CONTIN'))
+    pyfits.HDUList(hdu).writeto('master_spec_v4.1.5.v2.fits', clobber=True)
+            
+    #####
+    
     img = pyfits.open('/Users/brammer/3DHST/Spectra/Release/v4.1.4/master_spec_v4.1.4.fits')
-    lran = img['WAVE'].data*1
+
+
+    from threedhst import catIO
+    import numpy as np
+    import astropy.io.fits as pyfits
+    
+    full = catIO.Table('/Users/brammer/3DHST/Spectra/Release/v4.1.5/Catalogs/3dhst.v4.1.5.full.v1.fits')    
+    img = pyfits.open('/Users/brammer/3DHST/Spectra/Release/v4.1.5/Catalogs/master_spec_v4.1.5.fits')
+    
+    full = catIO.Table('/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease/3dhst.v4.1.5.master.fits')
+    img = pyfits.open('/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease/master_spec_v4.1.5.v2.fits')
+    phot = catIO.Table('/Users/brammer/3DHST/Spectra/Release/v4.1.5/Catalogs/3dhst.v4.1.5.full.v1.fits')
+    
+    full['hmag'] = full['jh_mag']
+    full['star_flag'] = (full['z_best_s'] == 0)*1
+    full['z_peak'] = full['z_peak_phot']
+    
+    lran = img['WAVE'].data
+    spec = img['FLUX'].data
+    err = img['ERR'].data
+    contam = img['CONTAM'].data
+    contin = img['CONTIN'].data
+    
+    dz = np.abs(full['z_max_grism'] - full['z_peak']) / (1+full['z_peak'])
     
     ### Galaxies
     npix = (img['FLUX'].data != 0).sum(axis=1)
+    ncontam = (img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1)
+    
     #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
-    ok = (npix > 100) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1)
+    ok = (npix > 80) & (ncontam < 190) & (full['hmag'] < 25) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & (full['z_max_grism'] < 3.3) & (dz < 0.2) ### full plot
+
+    ok = (npix > 80) & (ncontam < 190) & (full['hmag'] > 26) & (full['star_flag'] != 1)  ### faint zphot
+    
+    ok = (npix > 100) & (nconta < 150) & (full['hmag'] < 26) & (full['hmag'] > .24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & (full['z_max_grism'] < 3.3)
     so = np.argsort(full['z_max_grism'][ok])
     skip = 15
+    
+    ok = (npix > 80) & (ncontam < 190) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.605) & (full['z_max_grism'] < 3.3) & (full['star_flag'] != 1) & (full['lmass'] > 9)
+    ok = (npix > 10) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.605) & (full['z_max_grism'] < 3.3) & (full['star_flag'] != 1) #& (full['lmass'] > 9)
+    
+    ok = (npix > 80) & (ncontam < 190) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.15) & (full['z_max_grism'] < 3.3) & (full['star_flag'] != 1) #& (full['lmass'] > 9)
+    
+    skip = ok.sum()/305
+    xx = full['z_max_grism'][ok]
+    xx = full['z_peak_phot'][ok]
+    so = np.argsort(xx)
+    
+    ### UVJ
+    xuvj = [0, 0.475806, 0.876573, 1.297379, 1.678108, 1.711505]
+    yuvj = [1.39, 1.39, 1.41, 1.69, 2.16, 2.62]
+    yint_uvj = np.interp(full['VmJ'], xuvj, yuvj)
+    is_uvj = full['UmV'] > yint_uvj
+    
+    ok = (npix > 80) & (ncontam < 190) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & (full['z_max_grism'] < 2.8) & (dz < 0.2) & (full['lmass'] > 9) ### full plot
+    ok &= ~is_uvj
+    skip = ok.sum()/305
+    so = np.argsort(full['lmass'][ok])
+    xx = full['lmass'][ok]
     
     #### Continuum
     line_SN = npix < 0
     no_line_SN = npix < 0
     line_list = ['OII', 'OIII', 'HALPHA']
-    line_list = ['OII', 'OIII', 'Ha', 'SIII']
+    line_list = ['OII', 'OIII', 'Ha', 'Hb', 'SIII']
     for line in line_list:
         line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 3) & (full['%s_SCALE' %(line)] > 0)
         #no_line_SN[full['%s_SCALE' %(line)] != 0] &= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] < 1)[full['%s_SCALE' %(line)] != 0]
         no_line_SN |= (full['%s_FLUX' %(line)]/full['%s_FLUX_ERR' %(line)] > 2) & (full['%s_SCALE' %(line)] > 0)
         #no_line_SN[full['%s_SCALE' %(line)] != 0] &= (full['%s_EQW' %(line)] - full['%s_EQW_ERR' %(line)] < 50)[full['%s_SCALE' %(line)] != 0]
         
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & line_SN
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & line_SN
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & line_SN
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 25) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & ~line_SN
     so = np.argsort(full['z_max_grism'][ok])
     #skip = 5
     skip = 18
     skip = ok.sum()/305
 
     ### No line
-    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & no_line_SN
-    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 23) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & no_line_SN & (~line_SN)
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 23) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & ~no_line_SN #& (~line_SN)
+    #ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & no_line_SN
+    #ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 23) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & no_line_SN & (~line_SN)
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & ~no_line_SN #& (~line_SN)
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 26) & (full['hmag'] > 24) & (full['z_max_grism'] > 0.605) & (full['star_flag'] != 1) & ~no_line_SN #& (~line_SN)
     so = np.argsort(full['z_max_grism'][ok])
     #so = np.argsort(full['hmag'][ok])
     skip = 18
     skip = ok.sum()/305
     
     ## sort by stellar mass
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.6)
-    #ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 150) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.6)
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.6)
+    ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.6)
+    #ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 26) & (full['hmag'] > 24) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 2.6)
+    #ok = (npix > 80) & (ncontam < 150) & (full['hmag'] < 26) & (full['z_max_grism'] > 0.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.6)
     
     ### High-z
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 1.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.2)
+    ok = (npix > 80) & (ncontam < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 1.7) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 3.2)
     ### lowz
-    ok = (npix > 80) & ((img['CONTAM'].data/img['FLUX'].data > 4).sum(axis=1) < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.18) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 0.9)
+    ok = (npix > 80) & (ncontam < 100) & (full['hmag'] < 24) & (full['z_max_grism'] > 0.18) & (full['star_flag'] != 1) &  (full['z_max_grism'] < 0.9)
     
     
     so = np.argsort(full['lmass'][ok])
@@ -388,15 +567,40 @@ def master_spec():
     so = np.argsort(full['UmV'][ok])
     xx = full['UmV'][ok]
 
-    # so = np.argsort(full['lssfr'][ok])
-    # so = np.argsort(full['fout_Av'][ok])
-    # xx = full['fout_Av'][ok] + np.random.rand(ok.sum())*0.1
-    # so = np.argsort(xx)
+    so = np.argsort(full['lssfr'][ok])
+    so = np.argsort(full['fout_Av'][ok])
+    xx = full['fout_Av'][ok] + np.random.rand(ok.sum())*0.1
+    so = np.argsort(xx)
 
     so = np.argsort(full['eazy_MLv'][ok])
     xx = full['eazy_MLv'][ok]
+
+    so = np.argsort(full['Hb_EQW'][ok])
+    xx = full['Hb_EQW'][ok]
+
+    haO3 = (full['Ha_FLUX']/full['OIII_FLUX'])[ok]
     
-    skip = ok.sum()/200
+    hbO3 = (full['Hb_FLUX']/full['OIII_FLUX'])[ok]
+    hbO3[full['Hb_SCALE'][ok] < 0] = -100
+    so = np.argsort(hbO3)
+    xx = hbO3
+    
+    zerr = np.abs((full['zfit_u95']-full['zfit_l95'])/(1+full['z_max_grism']))[ok]
+    zerr = np.abs((full['zfit_u68']-full['zfit_l68'])/(1+full['z_max_grism']))[ok]
+    so = np.argsort(zerr)
+    xx = zerr
+    
+    so = np.argsort(full['z_peak'][ok])
+    xx = full['z_peak'][ok]
+    
+    so = np.argsort(full['OIIIx_FLUX'][ok])
+    xx = full['OIIIx_FLUX'][ok]
+
+    so = np.argsort(full['NeIII_FLUX'][ok])
+    xx = full['NeIII_FLUX'][ok]
+    
+    #skip = ok.sum()/200
+    skip = ok.sum()/305
     
     #### stars
     imj = -2.5*np.log10(full['f_F814W']/full['f_F125W'])
@@ -409,10 +613,11 @@ def master_spec():
     ########## Copy from here
     
     sub = (img['FLUX'].data-img['CONTAM'].data)[ok,:][so,:]
+    sub -= img['CONTIN'].data[ok,:][so,:]
     #scl = 10**(0.4*(full['hmag'][ok][so]-21))
-    h2 = 25-2.5*np.log10(full['f_F140W'][ok][so])
+    h2 = 25-2.5*np.log10(phot['f_F140W'][ok][so])
     scl = 10**(0.4*(h2-21))
-    
+     
     import numpy.ma as ma
     mask = np.isfinite(sub) & (sub > 0)
     sub = ma.masked_array(sub, mask=(~mask))
@@ -427,7 +632,6 @@ def master_spec():
     avg = np.median(smooth, axis=0)
         
     zi = full['z_max_grism'][ok][so][::skip]
-    lrest = np.arange(2500, 1.3e4, 10)
     lrest = np.arange(2500, 1.4e4, 10)
 
     lrest = np.arange(2500, 1.7e4/(1+0.605), 10)  #### limit z range to h-alpha
@@ -444,23 +648,33 @@ def master_spec():
     # spec_rest_line = SpecSorted(spec_rest, lrest, skip, ok, zi, 'z')
     # 
     # spec_rest_cont = SpecSorted(spec_rest, lrest, skip, ok, zi, 'z')
-        
+            
     ###### To here
     
     ### full rest, for when not sorted by redshift
-    lrest = np.linspace(3500, 8000, smooth.shape[0])  #### limit z range to h-alpha
     #g=1
-    lrest = np.linspace(3000, 10000, smooth.shape[0]*g)  #### limit z range to h-alpha
-    lrest = 10**np.linspace(np.log10(3000), np.log10(15200), smooth.shape[0]*g)  #### limit z range to h-alpha
-    lrest = 10**np.linspace(np.log10(3200), np.log10(10000), smooth.shape[0]*g)  #### limit z range to h-alpha
+    lrest = np.linspace(3300, 8000, smooth.shape[1]*g)  #### limit z range to h-alpha
+    #lrest = np.linspace(3000, 10000, smooth.shape[1]*g)  #### limit z range to h-alpha
+    #lrest = 10**np.linspace(np.log10(3000), np.log10(13200), smooth.shape[1]*g)  #### limit z range to h-alpha
+    #lrest = 10**np.linspace(np.log10(3300), np.log10(10000), smooth.shape[1]*g)  #### limit z range to h-alpha
     #lrest = np.linspace(3300, 13000, smooth.shape[0])  #### limit z range to h-alpha
+    lami = lran[ok,:][so,:]
     zzi = full['z_max_grism'][ok][so]
+    #zzi = full['z_peak'][ok][so]
     sh = sub.shape
     spec_rest_full = np.zeros((sh[0], len(lrest)))
     for i in range(sh[0]):
+        print i
         #spec_rest_full[i,:] = np.interp(lrest, lran[30:-5]/(1+zzi[i]), sub[i,30:-5]/avg[30:-5], left=0, right=0)
         sl = slice(40,-10)
-        spec_rest_full[i,:] = unicorn.utils_c.interp_conserve_c(lrest, lran[sl]/(1+zzi[i]), sub[i,sl]/avg[sl], left=0, right=0)
+        sl = (lami[i,:] > 1.14e4) & (lami[i,:] < 1.58e4)
+        
+        lrest_i = lami[i,sl]/(1+zzi[i])
+        if (lrest_i[0] > lrest[-1]) | (lrest_i[-1] < lrest[0]):
+            print 'No overlap (%.2f)' %(zzi[i])
+            continue
+        #
+        spec_rest_full[i,:] = unicorn.utils_c.interp_conserve_c(lrest, np.cast[np.float64](lrest_i), np.cast[np.float64](sub[i,sl]/avg[sl]), left=0, right=0)
     
     spec_rest_full[~np.isfinite(spec_rest_full)] = 0
     smooth_full = spec_rest_full*1.
@@ -471,155 +685,32 @@ def master_spec():
     
     smooth_full = smooth_full[::skip]
     smooth_full[smooth_full == 0] = 100
-
-    spec_rest_z = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'z')
     
-    #spec_rest_mass = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass')
+    #####
+    
+    spec_rest_z = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'z')
+
+    spec_rest_uvj_q = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass UVJ q')
+    spec_rest_uvj_sf = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass UVJ sf')
+    
+    spec_rest_z_phot = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'z zphot')
+    
+    spec_rest_mass_zphot = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass zphot')
+    
+    spec_rest_mass = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'lmass')
     spec_rest_av = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'Av')
     spec_rest_UmV = SpecSorted(smooth_full, lrest, skip, ok, xx[so][::skip], r'UV')
     
     ### Stack
-    spec_rest[~np.isfinite(spec_rest) | (spec_rest > 99)] = 0
-    sum_rest = np.sum(spec_rest, axis=0)
-    N = np.sum(spec_rest != 0, axis=0)
-    
-    spec_rest[spec_rest == 0] = 100
-    
-    import seaborn as sns
-    sns.set(style="ticks")
-    plt.ioff()
-    fig = unicorn.plotting.plot_init(aspect=sh[0]*1./sh[1]*0.5, xs=6, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
-    
-    ax = fig.add_subplot(111)
-    ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-    
-    zpix = np.arange(0.25,3.1,0.25)
-    zpixstr = list(zpix)
-    for i in range(len(zpix))[::2]:
-        zpixstr[i] = ''
-    
-    ypix = np.interp(zpix, zi, np.arange(sh[0]))
-    ax.set_yticks(ypix); ax.set_yticklabels(zpixstr)
-    ax.set_ylim(0, sh[0])
-    
-    ax2 = ax.twinx()
-    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-    ynticks = np.arange(0, ok.sum(), 5000)
-    ynv = ynticks/skip
-    ax2.set_yticks(ynv); ax2.set_yticklabels(ynticks)
-    ax2.set_ylim(0, sh[0])
-    ax2.set_ylabel(r'$N$')
-    ax.set_ylabel(r'$z$')
-    
-    xlam = [0.25,0.5,0.75,1,1.25]
-    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
-    ax.set_xticks(xpix); ax.set_xticklabels(xlam)
-    ax2.set_xticks(xpix); ax2.set_xticklabels(xlam)
-    ax.set_xlabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
-    
-    fig.tight_layout()
-    
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf')
-    
-    
-    ##### Horizontal
-    import seaborn as sns
-    sns.set(style="ticks")
-    plt.ioff()
-    #fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]*0.5), xs=10, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
-    # natural shape
-    fig = unicorn.plotting.plot_init(aspect=1./(sh[0]*1./sh[1]), xs=5, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
-    
-    ax = fig.add_subplot(111)
-    ax.imshow(255-unicorn.candels.clipLog(spec_rest.T, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-    
-    zpix = np.arange(0.25,3.1,0.25)
-    zpixstr = list(zpix)
-    for i in range(len(zpix))[::2]:
-        zpixstr[i] = ''
-    
-    ypix = np.interp(zpix, zi, np.arange(sh[0]))
-    ax.set_xticks(ypix); ax.set_xticklabels(zpixstr)
-    ax.set_xlim(0, sh[0])
-    
-    ax2 = ax.twiny()
-    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-    ynticks = np.arange(0, ok.sum(), 5000)
-    ynv = ynticks/skip
-    ax2.set_xticks(ynv); ax2.set_xticklabels(ynticks)
-    ax2.set_xlim(0, sh[0])
-    ax2.set_xlabel(r'$N$')
-    ax.set_xlabel(r'$z$')
-    
-    xlam = [0.25,0.5,0.75,1,1.25]
-    xlam = np.arange(0.3,1.4,0.1)
-    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
-    ax.set_yticks(xpix); ax.set_yticklabels(xlam)
-    ax2.set_yticks(xpix); ax2.set_yticklabels(xlam)
-    ax.set_ylabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
-    
-    fig.tight_layout()
-    
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_horiz_xx.pdf')
-    
-    #### Sort stellar mass
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-    import matplotlib.font_manager as font_manager
-
-    path = '/Library/Fonts/Microsoft/Calibri.ttf'
-    prop = font_manager.FontProperties(fname=path)
-    mpl.rcParams['font.family'] = prop.get_name()
-    mpl.rcParams['font.style'] = 'normal'
-    mpl.rcParams['font.weight'] = 'normal'
-    
-    sh = smooth_full.shape
-    import seaborn as sns
-    sns.set(style="ticks")
-    plt.ioff()
+    # spec_rest[~np.isfinite(spec_rest) | (spec_rest > 99)] = 0
+    # sum_rest = np.sum(spec_rest, axis=0)
+    # N = np.sum(spec_rest != 0, axis=0)    
+    # spec_rest[spec_rest == 0] = 100
+    smooth_full[~np.isfinite(smooth_full) | (smooth_full > 99)] = 0
+    sum_rest = np.sum(smooth_full, axis=0)
+    N = np.sum(smooth_full != 0, axis=0)    
     smooth_full[smooth_full == 0] = 100
-    fig = unicorn.plotting.plot_init(aspect=1./1.3, xs=6, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
-    
-    ax = fig.add_subplot(111)
-    ax.imshow(255-unicorn.candels.clipLog(smooth_full.T, lexp=1e5, cmap=[6.47, 0.88235], scale=[0,5]), origin='lower', aspect='auto')
-    
-    mass = full['lmass'][ok][so][::skip]
-    zpix = np.arange(9,11.1,0.5)
-    zpixstr = list(zpix)
-    ax.set_xlabel(r'$\log\ M/M_\odot$')
-
-    # mass = xx[so][::skip]
-    # zpix = np.arange(0,2.1,0.5)
-    # zpixstr = list(zpix)
-    # ax.set_xlabel(r'$A_V$')
-    
-    ypix = np.interp(zpix, mass, np.arange(sh[0]))
-    ax.set_xticks(ypix); ax.set_xticklabels(zpixstr)
-    ax.set_xlim(0, sh[0])
-    
-    ax2 = ax.twiny()
-    #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-    ynticks = np.arange(0, ok.sum(), 2000)
-    ynv = ynticks/skip
-    ax2.set_xticks(ynv); ax2.set_xticklabels(ynticks)
-    ax2.set_xlim(0, sh[0])
-    ax2.set_xlabel(r'$N$')
-    
-    xlam = [0.25,0.5,0.75,1,1.25]
-    xlam = np.arange(4000,8000,1000)/1.e4
-    xpix = np.interp(xlam, lrest/1.e4, np.arange(len(lrest)))
-    ax.set_yticks(xpix); ax.set_yticklabels(np.cast[int](xlam*1e4))
-    ax2.set_yticks(xpix); ax2.set_yticklabels(np.cast[int](xlam*1e4))
-    ax.set_ylabel(r'$\lambda_\mathrm{rest}$ / \AA')
-    ax.set_ylim(np.interp([0.33, 0.72], lrest/1.e4, np.arange(len(lrest))))
-    fig.tight_layout()
-    
-    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-    ax.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
-    ax2.yaxis.set_minor_locator(MultipleLocator(np.diff(xpix)[0]/2.))
-    
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_mass_xx.pdf')
-    
+        
     #### Show lines and continuum
     import seaborn as sns
     sns.set(style="ticks")
@@ -627,11 +718,16 @@ def master_spec():
     plt.rcParams['ytick.direction'] = u'in'
     #sns.set_style("darkgrid", {"axes.facecolor": ".9"})
     plt.ioff()
+    show_label=True
     fig = unicorn.plotting.plot_init(aspect=0.55, xs=8, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
-    
+    #fig = unicorn.plotting.plot_init(aspect=1/0.55, xs=6, top=0.01, right=0.1, bottom=0.1, left=0.1, square=True, use_tex=True)
+
     #for subplot, obj in zip([121, 122], [spec_rest_line, spec_rest_cont]):
-    for subplot, obj in zip([121, 122], [spec_rest_UmV, spec_rest_av]):
-        #for subplot, obj in zip([111], [spec_rest_z]):
+    #for subplot, obj in zip([121, 122], [spec_rest_UmV, spec_rest_av]):
+    #for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_av]):
+    #for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_mass_zphot]):
+    for subplot, obj in zip([121, 122], [spec_rest_uvj_sf, spec_rest_uvj_q]):
+        #for subplot, obj in zip([111], [spec_rest_z_phot]):
         zi = obj.sort
         sh = obj.sh
         spec_rest = obj.spec_rest*1
@@ -641,24 +737,28 @@ def master_spec():
         #ax = fig.add_subplot(122) ### run twice
     
         #ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
-        if obj.sort_name in ['lmass', 'UV']:
+        if (obj.sort_name in ['lmass', 'UV']) & show_label:
             #dy=6
-            spec_rest[sh[0]/18/3+dy-1:sh[0]/18+dy+1,:] += 100
-            for line in [[3727, '[OII]'], [4980, r'H$\beta$, [OIII]'], [6600, r'H$\alpha$, [SII]']]:
+            spec_rest[sh[0]/18/3+dy-2:sh[0]/18+dy,:] += 100
+            for line in [[3727, '[OII]'], [4341, r'H$\gamma$'], [4980, r'H$\beta$ [OIII]'], [6640, r'H$\alpha$ [SII]']]:
                 xpix = np.interp(line[0], obj.wave, np.arange(len(obj.wave)))
                 ax.text(xpix, sh[0]/45.+dy, line[1], ha='center', va='baseline', zorder=10, fontsize=8)
                 
         ax.imshow(255-unicorn.candels.clipLog(spec_rest, lexp=1000, cmap=[9.62222, 0.90352], scale=[-0.02, 2]), origin='lower', aspect='auto', interpolation='Nearest')
     
-        if obj.sort_name == 'z':
+        if 'z' in obj.sort_name:
             if subplot == 111:
-                xlam = np.arange(0.3,1.51, 0.1)            
+                xlam = np.arange(0.3,1.31, 0.1)            
                 zpix = np.arange(0.25,3.1,0.25)
             else:
                 xlam = np.arange(0.3,1.01, 0.1)
                 zpix = np.arange(0.75,3.1,0.25)
             
-            ax.set_ylabel(r'$z$')
+            if 'zphot' in obj.sort_name:
+                ax.set_ylabel(r'$z_\mathrm{phot}$')
+            else:
+                ax.set_ylabel(r'$z$')
+                
             zpixstr = list(zpix)
             for i in range(len(zpix))[::2]:
                 zpixstr[i] = ''
@@ -666,14 +766,18 @@ def master_spec():
             if subplot == 122:
                 zpixstr[-1] = ''
         
-        elif obj.sort_name == 'lmass':
+        elif 'lmass' in obj.sort_name:
             xlam = np.arange(0.4,0.81, 0.1)
             ax.set_ylabel(r'$\log\ M/M_\odot$')
             zpix = np.arange(9,11.5,0.25)
             zpixstr = list(zpix)
             for i in range(len(zpix))[1::2]:
                 zpixstr[i] = ''
-        
+            
+            if 'zphot' in obj.sort_name:
+                ax.text(0.99, 0.99, r'$z_\mathrm{phot}$', ha='right', va='top', fontsize=14, backgroundcolor='white', transform=ax.transAxes)
+                show_label=False
+                
         elif obj.sort_name == 'Av':
             xlam = np.arange(0.4,0.81, 0.1)
             ax.set_ylabel(r'$A_V$')
@@ -684,7 +788,7 @@ def master_spec():
         
         elif obj.sort_name == 'UV':
             xlam = np.arange(0.4,0.81, 0.1)
-            ax.set_ylabel(r'$(U-V)_\mathrm{rest-frame}$')
+            ax.set_ylabel(r'$(U-V)_\mathrm{rest\ frame}$')
             zpix = np.arange(0.5,2.1, 0.5)
             zpixstr = list(zpix)
             # zpixstr[-3] = ''
@@ -698,13 +802,25 @@ def master_spec():
         #ax2.imshow(unicorn.candels.clipLog(spec_rest, lexp=1e5, cmap=[6, 0.921569], scale=[0.6,1.5]), origin='lower', aspect='auto')
         ynticks = np.arange(0, N, 1000)
         ynv = ynticks/obj.skip
-        ax2.set_yticks(ynv); ax2.set_yticklabels([]) #ynticks)
+        ax2.set_yticks(ynv, minor=True)
+        #
+        ynticks = np.arange(0, N, 5000)
+        ynv = ynticks/obj.skip
+        ax2.set_yticks(ynv, minor=False)
+        #
+        ax2.set_yticklabels([]) #ynticks)
         ax2.set_ylim(0, sh[0])
         #ax2.set_ylabel(r'$N$')
         
         if subplot == 111:
             ax2.set_ylabel(r'$N\times1000$')
-            keep_label = [0,1,2,5,10,20]
+            keep_label = [0,2,5,10,20]
+            if ok.sum() > 30000:
+                keep_label.append(30)
+            
+            if ok.sum() > 40000:
+                keep_label.append(40)
+            
             yy = ['']*len(ynv)
             for i in range(len(yy)):
                 if ynticks[i]/1000 in keep_label:
@@ -720,13 +836,34 @@ def master_spec():
         ax2.set_xticks(xpix); ax2.set_xticklabels(xlam)
         ax.set_xlabel(r'$\lambda_\mathrm{rest}$ / $\mu\mathrm{m}$')
     
-    for ax in fig.axes:
-        ax.tick_params(axis='both', color='0.9', width=1.5, which='both')
-        
+    if 'z' not in obj.sort_name:
+        for ax in fig.axes:
+            ax.tick_params(axis='both', color='0.9', width=1.5, which='both')
+        #
+    else:
+        if show_label:
+            lines = [[3969, r'Balmer/4000\AA'+'\nbreak (abs.)', -1], [3727, '[OII]', -1], 
+                     [4341, r'H$\gamma$', -1], [4861, r'H$\beta$', -1], [5007, r'[OIII]', -1], [6563, r'H$\alpha$+[NII]', -1], [6724, '[SII]', -1], [9068, '[SIII]', 1], [9530, '[SIII]', 1], [10830, 'HeI', 1]]
+            for line in lines:
+                l0, llabel, top = line
+                if top < 0:
+                    yl = np.interp(1.1e4/l0-1, zzi, np.arange(ok.sum()))-0.01*ok.sum()
+                    hal = 'right'
+                    val = 'top'
+                else:
+                    yl = np.interp(1.68e4/l0-1, zzi, np.arange(ok.sum()))+0.01*ok.sum()
+                    hal = 'left'
+                    val = 'bottom'
+                    
+                xl = np.interp(l0, obj.wave, np.arange(len(obj.wave)))
+                ax.text(xl, yl/obj.skip, llabel, ha=hal, va=val, zorder=1000, fontsize=9, rotation=45)
+                print xl, yl, llabel
+                
     fig.tight_layout(pad=0.3)
     
-    unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf', dpi=200)
-            
+    unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf', dpi=300)
+    plt.close()
+           
 def pure_line_flux():
     """
     Calculate lien flux for pure emission line at H140=26
@@ -1446,3 +1583,191 @@ def check_cutoff_pz():
     to photoz
     """
     gris = test.SimultaneousFit('goodss-29-G141_41381', fast=False, lowz_thresh=0.01)
+
+def join_v415_tables():
+    import astropy.table
+    import os
+    import numpy as np
+    
+    tt = astropy.table.Table()
+    
+    os.chdir("/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease")
+    
+    linefit = []
+    zfit = []
+    rf = []
+    sfr = []
+    fout = []
+    
+    dups = []
+    
+    for ifield, field in enumerate(['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']):
+        print field
+        
+        out = np.loadtxt('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.duplicates_2d.dat' %(field, field), dtype='a', unpack=True)
+        pointings = []
+        npoint = []
+        for i in range(len(out[0])):
+            pi = []
+            npi = 0
+            for j in range(1,len(out)):
+                if 'G141' in out[j,i]:
+                    npi+=1
+                    pi.append(out[j,i].split('-')[1])
+            
+            npoint.append(npi)    
+            if len(pi) == 0:
+                pointings.append('--')
+            else:
+                pointings.append(','.join(pi))
+        
+        ti = astropy.table.Table()
+        ti.add_column(astropy.table.Column(data=pointings, name='pointings'))
+        ti.add_column(astropy.table.Column(data=npoint, name='npoint'))
+        dups.append(ti)
+             
+        t = tt.read('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.linefit.linematched.fits' %(field, field))
+        linefit.append(t)
+        
+        t = tt.read('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.zfit.linematched.fits' %(field, field))
+        t.add_column(astropy.table.Column(data=[field]*len(t), name='field'), index=2)
+        t.add_column(astropy.table.Column(data=[ifield+1]*len(t), name='ifield'), index=2)
+        zfit.append(t)
+        
+        
+        t = tt.read('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.zbest.rf' %(field, field), format='ascii.commented_header')
+        rf.append(t)
+        
+        t = tt.read('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.zbest.sfr' %(field, field), format='ascii.commented_header')
+        sfr.append(t)
+        
+        #t = tt.read('%s_3dhst_v4.1.5_catalogs/%s_3dhst.v4.1.5.zbest.fout' %(field, field), format='ascii.commented_header')
+        t = tt.read('NewFAST_Oct8/%s_3dhst.v4.1.5.zbest.fout' %(field), format='ascii.commented_header')
+        fout.append(t)
+        
+    #
+    zfit_full = astropy.table.vstack(zfit)
+    linefit_full = astropy.table.vstack(linefit)
+    rf_full = astropy.table.vstack(rf)
+    sfr_full = astropy.table.vstack(sfr)
+    fout_full = astropy.table.vstack(fout)
+    dups_full = astropy.table.vstack(dups)
+    
+    # count = np.arange(len(zfit_full), dtype=int)+1
+    # ccol = astropy.table.Column(data=count, name='counter')
+    # for tab in [linefit_full, zfit_full, rf_full, sfr_full, fout_full, dups_full]:
+    #     tab.add_column(ccol)
+     
+    # linefit_full.rename_column('number', 'phot_id')
+    # rf_full.rename_column('id', 'phot_id')
+    # 
+    # sfr_full.rename_column('flag', 'sfr_flag')
+    # sfr_full.rename_column('id', 'phot_id')
+    # sfr_full.rename_column('beta', 'sfr_beta')
+    # 
+    # fout_full.rename_column('id', 'phot_id')
+    # fout_full.rename_column('z', 'z_best')
+    
+    #### rename columns
+    for tab, name in zip([linefit_full, rf_full, sfr_full, fout_full], ['linefit', 'rf', 'sfr', 'fout']):
+        for c in tab.keys():
+            if c in zfit_full.keys():
+                tab.rename_column(c, '%s_%s' %(name, c))
+                
+    full = astropy.table.hstack([zfit_full, linefit_full, rf_full, sfr_full, fout_full])
+    full.add_column(dups_full['pointings'], index=4)
+    full.add_column(dups_full['npoint'], index=5)
+    
+    phot = tt.read('../../v4.1.5/Catalogs/3dhst.v4.1.5.full.v1.fits')
+    for c in ['y','x','dec','ra']:
+        print c
+        full.add_column(phot[c], index=1)
+    
+    full.write('3dhst.v4.1.5.master.fits')
+    
+    
+    #### Demo, plot UVJ diagram color-coded by H-alpha equivalent width
+    import astropy.table
+    tt = astropy.table.Table()
+    full = tt.read('3dhst.v4.1.5.master.fits')
+    
+    UV = -2.5*np.log10(full['L153']/full['L155'])
+    VJ = -2.5*np.log10(full['L155']/full['L161'])
+    
+    #### H-alpha
+    ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 0.72) & (full['z_max_grism'] < 1.5) & (full['Ha_SCALE'] != -99) & (full['lmass'] > 9.2)
+    line = 'Ha'
+
+    # ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 1.25) & (full['z_max_grism'] < 2.3) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2)
+    # line = 'OIII'
+
+    # ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 1.92) & (full['z_max_grism'] < 3.4) & (full['OII_SCALE'] != -99) & (full['lmass'] > 10)
+    # line = 'OII'
+    
+    eqw = np.log10(full['%s_EQW' %(line)]/(1+full['z_max_grism']))
+    eqw[(full['%s_EQW' %(line)] < 0) < 0] = -1
+    vmi = [-1,3]
+    
+    eqw = np.log10(full['SII_FLUX']/full['Ha_FLUX'])
+    eqw[(full['SII_FLUX'] < 0) < 0] = -3
+    vmi = [-1.,0.0]
+    ok &= (full['SII_FLUX']/full['SII_FLUX_ERR'] > 2) & (full['Ha_FLUX']/full['Ha_FLUX_ERR'] > 2)
+    
+    #eqw[(full['%s_EQW' %(line)] < 0) | (full['%s_EQW' %(line)]-full['%s_EQW_ERR' %(line)] < 0)] = -1
+    
+    ####
+    fig = plt.figure(figsize=[7.5,5]); ax = fig.add_subplot(111)
+    
+    ax.scatter(VJ[ok], UV[ok], c=eqw[ok], vmin=vmi[0],vmax=vmi[1], alpha=0.25)
+    sc = ax.scatter(VJ[ok][0]-10, UV[ok][0]-10, c=eqw[ok][0], vmin=vmi[0],vmax=vmi[1], alpha=0.8)
+    ax.set_xlim(-0.5,2.5); ax.set_ylim(-0.1,2.5)
+    ax.set_xlabel(r'$V-J$'); ax.set_ylabel(r'$U-V$')
+    
+    cb = plt.colorbar(sc); cb.set_label(r'$\log_{10}$ %s EQW' %(line))
+    ax.text(0.02,0.98, r'$%.1f < z < %.1f$' %(full['z_max_grism'][ok].min(), full['z_max_grism'][ok].max()) + '\nlog M/'+r'M$_\odot$'+' > 9.2\n' + r'$N$=%d' %(ok.sum()), backgroundcolor='white', ha='left', va='top', transform=ax.transAxes)
+    
+    fig.tight_layout(pad=0.1)
+    fig.savefig('3dhst_v4.1.5_UVJ_%s_demo.png' %(line))
+    
+    ### Hb/OIII
+    ok = (full['z_best_s'] > 0) & (full['Hb_SCALE'] != -99) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2)
+    
+    ok &= (full['Hb_FLUX']/full['Hb_FLUX_ERR'] > 1)
+    
+    HbO3 = full['Hb_FLUX']/full['OIII_FLUX']
+
+    line = 'OIII'
+    eqw = np.log10(full['%s_EQW' %(line)]/(1+full['z_max_grism']))
+    eqw[(full['%s_EQW' %(line)] < 0) < 0] = -1
+    
+    err = np.sqrt((full['Hb_FLUX_ERR']/full['Hb_FLUX'])**2 + (full['OIII_FLUX_ERR']/full['OIII_FLUX'])**2)
+    
+    plt.errorbar(full['lmass'][ok], 1/HbO3[ok], (1/HbO3*err)[ok], ecolor='0.6', alpha=0.5, linestyle='None', marker='None', zorder=-1)
+    plt.scatter(full['lmass'][ok], 1/HbO3[ok], c=eqw[ok], vmin=-1, vmax=3, alpha=0.5, zorder=1)
+    plt.xlim(9.2,11.5); plt.ylim(-0.5,20)
+
+    #### R23
+    R23 = (full['OII_FLUX']+full['OIII_FLUX'])/(full['Hb_FLUX'])
+    err_R23 = np.sqrt((full['Hb_FLUX_ERR']/full['Hb_FLUX'])**2 + (full['OII_FLUX_ERR']**2+full['OIII_FLUX_ERR']**2)/(full['OII_FLUX']+full['OIII_FLUX'])**2)
+    
+    O32 = (full['OIII_FLUX']/full['OII_FLUX'])
+    x = np.log10(R23)
+    y = np.log10(O32)
+    logOH = 12 - 4.944 + 0.767*x + 0.602*x**2 - y*(0.29+0.332*x-0.331*x**2)
+    
+    ok = (full['z_best_s'] > 0) & (full['Hb_SCALE'] != -99) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2) & (full['OII_SCALE'] != -99)
+    ok &= (full['OII_FLUX']/full['OII_FLUX_ERR'] > 1) & (full['OIII_FLUX']/full['OIII_FLUX_ERR'] > 1) & (full['Hb_FLUX']/full['Hb_FLUX_ERR'] > 1) & (O32 > 0)
+
+    o4363 = (full['OIIIx_FLUX']/full['OIIIx_FLUX_ERR'] > 2)
+    
+    plt.errorbar(full['lmass'][ok], R23[ok], (R23*err_R23)[ok], ecolor='0.6', alpha=0.3, linestyle='None', marker='None', zorder=-1)
+    plt.scatter(full['lmass'][ok & ~o4363], R23[ok & ~o4363], c=eqw[ok & ~o4363], vmin=-1, vmax=3, alpha=0.5, zorder=1)
+    plt.scatter(full['lmass'][ok & o4363], R23[ok & o4363], c=eqw[ok & o4363], vmin=-1, vmax=3, alpha=0.8, zorder=1, marker='s', s=60)
+    plt.xlim(9.2,11.5); plt.ylim(-0.5,20)
+
+    
+    
+    
+    
+    
+    

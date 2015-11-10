@@ -1695,11 +1695,11 @@ def join_v415_tables():
     VJ = -2.5*np.log10(full['L155']/full['L161'])
     
     #### H-alpha
-    ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 0.72) & (full['z_max_grism'] < 1.5) & (full['Ha_SCALE'] != -99) & (full['lmass'] > 9.2)
+    ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 0.72) & (full['z_max_grism'] < 1.58) & (full['Ha_SCALE'] != -99) & (full['lmass'] > 9.5)
     line = 'Ha'
 
-    # ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 1.25) & (full['z_max_grism'] < 2.3) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2)
-    # line = 'OIII'
+    ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 1.25) & (full['z_max_grism'] < 2.3) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2)
+    line = 'OIII'
 
     # ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 1.92) & (full['z_max_grism'] < 3.4) & (full['OII_SCALE'] != -99) & (full['lmass'] > 10)
     # line = 'OII'
@@ -1716,9 +1716,11 @@ def join_v415_tables():
     #eqw[(full['%s_EQW' %(line)] < 0) | (full['%s_EQW' %(line)]-full['%s_EQW_ERR' %(line)] < 0)] = -1
     
     ####
+    plt.set_cmap('coolwarm_r'); plt.close()
+
     fig = plt.figure(figsize=[7.5,5]); ax = fig.add_subplot(111)
     
-    ax.scatter(VJ[ok], UV[ok], c=eqw[ok], vmin=vmi[0],vmax=vmi[1], alpha=0.25)
+    ax.scatter(VJ[ok], UV[ok], c=eqw[ok], vmin=vmi[0],vmax=vmi[1], alpha=0.4)
     sc = ax.scatter(VJ[ok][0]-10, UV[ok][0]-10, c=eqw[ok][0], vmin=vmi[0],vmax=vmi[1], alpha=0.8)
     ax.set_xlim(-0.5,2.5); ax.set_ylim(-0.1,2.5)
     ax.set_xlabel(r'$V-J$'); ax.set_ylabel(r'$U-V$')
@@ -1728,6 +1730,26 @@ def join_v415_tables():
     
     fig.tight_layout(pad=0.1)
     fig.savefig('3dhst_v4.1.5_UVJ_%s_demo.png' %(line))
+    
+    #### Dust correction
+    import research.dusty
+    old = catIO.Table('../..//v4.1.4/3dhst.v4.1.4.full.v2.fits')
+    Av_eazy = np.interp(old['dusty_total'], [0,1], [0,2])
+    
+    dUV, dVJ = research.dusty.get_calzetti_correction(UV, VJ, full['Av'])
+    #dUV, dVJ = research.dusty.get_calzetti_correction(UV, VJ, Av_eazy)
+    #plt.set_cmap('coolwarm_r'); plt.close()
+    fig = plt.figure(figsize=[7.5,5]); ax = fig.add_subplot(111)
+    
+    ax.scatter((VJ-dVJ)[ok], (UV-dVJ)[ok], c=eqw[ok], vmin=vmi[0],vmax=vmi[1], alpha=0.4)
+    sc = ax.scatter(VJ[ok][0]-10, UV[ok][0]-10, c=eqw[ok][0], vmin=vmi[0],vmax=vmi[1], alpha=0.8)
+    ax.set_xlim(-0.5,2.5); ax.set_ylim(-0.1,2.5)
+    ax.set_xlabel(r'$V-J$'); ax.set_ylabel(r'$U-V$')
+    
+    cb = plt.colorbar(sc); cb.set_label(r'$\log_{10}$ %s EQW' %(line))
+    ax.text(0.02,0.98, r'$%.1f < z < %.1f$' %(full['z_max_grism'][ok].min(), full['z_max_grism'][ok].max()) + '\nlog M/'+r'M$_\odot$'+' > 9.2\n' + r'$N$=%d' %(ok.sum()), backgroundcolor='white', ha='left', va='top', transform=ax.transAxes)
+    
+    fig.tight_layout(pad=0.1)
     
     ### Hb/OIII
     ok = (full['z_best_s'] > 0) & (full['Hb_SCALE'] != -99) & (full['OIII_SCALE'] != -99) & (full['lmass'] > 9.2)
@@ -1766,8 +1788,27 @@ def join_v415_tables():
     plt.xlim(9.2,11.5); plt.ylim(-0.5,20)
 
     
-    
-    
+    #### Compare EAZY masses
+    dz = (full['z']-full['z_peak'])/(1+full['z_peak'])
+    ok = (full['hmag'] < 25) & (full['use_phot'] == 1) & (np.abs(dz) < 0.03) & (full['lmass'] > 8) & np.isfinite(full['lmass']) & np.isfinite(full['eazy_mass'])
+
+    plt.set_cmap('gray_r')
+    plt.close(); astroML.plotting.scatter_contour(full['lmass'][ok], full['eazy_mass'][ok]-full['lmass'][ok], levels=10, threshold=10, plot_args={'linestyle':'None', 'marker':'o', 'alpha':0.1, 'color':'black'}, histogram2d_args={'bins':[30,30], 'range':[[8,12],[-1.5,1.5]]}, log_counts=False)
+
+    so = np.argsort(full['lmass'][ok])[::-1]
+    xm, ym, ys, n = threedhst.utils.runmed(full['lmass'][ok][so], (full['eazy_mass']-full['lmass'])[ok][so], NBIN=40, use_median=True, use_nmad=False)
+    #plt.errorbar(xm, ym, ys, linestyle='None', marker='o', color='red', ecolor='red')
+    plt.plot(xm, ym, color='red', alpha=0.6, linewidth=3)
+    plt.plot(xm, ym+ys, color='red', alpha=0.5, linewidth=1)
+    plt.plot(xm, ym-ys, color='red', alpha=0.5, linewidth=1)
+    plt.fill_between(xm, ym+ys, ym-ys, color='red', alpha=0.1, linewidth=3)
+
+    plt.ylim(-1.5,1.5); plt.xlim(8,12)
+    plt.grid()
+    plt.xlabel('FAST lmass'); plt.ylabel(r'$\Delta$Mass (EAZY $-$ FAST)')
+    plt.tight_layout(pad=0.18)
+    plt.text(11.6,-1.4, '3D-HST v4.1, H<25, log M > 8', ha='right', va='bottom', backgroundcolor='white')
+    plt.savefig('compare_FAST_EAZY_masses.pdf')
     
     
     

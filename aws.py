@@ -178,6 +178,35 @@ def reduce_func(root):
             except:
                 continue
                 
+    ii = np.where(model.cat.mag >= 26.)
+    for id in model.cat.id[ii]:
+        obj_root='{}-G141_{:05d}'.format(root, id)
+        status = model.twod_spectrum(id, miny=40)
+        if not status:
+            continue
+        try:
+            gris = test.SimultaneousFit(obj_root,lowz_thresh=0.01, FIGURE_FORMAT='png') 
+        except:
+            continue
+        #
+        if gris.status is False:
+            continue
+        #
+        print '\n'
+        if not os.path.exists(obj_root+'.new_zfit.pz.fits'):
+            try:
+                gris.new_fit_constrained()
+                gris.new_save_results()
+                gris.make_2d_model()
+            except:
+                continue
+        if not os.path.exists(obj_root+'.linefit.fits'):
+            try:
+                gris.new_fit_free_emlines(ztry=None, NSTEP=600)
+            except:
+                continue
+                
+                
 def extract_func(root):
     
     import unicorn

@@ -2108,6 +2108,7 @@ def _objective_lineonly_new(params, observed, var, twod_templates, wave_flatten,
     #scale = np.exp(s0 + s1*wave_flatten)
     NT = twod_templates.shape[0]
     s = np.append(params[0], params[NT:])[::-1]
+    #print s
     scale = np.exp(polyval(s, wave_flatten))        
     flux_fit *= scale
     

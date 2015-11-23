@@ -908,9 +908,11 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
     
     """
     def __init__(self, *args, **kwargs):
-        unicorn.interlace_fit.GrismSpectrumFit.__init__(self, *args, **kwargs)
-        self.read_master_templates()
-        self.new_load_fits()
+        status = unicorn.interlace_fit.GrismSpectrumFit.__init__(self, *args, **kwargs)
+        print self.status
+        if self.status:            
+            self.read_master_templates()
+            self.new_load_fits()
         
     def read_master_templates(self):
         """
@@ -1107,7 +1109,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         from scipy import polyval
         return np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
         
-    def get_spectrum_tilt(self, z=None, make_figure=True, order=6, faint_limit=24, fit_for_lines=True, NO_GUI=True):
+    def get_spectrum_tilt(self, z=None, make_figure=True, order=6, faint_limit=24, fit_for_lines=True, NO_GUI=True, ignore_lines_phot=True):
         from scipy import polyfit, polyval
         
         if z is None:
@@ -1142,8 +1144,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         keep = (self.phot.lc > 0.7e4) & (self.phot.lc < 2.7e4)
         self.phot_eflam[~keep] = self.phot_flam[~keep]*100
         
-        self.fit_combined(z, nmf_toler=1.e-8, te_scale = 0.5, ignore_spectrum=True)
+        self.fit_combined(z, nmf_toler=1.e-8, te_scale = 0.5, ignore_spectrum=True, ignore_lines=ignore_lines_phot)
         model_phot = np.dot(self.coeffs, self.phot.temp_seds.T)
+            
         model_phot_t = np.dot(self.coeffs, self.templates)
         phot_coeffs = self.coeffs*1.
         
@@ -1152,7 +1155,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         #model_phot_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(selfse2D)
         
-        self.fit_combined(z, nmf_toler=1.e-9, te_scale = 0.5, ignore_photometry=True)
+        self.fit_combined(z, nmf_toler=1.e-9, te_scale = 0.5, ignore_photometry=True, ignore_lines=False)
         model_spec = np.dot(self.coeffs, self.phot.temp_seds.T)
         model_spec_t = np.dot(self.coeffs, self.templates)[:self.phot.NFILT]
         model_spec_2D = np.dot(self.coeffs, self.templates)[self.phot.NFILT:].reshape(self.shape2D)
@@ -1177,7 +1180,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         x, y = igmz[1:][subregion], (model_spec/model_phot)[1:][subregion]
         dy = np.append(0, np.diff(y))
         sub2 = (dy >= np.percentile(dy, 2)) & (dy <= np.percentile(dy, 98))
-        x, y = x[sub2], y[sub2]
+        if sub2.sum() > 0:
+            x, y = x[sub2], y[sub2]
+        
         self.poly_tilt_coeffs = polyfit(x, y, order)
         self.beta_tilt_coeffs = polyfit(np.log(x/1.4e4), np.log(y), 1)
         #ybeta = np.exp(polyval(self.beta_tilt_coeffs, np.log(x/1.4e4)))
@@ -1905,7 +1910,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         return -0.5*chi2+self.get_prior(z)#[0]
         
-    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None, background=0):
+    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None, background=0, ignore_lines=False):
         """
         
         Fit the spectrum AND the photometry at redshift, z
@@ -1986,6 +1991,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             init_coeffs = np.ones(self.phot.NTEMP)
             if self.phot.NTEMP == 10:
                 init_coeffs[-3:] *= 1.e-12
+        
+        if ignore_lines:
+            init_coeffs[-2:] = 0.
                 
         amatrix = utils_c.prepare_nmf_amatrix(full_variance[mask], self.templates[:,mask])
         self.coeffs = utils_c.run_nmf(full_flux[mask], full_variance[mask], self.templates[:,mask], amatrix, toler=nmf_toler, MAXITER=1e6, init_coeffs=init_coeffs)

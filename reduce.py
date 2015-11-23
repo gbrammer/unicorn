@@ -88,7 +88,7 @@ for beam in ['A','B','C','D','E']:
         
 
 #### wavelength limits
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4], 'NIRISS.F115W':[1.e4, 1.28e4, 10, 1.15e4], 'NIRISS.F150W':[1.32e4, 1.68e4, 10, 1.5e4], 'NIRISS.F200W':[1.74e4, 2.2e4, 10, 2.e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667, 'F555W':25.718, 'F475W':26.059, 'F625W':25.907, 'F775W':25.665, 'F850LP':24.842, 'F132N':22.947}
 
@@ -121,10 +121,10 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     if (red.conf_grism == grism) & (not force):
         return None
     #
-    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
+    config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf', 'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
     
     if use_new_config:
-        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
+        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf',  'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
         #config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test30.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
     
     BEAMS = ['A','B','C','D','E']
@@ -866,7 +866,10 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
              'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
              'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)},
-             'GRS': {'A':(-350,350)}}
+             'GRS': {'A':(-350,350)},
+             'NIRISS.F115W': {'A':(-14,60), 'B':(-235,-220), 'C':(330,550), 'D':(610,900), 'E':(-604, -510)},
+             'NIRISS.F150W': {'A':(50,150), 'B':(-235,-220), 'C':(200,350), 'D':(420,630), 'E':(-520, -445)},
+             'NIRISS.F200W': {'A':(150,280), 'B':(-235,-220), 'C':(535,770), 'D':(920,1260), 'E':(-720, -600)}}
     
     for BEAM in limit[grism].keys():
         if BEAM in BEAMS:
@@ -1858,21 +1861,36 @@ class Interlace2D():
         NY, NX = int(np.max(np.abs(ysec)/0.5)), int(np.max(np.abs(xsec)/0.5))
         yint, xint = np.interp(np.arange(-NY*0.5,NY*0.5+0.1,0.5), ysec, yarr), np.interp(np.arange(-NX*0.5,NX*0.5+0.1,0.5), xsec, xarr)
         
-        fig = unicorn.plotting.plot_init(aspect=1./2, left=0.01, right=0.01, bottom=0.01, top=0.01, xs=3, square=True, NO_GUI=True)
-
-        ax = fig.add_axes((0.01, 0.01, 0.485, 0.98))
-        ax.imshow(0-self.im['DSCI'].data, interpolation='Nearest', aspect='auto', vmin=-1.1*max, vmax=0.1*max)
+        #fig = unicorn.plotting.plot_init(aspect=1./2, xs=3, square=False, NO_GUI=True)
+        plt.ioff()
+        fig = plt.figure(figsize=[5,5/3.])
+        
+        #ax = fig.add_axes((0.01, 0.01, 0.485, 0.98))
+        ax = fig.add_subplot(131)
+        ax.imshow(0-self.im['DSCI'].data, interpolation='Nearest', aspect='auto', vmin=-1*max, vmax=0.1*max)
+        
         ax.set_xticklabels([]); ax.set_yticklabels([])
         ax.set_xticks(xint); ax.set_yticks(yint)
 
-        ax = fig.add_axes((0.495, 0.01, 0.485, 0.98))
+        ax = fig.add_subplot(132)
+        clog = unicorn.candels.clipLog(self.im['DSCI'].data/max, lexp=1000, cmap=[-1.4914, 0.6273], scale=[-0.03, 3])
+        ax.imshow(clog, interpolation='Nearest', aspect='auto', vmin=0, vmax=1)
+        
+        ax.set_xticklabels([]); ax.set_yticklabels([])
+        ax.set_xticks(xint); ax.set_yticks(yint)
+
+        #ax = fig.add_axes((0.495, 0.01, 0.485, 0.98))
+        ax = fig.add_subplot(133)
         ax.imshow(0-ok*1., interpolation='Nearest', aspect='auto', vmin=-1, vmax=0)
         ax.set_xticklabels([]); ax.set_yticklabels([])
         ax.set_xticks(xint); ax.set_yticks(yint)
         ax.text(0.5,0.5, self.id, ha='center', va='center', color='black', transform=ax.transAxes, size=8)
         ax.text(0.5,0.5, self.id, ha='center', va='center', color='white', alpha=0.9, transform=ax.transAxes, size=8)
         
+        fig.tight_layout(pad=0.0, rect=[0.005/3., 0.005, 1-0.005/3, 0.995])
+        
         unicorn.plotting.savefig(fig, self.file.replace('2D.fits', 'thumb.png'))
+        plt.close()
         
     def init_fast_model(self, recenter=True, recenter_maglimit=23.5, dy=0, med=False):
         """
@@ -3513,7 +3531,8 @@ class GrismModel():
         
         #### Try hard-coding the 1st order extraction region to keep constant
         #first_order = {'G141':[28,178], 'G102':[45, 227], 'G800L':[60, 192]}
-        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[5, 158], 'GRS':[-330,330]}
+        first_order = {'G141':[26,182], 'G102':[45, 225], 'G800L':[5, 158], 'GRS':[-330,330], 'NIRISS.F115W':[-14,60], 'NIRISS.F150W':[50,150], 'NIRISS.F200W':[150,280]}
+        
         xx = first_order[self.grism_element]
         xmin, xmax = first_order[self.grism_element]
         xmin *= self.growx
@@ -3573,6 +3592,13 @@ class GrismModel():
         # header.update('CDELT2',0.128254/self.growy)
         header.update('CRPIX2', NT/2+1)
         scl = 0.128254/self.growy
+        
+        if self.grism_element == 'GRS':
+            scl = 0.110/self.growy
+        
+        if 'NIRISS' in self.grism_element:
+            scl = 0.065/self.growy
+                
         header.update('CRVAL2', ((NT/2+1)-self.ytrace[0])*scl)
         header.update('CD2_1', -np.diff(self.ytrace)[0]*scl)
         header.update('CD2_2', scl)
@@ -4926,12 +4952,18 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
     print 'Read files...'
     ref = pyfits.open(ref_image)
     seg = pyfits.open(seg_image)
-    seg_data = np.cast[np.float32](seg[0].data)
-    seg_ones = np.cast[np.float32](seg_data > 0)
     
     #### Need 32-bit for ablot
-    ref[ref_ext].data = np.cast[np.float32](ref[ref_ext].data)
-    
+    #ref[ref_ext].data = np.cast[np.float32](ref[ref_ext].data)
+
+    if ref[ref_ext].data.dtype != np.float32:
+        ref_data = np.cast[np.float32](ref[ref_ext].data)
+    else:
+        ref_data = ref[ref_ext].data
+        
+    seg_data = np.cast[np.float32](seg[0].data)
+    seg_ones = np.cast[np.float32](seg_data > 0)-1
+        
     ref_wcs = stwcs.wcsutil.HSTWCS(ref, ext=ref_ext)
     seg_wcs = stwcs.wcsutil.HSTWCS(seg, ext=0)
     
@@ -4980,13 +5012,13 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
             header['NGROWY'] = (NGROWY, 'Number of pixels added to Y-axis (both sides)')
             #
             ### reference
-            blotted_ref = astrodrizzle.ablot.do_blot(ref[ref_ext].data, ref_wcs, flt_wcs, 1, coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)
+            blotted_ref = astrodrizzle.ablot.do_blot(ref_data, ref_wcs, flt_wcs, 1, coeffs=True, interp='poly5', sinscl=1.0, stepsize=10, wcsmap=None)
             hdu_blot.append(pyfits.ImageHDU(data=blotted_ref, header=header.copy()))
 
             ### Blot segmentation, need "ones" image for pixel areas
+            blotted_ones = astrodrizzle.ablot.do_blot(seg_ones+1, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
             blotted_seg = astrodrizzle.ablot.do_blot(seg_data, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
-            blotted_ones = astrodrizzle.ablot.do_blot(seg_ones, seg_wcs, flt_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)
-
+            
             blotted_ones[blotted_ones == 0] = 1
             ratio = np.round(blotted_seg/blotted_ones)
             grow = nd.maximum_filter(ratio, size=3, mode='constant', cval=0)

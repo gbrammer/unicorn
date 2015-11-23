@@ -434,6 +434,7 @@ class ImageClassifier():
             rgb_file = 'RGB/'+image_file.replace('_stack.png', '.rgb.png')
         #
         rgb_file = 'RGB/'+image_file.replace('.new_zfit.png', '.rgb.png')
+        rgb_file = image_file.replace('.new_zfit.png', '.thumb.png')
         
         print rgb_file
         
@@ -441,7 +442,7 @@ class ImageClassifier():
             im_rgb = Image.new('RGB', (100,100), "white")
         else:
             if 'thumb' in rgb_file:
-                im_rgb = Image.open(rgb_file).resize((300,150))
+                im_rgb = Image.open(rgb_file).resize((450,150))
             else:
                 im_rgb = Image.open(rgb_file).resize((150,150))
                 

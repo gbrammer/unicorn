@@ -1867,21 +1867,21 @@ class Interlace2D():
         
         #ax = fig.add_axes((0.01, 0.01, 0.485, 0.98))
         ax = fig.add_subplot(131)
-        ax.imshow(0-self.im['DSCI'].data, interpolation='Nearest', aspect='auto', vmin=-1*max, vmax=0.1*max)
+        ax.imshow(0-self.im['DSCI'].data, interpolation='Nearest', aspect='auto', vmin=-1*max, vmax=0.1*max, origin='lower')
         
         ax.set_xticklabels([]); ax.set_yticklabels([])
         ax.set_xticks(xint); ax.set_yticks(yint)
 
         ax = fig.add_subplot(132)
         clog = unicorn.candels.clipLog(self.im['DSCI'].data/max, lexp=1000, cmap=[-1.4914, 0.6273], scale=[-0.03, 3])
-        ax.imshow(clog, interpolation='Nearest', aspect='auto', vmin=0, vmax=1)
+        ax.imshow(clog, interpolation='Nearest', aspect='auto', vmin=0, vmax=1, origin='lower')
         
         ax.set_xticklabels([]); ax.set_yticklabels([])
         ax.set_xticks(xint); ax.set_yticks(yint)
 
         #ax = fig.add_axes((0.495, 0.01, 0.485, 0.98))
         ax = fig.add_subplot(133)
-        ax.imshow(0-ok*1., interpolation='Nearest', aspect='auto', vmin=-1, vmax=0)
+        ax.imshow(0-ok*1., interpolation='Nearest', aspect='auto', vmin=-1, vmax=0, origin='lower')
         ax.set_xticklabels([]); ax.set_yticklabels([])
         ax.set_xticks(xint); ax.set_yticks(yint)
         ax.text(0.5,0.5, self.id, ha='center', va='center', color='black', transform=ax.transAxes, size=8)

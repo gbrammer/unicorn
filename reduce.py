@@ -70,12 +70,13 @@ except:
 
 ###### Globals for compute_model
 # conf_file = 'WFC3.IR.G141.V2.5.conf'
-conf_file = 'G141.test27s.gbb.conf'
+#conf_file = 'G141.test27s.gbb.conf'
+conf_file = 'G141.test41.gbb.conf'
 #conf_file = 'G141.test30.conf'
 conf = threedhst.process_grism.Conf(conf_file, path=os.getenv('THREEDHST')+'/CONF/').params
 conf_grism = 'G141'
 sens_files = {}
-for beam in ['A','B','C','D','E']:
+for beam in ['A','B','C','D','E','F']:
     if 'SENSITIVITY_'+beam in conf.keys():
         sens = pyfits.open(os.getenv('THREEDHST') + '/CONF/'+conf['SENSITIVITY_'+beam])[1].data
         
@@ -88,7 +89,7 @@ for beam in ['A','B','C','D','E']:
         
 
 #### wavelength limits
-grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.17e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4], 'NIRISS.F115W':[1.e4, 1.28e4, 10, 1.15e4], 'NIRISS.F150W':[1.32e4, 1.68e4, 10, 1.5e4], 'NIRISS.F200W':[1.74e4, 2.2e4, 10, 2.e4]}
+grism_wlimit = {'G141':[1.05e4, 1.70e4, 22., 1.4e4], 'G102':[0.76e4, 1.18e4, 10., 1.05e4], 'G800L':[0.5e4, 1.05e4, 20., 0.75e4], 'GRS':[1.35e4, 1.95e4, 5., 1.65e4], 'NIRISS.F115W':[1.e4, 1.28e4, 10, 1.15e4], 'NIRISS.F150W':[1.32e4, 1.68e4, 10, 1.5e4], 'NIRISS.F200W':[1.74e4, 2.2e4, 10, 2.e4]}
 
 ZPs = {'F105W':26.2687, 'F125W':26.25, 'F140W':26.46, 'F160W':25.96, 'F606W':26.486, 'F814W':25.937, 'F435W':25.65777, 'F110W':26.822, 'F098M':25.667, 'F555W':25.718, 'F475W':26.059, 'F625W':25.907, 'F775W':25.665, 'F850LP':24.842, 'F132N':22.947}
 
@@ -124,10 +125,11 @@ def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use
     config_file = {'G102':'WFC3.IR.G102.V2.0.conf', 'G141':'WFC3.IR.G141.V2.5.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf', 'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
     
     if use_new_config:
-        config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf',  'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
+        #config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test27s.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf',  'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
+        config_file = {'G102':'G102.test41.gbb.conf', 'G141':'G141.test41.gbb.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf',  'NIRISS.F115W':'NIRISS.F115W.conf', 'NIRISS.F150W':'NIRISS.F150W.conf', 'NIRISS.F200W':'NIRISS.F200W.conf'}
         #config_file = {'G102':'G102.test27s.gbb.conf', 'G141':'G141.test30.conf', 'G800L':'ACS.WFC.CHIP2.Cycle13.5.conf', 'GRS':'WFIRST.conf'}
     
-    BEAMS = ['A','B','C','D','E']
+    BEAMS = ['A','B','C','D','E','F']
     if grism == 'G800L':
         config_file[grism] = 'ACS.WFC.CHIP%d.Cycle13.5.conf' %(chip)
         BEAMS = ['A','B','C','D','E','F','G']
@@ -863,29 +865,21 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
     # limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
     #          'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
     #          'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)}}
-    limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400)},
-             'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,670), 'D':(670,1014), 'E':(-740,-560)},
+    limit = {'G141': {'A':(10,213), 'B':(-210,-170), 'C':(207,464), 'D':(469,720), 'E':(-600,-400), 'F':(500,1120)},
+             'G102': {'A':(38,248), 'B':(-280,-240), 'C':(330,750), 'D':(670,1014), 'E':(-740,-560)},
              'G800L': {'A':(-30,160), 'B':(-140,-80), 'C':(120,410), 'D':(260,660), 'E':(-590,-220), 'F':(-540,-300), 'G':(-980,-450)},
              'GRS': {'A':(-350,350)},
              'NIRISS.F115W': {'A':(-14,60), 'B':(-235,-220), 'C':(330,550), 'D':(610,900), 'E':(-604, -510)},
              'NIRISS.F150W': {'A':(50,150), 'B':(-235,-220), 'C':(200,350), 'D':(420,630), 'E':(-520, -445)},
              'NIRISS.F200W': {'A':(150,280), 'B':(-235,-220), 'C':(535,770), 'D':(920,1260), 'E':(-720, -600)}}
     
-    for BEAM in limit[grism].keys():
-        if BEAM in BEAMS:
-            lim = limit[grism][BEAM]
-            xmi, xma = min(xmi,lim[0]), max(xma,lim[1])
+    #for BEAM in limit[grism].keys():
+    #    if BEAM in BEAMS:
+    for BEAM in BEAMS:
+        lim = limit[grism][BEAM]
+        xmi, xma = min(xmi,lim[0]), max(xma,lim[1])
+        #print 'LIMIT: ', BEAM, xmi, xma
             
-    # if 'A' in BEAMS:
-    #     xmi, xma = min(xmi,10), max(xma,213)
-    # if 'B' in BEAMS:
-    #     xmi, xma = min(xmi,-210), max(xma, -170)
-    # if 'C' in BEAMS:
-    #     xmi, xma = min(xmi,207), max(xma,454)
-    # if 'D' in BEAMS:
-    #     xmi, xma = min(xmi, 469), max(xma,668)
-    # if 'E' in BEAMS:
-    #     xmi, xma = min(xmi, -600), max(xma,-400)
         
     NX,NY = xma-xmi, 8
 
@@ -925,10 +919,16 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         xmi_beam *= growx
         xma_beam *= growx
         
+        #######################
+        #### Trace (DYDX)
+        #######################
         dydx_order = np.int(conf['DYDX_ORDER_'+beam])
         dydx_0 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_0']) * growy
-        dydx_1 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_1']) * growy / growx#/ grow_factor        
-                    
+        if dydx_order > 0:
+            dydx_1 = field_dependent(bigX, bigY, conf['DYDX_'+beam+'_1']) * growy / growx#/ grow_factor        
+        else:
+            dydx_1 = 0.
+                        
         xoff_beam = field_dependent(bigX, bigY, conf['XOFF_'+beam]) * growx
         yoff_beam = field_dependent(bigX, bigY, conf['YOFF_'+beam]) * growy
         
@@ -937,60 +937,11 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
         xmi_beam += int(np.round(xoff_beam))
         xma_beam += int(np.round(xoff_beam))
-                
-        disp_order = np.int(conf['DISP_ORDER_'+beam])
-        dldp_0 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_0'])
-        dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / growx
-        
-        #### Improve alignment of zeroth order
-        #if (beam == 'B') & (grism == 'G141'):
-        #    dldp_0+=1500
-            
-        # if beam == 'Bx':
-        #     #dydx_1 = 0.0
-        #     dydx_1 = 0.1
-        #     dydx_0 -= 2/growy
-        #     dydx_0 += dydx_1 * 192 * growy
-        #     
-        #     dldp_x = dldp_1*1.
-        #     f = 0.9*(1+np.abs(bigY-507)/507.*0.2)
-        #     dldp_1 *= f
-        #     dldp_0 += (1-f)*dldp_1*-213*2*(2-(1.02-0.02*np.abs(bigY-507)/507.))
-            
-        #print 'BEAM_%s: %5.2f %5.2f, %6.3f %5.3f, %9.2f %6.2f' %(beam, xoff_beam / grow_factor, yoff_beam / grow_factor, dydx_0, dydx_1*grow_factor, dldp_0, dldp_1*grow_factor)
-
-        #### Wavelength
-        dldp_x = (xarr-xoff_beam)
-        dldp_coeffs = [dldp_0, dldp_1]
-        
-        ### Still have offset for 0th order
-        if beam == 'B':
-            dldp_x = (xarr+growx-xoff_beam)
-        
-        #if beam == 'A':
-        #    print lam.min(), lam.max()
-            
-        if 'DLDP_'+beam+'_2' in conf.keys():
-            dldp_2 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_2']) / growx**2
-            #lam = dldp_0 + dldp_1*(xarr-xoff_beam) + dldp_2*(xarr-xoff_beam)**2
-            dldp_coeffs.append(dldp_2)
-            
-        #
-        #lam = dldp_0 + dldp_1*(xarr-xoff_beam)
-        lam = xarr*0.
-        for i in range(len(dldp_coeffs)):
-            lam += dldp_coeffs[i]*dldp_x**i
-        
-        # if growx == 1:
-        #     print 'XOFF!'
-        #     lam += 0.5*(lam[1]-lam[0])
-            
+                    
         if not dydx:
             dydx_0 = 0.
             dydx_1 = 0.
-        
-        #print 'DYDX: ', dydx, dydx_0, dydx_1
-        
+                
         #### Interpolate pixel at shifted ycenter along beam        
         ycenter = dydx_0 + dydx_1*(xarr-xoff_beam)
         
@@ -1001,16 +952,48 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         ### Offsets for G141 first order, 0.5 pix in y, 1.5 pix in lam (2x2)
         #dy_fudge = 0
         dy_fudge = yoff_beam
-        
-        # if (grism == 'G141') & (beam == 'A'):
-        #     #dy_fudge = 0.5*growy/2
-        #     #
-        #     # dx_fudge = -1.*growx/2*dldp_1
-        #     # lam += dx_fudge
-        #     pass
-            
         ycenter += dy_fudge
-           
+        #######################
+        
+        
+        #######################
+        #### Wavelength
+        #######################
+        disp_order = np.int(conf['DISP_ORDER_'+beam])
+        dldp_0 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_0'])
+        dldp_1 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_1']) / growx
+        
+        #print 'BEAM_%s: %5.2f %5.2f, %6.3f %5.3f, %9.2f %6.2f' %(beam, xoff_beam / grow_factor, yoff_beam / grow_factor, dydx_0, dydx_1*grow_factor, dldp_0, dldp_1*grow_factor)
+
+        ### only works for dydx_order <= 2!!!
+        ### need to fully integrate it numerically for more curved beams
+        dldp_x = (xarr-xoff_beam)
+        if dydx_order == 1:
+            dldp_x = np.sqrt(1+dydx_1**2)*(xarr-xoff_beam)
+        elif dydx_order == 2:
+            u0 = dydx_1 + 2*dydx_2*(0)
+            dp0 = (u0*np.sqrt(1+u0**2)+np.arcsinh(u0))/(4*dydx_2)
+            u  = dydx_1 + 2*dydx_2*(xarr-xoff_beam)
+            dldp_x = (u*np.sqrt(1+u**2)+np.arcsinh(u))/(4*dydx_2)-dp0
+                
+        dldp_coeffs = [dldp_0, dldp_1]
+        
+        ### Still have offset for 0th order
+        # if beam == 'B':
+        #     dldp_x = (xarr+growx-xoff_beam)
+                    
+        if 'DLDP_'+beam+'_2' in conf.keys():
+            dldp_2 = field_dependent(bigX, bigY, conf['DLDP_'+beam+'_2']) / growx**2
+            #lam = dldp_0 + dldp_1*(xarr-xoff_beam) + dldp_2*(xarr-xoff_beam)**2
+            dldp_coeffs.append(dldp_2)
+
+        lam = xarr*0.
+        for i in range(len(dldp_coeffs)):
+            lam += dldp_coeffs[i]*dldp_x**i
+        
+        ########################
+        
+               
         ### Vertical offsets of the G800L beams
         # if grism == 'G800L':
         #     off = {'A':-1, 'B':0, 'C':-3, 'D':-3, 'E':-2, 'F':-1}
@@ -1054,13 +1037,17 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         #dl = np.diff(lam)[0]
         #if dl > 0:
         
+        
         #sens_interp = np.interp(lam, sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)
         delta_wave = lam[1]-lam[0]
         if delta_wave > 0:
             sens_interp = unicorn.utils_c.interp_conserve_c(lam, sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)
         else:
             sens_interp = unicorn.utils_c.interp_conserve_c(lam[::-1], sens['WAVELENGTH'], sens['SENSITIVITY']*1.e-17, left=0., right=0.)[::-1]
-            
+
+        # print 'SENS: ', beam, lam.min(), lam.max(), sens['WAVELENGTH'].min(), sens['WAVELENGTH'].max()
+        # plt.plot(lam, sens_interp, label=beam)
+        
         #else:
         #    sens_interp = np.interp(lam[::-1], sens.field('WAVELENGTH'), sens.field('SENSITIVITY')*1.e-17, left=0., right=0.)[::-1]
             
@@ -1117,6 +1104,9 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         if (beam == 'B') & (grism == 'G102'):
             sens_interp *= 0.9 #3.6 * 10
         
+        if (beam == 'F') & (grism == 'G141'):
+            sens_interp *= 0.35
+            
         # if beam in ['C','D','E']:
         #     sens_interp *= 0.25
                 

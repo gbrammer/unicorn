@@ -702,7 +702,7 @@ class MultiFit():
         for i in range(len(self.z_1)):
             self.chi_1[i] = self.fit_at_z(z=self.z_1[i], renorm=False, show=False, nmf_toler=1.e-4)
             if verbose:
-                print unicorn.noNewLine+'%.3f %10.2f (%.4f)' %(self.z_1[i], self.chi_1[i], self.z_1[np.argmin(self.chi_1)])
+                print unicorn.noNewLine+'%.5f %10.2f (%.4f)' %(self.z_1[i], self.chi_1[i], self.z_1[np.argmin(self.chi_1)])
         
         self.chi2scale_1 = self.chi_1.min()/self.Ndata
         self.lnp_1 = np.exp(-0.5/self.chi2scale_1*(self.chi_1-self.chi_1.min()))
@@ -722,7 +722,7 @@ class MultiFit():
         for i in range(len(self.z_2)):
             self.chi_2[i] = self.fit_at_z(z=self.z_2[i], renorm=False, show=False, nmf_toler=1.e-4)
             if verbose:
-                print unicorn.noNewLine+'%.3f %10.2f (%.4f)' %(self.z_2[i], self.chi_2[i], self.z_2[np.argmin(self.chi_2)])
+                print unicorn.noNewLine+'%.5f %10.2f (%.4f)' %(self.z_2[i], self.chi_2[i], self.z_2[np.argmin(self.chi_2)])
         
         self.chi2scale_2 = self.chi_2.min()/self.Ndata
         self.lnp_2 = np.exp(-0.5/self.chi2scale_2*(self.chi_2-self.chi_2.min()))

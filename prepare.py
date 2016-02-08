@@ -3137,10 +3137,13 @@ def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
         gain=2.5
     else:
         gain=1
-        
+    
+    img.close()    
     cube, dq, time, NSAMP = split_multiaccum(img)
     diff = np.diff(cube, axis=0)
     dt = np.diff(time)
+    del cube
+
     fig = plt.figure(figsize=[10,10])
     
     #(xs=10, aspect=0.8, wspace=0., hspace=0., left=0.05, NO_GUI=True)
@@ -3159,6 +3162,10 @@ def show_MultiAccum_reads(raw='ib3701s4q_ima.fits'):
     
     fig.tight_layout(h_pad=0.0, w_pad=0.0, pad=0.0)
     plt.savefig(raw.split('_')[0]+'_ramp.png')
+    
+    del diff
+    del ramp_cps
+    del avg_ramp
     
     return fig
     

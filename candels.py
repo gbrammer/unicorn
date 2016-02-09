@@ -14,6 +14,9 @@ import threedhst.eazyPy as eazy
 
 import unicorn
 
+import clear_tools
+from clear_tools.set_paths import paths
+
 def goods_ers():
     """
     GOODS-ERS field (not candels)

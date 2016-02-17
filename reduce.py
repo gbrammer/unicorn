@@ -29,6 +29,8 @@ $Date: 2011-05-22 02:01:43 -0400 (Sun, 22 May 2011) $
 """
 __version__ = " $Rev: 5 $"
 
+from clear_tools.set_paths import paths
+
 import os
 import glob
 import shutil
@@ -73,7 +75,7 @@ except:
 #conf_file = 'G141.test27s.gbb.conf'
 conf_file = 'G141.test41.gbb.conf'
 #conf_file = 'G141.test30.conf'
-conf = threedhst.process_grism.Conf(conf_file, path=os.getenv('THREEDHST')+'/CONF/').params
+conf = threedhst.process_grism.Conf(conf_file, path=os.getenv('THREEDHST')+'CONF/').params
 conf_grism = 'G141'
 sens_files = {}
 for beam in ['A','B','C','D','E','F']:

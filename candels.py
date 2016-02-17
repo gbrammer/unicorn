@@ -3201,7 +3201,7 @@ def new_f105w():
     files=glob.glob('*F098M_asn.fits')
     FORCE=False
     
-    threedhst.options['FLT_PERSISTENCE_PATH'] = '../Persistence/'
+    threedhst.options['FLT_PERSISTENCE_PATH'] = '../PERSIST/'
     for direct_asn in files:
         if (not os.path.exists(direct_asn.replace('_asn.fits', '_shifts.txt'))) | FORCE:
             print direct_asn

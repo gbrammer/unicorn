@@ -1629,7 +1629,7 @@ class Interlace2D():
         else:   
             return self.im['WAVE'].data, optimal_sum
     
-    def trace_extract(self, input=None, dy=0, width=0, get_apcorr=False, get_mask=False):
+    def trace_extract(self, input=None, dy=0, width=0, ypix=None, get_apcorr=False, get_mask=False):
         """
         Extract pixel values along the trace
         
@@ -1642,8 +1642,13 @@ class Interlace2D():
             obj_cleaned = self.im['SCI'].data*1
         else:
             obj_cleaned = input
-                
-        ytrace = np.cast[np.float64](self.im['YTRACE'].data)+dy
+        
+        if ypix is None:
+            ytrace = np.cast[np.float64](self.im['YTRACE'].data)+dy
+            ypix = [-width, width+1]
+        else:
+            ytrace = np.cast[np.float64](self.im['YTRACE'].data)
+            
         trace_pix = np.cast[int](np.round(ytrace))
         #trace_spec = self.grism_sci[trace_pix,:]
         trace_spec = ytrace*0.
@@ -1653,12 +1658,15 @@ class Interlace2D():
         obj_model[obj_cleaned == 0] = 0.
         trace_model = trace_spec*0.
         
-        if width == 0:
-            trace_lo = trace_pix
-            trace_hi = trace_pix+1
-        else:
-            trace_lo = trace_pix-width
-            trace_hi = trace_pix+width+1
+        # if width == 0:
+        #     trace_lo = trace_pix
+        #     trace_hi = trace_pix+1
+        # else:
+        #     trace_lo = trace_pix-width
+        #     trace_hi = trace_pix+width+1
+        
+        trace_lo = trace_pix + ypix[0]
+        trace_hi = trace_pix + ypix[1]
         
         trace2D = obj_cleaned*0
         for i in range(len(ytrace)):

@@ -119,6 +119,7 @@ except:
     
 def set_grism_config(grism='G141', chip=1, use_new_config=True, force=False, use_config_file=None):
     import unicorn.reduce as red
+    grism = grism.upper()
     if (red.conf_grism == grism) & (not force):
         return None
     #
@@ -776,22 +777,24 @@ def scale_header_wcs(header, factor=2, growx=2, growy=2, pad=60, NGROWX=180, NGR
     """
     import numpy as np
     
-    header['NAXIS1'] = header['NAXIS1']*growx+NGROWX*growx*factor+pad
-    header['NAXIS2'] = header['NAXIS2']*growy+NGROWY*growy*factor+pad
+    header['NAXIS1'] = header['NAXIS1']*growx+NGROWX*growx+pad
+    header['NAXIS2'] = header['NAXIS2']*growy+NGROWY*growy+pad
 
-    header['CRPIX1'] = header['CRPIX1']*growx+NGROWX*growx+pad/2
-    header['CRPIX2'] = header['CRPIX2']*growy+NGROWY*growy+pad/2
+    header['CRPIX1'] = header['CRPIX1']*growx+NGROWX*growx+pad/2-growx/2
+    header['CRPIX2'] = header['CRPIX2']*growy+NGROWY*growy+pad/2-growy/2
     
     ### SIP WCS keywords for distortion
     if ('A_ORDER' in header.keys()) & ('SIP' in header['CTYPE1']):
-        a_order = header['A_ORDER']
-        b_order = header['B_ORDER']
-        for a in range(a_order):
-            for b in range(b_order):
-                for k in 'AB':
+        for k, g in zip(['A','B'], [growx, growy]):
+            order = header['%s_ORDER' %(k)]
+            #a_order = header['A_ORDER']
+            #b_order = header['B_ORDER']
+            for a in range(order+1):
+                for b in range(order+1):
                     key = '%s_%d_%d' %(k, a, b)
                     if key in header.keys():
-                        header.update(key, header[key]/growx**a/growy**b)
+                        #print key, growx**a, growy**b, growx**a*growy**b
+                        header[key] = header[key]/growx**a/growy**b*g
                         
     # keys = ['CD1_1','CD1_2','CD2_1','CD2_2']
     # for key in keys:
@@ -1372,8 +1375,8 @@ class Interlace2D():
             self.grism_element = 'G141'
             self.direct_filter = 'F140W'
         else:
-            self.grism_element = self.im[0].header['GRISM']
-            self.direct_filter = self.im[0].header['FILTER']
+            self.grism_element = self.im[0].header['GRISM'].upper()
+            self.direct_filter = self.im[0].header['FILTER'].upper()
         
         if self.grism_element == 'G800L':
             chip = self.im[0].header['CCDCHIP']
@@ -2303,6 +2306,8 @@ class GrismModel():
         """
         Initialize: set padding, growth factor, read input files.
         """
+        import stwcs
+        
         self.root=root
         if old_filenames:
             self.baseroot = os.path.join(output_path, os.path.basename(root))
@@ -2317,6 +2322,7 @@ class GrismModel():
         #### Read the direct interlaced image        
         self.direct = pyfits.open(self.root+'-%s_inter.fits' %(direct))
         self.direct[1].data = np.cast[np.double](self.direct[1].data)
+        self.direct_wcs = stwcs.wcsutil.HSTWCS(self.direct, ext=1)
         
         self.filter = self.direct[0].header['FILTER']
         if 'PAD' in self.direct[1].header.keys():
@@ -2362,8 +2368,8 @@ class GrismModel():
                     
         self.make_flux()
         
-        self.grism_element = grism
-        self.direct_element = direct
+        self.grism_element = grism.upper()
+        self.direct_element = direct.upper()
         
         if self.grism_element == 'G800L':
             self.chip = self.direct[1].header['CCDCHIP']
@@ -2379,7 +2385,8 @@ class GrismModel():
         self.gris[1].data = np.array(self.gris[1].data, dtype=np.double)
         self.gris[2].data = np.array(self.gris[2].data, dtype=np.double)
         self.sh = self.im[1].data.shape
-        
+        self.gris_wcs = stwcs.wcsutil.HSTWCS(self.gris, ext=1)
+
         if not os.path.exists(self.baseroot+'_inter_seg.fits'):
             threedhst.showMessage('Running SExtractor...')
             self.find_objects(MAG_LIMIT=MAG_LIMIT)
@@ -3421,10 +3428,26 @@ class GrismModel():
         
         prim.header['FINEX'] = self.fine_offset[0]
         prim.header['FINEY'] = self.fine_offset[1]
-                
+        
         extensions = [prim]
 
         header = pyfits.ImageHDU().header
+
+        ### Add wcs information
+        slx, sly = slice(xc-NT/2, xc+NT/2), slice(yc-NT/2, yc+NT/2)
+        wcs_slice = self.gris_wcs.slice((sly, slx))
+        hdu_empty = wcs_slice.to_fits(relax=True)
+        hdu_empty[0].data = self.direct_thumb*1
+        header = hdu_empty[0].header
+        for i in [1,2]:
+            for j in [1,2]:
+                header['CD%d_%d' %(i,j)] = header['PC%d_%d' %(i,j)]
+                header.remove('PC%d_%d' %(i,j))
+            
+        header.remove('LATPOLE')
+        header.remove('LONPOLE')
+        
+        #header.update(hdu_empty[0].header)
                 
         #### Direct thumbnails
         header.update('EXTNAME','DSCI')

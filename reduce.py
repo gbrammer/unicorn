@@ -1122,10 +1122,18 @@ def grism_model(xc_full=244, yc_full=1244, lam_spec=None, flux_spec=None, grow_f
         
     return model, (xmi, xma, wavelength, full_sens, yoff_array, beam_index)
     
-def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, use_segm=False, model_slope=0, model_list = None, normalize_model_list=True, direct='F140W', grism='G141', BEAMS=['A','B','C','D'], old_filenames=False, align_reference=True, expand_seg=0):
+def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2,
+    MAG_LIMIT=27, REFINE_MAG_LIMIT=23,  make_zeroth_model=True, 
+    use_segm=False, model_slope=0, model_list = None, 
+    normalize_model_list=True, direct='F140W', grism='G141', 
+    BEAMS=['A','B','C','D'], old_filenames=False, align_reference=True, 
+    expand_seg=0, force=False):
     import unicorn.reduce
     
-    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, direct=direct, grism=grism, old_filenames=old_filenames, expand_seg=expand_seg)
+    model = unicorn.reduce.GrismModel(root=root, grow_factor=grow_factor, 
+        growx=growx, growy=growy, MAG_LIMIT=MAG_LIMIT, use_segm=use_segm, 
+        direct=direct, grism=grism, old_filenames=old_filenames,
+        expand_seg=expand_seg)
     
     if align_reference:
         if 'FINEX' not in model.im[0].header.keys():
@@ -1138,18 +1146,26 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_L
         pass
         
     status = model.load_model_spectra()
-    if not status:
+
+    # If the *pkl model doesn't already exist OR if it exists and want
+    # to force overwrite.
+    if (not status) or (status and force):
         if make_zeroth_model:
             ### "zeroth" iteration to flag 0th order contamination, no color / norm iteration
-            model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=True, BEAMS=['B'], normalize_model_list=normalize_model_list)   
+            model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, 
+                save_pickle=True, BEAMS=['B'], 
+                normalize_model_list=normalize_model_list)   
             ### Reset the model
             model.init_object_spectra()
             model.model*=0
         
         ### First iteration with flat spectra and the object flux
-        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, save_pickle=False, model_slope=model_slope, BEAMS=BEAMS, normalize_model_list=normalize_model_list)   
+        model.compute_full_model(refine=False, MAG_LIMIT=MAG_LIMIT, 
+            save_pickle=False, model_slope=model_slope, BEAMS=BEAMS, 
+            normalize_model_list=normalize_model_list)   
         ### For the brighter galaxies, refine the model with the observed spectrum         
-        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
+        model.compute_full_model(refine=True, MAG_LIMIT=REFINE_MAG_LIMIT, 
+            save_pickle=True, model_slope=model_slope, BEAMS=BEAMS)
         
         ### Make zeroth-order region file
         try:

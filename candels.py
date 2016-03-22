@@ -1381,7 +1381,8 @@ def goodsn():
     
     pyfits.writeto('star.fits', data=im, clobber=True)
         
-def make_asn_files(force=False, make_region=False, uniquename=True, translate = {'AEGIS-':'aegis-', 'COSMOS-':'cosmos-', 'GNGRISM':'goodsn-', 'GOODS-SOUTH-':'goodss-', 'UDS-':'uds-'}):
+def make_asn_files(force=False, make_region=False, uniquename=True, 
+    translate = {'AEGIS-':'aegis-', 'COSMOS-':'cosmos-', 'GNGRISM':'goodsn-', 'GOODS-SOUTH-':'goodss-', 'UDS-':'uds-'}):
     """
     Read a files.info file and make ASN files for each visit/filter[/date].
     """

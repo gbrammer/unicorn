@@ -1,5 +1,6 @@
 import os
-import pyfits
+#import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 import glob
 import shutil
@@ -107,6 +108,9 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     #
     if 'GN-z10' in root:
         goodsn=True
+    #
+    if 'GNGRISM' in root:
+        goodsn=True
     
     ### CLEAR
     if root.startswith('GD'):
@@ -158,7 +162,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     for fi in ['HS0105', 'HS1603', 'Q0100', 'Q0142', 'Q0207', 'Q0449', 'Q0821', 'Q1009', 'Q1217', 'Q1442', 'Q1549', 'Q1623', 'Q1700', 'Q2206', 'Q2343']:
         if fi in root:
             erb = True
-    
+            
     CAT_FILE = None
     ZOUT_FILE = None
     FOUT_FILE = None
@@ -394,7 +398,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
                 
     #### D. Erb's grism program
     if erb:
-        GRISM_PATH=unicorn.GRISM_HOME+'Erb/'
+        GRISM_PATH = unicorn.GRISM_HOME+'Erb/'
         # CAT_PATH = GRISM_PATH+'Catalogs/Combined/EAZY/FAST/'
         # CAT_FILE = CAT_PATH+'erb.cat'
         # ZOUT_FILE = CAT_PATH+'erb.zout'
@@ -409,6 +413,22 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         # ZOUT_FILE = CAT_PATH+'OUTPUT/erb2.zout'
         # FOUT_FILE = CAT_PATH + 'erb2.fout'
         KTOT_COL = 'f_h'
+    
+    if '0142' in root:
+        erb=False
+        GRISM_PATH=unicorn.GRISM_HOME+'Erb/REDO_v2/Catalog/'
+        # CAT_PATH = GRISM_PATH+'Catalogs/Combined/EAZY/FAST/'
+        # CAT_FILE = CAT_PATH+'erb.cat'
+        # ZOUT_FILE = CAT_PATH+'erb.zout'
+        # FOUT_FILE = CAT_PATH + 'erb.fout'
+        CAT_PATH = GRISM_PATH
+        # CAT_FILE = CAT_PATH+'Q0142-10-F140W-F555W-F675W-F814W-F160W-align.fix.noJH.cat'
+        # KTOT_COL = 'F160flux_auto'
+        CAT_FILE = CAT_PATH+'q0142_wfpc2.cat'
+        KTOT_COL = 'flux_F140W'
+
+        ZOUT_FILE = CAT_PATH+'OUTPUT/q0142_wfpc2.zout'
+        FOUT_FILE = CAT_PATH + 'OUTPUT/q0142_wfpc2.fout'
     
     # #### Frontier fields
     # if ('2744' in root.split('_')[0]) & root.upper().startswith('A'):
@@ -453,6 +473,14 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH + 'OUTPUT/hawkiff_%sK.fout' %(hff)
         KTOT_COL = 'f_Ks'
         
+        # CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/DaniloCatalog/'
+        # CAT_FILE = CAT_PATH + 'abell2744_v0.99.K27.cat'
+        # ZOUT_FILE = CAT_PATH + 'OUTPUT/a2744.zout'
+        # 
+        # # CAT_FILE = CAT_PATH + 'macs0416clu_v0.99.zs.K27.cat'
+        # # ZOUT_FILE = CAT_PATH + 'OUTPUT/m0416clu.zout'
+        # KTOT_COL = 'ftot_Ks'
+        
     if ('0717' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
         CAT_FILE = CAT_PATH+'hlsp_clash_hst_acs-ir_macs0717_cat.txt.flux_AB25'
@@ -480,6 +508,15 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         ZOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.zout'
         FOUT_FILE = CAT_PATH + 'EAZY/OUTPUT/m0416_test.fout'
         KTOT_COL = 'flux_f160w'
+        
+        # CAT_PATH = '/Users/brammer/Research/HST/FrontierFields/DaniloCatalog/'
+        # CAT_FILE = CAT_PATH + 'macs0416_v0.99.zs.cat'
+        # ZOUT_FILE = CAT_PATH + 'OUTPUT/m0416.zout'
+        # 
+        # CAT_FILE = CAT_PATH + 'macs0416clu_v0.99.zs.K27.cat'
+        # ZOUT_FILE = CAT_PATH + 'OUTPUT/m0416clu.zout'
+        # 
+        # KTOT_COL = 'ftot_Ks'
         
     if ('1423' in root.split('_')[0]):
         CAT_PATH = '/Users/brammer/Research/HST/CLASH/Eazy/'
@@ -1389,7 +1426,26 @@ def show_massive_galaxies(masslim=10.5, maglim=23.5, zrange=(0,5),
     fpreg.close()
     
     print 'N = %d' %NUSE
-        
+    
+def goodsn_field_area(mag, ra, dec, bins=49, magrange=[16,28]):
+    c, z, f = unicorn.analysis.read_catalogs('goodsn')
+    mag = 25-2.5*np.log10(c.f_F160W)
+    
+    area = 172.16 # arcmin*2, area in non-zero pixels in the mosaic
+    magbins = np.linspace(magrange[0], magrange[1], bins)
+    ndens = magbins*0.
+    for i in range(len(magbins)):
+        magi = mag < magbins[i]
+        ndens[i] = magi.sum()/area
+    
+    plt.plot(magbins, ndens)
+    plt.semilogy()
+    plt.ylim(0.05, 400)
+    plt.xlabel('F160W mag'); plt.ylabel(r'$n$($<$mag) [arcmin$^{-2}]$')
+    plt.tight_layout(pad=0.2)
+    plt.savefig('/tmp/goodsn_number_density.pdf')
+    np.savetxt('/tmp/goodsn_number_density.dat', np.array([magbins, ndens]).T, fmt='%.2e')
+    
 def field_area(ra_in, dec_in):
     """
     Given a list of ra / dec coordinates, compute the field area covered by those

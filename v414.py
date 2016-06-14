@@ -472,6 +472,9 @@ def master_spec():
     img = pyfits.open('/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease/master_spec_v4.1.5.v2.fits')
     phot = catIO.Table('/Users/brammer/3DHST/Spectra/Release/v4.1.5/Catalogs/3dhst.v4.1.5.full.v1.fits')
     
+    full['UmV'] = -2.5*np.log10(full['L153']/full['L155'])
+    full['VmJ'] = -2.5*np.log10(full['L161']/full['L161'])
+    
     full['hmag'] = full['jh_mag']
     full['star_flag'] = (full['z_best_s'] == 0)*1
     full['z_peak'] = full['z_peak_phot']
@@ -493,7 +496,7 @@ def master_spec():
 
     ok = (npix > 80) & (ncontam < 190) & (full['hmag'] > 26) & (full['star_flag'] != 1)  ### faint zphot
     
-    ok = (npix > 100) & (nconta < 150) & (full['hmag'] < 26) & (full['hmag'] > .24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & (full['z_max_grism'] < 3.3)
+    ok = (npix > 100) & (ncontam < 150) & (full['hmag'] < 26) & (full['hmag'] > .24) & (full['z_max_grism'] > 0.15) & (full['star_flag'] != 1) & (full['z_max_grism'] < 3.3)
     so = np.argsort(full['z_max_grism'][ok])
     skip = 15
     
@@ -575,8 +578,12 @@ def master_spec():
     so = np.argsort(full['eazy_MLv'][ok])
     xx = full['eazy_MLv'][ok]
 
-    so = np.argsort(full['Hb_EQW'][ok])
-    xx = full['Hb_EQW'][ok]
+    ok &= full['galfit_J_f'] <= 1
+    so = np.argsort(full['galfit_J_re'][ok])
+    xx = full['galfit_J_re'][ok]
+
+    so = np.argsort(full['Ha_EQW'][ok])
+    xx = full['Ha_EQW'][ok]
 
     haO3 = (full['Ha_FLUX']/full['OIII_FLUX'])[ok]
     
@@ -641,7 +648,7 @@ def master_spec():
     spec_rest = np.zeros((sh[0], len(lrest)))
     for i in range(sh[0]):
         #spec_rest[i,:] = np.interp(lrest, lran[30:]/(1+zi[i]), smooth[i,30:]/avg[30:], left=0, right=0)
-        spec_rest[i,:] = unicorn.utils_c.interp_conserve_c(lrest, lran[33:]/(1+zi[i]), smooth[i,33:]/avg[33:], left=0, right=0)
+        spec_rest[i,:] = unicorn.utils_c.interp_conserve_c(lrest, np.cast[np.double](lran[100,33:])/(1+zi[i]), smooth[i,33:]/avg[33:], left=0, right=0)
     
     spec_rest[spec_rest == 0] = 100
     
@@ -724,9 +731,9 @@ def master_spec():
 
     #for subplot, obj in zip([121, 122], [spec_rest_line, spec_rest_cont]):
     #for subplot, obj in zip([121, 122], [spec_rest_UmV, spec_rest_av]):
-    #for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_av]):
-    #for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_mass_zphot]):
-    for subplot, obj in zip([121, 122], [spec_rest_uvj_sf, spec_rest_uvj_q]):
+    for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_av]):
+        #for subplot, obj in zip([121, 122], [spec_rest_mass, spec_rest_mass_zphot]):
+        #for subplot, obj in zip([121, 122], [spec_rest_uvj_sf, spec_rest_uvj_q]):
         #for subplot, obj in zip([111], [spec_rest_z_phot]):
         zi = obj.sort
         sh = obj.sh
@@ -863,7 +870,415 @@ def master_spec():
     
     unicorn.plotting.savefig(fig, '3dhst_allspecs_x.pdf', dpi=300)
     plt.close()
-           
+
+def twod_headers():
+    """
+    Pull information from 2D.fits headers, e.g. for getting FLT positions
+    """
+    os.chdir("/Users/brammer/3DHST/Spectra/Release/v4.1.5/FullRelease")
+    full = catIO.Table('3dhst.v4.1.5.master.fits')
+
+    N = len(full)
+    
+    PATH = '/Volumes/KEYTAR/Release/v4.1.5/Spectra'
+    
+    idx = np.arange(N)
+    #ok = (full['z_spec'] > 0) & (full['npoint'] > 0)
+    ok = (full['npoint'] > 0)
+    
+    import collections
+    header_data = collections.OrderedDict()
+    header_data['obj'] = ['']*N
+    
+    twod0 = pyfits.open('/Volumes/KEYTAR/Release/v4.1.5/Spectra/aegis-02/2D/FITS/aegis-02-G141_07223.2D.fits')
+    for ext in [0, 'SCI']:
+        h = twod0[ext].header
+        for key in h:
+            header_data[key] = [h[key]*0]*N
+        
+    for i in range(191370, N):
+        print i
+        if not ok[i]:
+            continue
+        
+        #for i in range(77708, N):
+        obj = full['grism_id'][i]
+        if obj == '00000':
+            obj = '%s-%s-G141_%05d' %(full['field'][i], full['pointings'][i].split(',')[0], full['phot_id'][i])
+            #print 'x ' + obj
+        else:
+            pass
+            #print obj
+            
+        field = obj.split('-')[0]
+        pointing = obj.split('-G1')[0]
+        #break
+        print "%d %s" %(i, obj)
+        twod_file = '%s/%s/2D/FITS/%s.2D.fits' %(PATH, pointing, obj)
+        if not os.path.exists(twod_file):
+            continue
+        
+        twod = pyfits.open(twod_file)
+        if 'SCI' not in twod:
+            print 'Skip'
+            continue
+        
+        header_data['obj'][i] = obj
+        
+        for ext in [0, 'SCI']:
+            h = twod[ext].header
+            for key in h:
+                header_data[key][i] = h[key]
+    
+    tab = catIO.table_base()
+    for col in header_data.keys():
+        print col
+        tab.add_column(catIO.Column(data=header_data[col], name=col))
+    
+    try:
+        os.remove('3dhst.v4.1.5.2D_header.fits')
+    except:
+        pass
+    
+    tab.write('3dhst.v4.1.5.2D_header.fits')
+                            
+def flt_redshift_residuals():
+    """
+    Compute FLT redshift residuals
+    """
+    import collections
+    
+    full = catIO.Table('3dhst.v4.1.5.master.fits')
+    twod = catIO.Table('3dhst.v4.1.5.2D_header.fits')
+    
+    ha_sn = full['Ha_FLUX']/full['Ha_FLUX_ERR']
+    o3_sn = full['OIII_FLUX']/full['OIII_FLUX_ERR']
+    line_snlim = 2
+
+    dz = (full['z_max_grism'] - full['z_spec'])/(1+full['z_spec'])
+    
+    x_flt = (twod['X_PIX'] - twod['PAD']/2 - twod['NGROWX']*twod['GROWX']) / twod['GROWX']
+    y_flt = (twod['Y_PIX'] - twod['PAD']/2 - twod['NGROWY']*twod['GROWY']) / twod['GROWY']
+
+    #### Get field-dependent parameters for test27s.gbb
+    lx, dldp = get_dldp_wavelengths(dldp_field=None, x_flt=x_flt+0, y_flt=y_flt+0, dx=x_flt*0)
+
+    xspec_flt = (twod['XGRISM0'] - twod['PAD']/2 - twod['NGROWX']*twod['GROWX']) / twod['GROWX']
+    yspec_flt = (twod['YGRISM0'] - twod['PAD']/2 - twod['NGROWY']*twod['GROWY']) / twod['GROWY']
+        
+    #### Pixel values of emission lines 
+    lrest = collections.OrderedDict()
+    xpix = collections.OrderedDict()
+    #xpix2 = collections.OrderedDict()
+    dxpix = collections.OrderedDict()
+    #dxpix2 = collections.OrderedDict()
+    
+    for col in ['z_spec', 'z_max_grism', 'z_grism_l68', 'z_grism_u68']:    
+        print col
+        lrest[col] = full[col]*0
+        lrest[col][ha_sn > line_snlim] = 6563.*(1+full[col][ha_sn > line_snlim])
+        lrest[col][o3_sn > line_snlim] = 5007.*(1+full[col][o3_sn > line_snlim])
+    
+        #xpix[col] = (lrest[col] - twod['CRVAL1'])/(twod['CD1_1'])        
+        #dxpix[col] = xpix[col]/twod['GROWX'] + xspec_flt - x_flt
+    
+        ### need quadratic xpix for test27s
+        dxpix[col] = (-dldp[1] + np.sqrt(dldp[1]**2-4*dldp[2]*(dldp[0]-lrest[col])))/(2*dldp[2])/np.sqrt(1+dldp[-1]**2)
+        xpix[col] = (dxpix[col] + x_flt - xspec_flt)*twod['GROWX']
+    
+    dpix = (xpix['z_max_grism']-xpix['z_spec'])/twod['GROWX']
+    
+    #### Selection
+    ok = (full['z_spec'] > 0) & (full['grism_id'] == twod['obj'])
+    ok &= (ha_sn > line_snlim) | (o3_sn > line_snlim)
+    #ok &= np.abs(dz) < 0.01
+    ok &= np.abs(dpix) < 2
+    
+    ### GOODS-S plot
+    gs = ok & (full['dec'] < -26)
+    #plt.xlim(53.26, 52.98); plt.ylim(-27.97, -27.66)
+    
+    mos = pyfits.open('/Users/brammer/3DHST/Ancillary/Mosaics/goodss_3dhst.v4.0.F160W_orig_sci.fits')
+    
+    reg_file = '/Users/brammer/3DHST/Spectra/Work/FIGS/12177.reg'
+    r = pyregion.open(reg_file).as_imagecoord(header=mos[0].header)
+    patches = r.get_mpl_patches_texts()
+
+    fig = plt.figure(figsize=[9,4])
+    ax = fig.add_subplot(121)
+    ax.scatter(full['x'][gs], full['y'][gs], color='k', alpha=0.5)
+    #
+    ax.set_xticklabels([]); ax.set_yticklabels([])
+    ax.set_xlabel('RA'); ax.set_ylabel('Dec')
+    
+    ax2 = fig.add_subplot(122)
+    ax2.scatter(x_flt[gs], y_flt[gs], color='black', alpha=0.5)
+    ax2.set_xlim(-200,1014); ax2.set_ylim(-10,1024)
+    ax2.plot([0,1014,1014,0,0], [0,0,1014,1014,0], color='red', linewidth=2)
+    ax2.set_xlabel(r'$x$ FLT'); ax2.set_ylabel(r'$y$ FLT')
+    fig.tight_layout(pad=1)
+
+    for patch in patches[0]:
+        p = ax.add_patch(patch)
+        p.set_color('orange')
+        p.set_alpha(0.1)
+        p.set_fc('None')
+
+    fig.savefig('../Wavecal/GS_layout.png') #, dpi=300)
+    
+    go_plot=True
+    if go_plot:
+        #### Show residuals in 2D
+        fig = plt.figure()
+        plt.set_cmap('cubehelix')
+        sc = plt.scatter(x_flt[ok], y_flt[ok], c=dpix[ok], vmin=-1.5, vmax=1.5, alpha=0.7, marker='s', s=80, edgecolor='None')
+        cb = plt.colorbar(sc)
+        cb.set_label(r'$\Delta$ pix')
+    
+        plt.plot([0,0,1014,1014,0], [0,1014,1014,0,0], color='black', linestyle='--')
+        plt.xlim(-200,1064); plt.ylim(-50,1064)
+        plt.xlabel('X_FLT'); plt.ylabel('Y_FLT')
+        fig.tight_layout(pad=0.5)
+    
+        #### Show residuals
+        fig = plt.figure()
+        plt.scatter(lrest['z_spec'][ok], (xpix['z_spec'][ok]-xpix['z_max_grism'][ok])/twod['GROWX'][ok], alpha=0.3, marker='s', color='black', s=30)
+        xm, ym, ys, n = threedhst.utils.runmed(lrest['z_spec'][ok], (xpix['z_spec'][ok]-xpix['z_max_grism'][ok])/twod['GROWX'][ok], NBIN=20, use_median=True, use_nmad=True)
+        plt.plot(xm, ym, color='red', linewidth=4, alpha=0.6)
+        plt.fill_between(xm, ym+ys, ym-ys, color='red', alpha=0.2)
+        plt.xlabel(r'$\lambda$'); plt.ylabel(r'$\Delta$ pix')
+        fig.tight_layout(pad=0.5)
+    
+    ### Test optimization, black points should be zero residuals [OK]
+    # ltest, dldp_ok = get_dldp_wavelengths(dldp_field=None, x_flt=x_flt[ok]+0, y_flt=y_flt[ok]+0, dx=dxpix['z_spec'][ok])
+    # plt.scatter(lrest['z_spec'][ok], ltest-lrest['z_spec'][ok], alpha=0.1, color='black')
+    # plt.scatter(lrest['z_spec'][ok], ltest-lrest['z_max_grism'][ok], color='red', alpha=0.1)
+    # 
+    # print dldp_ok[1]/twod['CD1_1'][ok]/twod['GROWX'][ok]
+    # print (dldp_ok[0]+(xspec_flt-x_flt)[ok]*dldp_ok[1])/twod['CRVAL1'][ok]
+    
+    ###### Fit it!
+    init =  [8987, 0   , 0   , 0   , 0    , 0    , 44.9, 0   , 0   , 0   , 0   , 0   ]
+    delta = [30  , 1e-1, 1e-1, 1e-3, 1.e-3, 1.e-3,  2  , 1e-2, 1e-2, 1e-6, 1e-6, 1e-6]
+    delta = [30  , 0e-1, 0e-1, 0e-3, 0.e-3, 0.e-3,  2  , 0e-2, 0e-2, 0e-6, 0e-6, 0e-6]
+    delta = [30  , 1e-1, 1e-1, 0e-3, 0.e-3, 0.e-3,  2  , 1e-2, 1e-2, 0e-6, 0e-6, 0e-6]
+    
+    init = [  8.98763363e+03,   2.46977484e-02,  -1.66954148e-02, 5.27231086e-05,   5.84052102e-05,   9.30612950e-06,
+              4.48741889e+01,   1.05867596e-03,   2.83833876e-03, -1.20922575e-06,  -6.34223284e-07,  1.20093841e-07]
+    npar = 2
+    
+    ### 2nd order
+    init.extend([0.003727603229696248, 5.351182862289981e-6, -3.158204223825075e-6, -1.0285571344257502e-8, 3.4669363123239304e-9, 5.786658518854924e-10])
+    delta.extend([1.e-2, 1.e-6, 1.e-6, 1.e-8, 1.e-8, 1.e-9])
+    npar = 3
+    
+    init = np.array([0.]*20)
+    init[0:6] += [  8.98763363e+03,   2.46977484e-02,  -1.66954148e-02, 5.27231086e-05,   5.84052102e-05,   9.30612950e-06]
+    init[10:16] += [4.48741889e+01,   1.05867596e-03,   2.83833876e-03, -1.20922575e-06,  -6.34223284e-07,   1.20093841e-07]
+    delta = np.array([1e-1]*20)
+    delta[0] = 30; delta[10] = 2
+    delta[1:3] = 1e-1; delta[11:13] = 1e-2
+    delta[3:6] = 1e-3; delta[13:16] = 1.e-6
+    delta[6:10] = 5e-8; delta[16:] = 5e-12
+    npar = 2
+    
+    NWALKERS, NSTEP = 100, 2000
+    p0 = [init+np.random.normal(size=len(init))*delta for i in range(NWALKERS)]
+    
+    NP = len(init)
+    obj_fun = unicorn.v414._objective_dldp
+    obj_args = [npar, x_flt[ok], y_flt[ok], lrest['z_spec'][ok], dxpix['z_max_grism'][ok], dxpix['z_grism_l68'][ok]] 
+    
+    unicorn.v414._objective_dldp(init, *obj_args) #x_flt, y_flt, lrest, dx, dxlo)
+        
+    NTHREADS=8
+    ndim = len(init)
+        
+    sampler = emcee.EnsembleSampler(NWALKERS, ndim, obj_fun, threads=NTHREADS, args=obj_args)
+    result = sampler.run_mcmc(p0, NSTEP)
+    
+    NP = len(init)/npar    
+    param_names = ['x%d_%d' %(j, i+1) for j in range(npar) for i in range(NP)]
+    chain = unicorn.interlace_fit.emceeChain(chain=sampler.chain, param_names = param_names)
+    dldp_field = np.reshape(chain.map, (npar, -1)) #[chain.map[0:NP/2], chain.map[NP/2:]]
+    
+    if False:
+        ## test41
+        dldp_field = []
+        dldp_field.append([8951.386205717843, 0.08044032819916265, -0.009279698766495334, 0.000021856641668116504, -0.000011048008881387708, 0.00003352712538187608])
+        dldp_field.append([44.97227893276267, 0.0004927891511929662, 0.0035782416625653765, -9.175233345083485e-7, 2.2355060371418054e-7, -9.258690000316504e-7])
+        chain_label = 'test41'
+        
+        ### test27s
+        dldp_field = []
+        dldp_field.append([9028.930809875766, 0.011337227492123389, -0.079859567190042, 0.00003518029786572532, 0.0000681593925920102, 0.000060520907385702346]) 
+        dldp_field.append([44.260335031281336, -0.0004031703834933002, 0.0032719446699151777, 1.1145275992836486e-6, -6.014104797258286e-7, -9.856215339544352e-8])
+        dldp_field.append([0.003727603229696248, 5.351182862289981e-6, -3.158204223825075e-6, -1.0285571344257502e-8, 3.4669363123239304e-9, 5.786658518854924e-10])
+        chain_label = 'test27s'
+        
+    lobs, dldpx = unicorn.v414.get_dldp_wavelengths(dldp_field=dldp_field, x_flt=x_flt[ok], y_flt=y_flt[ok], dx=dxpix['z_max_grism'][ok])
+    
+    #plt.set_cmap('cubehelix'); plt.close()
+    fig = plt.figure(figsize=[11,4])
+    ax = fig.add_subplot(121)
+    
+    sc = ax.scatter(x_flt[ok], y_flt[ok], c=lobs-lrest['z_spec'][ok], vmin=-80, vmax=80, alpha=0.7, marker='s', s=40, edgecolor='None')
+    cb = plt.colorbar(sc)
+    cb.set_label(r'$\Delta\lambda$')
+
+    ax.plot([0,0,1014,1014,0], [0,1014,1014,0,0], color='black', linestyle='--')
+    ax.set_xlim(-200,1064); ax.set_ylim(-50,1064)
+    ax.set_xlabel('X_FLT'); ax.set_ylabel('Y_FLT')
+    #fig.tight_layout(pad=0.5)
+    
+    ax = fig.add_subplot(122)
+    ax.scatter(lrest['z_spec'][ok]/1.e4, lobs-lrest['z_spec'][ok], alpha=0.3, marker='s', color='black', s=30)
+    xm, ym, ys, n = threedhst.utils.runmed(lrest['z_spec'][ok], lobs-lrest['z_spec'][ok], NBIN=20, use_median=True, use_nmad=True)
+    ax.plot(xm/1.e4, ym, color='red', linewidth=4, alpha=0.6)
+    ax.fill_between(xm/1.e4, ym*0+ys, ym*0-ys, color='red', alpha=0.2)
+    ax.set_xlabel(r'$\lambda$'); ax.set_ylabel(r'$\Delta\lambda$')
+    ax.set_ylim(-80,80)
+    ax.grid(alpha=0.6)
+    
+    fig.tight_layout(pad=0.5)
+    fig.savefig('chain_%s.png' %(chain_label))
+    
+    yp, xp = np.indices((128,128))
+    ddx,lr = yp*0+100, [13400,13900]
+    ddx,lr = yp*0+60, [11600,12000]
+    ddx,lr = yp*0+150, [15650,16300]
+    lgrid, dldpx = unicorn.v414.get_dldp_wavelengths(dldp_field=dldp_field, x_flt=xp.flatten()*8, y_flt=yp.flatten()*8, dx=ddx.flatten())
+    lgrid1, dldpx = unicorn.v414.get_dldp_wavelengths(dldp_field=dldp_field, x_flt=xp.flatten()*8, y_flt=yp.flatten()*8, dx=ddx.flatten()+1)
+    
+    fig = plt.figure(figsize=[11,4])
+    ax = fig.add_subplot(121)
+    ims = ax.imshow(lgrid.reshape(yp.shape), interpolation='Nearest', origin='lower', vmin=lr[0], vmax=lr[1])
+    levels = np.linspace(lr[0], lr[1], 7)
+    ax.contour(lgrid.reshape(yp.shape), level=levels, colors='white', alpha=0.8, linewidth=2)
+    ax.contour(lgrid.reshape(yp.shape), level=levels, colors='black', alpha=0.6, linewidth=1.)
+    ax.text(1.05, 0.98, chain_label, ha='left', va='top', transform=ax.transAxes)
+    
+    ax.set_xticklabels([]); ax.set_yticklabels([])
+    cb = plt.colorbar(ims, shrink=0.8)
+    cb.set_label(r'$\lambda,\ \Delta x=%d$' %(ddx[0,0]))
+    
+    ax = fig.add_subplot(122)
+    ims = ax.imshow((lgrid1-lgrid).reshape(yp.shape), interpolation='Nearest', origin='lower', vmin=43, vmax=48)
+    levels = np.linspace(43,48, 7)
+    ax.contour(lgrid.reshape(yp.shape), level=levels, colors='white', alpha=0.8, linewidth=2)
+    ax.contour(lgrid.reshape(yp.shape), level=levels, colors='black', alpha=0.6, linewidth=1)
+    ax.set_xticklabels([]); ax.set_yticklabels([])
+    cb = plt.colorbar(ims, shrink=0.8)
+    cb.set_label(r'$\Delta\lambda/$pix')
+    
+    fig.tight_layout(pad=0.3)
+    fig.savefig('wavepars_%s.png' %(chain_label))
+    
+    #### Show chain RMS
+    chain = unicorn.interlace_fit.emceeChain(file='chain_order4_2K.fits') 
+    NDRAW = 200
+    draws = chain.draw_random(N=NDRAW)
+    
+    yp, xp = np.indices((128,128))
+    ddx,lr = yp*0+150, [15650,16300]
+    
+    out = np.zeros((NDRAW, yp.size))
+    NP = draws.shape[1]
+    for i in range(NDRAW):
+        print i
+        dldp_field = [draws[i,0:NP/2], draws[i,NP/2:]]
+        lgrid, dldpx = unicorn.v414.get_dldp_wavelengths(dldp_field=dldp_field, x_flt=xp.flatten()*8, y_flt=yp.flatten()*8, dx=ddx.flatten())
+        out[i,:] = lgrid*1
+    
+    rms = np.std(out, axis=0).reshape(yp.shape)
+
+    fig = plt.figure(figsize=[11,4])
+    
+    ax = fig.add_subplot(221)
+    chain.show_chain('x0_1', ax=ax, color='black', alpha=0.1)
+    ax.set_ylabel('DLDP_A_0 [0]'); ax.set_xticklabels([]); ax.set_xlabel('')
+
+    ax = fig.add_subplot(223)
+    chain.show_chain('x1_1', ax=ax, color='black', alpha=0.1)
+    ax.set_ylabel('DLDP_A_1 [0]')
+    
+    ax = fig.add_subplot(122)
+    ims = ax.imshow(rms, interpolation='Nearest', origin='lower', vmin=0, vmax=10)
+    ax.set_xticklabels([]); ax.set_yticklabels([])
+    cb = plt.colorbar(ims, shrink=0.8)
+    cb.set_label(r'$\sigma(\lambda)$')
+    fig.tight_layout(pad=0.3)
+    
+    fig.savefig('wavelength_uncertainty.png')
+    
+def _objective_dldp(params, npar, x_flt, y_flt, lrest, dx, dxlo):
+    """
+    Objective function for EMCEE fitting
+    """
+    import numpy as np
+    #NP = len(params)
+    #dldp_field = [params[0:NP/2], params[NP/2:]]
+    dldp_field = np.reshape(params, (npar, -1))
+    #print 'SHAPE:', dldp_field.shape
+    
+    lfit, dldp = get_dldp_wavelengths(dldp_field=dldp_field, x_flt=x_flt, y_flt=y_flt, dx=dx)
+    lfit_lo, dldp = get_dldp_wavelengths(dldp_field=dldp_field, x_flt=x_flt, y_flt=y_flt, dx=dxlo)
+    
+    lnprob = -0.5*np.sum((lfit-lrest)**2/(lfit-lfit_lo)**2)
+    pstr = ' '.join(['%11.3e' %(p) for p in params])
+    print '%s %14.2f' %(pstr, lnprob)
+    
+    return lnprob
+    
+def get_dldp_wavelengths(dldp_field=None, x_flt=None, y_flt=None, dx=None):
+    """
+    Function to compute the pixel wavelengths for a given FLT position + dx & configuration polynomials
+    """
+    import numpy as np
+    
+    ### test41.gbb
+    # if dldp_field is None:
+    #     dldp_field = []
+    #     dldp_field.append([8951.386205717843, 0.08044032819916265, -0.009279698766495334, 0.000021856641668116504, -0.000011048008881387708, 0.00003352712538187608])
+    #     dldp_field.append([44.97227893276267, 0.0004927891511929662, 0.0035782416625653765, -9.175233345083485e-7, 2.2355060371418054e-7, -9.258690000316504e-7])
+        
+    ### test41.gbb
+    #dydx_1_field = [0.010205281672977665, -6.06056923866002e-6, -3.2485600412356953e-6, 4.2363866304617406e-10, 1.230956851333159e-8, 1.6123073931033502e-9]
+    
+    ## test27s.gbb
+    if dldp_field is None:
+        dldp_field = []
+        dldp_field.append([9028.930809875766, 0.011337227492123389, -0.079859567190042, 0.00003518029786572532, 0.0000681593925920102, 0.000060520907385702346]) 
+        dldp_field.append([44.260335031281336, -0.0004031703834933002, 0.0032719446699151777, 1.1145275992836486e-6, -6.014104797258286e-7, -9.856215339544352e-8])
+        dldp_field.append([0.003727603229696248, 5.351182862289981e-6, -3.158204223825075e-6, -1.0285571344257502e-8, 3.4669363123239304e-9, 5.786658518854924e-10])
+            
+    ### test27s.gbb
+    dydx_1_field = [0.010205281672977665, -6.06056923866002e-6, -3.2485600412356953e-6, 4.2363866304617406e-10, 1.230956851333159e-8, 1.6123073931033502e-9]
+    
+    order = int(-1+np.sqrt(1+8*len(dldp_field[0])))/2
+    
+    xy = []
+    for p in range(order):
+        for px in range(p+1):
+            xy.append(x_flt**(p-px)*y_flt**(px))
+
+    ## Evaluate the polynomial, allowing for N-dimensional inputs
+    dydx_1 = np.sum((np.array(xy).T[:,:len(dydx_1_field)]*dydx_1_field).T, axis=0)
+    dp = np.sqrt(1+dydx_1**2)*dx
+    #dp = dx
+    
+    lam = dp*0.
+    dldp = []
+    for i in range(len(dldp_field)):
+        dldp_i = np.sum((np.array(xy).T*dldp_field[i]).T, axis=0)
+        lam += dldp_i*dp**i
+        dldp.append(dldp_i)
+        
+    dldp.append(dydx_1)
+    
+    return lam, dldp
+    
+    
 def pure_line_flux():
     """
     Calculate lien flux for pure emission line at H140=26
@@ -1685,14 +2100,37 @@ def join_v415_tables():
     
     full.write('3dhst.v4.1.5.master.fits')
     
+    ## Add Galfit
+    import astropy.table
+    tt = catIO.Table('3dhst.v4.1.5.master.fits')
     
+    for filt, band in zip(['f125w', 'f160w'], ['J', 'H']):
+        gf = []
+        for field in ['aegis', 'cosmos', 'goodsn', 'goodss', 'uds']:
+            gf.append(catIO.Table('Galfit/%s/%s_3dhst.v4.1_%s.galfit' %(field, field, filt)))
+        
+        gfull = astropy.table.vstack(gf)
+        gfull.remove_columns(['NUMBER', 'RA', 'DEC'])
+        for c in gfull.colnames:
+            gfull.rename_column(c, 'galfit_%s_%s' %(band, c))
+        
+        tt = astropy.table.hstack([tt, gfull])
+    
+    tt.write('3dhst.v4.1.5.master.galfit.fits')
+        
     #### Demo, plot UVJ diagram color-coded by H-alpha equivalent width
     import astropy.table
     tt = astropy.table.Table()
     full = tt.read('3dhst.v4.1.5.master.fits')
     
     UV = -2.5*np.log10(full['L153']/full['L155'])
+    UB = -2.5*np.log10(full['L153']/full['L154'])
     VJ = -2.5*np.log10(full['L155']/full['L161'])
+    #VJ = -2.5*np.log10(full['L155']/full['L163'])
+    HK = -2.5*np.log10(full['L162']/full['L163'])
+    
+    #UV = -2.5*np.log10(full['L272']/full['L154']) # 2200 / B
+    #VJ = -2.5*np.log10(full['L154']/full['L160']) # B / z
     
     #### H-alpha
     ok = (full['z_best_s'] > 0) & (full['z_max_grism'] > 0.72) & (full['z_max_grism'] < 1.58) & (full['Ha_SCALE'] != -99) & (full['lmass'] > 9.5)
@@ -1723,12 +2161,26 @@ def join_v415_tables():
     ax.scatter(VJ[ok], UV[ok], c=eqw[ok], vmin=vmi[0],vmax=vmi[1], alpha=0.4)
     sc = ax.scatter(VJ[ok][0]-10, UV[ok][0]-10, c=eqw[ok][0], vmin=vmi[0],vmax=vmi[1], alpha=0.8)
     ax.set_xlim(-0.5,2.5); ax.set_ylim(-0.1,2.5)
+    #ax.set_xlim(-0.5,2.7); ax.set_ylim(-0.1,5.) 
     ax.set_xlabel(r'$V-J$'); ax.set_ylabel(r'$U-V$')
     
+    if False:
+        ### Check H-K color test
+        ok = (full['z_max_grism'] > 0.5) & (full['z_max_grism'] < 2.) & (full['lmass'] > 9.5)
+        
+        fig = plt.figure(figsize=[7.5,5]); ax = fig.add_subplot(111)
+        
+        sc = ax.scatter(VJ[ok], UB[ok], c=HK[ok], vmin=vm[0],vmax=vm[1], alpha=0.4)
+        #sc = ax.scatter(VJ[ok][0]-10, UV[ok][0]-10, c=eqw[ok][0], vmin=vmi[0],vmax=vmi[1], alpha=0.8)
+        ax.set_xlim(-0.5,2.5); ax.set_ylim(-0.1,2.5)
+        ax.set_xlabel(r'$V-J$'); ax.set_ylabel(r'$U-V$')
+        plt.colorbar(sc)
+        
     cb = plt.colorbar(sc); cb.set_label(r'$\log_{10}$ %s EQW' %(line))
     ax.text(0.02,0.98, r'$%.1f < z < %.1f$' %(full['z_max_grism'][ok].min(), full['z_max_grism'][ok].max()) + '\nlog M/'+r'M$_\odot$'+' > 9.2\n' + r'$N$=%d' %(ok.sum()), backgroundcolor='white', ha='left', va='top', transform=ax.transAxes)
     
     fig.tight_layout(pad=0.1)
+    
     fig.savefig('3dhst_v4.1.5_UVJ_%s_demo.png' %(line))
     
     #### Dust correction

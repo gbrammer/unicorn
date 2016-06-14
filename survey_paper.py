@@ -1,5 +1,6 @@
 import os
-import pyfits
+#import pyfits
+import astropy.io.fits as pyfits
 import numpy as np
 import glob
 import shutil
@@ -110,18 +111,33 @@ def throughput():
 def throughput_v2():
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     
-    os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
+    #os.chdir('/research/HST/GRISM/3DHST/ANALYSIS/SURVEY_PAPER')
     
-    xg141, yg141 = np.loadtxt('g141.dat', unpack=True)
-    xf140, yf140 = np.loadtxt('f140w.dat', unpack=True)
-    xf814, yf814 = np.loadtxt('f814w.dat', unpack=True)
-    xg800l, yg800l = np.loadtxt('g800l.dat', unpack=True)
+    # xg141, yg141 = np.loadtxt('g141.dat', unpack=True)
+    # xf140, yf140 = np.loadtxt('f140w.dat', unpack=True)
+    # xf814, yf814 = np.loadtxt('f814w.dat', unpack=True)
+    # xg800l, yg800l = np.loadtxt('g800l.dat', unpack=True)
+    
+    import pysynphot as S
+    bp = S.ObsBandpass('wfc3,ir,g141')
+    xg141, yg141 = bp.wave, bp.throughput
+    bp = S.ObsBandpass('wfc3,ir,g102')
+    xg102, yg102 = bp.wave, bp.throughput
+    bp = S.ObsBandpass('wfc3,ir,f140w')
+    xf140, yf140 = bp.wave, bp.throughput
 
+    bp = S.ObsBandpass('acs,wfc1,f814w')
+    xf814, yf814 = bp.wave, bp.throughput
+    bp = S.ObsBandpass('acs,wfc1,g800l')
+    xg800l, yg800l = bp.wave, bp.throughput
+    
+    
     plt.rcParams['text.usetex'] = True
     plt.rcParams['font.family'] = 'Serif'
     plt.rcParams['font.serif'] = 'Times'
 
-    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.095, bottom=0.08, top=0.065, right=0.01)
+    plt.ioff()
+    fig = unicorn.catalogs.plot_init(square=True, xs=8, aspect=1./3, left=0.095, bottom=0.1, top=0.095, right=0.01)
     
     #ax = fig.add_subplot(111)
     #ax = fig.add_axes(((x0+(dx+x0)*0), y0+0.5, dx, 0.5-top_panel-y0))
@@ -131,6 +147,9 @@ def throughput_v2():
     ax.plot(xg141, yg141, color='black', linewidth=2, alpha=0.5)
     ax.fill(xg141, yg141, color='red', linewidth=2, alpha=0.1)
     ax.plot(xf140, yf140, color='black', linewidth=2, alpha=0.7)
+    
+    ax.plot(xg102, yg102, color='black', linewidth=2, alpha=0.5)
+    ax.fill(xg102, yg102, color='orange', linewidth=2, alpha=0.1)
     
     ax.plot(xg800l, yg800l, color='black', linewidth=2, alpha=0.5)
     ax.fill(xg800l, yg800l, color='blue', linewidth=2, alpha=0.1)
@@ -147,8 +166,14 @@ def throughput_v2():
 
     ax.text(7100, 0.14+yy,'F814W',rotation=80., color='black', alpha=0.9)
 
-    ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='black', alpha=0.7)
-    ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='red', alpha=0.4)
+    # ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='black', alpha=0.7)
+    # ax.text(1.115e4, 0.17+yy,'G141',rotation=15., color='red', alpha=0.4)
+
+    ax.text(1.3e4, 0.29+yy,'G141',rotation=10., color='black', alpha=0.7)
+    ax.text(1.3e4, 0.29+yy,'G141',rotation=10., color='red', alpha=0.4)
+
+    ax.text(1.e4, 0.24+yy,'G102',rotation=15., color='black', alpha=0.7)
+    ax.text(1.e4, 0.24+yy,'G102',rotation=15., color='orange', alpha=0.4)
 
     ax.text(1.21e4, 0.14+yy,'F140W',rotation=88., color='black', alpha=0.9)
     
@@ -167,6 +192,7 @@ def throughput_v2():
     
     width_acs = np.array([6000.,9000.])
     width_wfc3 = np.array([1.1e4,1.65e4])
+    width_g102 = np.array([0.82e4,1.13e4])
     
     line_names = [r'H$\alpha$',r'H$\beta$ / [OIII]','[OII]']
     
@@ -175,6 +201,8 @@ def throughput_v2():
         ax2.fill(xbox*(zline[1]-zline[0])+zline[0],y0-ybox-i*dy, color='blue', alpha=0.1)
         zline = width_wfc3/l0-1
         ax2.fill(xbox*(zline[1]-zline[0])+zline[0],y0-ybox-i*dy, color='red', alpha=0.1)
+        zline = width_g102/l0-1
+        ax2.fill(xbox*(zline[1]-zline[0])+zline[0],y0-ybox-i*dy, color='orange', alpha=0.1)
         ax2.plot([0,4],np.array([0,0])+y0-(i+1)*dy, color='black')
         ax2.text(3.7,y0-(i+0.5)*dy, line_names[i], horizontalalignment='right', verticalalignment='center')
         
@@ -195,7 +223,8 @@ def throughput_v2():
     ax2.xaxis.set_minor_locator(minorLocator)
     ax2.set_xlabel(r'$z_\mathrm{line}$')
     
-    fig.savefig('throughput.eps')
+    #fig.savefig('throughput.eps')
+    fig.savefig('throughput.pdf')
     plt.rcParams['text.usetex'] = False
     
 def orbit_structure():

@@ -3,12 +3,13 @@ import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
-import pyfits
+#import pyfits
+import astropy.io.fits as pyfits
 
 import threedhst
 import threedhst.catIO as catIO
 import threedhst.eazyPy as eazy
-import threedhst.dq
+#import threedhst.dq
 
 import unicorn
 

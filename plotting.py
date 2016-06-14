@@ -5,7 +5,9 @@ import re
 import time
 import math
 
-import pyfits
+#import pyfits
+import astropy.io.fits as pyfits
+
 import numpy as np
 import pylab
 import matplotlib

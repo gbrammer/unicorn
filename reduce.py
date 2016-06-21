@@ -4204,10 +4204,16 @@ class GrismModel():
         se.options['MAG_ZEROPOINT'] = '%.2f' %(self.ZP)
         
         #### Run SExtractor
-        status = se.sextractImage('%s[0]' %(self.direct.filename()))
-
+        try:
+            status = se.sextractImage('%s[0]' %(self.direct.filename()))
+        except:
+            status = se.sextractImage('%s[1]' %(self.direct.filename()))
+            
         se.options['CATALOG_NAME']    = '%s_align1.cat' %(self.baseroot)
-        status = se.sextractImage('%s[0]' %(self.im.filename()))
+        try:
+            status = se.sextractImage('%s[0]' %(self.im.filename()))
+        except:
+            status = se.sextractImage('%s[1]' %(self.im.filename()))
         
         c0 = catIO.Table('%s_align0.cat' %(self.baseroot))
         c1 = catIO.Table('%s_align1.cat' %(self.baseroot))

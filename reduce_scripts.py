@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 USE_PLOT_GUI = False
 
-import pyfits
+from astropy.io import fits as pyfits
 
 import time
 
@@ -1755,7 +1755,7 @@ def interlace_sntile41():
 
 def mast_header(filename='', field=None, band=None, instrument='wfc3', version='v4.0', im_type = None):
 
-    import pyfits
+    from astropy.io import fits as pyfits
     
     if field is None:
         field = filename.split('-')[0].lower()
@@ -2146,7 +2146,7 @@ def combined_image(root='aegis', IMAGE_DIR='./'):
     scaling them to the F140W zeropoint.
     """
     
-    import pyfits
+    from astropy.io import fits as pyfits
     import numpy as np
     
     ZPs = unicorn.reduce.ZPs
@@ -2185,7 +2185,7 @@ def image_fill(root='aegis',IMAGE_DIR='./'):
     to the F140W zeropoint.
     """
     
-    import pyfits
+    from astropy.io import fits as pyfits
     import numpy as np
     
     ZPs = unicorn.reduce.ZPs
@@ -2213,7 +2213,7 @@ def fix_thumbnails(pointing='AEGIS-1'):
     them.
     """
 
-    import pyfits
+    from astropy.io import fits as pyfits
     import numpy as np
     import os
     

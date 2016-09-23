@@ -6,7 +6,7 @@ that redshifts *underestimated* from the ACS fits.
 
 """
 import unicorn
-import pyfits
+from astropy.io import fits as pyfits
 import os
 import matplotlib.pyplot
 import threedhst.dq

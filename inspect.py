@@ -45,7 +45,7 @@ import Tkinter as tk
 from PIL import ImageTk, Image
 
 import numpy as np
-import pyfits
+from astropy.io import fits as pyfits
 
 noNewLine = '\x1b[1A\x1b[1M'
 

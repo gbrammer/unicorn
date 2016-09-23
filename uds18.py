@@ -5,7 +5,7 @@ import numpy as np
 import scipy.stats
 import scipy.ndimage as nd
 
-import pyfits
+from astropy.io import fits as pyfits
 
 import emcee
 import unicorn
@@ -83,7 +83,7 @@ def mcmc_fit():
     """
     import numpy as np
     import scipy.stats
-    import pyfits
+    from astropy.io import fits as pyfits
 
     import emcee
     import unicorn

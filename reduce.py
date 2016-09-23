@@ -563,12 +563,21 @@ def interlace_combine(root='COSMOS-1-F140W', view=True, use_error=True, make_und
             
         dxs = xinter #- xinter[ref_exp] #+ np.int(np.round(xsh[0]))*0
         dys = yinter #- yinter[ref_exp] #+ np.int(np.round(ysh[0]))*0
-                
+              
+        print(" ")
+        print("dxs: {}".format(dxs)) 
+        print("dys: {}".format(dys)) 
+         
+    print("ddx: {}".format(ddx)) 
+    print("ddy: {}".format(ddy))      
+    print("ref_exp: {}".format(ref_exp))         
     dxs += ddx
     dys += ddy
     
     dxs -= dxs[ref_exp]
     dys -= dys[ref_exp]
+    print("dxs: {}".format(dxs)) 
+    print("dys: {}".format(dys))  
     
     print 'Interlace offsets: ', dxs, dys
     
@@ -4510,7 +4519,11 @@ def model_stripe():
         #
         plt.plot(model_1d[:1014]/model_1d[800], label='%f' %(l0/1.e4))
             
-def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=180, NGROWY=30, verbose=True, growx=2, growy=2, auto_offsets=False, ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False, reference_pixel=None):
+def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, 
+    REF_ROOT = 'COSMOS_F160W', CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  
+    NGROWX=180, NGROWY=30, verbose=True, growx=2, growy=2, auto_offsets=False,
+    ref_exp=0, NSEGPIX=8, stop_early=False, grism='G141', old_filenames=False,
+    reference_pixel=None):
     """
     Combine blotted image from the detection mosaic as if they were 
     interlaced FLT images
@@ -4667,7 +4680,13 @@ def interlace_combine_blot(root='COSMOS-19-F140W', view=True, pad=60, REF_ROOT =
         #use = ((im[3].data & 4096) == 0) & ((im[3].data & 4) == 0) #& (xi > np.abs(dx/2)) & (xi < (1014-np.abs(dx/2))) & (yi > np.abs(dy/2)) & (yi < (1014-np.abs(dy/2)))
         #        
         #use = ((im[3].data & (4+32+16+2048+4096)) == 0) & (~hot_pix)
-        print dy, dx
+        print "dy, dx: ", dy, dx
+        print "yi, xi: ", yi, xi
+        print "growy, growx: ", growy, growx
+        print "yi*growy+dy,xi*growx+dx: ", np.shape(yi)*growy+dy, np.shape(xi)*growx+dx
+        print "Shape of im: ", np.shape(im[0].data)
+        print len(inter_sci)
+        #np.zeros((1014*growy+pad+growy*2*NGROWY, 1014*growx+pad+growx*2*NGROWX))
         inter_sci[yi*growy+dy,xi*growx+dx] += im[0].data
         #inter_err[yi*2+dy,xi*2+dx] += im_wht[0].data
         inter_seg[yi*growy+dy,xi*growx+dx] = im_seg[0].data
@@ -4931,7 +4950,12 @@ def prepare_blot_reference(REF_ROOT='COSMOS_F160W', filter='F160W', REFERENCE = 
     fp.write("%s_seg.fits  %s\n" %(REF_ROOT, SEGM))
     fp.close()
     
-def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NGROWY=30, growx=2, growy=2, auto_offsets=False, ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, grism='G141', reference_pixel=None):
+def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, 
+    NGROWX=180, NGROWY=30, growx=2, growy=2, auto_offsets=False, 
+    ref_exp=0, ref_image='Catalog/cosmos_3dhst.v4.0.IR_orig_sci.fits', 
+    ref_ext=0, ref_filter='F140W', seg_image='Catalog/cosmos_3dhst.v4.0.F160W_seg.fits', 
+    cat_file='Catalog/cosmos_3dhst.v4.0.IR_orig.cat', ACS=False, 
+    grism='G141', reference_pixel=None):
     """
     Use AstroDrizzle to blot reference and sci images and SExtractor catalogs
     to the FLT frame, assuming that the FLT headers have been TweakReg'ed 
@@ -5078,7 +5102,12 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60, NGROWX=180, NG
         
     else:
         roots = [pointing_root]
-        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, view=False, pad=pad, CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat',  NGROWX=NGROWX, NGROWY=NGROWY, verbose=True, growx=growx, growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, stop_early=True, ref_exp=ref_exp, grism=grism, reference_pixel=reference_pixel)
+        dxs, dys = unicorn.reduce.interlace_combine_blot(root=pointing, 
+             view=False, pad=pad, CATALOG='UCSC/catalogs/COSMOS_F160W_v1.cat', 
+             NGROWX=NGROWX, NGROWY=NGROWY, verbose=True, growx=growx, 
+             growy=growy, auto_offsets=auto_offsets, NSEGPIX=8, 
+             stop_early=True, ref_exp=ref_exp, grism=grism, 
+             reference_pixel=reference_pixel)
         
     ### Make the pointing catalog
     for i, pointing_root in enumerate(roots):

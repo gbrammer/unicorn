@@ -161,7 +161,7 @@ def testing_g800l_background(asn_file='jbhm39020_asn.fits'):
     import threedhst.dq
     import numpy as np
     import threedhst.prep_flt_files
-    import pyfits
+    from astropy.io import fits as pyfits
     import matplotlib.pyplot as plt
 
     asn = threedhst.utils.ASNFile(asn_file)
@@ -256,7 +256,7 @@ def testing_f814w_background(asn_file='jbhm39020_asn.fits'):
     import threedhst.dq
     import numpy as np
     import threedhst.prep_flt_files
-    import pyfits
+    from astropy.io import fits as pyfits
     import matplotlib.pyplot as plt
 
     asn = threedhst.utils.ASNFile(asn_file)
@@ -489,7 +489,7 @@ def make_external_catalog(root='', master_segmentation='', master_catalog='', re
     map which contain only the sources within the reference image.
     """
 
-    import pyfits
+    from astropy.io import fits as pyfits
     import numpy as np
     import pywcs
     
@@ -583,7 +583,7 @@ def specphot_acs_and_wfc3(id=69, grism_root='ibhm45030',
     
     import threedhst.eazyPy as eazy
     import threedhst.catIO as catIO
-    import pyfits
+    from astropy.io import fits as pyfits
 
     #### Get G141 spectrum
     if Verbose:

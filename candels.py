@@ -3,7 +3,7 @@ import glob
 import shutil
 
 import numpy as np
-import pyfits
+from astropy.io import fits as pyfits
 import scipy.linalg
 import matplotlib.pyplot as plt
 

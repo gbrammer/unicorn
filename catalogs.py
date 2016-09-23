@@ -3,7 +3,7 @@ Work with v1.6 catalogs
 """
 
 import os
-import pyfits
+from astropy.io import fits as pyfits
 import numpy as np
 import glob
 import shutil

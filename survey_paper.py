@@ -1,5 +1,5 @@
 import os
-import pyfits
+from astropy.io import fits as pyfits
 import numpy as np
 import glob
 import shutil
@@ -953,7 +953,7 @@ def demo_background_subtract(root='COSMOS-13'):
     
     import unicorn
     import unicorn.survey_paper as sup
-    import pyfits
+    from astropy.io import fits as pyfits
     
     path = unicorn.analysis.get_grism_path(root)
     os.chdir(path)

@@ -1,6 +1,6 @@
 import os
 import glob
-import pyfits
+from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
 
 import threedhst

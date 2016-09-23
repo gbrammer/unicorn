@@ -1,6 +1,6 @@
 
 import os
-import pyfits
+from astropy.io import fits as pyfits
 import numpy as np
 import glob
 import shutil

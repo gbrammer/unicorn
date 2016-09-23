@@ -16,7 +16,7 @@ __version__ = " $Rev: 5 $"
 import glob
 import os
 
-import pyfits
+from astropy.io import fits as pyfits
 import numpy as np
 
 import matplotlib.pyplot as plt

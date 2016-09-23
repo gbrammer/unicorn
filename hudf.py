@@ -3,7 +3,7 @@ import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
-import pyfits
+from astropy.io import fits as pyfits
 
 import threedhst
 import threedhst.catIO as catIO
@@ -5404,7 +5404,7 @@ def udf_RGB_thumbnails(field='HUDF', nx_size = 30, mag_limit = 28., skip=True, r
     """
     import pywcs
     import threedhst.catIO as catIO
-    import pyfits
+    from astropy.io import fits as pyfits
     
     #### Working directory
     os.chdir('/3DHST/Spectra/Work/UDF/RELEASE/RGB/')

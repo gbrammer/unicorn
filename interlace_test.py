@@ -4,7 +4,7 @@ Tests on the UDF interlaced data
 
 import numpy as np
 import matplotlib.pyplot as plt
-import pyfits
+from astropy.io import fits as pyfits
 
 import unicorn
 import threedhst
@@ -47,7 +47,7 @@ def reduce_interlace():
 def compare_pieter_2D():
     
     import threedhst.dq
-    import pyfits
+    from astropy.io import fits as pyfits
     
     input = pyfits.open('GOODS-S-34-G141_inter.fits')
     me = pyfits.open('GOODS-S-34_model.fits')
@@ -1458,7 +1458,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.new_save_fits()
             
     def new_save_fits(self):
-        import pyfits
+        from astropy.io import fits as pyfits
         header = pyfits.Header()
         if self.skip_photometric:
             header.update('PHOTID', -1)

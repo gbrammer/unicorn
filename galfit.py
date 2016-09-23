@@ -24,7 +24,7 @@ USE_PLOT_GUI=False
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-import pyfits
+from astropy.io import fits as pyfits
 
 import threedhst.catIO as catIO
 import threedhst

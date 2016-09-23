@@ -1,6 +1,9 @@
 
 import os
-from astropy.io import fits as pyfits
+
+#import pyfits
+import astropy.io.fits as pyfits
+
 import numpy as np
 import glob
 import shutil

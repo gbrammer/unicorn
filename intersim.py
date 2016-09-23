@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
 import numpy as np
-from astropy.io import fits as pyfits
+import astropy.io.fits as pyfits
 
 import unicorn
 import unicorn.interlace_fit

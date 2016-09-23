@@ -4,7 +4,9 @@ Tests on the UDF interlaced data
 
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.io import fits as pyfits
+
+#import pyfits
+import astropy.io.fits as pyfits
 
 import unicorn
 import threedhst
@@ -295,7 +297,7 @@ def refit_specz_objects():
     #zz = zsp.zspec[idx][model.objects == id]
 
 class MultiFit():
-    def __init__(self, files=[], fcontam=2, min_err=0.05, z=None, znorm='z_peak', norm_maglimit=23.5, ignore_photometry=False, clip_edges=False, fitbg=False, smooth_oned=1, outroot=None, flatten_thumb=False):
+    def __init__(self, files=[], fcontam=2, min_err=0.05, z=None, znorm='z_peak', norm_maglimit=23.5, ignore_photometry=False, clip_edges=False, fitbg=False, bgonly=False, smooth_oned=1, outroot=None, flatten_thumb=False):
         import threedhst.eazyPy as eazy
         
         if len(files) == 0:
@@ -309,6 +311,10 @@ class MultiFit():
         status = False
         for file in files:
             self.gris = unicorn.interlace_fit.GrismSpectrumFit(file.split('.2D.fits')[0].split('_2d.fits')[0], lowz_thresh=0)
+            self.gris.eazy_fit = list(self.gris.eazy_fit)
+            for k in [3,4,5]:
+                self.gris.eazy_fit[k] *= 1.e17
+            
             if self.gris.status:
                 status = True
                 break
@@ -421,9 +427,10 @@ class MultiFit():
             
         self.znorm = znorm
         self.amin = 0.3
-        self.amax = 5
+        self.amax = 5 #.e20
         self.bmax = 0.08
         self.fitbg = fitbg
+        self.bgonly = bgonly
         
         if znorm is not None:
             if znorm == 'z_peak':
@@ -548,11 +555,14 @@ class MultiFit():
             
             for i in range(10):
                 a = (a0 - b*a1) / a2
+                if self.bgonly:
+                    a = 1.
+                
                 if self.fitbg:
                     b = (b0 - a*b1) / b2
                 #print '%.4f %.4f' %(a, b)
                             
-            #print 'x %.2f %.4f' %(a, b)
+            print 'x %.2f %.4f' %(a, b)
             #t.scl = t.cleaned[mask].sum()/t.model[mask].sum()
             if (a < self.amin) | (a > self.amax) | (np.abs(b) > self.bmax):
                 a = 1.
@@ -754,7 +764,7 @@ class MultiFit():
         if make_plot:
             self.diagnostic_figure()
             
-    def diagnostic_figure(self, xlim=[0.4,2.3]):
+    def diagnostic_figure(self, xlim=[0.4,2.3], save_data=False):
         """
         Make figure with results of MultiFit
         """
@@ -769,6 +779,9 @@ class MultiFit():
 
         best_phot = np.dot(self.template_photometry, self.coeffs)
         best_temp = np.dot(self.phot_lines.temp_seds, self.coeffs)
+        self.best_phot = best_phot
+        self.best_temp = best_temp
+        
         c_nolines = self.coeffs*1.
         c_nolines[7:9] = 0
         best_temp_nolines = np.dot(self.phot_lines.temp_seds, c_nolines)
@@ -880,8 +893,13 @@ class MultiFit():
         ax.set_yticklabels([])
         
         fig.savefig('%s_%05d.multifit.png' %(self.root, self.id))
+                
         plt.close()
         plt.rcParams['font.size'] = 12
+        
+        ### save data
+        if save_data:
+            self.save_multifit_data()
         
     def axis_ticks(self, ax, t):
         if t.grism_element == 'G141':
@@ -899,6 +917,70 @@ class MultiFit():
         xlim_int = np.interp(np.array(wlim[:2]), t.wave, tick_xarr)
         ax.set_xlim(xlim_int)
         ax.set_ylim([0, sh[0]-1])
+    
+    def save_multifit_data(self):
+        """
+        To be run after `diagnostic_figure`
+        """
+        ### SED data
+        # ax.plot(self.phot_lines.templam*(1+self.z_fit)/1.e4, best_temp/(1+self.z_fit)**2, color='black', alpha=0.2)
+        #  ax.scatter(self.lci/1.e4, best_phot, color='red', alpha=0.5)
+        #  ax.errorbar(self.lci[self.phot_mask]/1.e4, self.fobs[self.phot_mask], self.efobs[self.phot_mask], marker='o', linestyle='None', color='black', alpha=0.5)
+         
+        sed_data = np.array([self.lci, self.fobs, self.efobs, self.best_phot])[:, self.phot_mask]
+        
+        photom = pyfits.ImageHDU(name='PHOTOMETRY', data=sed_data)
+        photom.header['COL0'] = 'Wavelength', 'SED Filter central wavelengths, A'
+        photom.header['COL1'] = 'Flambda', 'SED Filter fluxes, 1e-17 erg/s/cm2/A'
+        photom.header['COL2'] = 'Flambda_err', 'SED Filter uncertainties'
+        photom.header['COL3'] = 'Flambda_template', 'SED, best fit interpolated template'
+        
+        spec1_data = np.array([self.phot_lines.templam*(1+self.z_fit), self.best_temp/(1+self.z_fit)**2])
+        spec1 = pyfits.ImageHDU(name='SPEC1D', data=spec1_data)
+        spec1.header['COL0'] = 'Wavelength', '1D template wavelength, A'
+        spec1.header['COL1'] = 'Flambda', '1D template flux, 1e-17 erg/s/cm2/A'
+        
+        labels = 'ABCDEFGHIJKLMNOPQRS'
+        prim = pyfits.PrimaryHDU()
+        for i, t in enumerate(self.twod):
+            prim.header['SPEC%s' %(labels[i])] = t.file.split('.2D')[0]
+
+        hdu = pyfits.HDUList([prim, photom, spec1])
+        
+        
+        for i, t in enumerate(self.twod):
+            oned = np.array([t.wopt, t.fopt, t.mopt])
+            gris1 = pyfits.ImageHDU(data=oned, name='GRIS1%s' %(labels[i]))
+            gris1.header['COL0'] = 'Wavelength', 'Grism wavelength, A'
+            gris1.header['COL1'] = 'Flux', 'Grism spectrum optimal flux'
+            gris1.header['COL2'] = 'Flux', 'MODEL Grism spectrum optimal flux'
+            gris1.header['SCL'] = t.scl, 'Factor to scale spectrum to photometry'
+            gris1.header['BG'] = t.bg, 'Background value used'
+            gris1.header['FILE'] = t.file, '2D Spectrum file'
+            
+            hdu.append(gris1)
+
+            gris2 = pyfits.ImageHDU(data=t.model, name='GRIS2%s' %(labels[i]))
+            gris2.header['SCL'] = t.scl, 'Factor to scale spectrum to photometry'
+            gris2.header['BG'] = t.bg, 'Background value used'
+            gris2.header['FILE'] = t.file, '2D Spectrum file'
+            
+            hdu.append(gris2)
+        
+        ### P(z)
+        phot_pz = np.exp(self.gris.phot_lnprob)
+        pzphot = pyfits.ImageHDU(name='PZPHOT', data=np.array([self.gris.phot_zgrid, phot_pz/phot_pz.max()]))
+        pzphot.header['Col0'] = 'z, photometry only'
+        pzphot.header['Col1'] = 'p(z), photometry only'
+        hdu.append(pzphot)
+        
+        pzgris = pyfits.ImageHDU(name='PZGRIS', data=np.array([self.z_2, self.lnp_2/self.lnp_2.max()]))
+        pzgris.header['Col0'] = 'z, photometry + grism'
+        pzgris.header['Col1'] = 'p(z), photometry + grism'
+        hdu.append(pzgris)
+                
+        hdu.writeto('%s_%05d.multifit.fits' %(self.root, self.id), clobber=True)
+        print 'Save Multifit information to %s_%05d.multifit.fits' %(self.root, self.id)
         
 class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
     """
@@ -928,7 +1010,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #### Read template photometry
         #self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
         self.phot_lines = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
-        self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.2', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
         self.phot = self.phot_lines
         
         # if True:
@@ -990,6 +1072,7 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         inv = 1./unicorn.reduce.sens_files['A']['SENSITIVITY']
         inv *= 1./np.min(inv)
         status = self.compute_model_function(np.cast[float](unicorn.reduce.sens_files['A']['WAVELENGTH']), np.cast[float](inv)**2*MIN_ERR) #/self.twod.total_flux*0.05)
+        print self.twod.im['CONTAM'].data.shape, self.twod.model.shape
         var += (self.twod.model**2).flatten()
         
         
@@ -1458,7 +1541,13 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.new_save_fits()
             
     def new_save_fits(self):
+<<<<<<< HEAD
         from astropy.io import fits as pyfits
+=======
+        #import pyfits
+        import astropy.io.fits as pyfits
+        
+>>>>>>> 0ca3bf53424d45391e5327197c7ee8d039362361
         header = pyfits.Header()
         if self.skip_photometric:
             header.update('PHOTID', -1)

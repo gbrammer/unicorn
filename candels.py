@@ -3,7 +3,10 @@ import glob
 import shutil
 
 import numpy as np
-from astropy.io import fits as pyfits
+
+#import pyfits
+import astropy.io.fits as pyfits
+
 import scipy.linalg
 import matplotlib.pyplot as plt
 
@@ -1386,89 +1389,124 @@ def make_asn_files(force=False, make_region=False, uniquename=True,
     """
     Read a files.info file and make ASN files for each visit/filter[/date].
     """
-    list = catIO.Readfile('files.info', save_fits=False)
+    list = catIO.Table('files.info')
+    for c in list.colnames:
+        list.rename_column(c, c.lower())
+        
+    if 'expstart' not in list.colnames:
+        list['expstart'] = list['exptime']*0.
     
-    if 'expstart' not in list.columns:
-        list.expstart = list.exptime*0.
+    so = np.argsort(list['expstart'])
+    list = list[so]
     
-    list.pa_v3 = np.cast[int](np.round(list.pa_v3))
+    pa_v3 = np.cast[int](np.round(list['pa_v3']))
     asn = threedhst.utils.ASNFile(glob.glob('../RAW/*asn.fits')[0])
     
     #### Replace ANY targets with JRhRmRs-DdDmDs
     
     target_list = []
-    for i in range(list.N):
-        if list.targname[i] == 'ANY':
-            rst = threedhst.utils.decimal2HMS(list.ra_targ[i], hours=True)
-            dst = threedhst.utils.decimal2HMS(list.dec_targ[i], hours=False)
+    for i in range(len(list)):
+        if list['targname'][i] == 'ANY':
+            rst = threedhst.utils.decimal2HMS(list['ra_targ'][i], hours=True)
+            dst = threedhst.utils.decimal2HMS(list['dec_targ'][i], hours=False)
             new_targname = 'J%s%s' %(rst.replace(':','').split('.')[0], dst.replace(':','').split('.')[0])
             #list.targname[i] = new_targname
             #print new_targname
-            target_list.append(new_targname)
+            target_list.append(new_targname.lower())
         else:
-            target_list.append(list.targname[i])
+            target_list.append(list['targname'][i])
     #
-    list.targname = np.array(target_list)
+    target_list = np.array(target_list)
     
-    list.progIDs = [file[1:4] for file in list.file]
-    progIDs = np.unique(list.progIDs)
+    list['progIDs'] = [file[1:4] for file in list['file']]
+    progIDs = np.unique(list['progIDs'])
     
-    dates = np.array([''.join(date.split('-')[1:]) for date in list.date_obs])
-    targets = np.unique(list.targname)
+    dates = np.array([''.join(date.split('-')[1:]) for date in list['date-obs']])
+    targets = np.unique(target_list)
             
-    visits = np.array([file[4:6] for file in list.file])
-    for visit in np.unique(visits):
-        #angle = list.pa_v3[visits == visit][0]
-        for target in np.unique(list.targname[visits == visit]):
-            #### 3D-HST targname translations
-            target_use = target
-            for key in translate.keys():
-                target_use = target_use.replace(key, translate[key])
-            ## pad i < 10 with zero
-            for key in translate.keys():
-                if translate[key] in target_use:
-                    spl = target_use.split('-')
-                    try:
-                        if (int(spl[-1]) < 10) & (len(spl[-1]) == 1):
-                            spl[-1] = '%02d' %(int(spl[-1]))
-                            target_use = '-'.join(spl)
-                    except:
-                        pass
-            #
-            angle = list.pa_v3[(visits == visit) & (list.targname == target)][0]
-            #
-            for filter in np.unique(list.filter[(list.targname == target) & (visits == visit)]):
-                if uniquename:
-                    product='%s-%s-%03d-%s' %(target_use, visit.upper(), int(angle), filter)
-                else:
-                    product='%s-%s' %(target_use, filter)             
-                #       
-                use = (list.targname == target) & (list.filter == filter) & (visits == visit)
+    visits = np.array([file[4:6] for file in list['file']])
+    for target in np.unique(target_list):
+        
+        #### 3D-HST targname translations
+        target_use = target
+        for key in translate.keys():
+            target_use = target_use.replace(key, translate[key])
+        ## pad i < 10 with zero
+        for key in translate.keys():
+            if translate[key] in target_use:
+                spl = target_use.split('-')
+                try:
+                    if (int(spl[-1]) < 10) & (len(spl[-1]) == 1):
+                        spl[-1] = '%02d' %(int(spl[-1]))
+                        target_use = '-'.join(spl)
+                except:
+                    pass
+        
+        for filter in np.unique(list['filter'][(target_list == target)]):
+            angles = np.unique(pa_v3[(list['filter'] == filter) & (target_list == target)])
+            #print target, filter, angles
+            for angle in angles:
+                
                 exposure_list = []
                 exposure_start = []
-                for tstart, file in zip(list.expstart[use], list.file[use]):
-                    f = file.split('.gz')[0]
-                    if f not in exposure_list:
-                        exposure_list.append(f)
-                        exposure_start.append(tstart)
-                        
-                print product, len(exposure_list)
-                so = np.argsort(exposure_start)
-                exposure_list = np.array(exposure_list)[so]
+                product='%s-%03d-%s' %(target_use, int(angle), filter)             
                 
-                if (os.path.exists('%s_asn.fits' %(product))) & (not force):
-                    continue
-                #
-                asn.exposures = []
-                asn.product=product
-                for fits in exposure_list:
-                    root = os.path.basename(fits).split('_fl')[0]
-                    asn.exposures.append(root)
-                #
-                asn.write(asn.product+'_asn.fits')
-                if make_region:
-                    #threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
-                    threedhst.utils.ASN_footprint(asn.product+'_asn.fits', pat_to_flt='../RAW')
+                for visit in np.unique(visits[(target_list == target) & (list['filter'] == filter)]):
+                    if uniquename:
+                        exposure_list = []
+                        exposure_start = []
+                        product='%s-%s-%03d-%s' %(target_use, visit.upper(), int(angle), filter)
+                        
+                    ### lowercase names for latest astrodrizzle
+                    product = product.lower()
+                
+                    use = (target_list == target) & (list['filter'] == filter) & (visits == visit) & (pa_v3 == angle)
+                    if use.sum() == 0:
+                        continue
+                        
+                    for tstart, file in zip(list['expstart'][use], list['file'][use]):
+                        f = file.split('.gz')[0]
+                        if f not in exposure_list:
+                            exposure_list.append(f)
+                            exposure_start.append(tstart)
+                        
+                    if uniquename:
+                        print product, len(exposure_list)
+                        so = np.argsort(exposure_start)
+                        exposure_list = np.array(exposure_list)[so]
+                
+                        if (os.path.exists('%s_asn.fits' %(product))) & (not force):
+                            continue
+                    
+                        asn.exposures = []
+                        asn.product=product.lower()
+                        for fits in exposure_list:
+                            root = os.path.basename(fits).split('_fl')[0]
+                            asn.exposures.append(root)
+                        #
+                        asn.write(asn.product+'_asn.fits')
+                        if make_region:
+                            #threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                            threedhst.utils.ASN_footprint(asn.product+'_asn.fits', pat_to_flt='../RAW')
+                
+                if not uniquename:
+                    print product, len(exposure_list)
+                    so = np.argsort(exposure_start)
+                    exposure_list = np.array(exposure_list)[so]
+            
+                    if (os.path.exists('%s_asn.fits' %(product))) & (not force):
+                        continue
+                
+                    asn.exposures = []
+                    asn.product=product.lower()
+                    for fits in exposure_list:
+                        root = os.path.basename(fits).split('_fl')[0]
+                        asn.exposures.append(root)
+                    #
+                    asn.write(asn.product+'_asn.fits')
+                    if make_region:
+                        #threedhst.regions.asn_region(asn.product+'_asn.fits', path_to_flt='../RAW')
+                        threedhst.utils.ASN_footprint(asn.product+'_asn.fits', pat_to_flt='../RAW')
                     
     # for target in targets:        
     #     filters = np.unique(list.filter[list.targname == target])

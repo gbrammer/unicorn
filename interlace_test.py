@@ -1007,10 +1007,12 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         self.te_phot = eazy.TemplateError(unicorn.GRISM_HOME+'templates/TEMPLATE_ERROR.eazy_v1.0')
         self.te_spec = eazy.TemplateError(unicorn.GRISM_HOME+'templates/TEMPLATE_ERROR.v1.0.emlines')
         
+        print "unicorn.GRISM_HOME: "
+        print unicorn.GRISM_HOME
         #### Read template photometry
         #self.phot = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
-        self.phot_lines = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
-        self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.2', OUTPUT_DIRECTORY=unicorn.GRISM_HOME+'/templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot_lines = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='full', OUTPUT_DIRECTORY=unicorn.GRISM_HOME + 'templates/FULL_EAZY/OUTPUT', zout=self.zout)
+        self.phot_eazy = eazy.TemplateInterpolator(None, MAIN_OUTPUT_FILE='eazy_v1.1', OUTPUT_DIRECTORY=unicorn.GRISM_HOME + 'templates/FULL_EAZY/OUTPUT', zout=self.zout)
         self.phot = self.phot_lines
         
         # if True:
@@ -1436,7 +1438,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         #     plt.plot([zsp,zsp], [-20, 0.5], color='red')
         #     plt.xlim(np.maximum(0, np.minimum(zrange[0], zsp-0.1)), np.maximum(zsp+0.1, zrange[1]))
 
-    def new_fit_constrained(self, zrfirst=[0.,4.0], dzfirst=0.005, dzsecond=0.0005, make_plot=True, ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True, faint_limit=24):
+    def new_fit_constrained(self, zrfirst=[0.,4.0], dzfirst=0.005, dzsecond=0.0005, make_plot=True, 
+        ignore_photometry=False, ignore_spectrum=False, refit_norm=False, get_tilt=True, faint_limit=24):
         import scipy.ndimage as nd
         
         print '\n First run: photometry alone \n'
@@ -1541,13 +1544,9 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
             self.new_save_fits()
             
     def new_save_fits(self):
-<<<<<<< HEAD
-        from astropy.io import fits as pyfits
-=======
         #import pyfits
         import astropy.io.fits as pyfits
         
->>>>>>> 0ca3bf53424d45391e5327197c7ee8d039362361
         header = pyfits.Header()
         if self.skip_photometric:
             header.update('PHOTID', -1)
@@ -1999,7 +1998,8 @@ class SimultaneousFit(unicorn.interlace_fit.GrismSpectrumFit):
         
         return -0.5*chi2+self.get_prior(z)#[0]
         
-    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, get_chi2=False, refit_norm=False, init_coeffs=None, background=0, ignore_lines=False):
+    def fit_combined(self, z, nmf_toler=1.e-4, te_scale = 0.5, ignore_spectrum=False, ignore_photometry=False, 
+        get_chi2=False, refit_norm=False, init_coeffs=None, background=0, ignore_lines=False):
         """
         
         Fit the spectrum AND the photometry at redshift, z

@@ -33,7 +33,7 @@ import threedhst
 try:
     import utils_c #as utils_c
 except:
-    print """Couldn't import "utils_c" """
+    print """Couldn't import utils_c"""
 
 import plotting
 import prepare

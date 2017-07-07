@@ -27,6 +27,7 @@ $Date: 2011-05-22 02:01:43 -0400 (Sun, 22 May 2011) $
 
 
 """
+
 __version__ = " $Rev: 5 $"
 
 from clear_tools.set_paths import paths
@@ -1188,7 +1189,7 @@ def process_GrismModel(root='GOODS-S-24', grow_factor=2, growx=2, growy=2,
     return model
     
 class Interlace1D():
-    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True, flux_units=True, grism='G141'):
+    def __init__(self, file='UDS-17_00319.1D.fits', PNG=True, flux_units=True, grism='G102'):
         """
         Wrapper for Interlaced 1D spectra.
         
@@ -1204,7 +1205,7 @@ class Interlace1D():
         automatically if `flux_units==True`.
         
         """
-
+        print "interlacing 1D "
         self.file = file
         tab = pyfits.open(file)
         self.header = tab[1].header
@@ -1221,6 +1222,7 @@ class Interlace1D():
             
         self.lam = self.data['WAVE']
         self.flux = self.data['FLUX']/convert
+
         self.error = self.data['ERROR']/convert
         self.contam = self.data['CONTAM']/convert
         self.grism = grism
@@ -1315,6 +1317,7 @@ class Interlace1D():
         ax.set_ylabel(r'$f_\lambda / 10^{-17}$ cgs')
         
         if savePNG:
+            print "Saving PNG"
             #fig.savefig(self.file.replace('fits','png'))
             canvas = FigureCanvasAgg(fig)
             canvas.print_figure(os.path.basename(self.file).replace('fits','png'), dpi=100, transparent=False)
@@ -1360,7 +1363,7 @@ def get_all_emission_lines(field='GOODS-N', force=True, skip=True):
             if os.path.exists(os.path.join(PWD, dir, '1D/Wavelet', os.path.basename(file.replace('fits','wavelet.dat')))) & skip:
                 continue
             #
-            oned = unicorn.reduce.Interlace1D(file, PNG=False, flux_units=True)
+            oned = unicorn.reduce.Interlace1D(file, PNG=True, flux_units=True)
             lines = oned.find_em_lines(verbose=True, ascii_file=True)
             
     #
@@ -1429,7 +1432,8 @@ class Interlace2D():
         self.sens_files = unicorn.reduce.sens_files
         
         try:
-            self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D').replace('2d.', '1d.'), PNG=False)
+            print "Trying to make interlaced 1D"
+            self.oned = unicorn.reduce.Interlace1D(file.replace('2D','1D').replace('2d.', '1d.'), PNG=True)
         except:
             print 'No 1D spectrum found.  Generate one with `self.oned_spectrum()`'
             pass
@@ -2329,9 +2333,11 @@ class Interlace2D():
         print 'Line flux: %.1f, z(Ha)=%.4f' %(scl, ztry)
     
 class GrismModel():
-    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, grism='G141', direct='F140W', expand_seg=0, output_path='./', old_filenames=False):
+    def __init__(self, root='GOODS-S-24', grow_factor=2, growx=2, growy=2, MAG_LIMIT=24, use_segm=False, 
+        grism='G141', direct='F140W', expand_seg=0, output_path='./', old_filenames=False):
         """
         Initialize: set padding, growth factor, read input files.
+
         """
         import stwcs
         
@@ -3292,7 +3298,9 @@ class GrismModel():
         fp.close()
         return True
         
-    def twod_spectrum(self, id=None, outroot=None, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, extract_1d=True, check_seg=True, wlim=None, BEAMS=['A','B','C','D'], force_position=None):
+    def twod_spectrum(self, id=None, outroot=None, grow=1, miny=18, maxy=None, CONTAMINATING_MAGLIMIT=23, refine=True, 
+        verbose=False, force_refine_nearby=False, USE_REFERENCE_THUMB=True, USE_FLUX_RADIUS_SCALE=3, BIG_THUMB=False, 
+        extract_1d=True, check_seg=True, wlim=None, BEAMS=['A','B','C','D'], force_position=None):
         """
         Extract a 2D spectrum from the interlaced image.
         
@@ -3323,6 +3331,7 @@ class GrismModel():
             id = self.cat.id[0]
                 
         if id not in self.cat.id:
+            print(self.cat.id) ##
             print 'Object #%d not in catalog.' %(id)
             return False
         
@@ -3779,7 +3788,7 @@ class GrismModel():
         xx = ax.set_xticks(xtick)
         
         if verbose:
-            print unicorn.noNewLine+'Save the PNG'
+            print unicorn.noNewLine+'Save the 2D PNG'
         
         if savePNG:
             canvas = FigureCanvasAgg(fig)
@@ -5153,7 +5162,10 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60,
         seg_inter = pyfits.open('%s-%s_inter_seg.fits' %(pointing_root, grism))
         objects = np.unique(seg_inter[0].data)[1:]
     
-        cat = table.read(cat_file, format='ascii.sextractor')
+        try:
+            cat = table.read(cat_file, format='ascii.sextractor')
+        except:
+            cat = table.read(cat_file, format='ascii')
         NOBJ = len(cat)
         keep = np.zeros(NOBJ) > 1
         for j in range(NOBJ):
@@ -5180,7 +5192,10 @@ def adriz_blot_from_reference(pointing='cosmos-19-F140W', pad=60,
         y_flt_column = table.Column(data=y_flt, name='Y_FLT', description='Interlaced pixel coordinate, y', unit=u.Unit('pix'))
         sub_cat.add_column(x_flt_column)
         sub_cat.add_column(y_flt_column)
-        sub_cat.write('%s-%s_inter.cat' %(pointing_root, grism), format='ascii.commented_header')
+        try:
+            sub_cat.write('%s-%s_inter.cat' %(pointing_root, grism), format='ascii.commented_header')
+        except:
+            sub_cat.write('%s-%s_inter.cat' %(pointing_root, grism))
         ### XXX
         #sub_cat.write('%s-%s_inter0.cat' %(pointing_root, grism), format='ascii.commented_header')
     

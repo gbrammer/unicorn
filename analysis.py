@@ -1,10 +1,5 @@
 import os
-<<<<<<< HEAD
-from astropy.io import fits as pyfits
-=======
-#import pyfits
 import astropy.io.fits as pyfits
->>>>>>> 0ca3bf53424d45391e5327197c7ee8d039362361
 import numpy as np
 import glob
 import shutil
@@ -172,6 +167,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
     FOUT_FILE = None
     
     MAGS = False
+
     
     #### Define paths
     if cosmos:
@@ -225,6 +221,16 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             ### Use dusty-template fit
             CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
             ZOUT_FILE = CAT_PATH + '/OUTPUT/cosmos_3dhst.v4.1.dusty.zout'
+
+        #### cgosmeyer's desktop using photometry catalogs
+        if unicorn.hostname().lower().startswith('bumblebee'):
+            print "***Using bumblebee***"
+            CAT_PATH = '/astro/clear/public/CATALOGS/'
+            CAT_FILE = CAT_PATH + 'goodsn_3dhst.v4.3.cat'
+            ZOUT_FILE = CAT_PATH + 'goodsn_v4.3.zout'
+            FOUT_FILE = CAT_PATH + 'goodsn_v4.3.fout' 
+            KTOT_COL = 'f_Ks'
+
             
     if aegis:
         GRISM_PATH=unicorn.GRISM_HOME+'AEGIS/'
@@ -313,6 +319,7 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
             ### Use dusty-template fit
             CAT_PATH = '/Users/brammer/3DHST/Spectra/Release/v4.1/EazyRerun'
             ZOUT_FILE = CAT_PATH + '/OUTPUT/goodsn_3dhst.v4.1.dusty.zout'
+
             
     # #### Force UDF to use GOODS-S
     # if udf:
@@ -617,12 +624,31 @@ def read_catalogs(root='', cosmos=False, aegis=False, goodsn=False, cdfs=False, 
         FOUT_FILE = CAT_PATH+'OUTPUT/cardamone_full.fout'
         KTOT_COL = 'f_K'
 
+
+    # cgosmeyer's desktop
+    # Force this setting while I am the runner of the code!
+    if unicorn.hostname().startswith('bumblebee') and ('gs' in root.lower() or 'gds' in root.lower() or 'ers' in root.lower()):
+        print "***Using bumblebee***"
+        CAT_PATH = '/astro/clear/cgosmeyer/ref_files/catalogs/'
+        CAT_FILE = os.path.join(CAT_PATH, 'goodss_3dhst.v4.3.cat')
+        ZOUT_FILE = os.path.join(CAT_PATH, 'goodss_v4.3.zout')
+        FOUT_FILE = os.path.join(CAT_PATH, 'goodss_v4.3.fout')
+        KTOT_COL = 'f_Ks'
+    if unicorn.hostname().startswith('bumblebee') and ('gn' in root.lower() or 'gdn' in root.lower()):
+        print "***Using bumblebee***"
+        CAT_PATH = '/astro/clear/cgosmeyer/ref_files/catalogs/'
+        CAT_FILE = os.path.join(CAT_PATH, 'goodsn_3dhst.v4.3.cat')
+        ZOUT_FILE = os.path.join(CAT_PATH, 'goodsn_v4.3.zout')
+        FOUT_FILE = os.path.join(CAT_PATH, 'goodsn_v4.3.fout')
+        KTOT_COL = 'f_Ks'
+
+
     if KTOT_COL is None:
         """
         All catalog flags are False
         """
         return None, None, None
-    
+   
     print CAT_FILE
     
     #### Read the catalogs

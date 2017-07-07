@@ -90,7 +90,10 @@ class GrismSpectrumFit():
     gris.fit_free_emlines() ## fit emission lines
     
     """
-    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False, contam_ferror=0.1, flatten_thumb=False):
+    def __init__(self, root='GOODS-S-34_00280', FIGURE_FORMAT='png', verbose=True, lowz_thresh=0.55, 
+        fix_direct_thumbnail=True, RELEASE=False, OUTPUT_PATH='./', BASE_PATH='./', 
+        skip_photometric=False, p_flat=1.e-4, use_mag_prior=True, dr_match=1., fast=False, contam_ferror=0.1, 
+        flatten_thumb=False):
         """
         Read the 1D/2D spectra and get the photometric constraints
         necessary for the spectrum fits.
@@ -128,6 +131,7 @@ class GrismSpectrumFit():
             self.twod = unicorn.reduce.Interlace2D('%s/%s/2D/FITS/%s.2D.fits' %(BASE_PATH, self.pointing.split('-G141')[0], root), PNG=False, flatten_thumb=flatten_thumb)
 
         else:
+            print "self.twod = " + root+'.2D.fits'
             self.twod = unicorn.reduce.Interlace2D(root+'.2D.fits', PNG=False, flatten_thumb=flatten_thumb)            
         #
         if 'GRISM' not in self.twod.im[0].header.keys():
@@ -143,7 +147,10 @@ class GrismSpectrumFit():
             self.interpolate_direct_thumb()
             
         self.status = True
-        if self.twod.im['SCI'].data.max() <= 0:
+        print "Max of self.twod: " 
+        print self.twod.im[1].data.max()
+        # CMG: changed 'SCI' to 1. The *DD.fits files don't have a 'sci' but rather 'dsci'...
+        if self.twod.im[1].data.max() <= 0:
             if verbose:
                 threedhst.showMessage('%s: \nNo non-zero pixels in the 2D spectrum.' %(root), warn=True)
             self.status = False
@@ -151,13 +158,17 @@ class GrismSpectrumFit():
         
         if RELEASE:
             #self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root), PNG=False)
-            self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing.split('-G141')[0], root), PNG=False)
+            self.oned = unicorn.reduce.Interlace1D('%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing.split('-G141')[0], root), PNG=True)
             
             #print '%s/%s/1D/FITS/%s.1D.fits' %(BASE_PATH, self.pointing, root)
         else:
             #self.oned = unicorn.reduce.Interlace1D(root+'.1D.fits', PNG=False)
-            self.oned = unicorn.reduce.Interlace1D(self.twod.file.replace('2D','1D'), PNG=False)
+            print "self.oned = " + self.twod.file.replace('2D','1D')
+            self.oned = unicorn.reduce.Interlace1D(self.twod.file.replace('2D','1D'), PNG=True)
             
+        print "Max of self.oned.data.flux: " 
+        print self.oned.data.flux.max()
+
         if self.oned.data.flux.max() <= 0:
             print '%s: No valid pixels in 1D spectrum.' %(root)
             self.status = False
